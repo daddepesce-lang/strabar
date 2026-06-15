@@ -273,6 +273,99 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & LEADERBOARD SEGMENTI BAR) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '30px', marginTop: '10px' }}>
+        
+        {/* Curva Alcolica BAC Settimanale */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', overflow: 'hidden' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            📈 Curva di Ebbrezza BAC Settimanale (Simulata Widmark)
+            {(!currentUser?.is_premium) && (
+              <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
+            )}
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
+            Monitora l&apos;assorbimento dell&apos;alcol nel sangue (g/l) nelle ultime 7 giornate per comprendere i tuoi picchi di carico.
+          </p>
+
+          {currentUser?.is_premium ? (
+            <div style={{ padding: '20px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
+              {/* Grafico simulato con barre CSS ad altezza variabile */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', height: '180px', paddingTop: '20px', position: 'relative' }}>
+                
+                {/* Linea limite tasso alcolico guida 0.5 g/l */}
+                <div style={{ position: 'absolute', top: '100px', left: 0, right: 0, height: '1px', borderTop: '1px dashed var(--error)', zIndex: 1 }} />
+                <span style={{ position: 'absolute', top: '82px', right: '5px', fontSize: '9px', color: 'var(--error)', fontWeight: '700', zIndex: 2 }}>Limite Guida (0.5 g/l)</span>
+
+                {[
+                  { day: 'Lun', val: 0.12, h: '25%' },
+                  { day: 'Mar', val: 0.00, h: '4%' },
+                  { day: 'Mer', val: 0.45, h: '65%' },
+                  { day: 'Gio', val: 0.20, h: '35%' },
+                  { day: 'Ven', val: 0.84, h: '120px' },
+                  { day: 'Sab', val: 1.15, h: '160px' },
+                  { day: 'Dom', val: 0.35, h: '50%' }
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '8px', zIndex: 2 }}>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: item.val > 0.5 ? 'var(--error)' : 'var(--success)' }}>{item.val.toFixed(2)}</span>
+                    <div style={{ width: '22px', height: item.h, background: item.val > 0.5 ? 'var(--premium-gradient)' : 'var(--success)', borderRadius: '4px', transition: 'height 0.5s ease' }} />
+                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{item.day}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.5)', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', textAlign: 'center', border: '1px dashed var(--border-dark)', minHeight: '220px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '8px' }}>Contenuto Protetto da Strabar Summit 🏔️</div>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', maxWidth: '350px', marginBottom: '20px' }}>
+                L&apos;analisi scientifica avanzata del tasso alcolico nel sangue (BAC) e lo storico grafico settimanale è riservata ai membri Summit.
+              </p>
+              <Link href="/premium" className="btn btn-premium" style={{ padding: '8px 18px', fontSize: '13px' }}>
+                Abbonati a Premium (€4.99)
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Classifiche Segmenti Bar */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🏆 I tuoi Segmenti (Classifica Bar)
+            {(!currentUser?.is_premium) && (
+              <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
+            )}
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
+            Vedi il tuo posizionamento storico nei locali reali in cui hai gareggiato.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+              <div>
+                <strong style={{ fontSize: '13px', color: '#FFF' }}>Cantina Do Mori (VE)</strong>
+                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Segmento: Ombra di Rosso</span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--secondary)' }}>Posizione: #4</span>
+                <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>su 148 atleti</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+              <div>
+                <strong style={{ fontSize: '13px', color: '#FFF' }}>Osteria Al Mercà (VE)</strong>
+                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Segmento: Spritz Select Sprint</span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--secondary)' }}>Posizione: #22</span>
+                <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>su 340 atleti</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
