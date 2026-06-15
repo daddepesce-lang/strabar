@@ -101,7 +101,7 @@ const INITIAL_ROUTES = [
     description: 'Il classico tour veneziano che parte da Rialto e arriva a Cannaregio. 4 tappe fondamentali con cicchetti e spritz al select.',
     waypoints: [
       { name: 'Cantina Do Mori', lat: 45.4382, lng: 12.3353, note: 'Il più antico, imperdibile il francobollo con cicheto.' },
-      { name: 'All’Arco', lat: 45.4384, lng: 12.3355, note: 'Famoso per i cicheti caldi.' },
+      { name: 'All\'Arco', lat: 45.4384, lng: 12.3355, note: 'Famoso per i cicheti caldi.' },
       { name: 'Osteria Al Mercà', lat: 45.4386, lng: 12.3360, note: 'Spritz al volo in piedi davanti al mercato.' },
       { name: 'Cantina Aziende Agricole', lat: 45.4430, lng: 12.3300, note: 'Ottimo vino della casa e polpettine.' }
     ],
@@ -111,12 +111,53 @@ const INITIAL_ROUTES = [
   {
     id: 'route-2',
     user_id: 'user-1',
-    name: 'Bacaro Tour Hardcore di Cannaregio 💀',
-    description: 'Tour intensivo lungo le Fondamenta della Misericordia. Solo per veri atleti del gomito.',
+    name: 'London Soho Pub Crawl 🇬🇧',
+    description: 'A classic Soho pub crawl through narrow lanes and historic boozers. Start with wine, end with blues.',
     waypoints: [
-      { name: 'Al Timon', lat: 45.4442, lng: 12.3304, note: 'Spritz sul barcone sul canale.' },
-      { name: 'Il Paradiso Perduto', lat: 45.4439, lng: 12.3312, note: 'Cicheti di pesce eccezionali e musica.' },
-      { name: 'Osteria Bea Vita', lat: 45.4452, lng: 12.3248, note: 'Prezzi super onesti e clima veneziano vero.' }
+      { name: 'The French House', lat: 51.5133, lng: -0.1318, note: 'Legendary Soho institution — no pints, only halves!' },
+      { name: 'The Dog and Duck', lat: 51.5138, lng: -0.1314, note: 'Tiny Victorian gem with great cask ales.' },
+      { name: 'Ain\'t Nothin But Blues Bar', lat: 51.5140, lng: -0.1375, note: 'Live blues every night, cheap drinks, sticky floors.' }
+    ],
+    is_premium: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'route-3',
+    user_id: 'user-2',
+    name: 'Tokyo Golden Gai Izakaya Trail 🇯🇵',
+    description: 'Dive into the tiny six-seat bars of Golden Gai in Shinjuku. Sake, shochu, and yakitori in atmospheric alleyways.',
+    waypoints: [
+      { name: 'Bar Albatross', lat: 35.6938, lng: 139.7036, note: 'Three-floor shoebox bar with a chandelier and strong highballs.' },
+      { name: 'Deathmatch in Hell', lat: 35.6941, lng: 139.7033, note: 'Horror-themed bar, surprisingly friendly. Try the absinthe.' },
+      { name: 'Bar Araku', lat: 35.6935, lng: 139.7039, note: 'Quiet standing bar with premium sake flights.' },
+      { name: 'Omoide Yokocho Yakitori Alley', lat: 35.6932, lng: 139.6991, note: 'Open-air yakitori stalls — grab a beer and a skewer.' }
+    ],
+    is_premium: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'route-4',
+    user_id: 'user-2',
+    name: 'Barcelona El Born Tapas & Cava Run 🇪🇸',
+    description: 'Wind through the medieval streets of El Born sampling pintxos, vermut, and cava from local bodegas.',
+    waypoints: [
+      { name: 'El Xampanyet', lat: 41.3845, lng: 2.1822, note: 'Old-school cava bar with house-made anchovies.' },
+      { name: 'Bar del Pla', lat: 41.3840, lng: 2.1810, note: 'Creative tapas and natural wines in a cosy setting.' },
+      { name: 'Bodega La Puntual', lat: 41.3838, lng: 2.1830, note: 'Tiny neighbourhood vermutería with great montaditos.' }
+    ],
+    is_premium: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'route-5',
+    user_id: 'user-3',
+    name: 'New York East Village Bar Hop 🇺🇸',
+    description: 'Dive bars, craft cocktails, and cheap shots — the East Village has it all between 1st Ave and Avenue B.',
+    waypoints: [
+      { name: 'McSorley\'s Old Ale House', lat: 40.7288, lng: -73.9897, note: 'NYC\'s oldest bar (1854). They only serve light or dark ale.' },
+      { name: 'Death & Company', lat: 40.7263, lng: -73.9848, note: 'Speakeasy-style craft cocktails — book ahead or queue.' },
+      { name: 'Manitoba\'s', lat: 40.7246, lng: -73.9817, note: 'Punk-rock dive bar run by Handsome Dick Manitoba.' },
+      { name: 'Amor y Amargo', lat: 40.7265, lng: -73.9852, note: 'Standing-room bitters bar with wild Negroni riffs.' }
     ],
     is_premium: true,
     created_at: new Date().toISOString()
@@ -210,20 +251,23 @@ export const db = {
 
   async signup(email, password, displayName, username) {
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            username: username,
+            display_name: displayName
+          }
+        }
+      });
       if (error) throw error;
       
-      // Crea profilo
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          username,
-          display_name: displayName,
-          avatar_url: '',
-          is_premium: false
-        });
-      if (profileError) throw profileError;
+      // The database trigger 'on_auth_user_created' will automatically
+      // create the profile using the metadata we passed above.
+      // Wait a moment for the trigger to execute.
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       return data.user;
     } else {
       const profiles = getStored('sb_profiles');

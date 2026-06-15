@@ -23,6 +23,10 @@ CREATE POLICY "Gli utenti possono modificare il proprio profilo"
 ON public.profiles FOR UPDATE 
 USING (auth.uid() = id);
 
+CREATE POLICY "Users can create their own profile" 
+ON public.profiles FOR INSERT 
+WITH CHECK (auth.uid() = id);
+
 -- Trigger automatico per creare un profilo alla registrazione dell'utente su Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
