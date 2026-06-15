@@ -27,6 +27,12 @@ export default function RoutesPage() {
   const [discoveredBars, setDiscoveredBars] = useState([]);
   const [justAdded, setJustAdded] = useState(null); // feedback "tappa aggiunta"
 
+  // Stati per il percorso stradale reale OSRM
+  const [travelMode, setTravelMode] = useState('foot'); // 'foot' (a piedi) o 'driving' (in auto)
+  const [routeCoordsState, setRouteCoordsState] = useState([]);
+  const [osrmDistance, setOsrmDistance] = useState(0);
+  const [osrmDuration, setOsrmDuration] = useState(0);
+
   // Leaflet refs
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
@@ -133,6 +139,42 @@ export default function RoutesPage() {
     initLeaflet();
   }, [loading]);
 
+  // Recupera il percorso stradale reale (foot o driving) tramite OSRM API
+  useEffect(() => {
+    const activeWaypoints = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
+    if (activeWaypoints.length < 2) {
+      setRouteCoordsState([]);
+      setOsrmDistance(0);
+      setOsrmDuration(0);
+      return;
+    }
+
+    const fetchRoute = async () => {
+      try {
+        const coordString = activeWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
+        const mode = travelMode === 'driving' ? 'driving' : 'foot';
+        const res = await fetch(`https://router.project-osrm.org/route/v1/${mode}/${coordString}?overview=full&geometries=geojson`);
+        const data = await res.json();
+        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+          setRouteCoordsState(coords);
+          setOsrmDistance(parseFloat((route.distance / 1000).toFixed(2)));
+          setOsrmDuration(Math.round(route.duration / 60));
+        } else {
+          const straightCoords = activeWaypoints.map(wp => [wp.lat, wp.lng]);
+          setRouteCoordsState(straightCoords);
+        }
+      } catch (err) {
+        console.error("Errore nel calcolo del percorso stradale:", err);
+        const straightCoords = activeWaypoints.map(wp => [wp.lat, wp.lng]);
+        setRouteCoordsState(straightCoords);
+      }
+    };
+
+    fetchRoute();
+  }, [newRouteWaypoints, selectedRoute, isCreating, travelMode]);
+
   // Update map markers and polyline when waypoints change
   useEffect(() => {
     if (typeof window === 'undefined' || !mapInstance.current || !leafletRef.current) return;
@@ -184,11 +226,10 @@ export default function RoutesPage() {
     });
 
     // Draw dashed polyline connecting tour stops
-    if (coords.length > 1) {
-      polylineRef.current = L.polyline(coords, {
+    if (routeCoordsState && routeCoordsState.length > 1) {
+      polylineRef.current = L.polyline(routeCoordsState, {
         color: '#FF5E00',
-        weight: 3,
-        dashArray: '8, 12',
+        weight: 4,
         opacity: 0.85,
       }).addTo(mapInstance.current);
 
@@ -196,7 +237,7 @@ export default function RoutesPage() {
     } else if (coords.length === 1) {
       mapInstance.current.setView(coords[0], 15);
     }
-  }, [selectedRoute, newRouteWaypoints, isCreating]);
+  }, [selectedRoute, newRouteWaypoints, isCreating, routeCoordsState]);
 
   // Show discovered bars as venue markers on the map
   useEffect(() => {
@@ -484,8 +525,8 @@ out body;`;
 
   // Computed values
   const currentActiveWaypoints = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
-  const routeDistance = calculateTotalDistance(currentActiveWaypoints);
-  const walkingTime = Math.round((routeDistance / 4.5) * 60);
+  const routeDistance = osrmDistance > 0 ? osrmDistance : parseFloat(calculateTotalDistance(currentActiveWaypoints));
+  const travelTime = osrmDuration > 0 ? osrmDuration : Math.round((routeDistance / 4.5) * 60);
   const routeTotalUnits = currentActiveWaypoints.reduce((s, wp) => s + (parseFloat(wp.units) || 0), 0);
 
   // --- LOADING STATE ---
@@ -830,6 +871,53 @@ out body;`;
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               📊 Dati del Percorso
             </h3>
+            
+            {/* Selettore modalità di viaggio */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <button
+                type="button"
+                onClick={() => setTravelMode('foot')}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: travelMode === 'foot' ? 'rgba(255, 94, 0, 0.15)' : 'var(--bg-input-dark)',
+                  border: travelMode === 'foot' ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
+                  color: travelMode === 'foot' ? '#FFF' : 'var(--text-dark-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                🚶‍♂️ A piedi
+              </button>
+              <button
+                type="button"
+                onClick={() => setTravelMode('driving')}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: travelMode === 'driving' ? 'rgba(255, 94, 0, 0.15)' : 'var(--bg-input-dark)',
+                  border: travelMode === 'driving' ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
+                  color: travelMode === 'driving' ? '#FFF' : 'var(--text-dark-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                🚗 In auto
+              </button>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -845,9 +933,9 @@ out body;`;
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Footprints size={14} color="var(--primary)" /> Tempo Stimato
+                  {travelMode === 'foot' ? <Footprints size={14} color="var(--primary)" /> : <MapPin size={14} color="var(--primary)" />} Tempo Stimato
                 </span>
-                <strong className="stat-value" style={{ fontSize: '15px' }}>~ {walkingTime} min a piedi</strong>
+                <strong className="stat-value" style={{ fontSize: '15px' }}>~ {travelTime} min {travelMode === 'foot' ? 'a piedi' : 'in auto'}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

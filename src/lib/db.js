@@ -403,6 +403,40 @@ export const db = {
     }
   },
 
+  async getActivity(activityId) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*, profiles(username, display_name, avatar_url)')
+        .eq('id', activityId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } else {
+      if (typeof window === 'undefined') return null;
+      const activities = getStored('sb_activities');
+      let found = activities.find(a => a.id === activityId);
+      
+      // Fallback a INITIAL_ACTIVITIES per i test locali e condivisioni mock
+      if (!found) {
+        found = INITIAL_ACTIVITIES.find(a => a.id === activityId);
+      }
+      
+      if (!found) return null;
+      
+      const profiles = getStored('sb_profiles');
+      const profile = profiles.find(p => p.id === found.user_id) || {
+        username: 'utente_sconosciuto',
+        display_name: 'Utente Sconosciuto'
+      };
+      
+      return {
+        ...found,
+        profiles: profile
+      };
+    }
+  },
+
   async createActivity(activityData) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Devi essere loggato per registrare una sessione!");

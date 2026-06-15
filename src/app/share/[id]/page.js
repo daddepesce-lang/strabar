@@ -19,8 +19,7 @@ export default function ShareActivityPage({ params }) {
   useEffect(() => {
     const loadActivity = async () => {
       try {
-        const acts = await db.getActivities();
-        const found = acts.find(a => a.id === activityId);
+        const found = await db.getActivity(activityId);
         if (found) {
           setActivity(found);
         }
@@ -289,6 +288,19 @@ export default function ShareActivityPage({ params }) {
         <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '4px' }}>
           Su telefono &quot;Condividi&quot; allega direttamente l&apos;immagine. Il pulsante WhatsApp condivide il testo: per la foto, scaricala e allegala.
         </p>
+      </div>
+
+      {/* Riquadro Iscrizione / Partecipazione per Non-Utenti */}
+      <div className="card" style={{ marginTop: '30px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.08) 100%)', textAlign: 'center', padding: '24px', borderRadius: 'var(--radius)' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#FFF' }}>
+          🍻 Vuoi partecipare anche tu alle sfide di Strabar?
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '18px', lineHeight: '1.4' }}>
+          Unisciti alla community degli atleti del brindisi! Registrati in pochi secondi per tracciare le tue bevute, taggare i tuoi amici, calcolare il tasso alcolico (BAC) e sfidare gli altri nelle classifiche dei bar!
+        </p>
+        <Link href="/auth" className="btn btn-primary" style={{ display: 'inline-block', padding: '12px 28px', borderRadius: '30px', fontSize: '14px', textDecoration: 'none', fontWeight: '700' }}>
+          Registrati Ora su Strabar 🚀
+        </Link>
       </div>
     </div>
   );
