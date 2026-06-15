@@ -33,6 +33,7 @@ export default function LogActivityPage() {
   // Stato per taggare gli amici
   const [friendName, setFriendName] = useState('');
   const [taggedFriends, setTaggedFriends] = useState([]);
+  const [friendSearchResults, setFriendSearchResults] = useState([]);
 
   // Nuovi stati per localizzazione e media
   const [location, setLocation] = useState(null);
@@ -128,11 +129,35 @@ export default function LogActivityPage() {
     }
   };
 
+  const handleFriendSearchChange = async (val) => {
+    setFriendName(val);
+    if (!val.trim()) {
+      setFriendSearchResults([]);
+      return;
+    }
+    try {
+      const results = await db.searchProfiles(val);
+      setFriendSearchResults(results);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSelectFriend = (user) => {
+    const nameToAdd = `${user.display_name} (@${user.username})`;
+    if (!taggedFriends.includes(nameToAdd)) {
+      setTaggedFriends([...taggedFriends, nameToAdd]);
+    }
+    setFriendName('');
+    setFriendSearchResults([]);
+  };
+
   const handleAddFriend = (e) => {
     e.preventDefault();
     if (friendName.trim() && !taggedFriends.includes(friendName.trim())) {
       setTaggedFriends([...taggedFriends, friendName.trim()]);
       setFriendName('');
+      setFriendSearchResults([]);
     }
   };
 
@@ -505,17 +530,41 @@ export default function LogActivityPage() {
               Ha bevuto con...
             </h3>
             
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', position: 'relative' }}>
               <div style={{ position: 'relative', flex: 1 }}>
                 <Users size={18} style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-dark-secondary)' }} />
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Inserisci il nome del compagno di brindisi"
+                  placeholder="Cerca amici o inserisci un nome..."
                   value={friendName}
-                  onChange={(e) => setFriendName(e.target.value)}
+                  onChange={(e) => handleFriendSearchChange(e.target.value)}
                   style={{ paddingLeft: '40px' }}
                 />
+
+                {/* Dropdown dei risultati di ricerca amici */}
+                {friendSearchResults.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1d2e', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                    {friendSearchResults.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => handleSelectFriend(user)}
+                        style={{ width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,94,0,0.1)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <div className="activity-avatar" style={{ width: '24px', height: '24px', fontSize: '10px' }}>
+                          {user.display_name?.charAt(0) || 'U'}
+                        </div>
+                        <div>
+                          <span style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{user.username}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <button type="button" onClick={handleAddFriend} className="btn btn-secondary" style={{ borderRadius: 'var(--radius)' }}>
                 Tagga
