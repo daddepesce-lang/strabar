@@ -61,6 +61,7 @@ export default function LogActivityPage() {
   const [locationResults, setLocationResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [mediaFiles, setMediaFiles] = useState([]); // Array di { type, name, url, size }
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -261,36 +262,46 @@ export default function LogActivityPage() {
     }
   };
 
-  const handleMediaUpload = (e) => {
+  const handleMediaUpload = async (e) => {
     const files = Array.from(e.target.files);
+    if (files.length === 0) return;
     setError('');
+    setIsUploadingMedia(true);
 
-    files.forEach(file => {
-      // Limite dimensione: 10MB per foto/audio, 50MB per video
-      const isVideo = file.type.startsWith('video/');
-      const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024; // 50MB o 10MB
-      
-      if (file.size > maxSize) {
-        setError(`Il file ${file.name} supera il limite massimo di dimensione (${isVideo ? '50MB' : '10MB'})!`);
-        return;
-      }
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const isVideo = file.type.startsWith('video/');
+        const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024; // 50MB o 10MB
+        
+        if (file.size > maxSize) {
+          throw new Error(`Il file ${file.name} supera il limite massimo di dimensione (${isVideo ? '50MB' : '10MB'})!`);
+        }
 
-      let type = 'image';
-      if (file.type.startsWith('video/')) type = 'video';
-      else if (file.type.startsWith('audio/')) type = 'audio';
+        let type = 'image';
+        if (file.type.startsWith('video/')) type = 'video';
+        else if (file.type.startsWith('audio/')) type = 'audio';
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Url = reader.result;
-        setMediaFiles(prev => [...prev, {
+        // Carica su storage Supabase (con fallback base64 integrato in db.uploadFileToStorage)
+        const url = await db.uploadFileToStorage(file);
+        
+        return {
           type,
           name: file.name,
-          url: base64Url,
+          url,
           size: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
-        }]);
-      };
-      reader.readAsDataURL(file);
-    });
+        };
+      });
+
+      const uploadedFiles = await Promise.all(uploadPromises);
+      setMediaFiles(prev => [...prev, ...uploadedFiles]);
+    } catch (err) {
+      console.error("Errore durante il caricamento dei media:", err);
+      setError(err.message || "Si è verificato un errore durante il caricamento dei file.");
+    } finally {
+      setIsUploadingMedia(false);
+      // Reset input value to allow uploading the same file again if deleted
+      e.target.value = '';
+    }
   };
 
   const handleRemoveMedia = (idx) => {
@@ -689,19 +700,36 @@ export default function LogActivityPage() {
                   multiple
                   style={{ display: 'none' }}
                   id="media-file-input"
+                  disabled={isUploadingMedia}
                 />
                 <label
-                  htmlFor="media-file-input"
+                  htmlFor={isUploadingMedia ? undefined : "media-file-input"}
                   className="btn btn-secondary"
-                  style={{ width: '100%', border: '1px dashed var(--border-dark)', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                  style={{
+                    width: '100%',
+                    border: isUploadingMedia ? '1px dashed var(--primary)' : '1px dashed var(--border-dark)',
+                    background: isUploadingMedia ? 'rgba(255,94,0,0.05)' : 'rgba(255,255,255,0.01)',
+                    padding: '20px',
+                    borderRadius: '12px',
+                    cursor: isUploadingMedia ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    opacity: isUploadingMedia ? 0.7 : 1,
+                    transition: 'all 0.3s ease'
+                  }}
                 >
-                  <div style={{ display: 'flex', gap: '10px', color: 'var(--primary)' }}>
+                  <div style={{ display: 'flex', gap: '10px', color: 'var(--primary)', animation: isUploadingMedia ? 'pulse 1.5s infinite' : 'none' }}>
                     <Camera size={20} />
                     <Video size={20} />
                     <Mic size={20} />
                   </div>
-                  <strong style={{ fontSize: '14px', color: '#FFF' }}>Seleziona allegati multimediali</strong>
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Trascina o clicca per caricare file</span>
+                  <strong style={{ fontSize: '14px', color: isUploadingMedia ? 'var(--primary)' : '#FFF' }}>
+                    {isUploadingMedia ? 'Caricamento file in corso...' : 'Seleziona allegati multimediali'}
+                  </strong>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+                    {isUploadingMedia ? 'Caricamento in corso su Supabase...' : 'Trascina o clicca per caricare file'}
+                  </span>
                 </label>
               </div>
 
@@ -863,8 +891,8 @@ export default function LogActivityPage() {
             )}
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '30px', fontSize: '18px' }} disabled={loading}>
-            <Save size={18} /> {loading ? 'Salvataggio...' : 'Salva Attività su Strabar'}
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '30px', fontSize: '18px' }} disabled={loading || isUploadingMedia}>
+            <Save size={18} /> {loading ? 'Salvataggio...' : isUploadingMedia ? 'Caricamento media...' : 'Salva Attività su Strabar'}
           </button>
         </form>
 

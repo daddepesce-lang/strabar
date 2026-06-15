@@ -206,6 +206,67 @@ const setStored = (key, data) => {
 
 // API di Database unificata
 export const db = {
+  // --- UPLOAD STORAGE ---
+  async uploadFileToStorage(file) {
+    if (!isSupabaseConfigured) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `activity-media/${fileName}`;
+
+      // Proviamo ad effettuare l'upload nel bucket 'media'
+      const { data, error } = await supabase.storage
+        .from('media')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.warn("Errore durante l'upload sul bucket 'media', provo con 'activities':", error);
+        // Fallback sul bucket 'activities'
+        const { data: fallbackData, error: fallbackError } = await supabase.storage
+          .from('activities')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (fallbackError) {
+          throw new Error("Impossibile caricare il file. Assicurati che esista un bucket pubblico 'media' o 'activities' in Supabase.");
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('activities')
+          .getPublicUrl(filePath);
+
+        return publicUrlData.publicUrl;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('media')
+        .getPublicUrl(filePath);
+
+      return publicUrlData.publicUrl;
+    } catch (err) {
+      console.error("Errore di caricamento su Supabase Storage:", err);
+      // Se fallisce per qualsiasi motivo, facciamo fallback sul Base64
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    }
+  },
+
   // --- AUTH UTILS ---
   async getCurrentUser() {
     if (isSupabaseConfigured) {
