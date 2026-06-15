@@ -870,7 +870,7 @@ export default function LogActivityPage() {
 
         {/* Colonna Destra: Quick presets & Stats */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Calcolatore Live Stats (Strava Style) */}
+          {/* Calcolatore Live Stats (Social Tracker Style) */}
           <div className="card" style={{ border: '2px solid var(--primary)' }}>
             <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '15px', color: 'var(--primary)' }}>
               Live Stats 📊

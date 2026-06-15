@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Strava / Strabar Design System Tokens */
+  /* Strabar Design System Tokens */
   --primary: #FF5E00;         /* Neon Beer Orange */
   --primary-hover: #E04D00;
   --secondary: #FFB000;       /* Beer Gold */
@@ -310,7 +310,7 @@ button, input, select, textarea {
 }
 .custom-drink-grid > * { min-width: 0; }
 
-/* Feed Activities (Strava Style) */
+/* Feed Activities (Strabar Style) */
 .feed-list {
   display: flex;
   flex-direction: column;
@@ -448,7 +448,7 @@ button, input, select, textarea {
   color: var(--primary);
 }
 
-/* Calendar widget (Strava heat map / calendar) */
+/* Calendar widget (Heat map / calendar) */
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -636,7 +636,7 @@ button, input, select, textarea {
 .star { cursor: pointer; transition: transform 0.15s ease; }
 .star:hover { transform: scale(1.2); }
 
-/* ===== Tab segmentate (stile Strava) ===== */
+/* ===== Tab segmentate (stile Strabar) ===== */
 .seg-tabs {
   display: flex;
   gap: 4px;

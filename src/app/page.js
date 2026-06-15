@@ -144,6 +144,53 @@ export default function FeedPage() {
     return diffDays <= 7;
   }).length;
 
+  // 1. U.A. Oggi
+  const todayUnits = userActivities.reduce((acc, act) => {
+    const actDate = new Date(act.created_at);
+    const today = new Date();
+    if (actDate.getDate() === today.getDate() &&
+        actDate.getMonth() === today.getMonth() &&
+        actDate.getFullYear() === today.getFullYear()) {
+      return acc + parseFloat(act.total_units || 0);
+    }
+    return acc;
+  }, 0);
+
+  // 2. U.A. Settimanali (ultimi 7 giorni)
+  const weeklyUnits = userActivities.reduce((acc, act) => {
+    const actDate = new Date(act.created_at);
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    if (actDate >= oneWeekAgo) {
+      return acc + parseFloat(act.total_units || 0);
+    }
+    return acc;
+  }, 0);
+
+  // 3. U.A. Mensili (mese corrente)
+  const monthlyUnits = userActivities.reduce((acc, act) => {
+    const actDate = new Date(act.created_at);
+    const today = new Date();
+    if (actDate.getMonth() === today.getMonth() && actDate.getFullYear() === today.getFullYear()) {
+      return acc + parseFloat(act.total_units || 0);
+    }
+    return acc;
+  }, 0);
+
+  // 4. Numero di bar/locali unici visitati
+  const uniqueBarsVisited = new Set(
+    userActivities
+      .map(act => act.location?.name)
+      .filter(Boolean)
+  ).size;
+
+  // 5. Tour completati
+  const toursCompleted = userActivities.filter(act => 
+    act.description?.includes('percorso') || 
+    act.description?.includes('Percorso') ||
+    act.description?.includes('tour')
+  ).length;
+
   // Classifica mock (Leaderboard) basata su unità alcoliche
   const leaderboardData = [
     { name: 'Marco Rossi', units: 14.8, isPremium: true, rank: 1 },
@@ -315,7 +362,7 @@ export default function FeedPage() {
             </div>
             <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Leaderboard: Diventa &quot;Local Legend&quot; 👑</h3>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', lineHeight: '1.5', marginBottom: '20px' }}>
-              Su Strabar, ogni locale o bar reale ha la sua classifica e la sua leggenda locale (proprio come i segmenti di corsa su Strava). Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
+              Su Strabar, ogni locale o bar reale ha la sua classifica e la sua leggenda locale (proprio come i segmenti sportivi). Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -371,7 +418,7 @@ export default function FeedPage() {
               </div>
               <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Classifiche Club & Sfide</h3>
               <p style={{ color: 'var(--text-dark-secondary)', lineHeight: '1.6', fontSize: '15px' }}>
-                Competi nelle classifiche settimanali del club. Guadagna badge digitali esclusivi completando le sfide del mese, proprio come i badge del dislivello su Strava.
+                Competi nelle classifiche settimanali del club. Guadagna badge digitali esclusivi completando le sfide del mese, proprio come i badge di rendimento degli atleti.
               </p>
             </div>
 
@@ -774,17 +821,92 @@ export default function FeedPage() {
           </div>
         </div>
 
-        {/* Challenge Promozionale */}
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(255, 176, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Flame size={18} color="var(--primary)" />
-            Sfida del Mese
+        {/* Sfide & Premi Strabar */}
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 1) 0%, rgba(255, 94, 0, 0.05) 100%)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
+            <Trophy size={18} color="var(--secondary)" />
+            Sfide & Premi Atleta 🏆
           </h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.4', marginBottom: '15px' }}>
-            <strong>Strabar Giro d&apos;Italia:</strong> Completa almeno 3 percorsi differenti nel mese di Giugno e sblocca il badge digitale esclusivo &quot;Gomito di Bronzo&quot;.
-          </p>
-          <Link href="/routes" className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '8px 0', fontSize: '13px' }}>
-            Trova Percorsi
+
+          {!currentUser ? (
+            <div style={{ textAlign: 'center', padding: '10px 0' }}>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
+                Accedi per tracciare le tue sfide e sbloccare badge esclusivi sul tuo profilo.
+              </p>
+              <Link href="/auth" className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                Accedi a Strabar
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* Sfida 1: Giro d'Italia (Tour Alcolici) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🇮🇹 Giro d&apos;Italia</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: '700' }}>{toursCompleted}/3 Tour</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Completa 3 tour alcolici questo mese</div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min((toursCompleted / 3) * 100, 100)}%`, height: '100%', background: 'var(--secondary)', borderRadius: '3px' }} />
+                </div>
+                <div style={{ fontSize: '10px', color: toursCompleted >= 3 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <Award size={10} /> Premio: {toursCompleted >= 3 ? '🏆 Gomito di Bronzo (SBLOCCATO)' : '🏆 Gomito di Bronzo'}
+                </div>
+              </div>
+
+              {/* Sfida 2: Resistenza Settimanale */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🏋️ Resistenza Settimanale</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '700' }}>{weeklyUnits.toFixed(1)}/10 U.A.</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Consuma 10 U.A. negli ultimi 7 giorni</div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min((weeklyUnits / 10) * 100, 100)}%`, height: '100%', background: 'var(--primary)', borderRadius: '3px' }} />
+                </div>
+                <div style={{ fontSize: '10px', color: weeklyUnits >= 10 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <Award size={10} /> Premio: {weeklyUnits >= 10 ? '🏋️ Gomito d&apos;Acciaio (SBLOCCATO)' : '🏋️ Gomito d&apos;Acciaio'}
+                </div>
+              </div>
+
+              {/* Sfida 3: Esploratore di Bar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🗺️ Esploratore di Locali</strong>
+                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '700' }}>{uniqueBarsVisited}/5 Bar</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Fai check-in in 5 diversi locali</div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min((uniqueBarsVisited / 5) * 100, 100)}%`, height: '100%', background: '#10B981', borderRadius: '3px' }} />
+                </div>
+                <div style={{ fontSize: '10px', color: uniqueBarsVisited >= 5 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <Award size={10} /> Premio: {uniqueBarsVisited >= 5 ? '🗺️ Bussola del Bevitore (SBLOCCATO)' : '🗺️ Bussola del Bevitore'}
+                </div>
+              </div>
+
+              {/* Sfida 4: Bere Responsabile (Limite Giornaliero) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🛡️ Bere Responsabile</strong>
+                  <span style={{ fontSize: '11px', color: todayUnits > 4 ? 'var(--error)' : 'var(--success)', fontWeight: '700' }}>
+                    {todayUnits.toFixed(1)}/4.0 U.A.
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Rimani sotto le 4.0 U.A. oggi</div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min((todayUnits / 4) * 100, 100)}%`, height: '100%', background: todayUnits > 4 ? 'var(--error)' : 'var(--success)', borderRadius: '3px' }} />
+                </div>
+                <div style={{ fontSize: '10px', color: (todayUnits > 0 && todayUnits <= 4) ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <Award size={10} /> Premio: {(todayUnits > 0 && todayUnits <= 4) ? '🛡️ Scudo del Moderatore (ATTIVO)' : todayUnits > 4 ? '❌ Superato limite oggi' : '🛡️ Scudo del Moderatore'}
+                </div>
+              </div>
+
+            </div>
+          )}
+          
+          <Link href="/routes" className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '8px 0', fontSize: '13px', textAlign: 'center' }}>
+            Trova Percorsi & Tour
           </Link>
         </div>
       </div>
