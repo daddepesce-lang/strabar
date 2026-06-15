@@ -675,6 +675,139 @@ export const db = {
     const elimination = 0.15 * hours; // Smaltimento medio del fegato all'ora
     const finalBac = Math.max(0, rawBac - elimination);
     return parseFloat(finalBac.toFixed(2));
+  },
+
+  // --- SOCIAL (FOLLOWERS / FOLLOWING) ---
+  async getAllProfiles() {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('username', { ascending: true });
+      if (error) throw error;
+      return data;
+    } else {
+      if (typeof window === 'undefined') return [];
+      return getStored('sb_profiles');
+    }
+  },
+
+  async searchProfiles(queryText) {
+    if (!queryText.trim()) return [];
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`username.ilike.%${queryText}%,display_name.ilike.%${queryText}%`)
+        .limit(20);
+      if (error) throw error;
+      return data;
+    } else {
+      if (typeof window === 'undefined') return [];
+      const profiles = getStored('sb_profiles');
+      const q = queryText.toLowerCase();
+      return profiles.filter(p => 
+        p.username.toLowerCase().includes(q) || 
+        p.display_name.toLowerCase().includes(q)
+      );
+    }
+  },
+
+  async followUser(followingId) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error("Devi essere autenticato per seguire qualcuno!");
+    if (user.id === followingId) throw new Error("Non puoi seguire te stesso!");
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('follows')
+        .insert({ follower_id: user.id, following_id: followingId });
+      if (error) throw error;
+      return true;
+    } else {
+      if (typeof window === 'undefined') return false;
+      const follows = getStored('sb_follows');
+      const alreadyFollowing = follows.some(f => f.follower_id === user.id && f.following_id === followingId);
+      if (alreadyFollowing) return true;
+
+      follows.push({
+        id: 'follow-' + Math.random().toString(36).substr(2, 9),
+        follower_id: user.id,
+        following_id: followingId,
+        created_at: new Date().toISOString()
+      });
+      setStored('sb_follows', follows);
+      return true;
+    }
+  },
+
+  async unfollowUser(followingId) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error("Devi essere autenticato!");
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('follows')
+        .delete()
+        .eq('follower_id', user.id)
+        .eq('following_id', followingId);
+      if (error) throw error;
+      return true;
+    } else {
+      if (typeof window === 'undefined') return false;
+      let follows = getStored('sb_follows');
+      follows = follows.filter(f => !(f.follower_id === user.id && f.following_id === followingId));
+      setStored('sb_follows', follows);
+      return true;
+    }
+  },
+
+  async getFollowing(userId) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('follows')
+        .select(`
+          following_id,
+          profiles:following_id (*)
+        `)
+        .eq('follower_id', userId);
+      if (error) throw error;
+      return (data || []).map(item => item.profiles).filter(Boolean);
+    } else {
+      if (typeof window === 'undefined') return [];
+      const follows = getStored('sb_follows');
+      const profiles = getStored('sb_profiles');
+      
+      const followingIds = follows
+        .filter(f => f.follower_id === userId)
+        .map(f => f.following_id);
+        
+      return profiles.filter(p => followingIds.includes(p.id));
+    }
+  },
+
+  async getFollowers(userId) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('follows')
+        .select(`
+          follower_id,
+          profiles:follower_id (*)
+        `)
+        .eq('following_id', userId);
+      if (error) throw error;
+      return (data || []).map(item => item.profiles).filter(Boolean);
+    } else {
+      if (typeof window === 'undefined') return [];
+      const follows = getStored('sb_follows');
+      const profiles = getStored('sb_profiles');
+      
+      const followerIds = follows
+        .filter(f => f.following_id === userId)
+        .map(f => f.follower_id);
+        
+      return profiles.filter(p => followerIds.includes(p.id));
+    }
   }
 };
 

@@ -139,3 +139,30 @@ WITH CHECK (
 CREATE POLICY "Gli utenti possono cancellare i propri percorsi" 
 ON public.routes FOR DELETE 
 USING (auth.uid() = user_id);
+
+
+-- 5. Tabella FOLLOWS (Seguaci / Seguiti)
+CREATE TABLE public.follows (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    follower_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    following_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(follower_id, following_id),
+    CONSTRAINT no_self_follow CHECK (follower_id <> following_id)
+);
+
+-- Abilita RLS su follows
+ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+
+-- Criteri di accesso per follows
+CREATE POLICY "I collegamenti follow sono pubblici" 
+ON public.follows FOR SELECT 
+USING (true);
+
+CREATE POLICY "Gli utenti possono seguire altri utenti" 
+ON public.follows FOR INSERT 
+WITH CHECK (auth.uid() = follower_id);
+
+CREATE POLICY "Gli utenti possono smettere di seguire altri utenti" 
+ON public.follows FOR DELETE 
+USING (auth.uid() = follower_id);
