@@ -490,9 +490,18 @@ export const db = {
         activity.cheers.push(user.id);
         liked = true;
       }
-      
+
       activities[idx] = activity;
       setStored('sb_activities', activities);
+      if (liked && activity.user_id !== user.id) {
+        this.pushNotification(activity.user_id, {
+          type: 'cheers',
+          actor_id: user.id,
+          actor_name: user.display_name || user.username,
+          message: `${user.display_name || user.username} ha messo Cheers alla tua sessione "${activity.title}"`,
+          link: '/',
+        });
+      }
       return liked;
     }
   },
@@ -532,6 +541,15 @@ export const db = {
       activity.comments.push(newComment);
       activities[idx] = activity;
       setStored('sb_activities', activities);
+      if (activity.user_id !== user.id) {
+        this.pushNotification(activity.user_id, {
+          type: 'comment',
+          actor_id: user.id,
+          actor_name: user.display_name || user.username,
+          message: `${user.display_name || user.username} ha commentato la tua sessione "${activity.title}"`,
+          link: '/',
+        });
+      }
       return newComment;
     }
   },
@@ -723,6 +741,13 @@ export const db = {
         .from('follows')
         .insert({ follower_id: user.id, following_id: followingId });
       if (error) throw error;
+      this.pushNotification(followingId, {
+        type: 'follow',
+        actor_id: user.id,
+        actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ha iniziato a seguirti`,
+        link: `/u/${user.id}`,
+      });
       return true;
     } else {
       if (typeof window === 'undefined') return false;
@@ -737,6 +762,13 @@ export const db = {
         created_at: new Date().toISOString()
       });
       setStored('sb_follows', follows);
+      this.pushNotification(followingId, {
+        type: 'follow',
+        actor_id: user.id,
+        actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ha iniziato a seguirti`,
+        link: `/u/${user.id}`,
+      });
       return true;
     }
   },
@@ -808,6 +840,335 @@ export const db = {
         
       return profiles.filter(p => followerIds.includes(p.id));
     }
+  },
+
+  async getUserProfile(userId) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } else {
+      if (typeof window === 'undefined') return null;
+      const profiles = getStored('sb_profiles');
+      return profiles.find(p => p.id === userId) || null;
+    }
+  },
+
+  // Ritorna le attività di un singolo utente (per la pagina profilo amico)
+  async getUserActivities(userId) {
+    const all = await this.getActivities();
+    return all.filter(a => a.user_id === userId);
+  },
+
+  // --- FRIENDS HELPERS ---
+  async isFollowing(targetId) {
+    const user = await this.getCurrentUser();
+    if (!user) return false;
+    const following = await this.getFollowing(user.id);
+    return following.some(f => f.id === targetId);
+  },
+
+  // Amici = follow reciproco (segui e ti segue)
+  async getFriends(userId) {
+    const [following, followers] = await Promise.all([
+      this.getFollowing(userId),
+      this.getFollowers(userId)
+    ]);
+    const followerIds = new Set(followers.map(f => f.id));
+    return following.filter(f => followerIds.has(f.id));
+  },
+
+  // --- PLACES / LUOGHI DEL BERE (aggregati dalle sessioni reali) ---
+  normalizePlaceKey(name) {
+    return (name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  },
+
+  async getPlaces() {
+    const activities = await this.getActivities();
+    const map = {};
+    activities.forEach((act) => {
+      const loc = act.location;
+      if (!loc || !loc.name) return;
+      const key = this.normalizePlaceKey(loc.name);
+      if (!map[key]) {
+        map[key] = {
+          key,
+          name: loc.name,
+          address: loc.address || '',
+          lat: loc.lat || null,
+          lng: loc.lng || null,
+          sessionsCount: 0,
+          totalUnits: 0,
+          drinkers: {},
+        };
+      }
+      const p = map[key];
+      p.sessionsCount += 1;
+      p.totalUnits += parseFloat(act.total_units || 0);
+      if (!p.address && loc.address) p.address = loc.address;
+      if (!p.lat && loc.lat) { p.lat = loc.lat; p.lng = loc.lng; }
+      const uid = act.user_id;
+      const uname = act.profiles?.display_name || act.profiles?.username || 'Atleta Strabar';
+      if (!p.drinkers[uid]) p.drinkers[uid] = { name: uname, count: 0, units: 0 };
+      p.drinkers[uid].count += 1;
+      p.drinkers[uid].units += parseFloat(act.total_units || 0);
+    });
+
+    const reviews = this.getReviewsRaw();
+
+    return Object.values(map)
+      .map((p) => {
+        const drinkers = Object.values(p.drinkers);
+        let legend = { name: 'Nessuno', count: 0 };
+        drinkers.forEach((d) => { if (d.count > legend.count) legend = d; });
+        const placeReviews = reviews.filter((r) => r.place_key === p.key);
+        const avgRating = placeReviews.length
+          ? placeReviews.reduce((a, r) => a + r.rating, 0) / placeReviews.length
+          : 0;
+        return {
+          key: p.key,
+          name: p.name,
+          address: p.address,
+          lat: p.lat,
+          lng: p.lng,
+          sessionsCount: p.sessionsCount,
+          totalUnits: parseFloat(p.totalUnits.toFixed(1)),
+          uniqueDrinkers: drinkers.length,
+          localLegend: legend,
+          reviewsCount: placeReviews.length,
+          avgRating: parseFloat(avgRating.toFixed(1)),
+        };
+      });
+  },
+
+  // Classifica atleti per un singolo locale (visite + unità alcoliche)
+  async getPlaceLeaderboard(placeKey) {
+    const activities = await this.getActivities();
+    const sessions = activities.filter(
+      (a) => a.location && this.normalizePlaceKey(a.location.name) === placeKey
+    );
+    const byUser = {};
+    sessions.forEach((s) => {
+      const uid = s.user_id;
+      const name = s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar';
+      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0 };
+      byUser[uid].visits += 1;
+      byUser[uid].units += parseFloat(s.total_units || 0);
+    });
+    return Object.values(byUser).map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }));
+  },
+
+  // --- RECENSIONI LOCALI ---
+  getReviewsRaw() {
+    if (typeof window === 'undefined') return [];
+    return JSON.parse(localStorage.getItem('sb_reviews') || '[]');
+  },
+
+  async getPlaceReviews(placeKey) {
+    return this.getReviewsRaw()
+      .filter((r) => r.place_key === placeKey)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  },
+
+  async addReview(placeKey, placeName, rating, text) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Devi essere loggato per recensire un locale!');
+    const reviews = this.getReviewsRaw();
+    const review = {
+      id: 'rev-' + Math.random().toString(36).substr(2, 9),
+      place_key: placeKey,
+      place_name: placeName,
+      user_id: user.id,
+      user_name: user.display_name || user.username,
+      rating: Math.max(1, Math.min(5, parseInt(rating || 5))),
+      text: text || '',
+      created_at: new Date().toISOString(),
+    };
+    reviews.push(review);
+    if (typeof window !== 'undefined') localStorage.setItem('sb_reviews', JSON.stringify(reviews));
+    return review;
+  },
+
+  // --- EVENTI / DATE (gestione itinerari sociali) ---
+  getEventsRaw() {
+    if (typeof window === 'undefined') return [];
+    return JSON.parse(localStorage.getItem('sb_events') || '[]');
+  },
+  setEventsRaw(list) {
+    if (typeof window !== 'undefined') localStorage.setItem('sb_events', JSON.stringify(list));
+  },
+
+  async getEvents() {
+    const user = await this.getCurrentUser();
+    const events = this.getEventsRaw();
+    const profiles = await this.getAllProfiles();
+    return events
+      .map((e) => {
+        const host = profiles.find((p) => p.id === e.host_id) || { display_name: e.host_name, username: 'host' };
+        const goingCount = (e.responses || []).filter((r) => r.status === 'going').length;
+        const myResponse = user ? ((e.responses || []).find((r) => r.user_id === user.id)?.status || null) : null;
+        const isInvited = user ? (e.host_id === user.id || (e.invited || []).includes(user.id)) : false;
+        return { ...e, host, goingCount, myResponse, isInvited };
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  },
+
+  async getEvent(eventId) {
+    const events = await this.getEvents();
+    const ev = events.find((e) => e.id === eventId);
+    if (!ev) return null;
+    const profiles = await this.getAllProfiles();
+    const responses = (ev.responses || []).map((r) => ({
+      ...r,
+      profile: profiles.find((p) => p.id === r.user_id) || { display_name: r.user_name, username: 'utente' },
+    }));
+    return { ...ev, responses };
+  },
+
+  async createEvent(data) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Devi essere loggato per creare un evento!');
+    const events = this.getEventsRaw();
+    const newEvent = {
+      id: 'evt-' + Math.random().toString(36).substr(2, 9),
+      host_id: user.id,
+      host_name: user.display_name || user.username,
+      title: data.title || 'Nuovo Evento',
+      description: data.description || '',
+      date: data.date,
+      location_name: data.location_name || '',
+      route_id: data.route_id || null,
+      route_name: data.route_name || null,
+      invited: data.invited || [],
+      responses: [
+        { user_id: user.id, user_name: user.display_name || user.username, status: 'going', created_at: new Date().toISOString() },
+      ],
+      created_at: new Date().toISOString(),
+    };
+    events.push(newEvent);
+    this.setEventsRaw(events);
+    (data.invited || []).forEach((uid) => {
+      this.pushNotification(uid, {
+        type: 'event_invite',
+        actor_id: user.id,
+        actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ti ha invitato a "${newEvent.title}"`,
+        link: `/events/${newEvent.id}`,
+      });
+    });
+    return newEvent;
+  },
+
+  async respondToEvent(eventId, status) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Devi essere loggato per rispondere a un evento!');
+    const events = this.getEventsRaw();
+    const idx = events.findIndex((e) => e.id === eventId);
+    if (idx === -1) throw new Error('Evento non trovato!');
+    const ev = events[idx];
+    ev.responses = ev.responses || [];
+    const entry = { user_id: user.id, user_name: user.display_name || user.username, status, created_at: new Date().toISOString() };
+    const rIdx = ev.responses.findIndex((r) => r.user_id === user.id);
+    if (rIdx > -1) ev.responses[rIdx] = entry; else ev.responses.push(entry);
+    events[idx] = ev;
+    this.setEventsRaw(events);
+    if (ev.host_id !== user.id) {
+      const label = status === 'going' ? 'Partecipo' : status === 'maybe' ? 'Forse' : 'Non posso';
+      this.pushNotification(ev.host_id, {
+        type: 'event_rsvp',
+        actor_id: user.id,
+        actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ha risposto "${label}" a "${ev.title}"`,
+        link: `/events/${ev.id}`,
+      });
+    }
+    return ev;
+  },
+
+  async inviteToEvent(eventId, userIds) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Devi essere loggato!');
+    const events = this.getEventsRaw();
+    const idx = events.findIndex((e) => e.id === eventId);
+    if (idx === -1) throw new Error('Evento non trovato!');
+    const ev = events[idx];
+    const newInvites = (userIds || []).filter((uid) => !(ev.invited || []).includes(uid));
+    ev.invited = [...(ev.invited || []), ...newInvites];
+    events[idx] = ev;
+    this.setEventsRaw(events);
+    newInvites.forEach((uid) => {
+      this.pushNotification(uid, {
+        type: 'event_invite',
+        actor_id: user.id,
+        actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ti ha invitato a "${ev.title}"`,
+        link: `/events/${ev.id}`,
+      });
+    });
+    return ev;
+  },
+
+  async deleteEvent(eventId) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Devi essere loggato!');
+    const events = this.getEventsRaw().filter((e) => !(e.id === eventId && e.host_id === user.id));
+    this.setEventsRaw(events);
+    return true;
+  },
+
+  // --- NOTIFICHE ---
+  getNotificationsRaw() {
+    if (typeof window === 'undefined') return [];
+    return JSON.parse(localStorage.getItem('sb_notifications') || '[]');
+  },
+
+  pushNotification(recipientId, payload) {
+    if (typeof window === 'undefined' || !recipientId) return;
+    const notifs = this.getNotificationsRaw();
+    notifs.push({
+      id: 'ntf-' + Math.random().toString(36).substr(2, 9),
+      user_id: recipientId,
+      read: false,
+      created_at: new Date().toISOString(),
+      ...payload,
+    });
+    localStorage.setItem('sb_notifications', JSON.stringify(notifs));
+    window.dispatchEvent(new Event('notifications-change'));
+  },
+
+  async getNotifications() {
+    const user = await this.getCurrentUser();
+    if (!user) return [];
+    return this.getNotificationsRaw()
+      .filter((n) => n.user_id === user.id)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  },
+
+  async getUnreadCount() {
+    const user = await this.getCurrentUser();
+    if (!user) return 0;
+    return this.getNotificationsRaw().filter((n) => n.user_id === user.id && !n.read).length;
+  },
+
+  async markNotificationsRead() {
+    const user = await this.getCurrentUser();
+    if (!user) return;
+    const notifs = this.getNotificationsRaw().map((n) =>
+      n.user_id === user.id ? { ...n, read: true } : n
+    );
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sb_notifications', JSON.stringify(notifs));
+      window.dispatchEvent(new Event('notifications-change'));
+    }
+  },
+
+  // Alias usato dalla pagina percorsi (firma compatta)
+  async saveRoute(name, description, waypoints, isPremium = false) {
+    return this.createRoute({ name, description, waypoints, is_premium: isPremium });
   }
 };
 

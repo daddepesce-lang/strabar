@@ -130,7 +130,13 @@ button, input, select, textarea {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
+}
+
+@media (max-width: 1040px) and (min-width: 769px) {
+  .nav-links { gap: 14px; }
+  .nav-link { font-size: 14px; }
+  .navbar { padding: 0 20px; }
 }
 
 .nav-link {
@@ -529,4 +535,164 @@ button, input, select, textarea {
   border-radius: 10px;
   color: white;
   vertical-align: middle;
+}
+
+/* ============================================================= */
+/*  RESPONSIVE / MOBILE-FIRST LAYER                              */
+/* ============================================================= */
+
+/* Responsive grid utilities (collapse to single column on tablet/phone) */
+.r-grid-sidebar { display: grid; grid-template-columns: 350px 1fr; gap: 24px; }
+.r-grid-feed-sidebar { display: grid; grid-template-columns: 1fr 340px; gap: 30px; }
+.r-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+.r-grid-2-1 { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; }
+.r-grid-1-2 { display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px; align-items: center; }
+.r-grid-stat-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+/* Notification bell */
+.notif-wrapper { position: relative; }
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--error);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-card-dark);
+}
+.notif-dropdown {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  width: 340px;
+  max-width: calc(100vw - 30px);
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg-card-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+}
+
+/* Mobile bottom navigation (hidden on desktop) */
+.mobile-nav { display: none; }
+
+/* Star rating */
+.star { cursor: pointer; transition: transform 0.15s ease; }
+.star:hover { transform: scale(1.2); }
+
+/* ---- TABLET ---- */
+@media (max-width: 900px) {
+  .r-grid-sidebar,
+  .r-grid-feed-sidebar,
+  .r-grid-2,
+  .r-grid-2-1,
+  .r-grid-1-2 {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+/* ---- PHONE ---- */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 16px;
+    height: 60px;
+  }
+  .nav-brand { font-size: 22px; }
+
+  /* Hide the centered desktop links — replaced by bottom nav */
+  .nav-links { display: none; }
+
+  /* Trim the right-side actions so they fit small screens */
+  .nav-actions { gap: 10px; }
+  .nav-user-name { display: none !important; }
+
+  .main-content {
+    padding: 74px 14px 96px 14px; /* extra bottom space for mobile nav */
+  }
+
+  .card { padding: 16px; }
+
+  .form-row { grid-template-columns: 1fr; }
+  .r-grid-stat-4 { grid-template-columns: repeat(2, 1fr); }
+
+  /* Bottom navigation bar */
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: rgba(16, 18, 26, 0.96);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border-dark);
+    z-index: 1000;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .mobile-nav a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dark-secondary);
+    position: relative;
+  }
+  .mobile-nav a.active { color: var(--primary); }
+  .mobile-nav a.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 28px;
+    height: 3px;
+    border-radius: 0 0 4px 4px;
+    background: var(--primary);
+  }
+  .mobile-nav .mn-badge {
+    position: absolute;
+    top: 6px;
+    right: calc(50% - 18px);
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    background: var(--error);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Generic typography down-scale for dense headers */
+  h1 { font-size: 26px !important; line-height: 1.15; }
+
+  .notif-dropdown {
+    position: fixed;
+    top: 60px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .r-grid-stat-4 { grid-template-columns: repeat(2, 1fr); }
+  .activity-actions { gap: 12px; font-size: 13px; }
+  .btn { padding: 9px 16px; }
 }

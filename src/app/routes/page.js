@@ -544,7 +544,7 @@ out body;`;
       </div>
 
       {/* Main Grid: Sidebar + Map */}
-      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '24px' }}>
+      <div className="r-grid-sidebar">
         {/* LEFT SIDEBAR */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
 

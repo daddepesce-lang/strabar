@@ -228,7 +228,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Menu di Navigazione Tab */}
-      <div style={{ display: 'flex', gap: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
+      <div style={{ display: 'flex', gap: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setActiveTab('stats')} 
           style={{
@@ -313,7 +313,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Sezione Centrale: Calendario Heatmap e Attività */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '30px' }}>
+          <div className="r-grid-feed-sidebar">
             
             {/* Calendario delle Bevute (Heatmap) */}
             <div className="card">
@@ -400,7 +400,7 @@ export default function ProfilePage() {
           </div>
 
           {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & LEADERBOARD SEGMENTI BAR) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '30px', marginTop: '10px' }}>
+          <div className="r-grid-2-1" style={{ marginTop: '10px' }}>
             
             {/* Curva Alcolica BAC Settimanale */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', overflow: 'hidden' }}>
@@ -528,9 +528,9 @@ export default function ProfilePage() {
                           {user.display_name?.charAt(0) || 'U'}
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <strong style={{ display: 'block', fontSize: '14px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <Link href={`/u/${user.id}`} style={{ display: 'block', fontSize: '14px', color: '#FFF', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {user.display_name}
-                          </strong>
+                          </Link>
                           <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block' }}>@{user.username}</span>
                         </div>
                       </div>
@@ -559,7 +559,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Liste Seguiti e Seguaci */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+          <div className="r-grid-2">
             {/* Persone Seguite */}
             <div className="card">
               <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -579,7 +579,7 @@ export default function ProfilePage() {
                           {user.display_name?.charAt(0) || 'U'}
                         </div>
                         <div>
-                          <span style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</span>
+                          <Link href={`/u/${user.id}`} style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</Link>
                           <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{user.username}</span>
                         </div>
                       </div>
@@ -617,7 +617,7 @@ export default function ProfilePage() {
                             {user.display_name?.charAt(0) || 'U'}
                           </div>
                           <div>
-                            <span style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</span>
+                            <Link href={`/u/${user.id}`} style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</Link>
                             <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{user.username}</span>
                           </div>
                         </div>

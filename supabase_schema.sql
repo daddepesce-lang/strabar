@@ -163,6 +163,88 @@ CREATE POLICY "Gli utenti possono seguire altri utenti"
 ON public.follows FOR INSERT 
 WITH CHECK (auth.uid() = follower_id);
 
-CREATE POLICY "Gli utenti possono smettere di seguire altri utenti" 
-ON public.follows FOR DELETE 
+CREATE POLICY "Gli utenti possono smettere di seguire altri utenti"
+ON public.follows FOR DELETE
 USING (auth.uid() = follower_id);
+
+
+-- 6. Tabella COMMENTS (Commenti alle sessioni) — usata da db.addComment()
+CREATE TABLE public.comments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    session_id UUID REFERENCES public.sessions(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "I commenti sono pubblici" ON public.comments FOR SELECT USING (true);
+CREATE POLICY "Gli utenti autenticati possono commentare" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Gli utenti possono eliminare i propri commenti" ON public.comments FOR DELETE USING (auth.uid() = user_id);
+
+
+-- ============================================================================
+-- NUOVE FUNZIONALITÀ (Eventi, Recensioni Locali, Notifiche)
+-- Attualmente l'app le gestisce lato client (localStorage) per il prototipo.
+-- Esegui questo blocco quando vuoi migrarle su Supabase per la sincronizzazione
+-- multi-utente reale, poi adatta src/lib/db.js per usare queste tabelle.
+-- ============================================================================
+
+-- 7. Tabella PLACE_REVIEWS (Recensioni dei luoghi del bere)
+CREATE TABLE public.place_reviews (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    place_key TEXT NOT NULL,            -- nome locale normalizzato (lowercase)
+    place_name TEXT NOT NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+ALTER TABLE public.place_reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Le recensioni sono pubbliche" ON public.place_reviews FOR SELECT USING (true);
+CREATE POLICY "Gli utenti autenticati possono recensire" ON public.place_reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 8. Tabella EVENTS (Eventi / Date sociali)
+CREATE TABLE public.events (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    host_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    date TIMESTAMP WITH TIME ZONE NOT NULL,
+    location_name TEXT,
+    route_id UUID REFERENCES public.routes(id) ON DELETE SET NULL,
+    invited JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Gli eventi sono pubblici" ON public.events FOR SELECT USING (true);
+CREATE POLICY "Gli utenti possono creare eventi" ON public.events FOR INSERT WITH CHECK (auth.uid() = host_id);
+CREATE POLICY "Gli host possono eliminare i propri eventi" ON public.events FOR DELETE USING (auth.uid() = host_id);
+
+-- 9. Tabella EVENT_RESPONSES (RSVP)
+CREATE TABLE public.event_responses (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    event_id UUID REFERENCES public.events(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('going','maybe','no')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    UNIQUE(event_id, user_id)
+);
+ALTER TABLE public.event_responses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Le risposte sono pubbliche" ON public.event_responses FOR SELECT USING (true);
+CREATE POLICY "Gli utenti gestiscono la propria risposta" ON public.event_responses FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- 10. Tabella NOTIFICATIONS
+CREATE TABLE public.notifications (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,  -- destinatario
+    actor_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    link TEXT,
+    read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Vedo solo le mie notifiche" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Aggiorno solo le mie notifiche" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Chiunque autenticato può creare notifiche" ON public.notifications FOR INSERT WITH CHECK (auth.uid() = actor_id);

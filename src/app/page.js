@@ -133,7 +133,7 @@ export default function FeedPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '90px', marginTop: '-30px', paddingBottom: '90px' }}>
         
         {/* HERO SECTION */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px', alignItems: 'center', minHeight: '80vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)' }}>
+        <section className="r-grid-2-1" style={{ alignItems: 'center', minHeight: '80vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
             <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '14px', fontWeight: '700', width: 'fit-content', textTransform: 'uppercase', letterSpacing: '1px' }}>
               🎖️ Il Social Network degli Atleti da Bar
@@ -220,7 +220,7 @@ export default function FeedPage() {
         </section>
 
         {/* DEFAULT VENICE ITINERARY PREVIEW SECTION */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '50px', alignItems: 'center', borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
+        <section className="r-grid-1-2" style={{ borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
           <div>
             <span style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               🗺️ Itinerario di Esempio di Default
@@ -305,7 +305,7 @@ export default function FeedPage() {
         </section>
 
         {/* LOCAL LEGEND / LEADERBOARD INFO SECTION */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '50px', alignItems: 'center' }}>
+        <section className="r-grid-2" style={{ alignItems: 'center' }}>
           <div style={{ background: 'linear-gradient(135deg, rgba(255, 176, 0, 0.05) 0%, rgba(22, 24, 34, 0.8) 100%)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '30px', boxShadow: 'var(--shadow)' }}>
             <div style={{ color: 'var(--secondary)', marginBottom: '15px' }}>
               <Trophy size={36} />
@@ -527,12 +527,14 @@ export default function FeedPage() {
               <article key={act.id} className="card activity-card">
                 <div className="activity-header">
                   <div className="activity-user-info">
-                    <div className="activity-avatar">
+                    <Link href={`/u/${act.user_id}`} className="activity-avatar" style={{ flexShrink: 0 }}>
                       {act.profiles?.display_name ? act.profiles.display_name.charAt(0) : 'U'}
-                    </div>
+                    </Link>
                     <div>
                       <div className="activity-author">
-                        {act.profiles?.display_name || 'Utente Strabar'}
+                        <Link href={`/u/${act.user_id}`} style={{ color: 'inherit' }}>
+                          {act.profiles?.display_name || 'Utente Strabar'}
+                        </Link>
                         {act.profiles?.is_premium && (
                           <span className="badge-premium" style={{ marginLeft: '8px', fontSize: '8px' }}>
                             Premium
@@ -796,7 +798,7 @@ export default function FeedPage() {
             )}
 
             {/* Performance Stats (Griglia Strava-style) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '25px', background: 'rgba(255, 94, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 94, 0, 0.15)' }}>
+            <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 94, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 94, 0, 0.15)' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Drink Totali</div>
                 <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
