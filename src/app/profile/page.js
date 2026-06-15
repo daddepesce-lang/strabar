@@ -135,14 +135,19 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          {!currentUser?.is_premium ? (
+          {currentUser?.is_premium ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--secondary)', fontWeight: '700', fontSize: '14px', background: 'rgba(255, 176, 0, 0.1)', padding: '8px 14px', borderRadius: '30px', border: '1px solid var(--secondary)' }}>
+                <Shield size={16} /> Stato: PRO (Offerta Lancio)
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600' }}>
+                ⏳ {currentUser.premium_remaining_days !== undefined ? currentUser.premium_remaining_days : 90} giorni gratuiti rimanenti
+              </span>
+            </div>
+          ) : (
             <Link href="/premium" className="btn btn-premium">
               Passa a Strabar Premium
             </Link>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--secondary)', fontWeight: '700', fontSize: '14px', background: 'rgba(255, 176, 0, 0.1)', padding: '10px 16px', borderRadius: '30px', border: '1px solid var(--secondary)' }}>
-              <Shield size={16} /> Membro Summit Attivo
-            </div>
           )}
         </div>
       </div>

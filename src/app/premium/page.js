@@ -116,15 +116,15 @@ export default function PremiumPage() {
         <div className="card" style={{ border: '2px solid var(--primary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '35px' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '22px', fontWeight: '800' }}>Strabar Summit</h3>
+              <h3 style={{ fontSize: '22px', fontWeight: '800' }}>Strabar Summit PRO</h3>
               <span style={{ background: 'rgba(255, 94, 0, 0.15)', color: 'var(--primary)', fontWeight: '700', fontSize: '12px', padding: '4px 10px', borderRadius: '12px' }}>
-                Miglior Valore
+                Offerta Lancio 🚀
               </span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', marginBottom: '30px' }}>
-              <span style={{ fontSize: '46px', fontWeight: '900' }}>€4.99</span>
-              <span style={{ color: 'var(--text-dark-secondary)' }}>/ mese</span>
+              <span style={{ fontSize: '46px', fontWeight: '900' }}>Gratis</span>
+              <span style={{ color: 'var(--text-dark-secondary)' }}>/ primi 90 giorni</span>
             </div>
 
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>
@@ -145,8 +145,11 @@ export default function PremiumPage() {
 
           <div>
             {user?.is_premium ? (
-              <div style={{ textAlign: 'center', padding: '12px', background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', fontWeight: '700', borderRadius: '30px', border: '1px solid var(--secondary)' }}>
-                Sei già abbonato! ⭐
+              <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', fontWeight: '700', borderRadius: '20px', border: '1px solid var(--secondary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span>Abbonamento PRO Attivo! ⭐</span>
+                <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-dark-secondary)' }}>
+                  Mancano {user.premium_remaining_days !== undefined ? user.premium_remaining_days : 90} giorni alla fine del periodo gratuito
+                </span>
               </div>
             ) : (
               <button
@@ -155,12 +158,12 @@ export default function PremiumPage() {
                 style={{ width: '100%', padding: '16px', borderRadius: '30px', fontSize: '16px' }}
                 disabled={loading || success}
               >
-                {loading ? 'Elaborazione pagamento simulato...' : 'Inizia Prova Gratuita di 30 Giorni'}
+                {loading ? 'Attivazione in corso...' : 'Attiva 90 Giorni Gratis'}
               </button>
             )}
             
             <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '12px', lineHeight: '1.4' }}>
-              Pagamento simulato a scopo illustrativo. Cliccando sbloccherai immediatamente tutte le funzionalità Premium sul tuo profilo.
+              Tutti i nuovi utenti sono abilitati automaticamente per i primi 90 giorni. Successivamente potrai decidere se rinnovare.
             </p>
           </div>
         </div>

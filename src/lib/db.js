@@ -222,17 +222,49 @@ export const db = {
       if (error) {
         console.error("Errore nel recupero del profilo:", error);
       }
-      return { ...user, ...(profile || { username: user.email.split('@')[0], display_name: user.email.split('@')[0], is_premium: false }) };
+      
+      const profileData = profile || { 
+        username: user.email.split('@')[0], 
+        display_name: user.email.split('@')[0],
+        is_premium: true,
+        created_at: user.created_at || new Date().toISOString()
+      };
+      
+      const createdAt = profileData.created_at || user.created_at || new Date().toISOString();
+      const createdDate = new Date(createdAt);
+      const now = new Date();
+      const diffDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+      const remainingDays = Math.max(0, 90 - diffDays);
+      
+      return { 
+        ...user, 
+        ...profileData, 
+        is_premium: remainingDays > 0,
+        premium_remaining_days: remainingDays,
+        created_at: createdAt
+      };
     } else {
       if (typeof window === 'undefined') return null;
       const current = localStorage.getItem('sb_current_user');
       if (!current) return null;
       
       const user = JSON.parse(current);
-      // Ricarica profilo aggiornato
       const profiles = getStored('sb_profiles');
-      const profile = profiles.find(p => p.id === user.id);
-      return profile || user;
+      let profile = profiles.find(p => p.id === user.id);
+      if (!profile) profile = user;
+      
+      const createdAt = profile.created_at || new Date().toISOString();
+      const createdDate = new Date(createdAt);
+      const now = new Date();
+      const diffDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+      const remainingDays = Math.max(0, 90 - diffDays);
+      
+      return {
+        ...profile,
+        is_premium: remainingDays > 0,
+        premium_remaining_days: remainingDays,
+        created_at: createdAt
+      };
     }
   },
 
@@ -242,18 +274,16 @@ export const db = {
       if (error) throw error;
       return data.user;
     } else {
-      // Login fittizio: usa email come username o trova utente esistente
       const profiles = getStored('sb_profiles');
       let profile = profiles.find(p => p.username === email.split('@')[0]);
       
       if (!profile) {
-        // Se non esiste, crea un utente al volo per semplicità di test
         profile = {
           id: 'user-' + Math.random().toString(36).substr(2, 9),
           username: email.split('@')[0] || 'utente_strabar',
           display_name: email.split('@')[0].toUpperCase() || 'Utente Strabar',
           avatar_url: '',
-          is_premium: false,
+          is_premium: true,
           created_at: new Date().toISOString()
         };
         profiles.push(profile);
@@ -281,7 +311,7 @@ export const db = {
         username: 'google_user',
         display_name: 'Gara Google Demo',
         avatar_url: '',
-        is_premium: false,
+        is_premium: true,
         created_at: new Date().toISOString()
       };
       
@@ -312,11 +342,7 @@ export const db = {
       });
       if (error) throw error;
       
-      // The database trigger 'on_auth_user_created' will automatically
-      // create the profile using the metadata we passed above.
-      // Wait a moment for the trigger to execute.
       await new Promise(resolve => setTimeout(resolve, 500));
-      
       return data.user;
     } else {
       const profiles = getStored('sb_profiles');
@@ -328,7 +354,7 @@ export const db = {
         username,
         display_name: displayName,
         avatar_url: '',
-        is_premium: false,
+        is_premium: true,
         created_at: new Date().toISOString()
       };
       
