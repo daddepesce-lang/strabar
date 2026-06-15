@@ -443,9 +443,8 @@ export default function LogActivityPage() {
                           <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
                             Aggiungi Drink in questa tappa:
                           </span>
-                          
-                          {/* Quick preset buttons for waypoints */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                            {/* Quick preset buttons for waypoints */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
                             {[
                               { label: '🍹 Spritz', name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3 },
                               { label: '🍺 Birra', name: 'Birra Chiara Media', abv: 5, units: 1.6 },
@@ -462,6 +461,42 @@ export default function LogActivityPage() {
                                 {preset.label}
                               </button>
                             ))}
+                            
+                            <select
+                              onChange={(e) => {
+                                const selectedName = e.target.value;
+                                if (!selectedName) return;
+                                const selectedPreset = [...PRESET_DRINKS, ...customPresets].find(d => d.name === selectedName);
+                                if (selectedPreset) {
+                                  handleAddWaypointDrink(wp.name, selectedPreset);
+                                }
+                                e.target.value = ''; // Resetta
+                              }}
+                              style={{
+                                background: 'var(--bg-input-dark)',
+                                border: '1px solid var(--border-dark)',
+                                color: '#FFF',
+                                padding: '5px 10px',
+                                borderRadius: '15px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                outline: 'none'
+                              }}
+                            >
+                              <option value="">+ Altro...</option>
+                              <optgroup label="Standard Presets">
+                                {PRESET_DRINKS.map((d, dIdx) => (
+                                  <option key={`preset-${dIdx}`} value={d.name}>{d.name} ({d.abv}%)</option>
+                                ))}
+                              </optgroup>
+                              {customPresets.length > 0 && (
+                                <optgroup label="I tuoi Drink Personalizzati">
+                                  {customPresets.map((d, dIdx) => (
+                                    <option key={`custom-${dIdx}`} value={d.name}>{d.name} ({d.abv}%)</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </select>
                           </div>
 
                           {/* List of drinks registered at this waypoint */}
