@@ -281,3 +281,18 @@ ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Chiunque autenticato può creare notifiche" ON public.notifications;
 CREATE POLICY "Chiunque autenticato può creare notifiche"
 ON public.notifications FOR INSERT WITH CHECK (auth.uid() = actor_id);
+
+
+-- ============================================================
+-- MIGRAZIONE: colonne mancanti su SESSIONS
+-- Esegui se ottieni "Could not find the 'bac_level' column of 'sessions'".
+-- Aggiunge le colonne se la tabella è stata creata con una versione precedente.
+-- ============================================================
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS bac_level NUMERIC(3,2) DEFAULT 0.00 NOT NULL;
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS media JSONB DEFAULT NULL;
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS location JSONB DEFAULT NULL;
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS drank_with JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS description TEXT;
+
+-- Ricarica la cache dello schema di PostgREST (Supabase) così le nuove colonne sono subito visibili
+NOTIFY pgrst, 'reload schema';

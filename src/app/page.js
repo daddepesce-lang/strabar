@@ -110,6 +110,29 @@ export default function FeedPage() {
     }
   };
 
+  // Rileva gli atleti REGISTRATI che hanno bevuto nello stesso locale a orario simile
+  // (come gli allenamenti di gruppo su Strava → "X ha bevuto con Y").
+  const COMPANION_WINDOW_MS = 3 * 60 * 60 * 1000; // 3 ore
+  const getRegisteredCompanions = (act) => {
+    if (!act.location?.name) return [];
+    const locKey = act.location.name.trim().toLowerCase();
+    const t = new Date(act.created_at).getTime();
+    const seen = new Map();
+    activities.forEach((other) => {
+      if (other.id === act.id || other.user_id === act.user_id) return;
+      if (!other.location?.name) return;
+      if (other.location.name.trim().toLowerCase() !== locKey) return;
+      if (Math.abs(new Date(other.created_at).getTime() - t) > COMPANION_WINDOW_MS) return;
+      if (!seen.has(other.user_id)) {
+        seen.set(other.user_id, {
+          user_id: other.user_id,
+          name: other.profiles?.display_name || other.profiles?.username || 'Atleta',
+        });
+      }
+    });
+    return Array.from(seen.values());
+  };
+
   // Calcola statistiche per la sidebar dell'utente loggato
   const userActivities = activities.filter(a => a.user_id === currentUser?.id);
   const totalDrinksCount = userActivities.reduce((acc, act) => {
@@ -584,11 +607,26 @@ export default function FeedPage() {
                    </div>
                  )}
 
-                {act.drank_with && act.drank_with.length > 0 && (
-                  <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', fontStyle: 'italic' }}>
-                    👥 In compagnia di: <strong>{act.drank_with.join(', ')}</strong>
-                  </div>
-                )}
+                {(() => {
+                  const reg = getRegisteredCompanions(act);
+                  const regNames = new Set(reg.map((r) => r.name.toLowerCase()));
+                  const tagged = (act.drank_with || []).filter((n) => !regNames.has(n.toLowerCase()));
+                  if (reg.length === 0 && tagged.length === 0) return null;
+                  return (
+                    <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                      <span>🍻</span>
+                      <strong style={{ color: '#FFF' }}>{act.profiles?.display_name || 'Atleta'}</strong>
+                      <span>ha bevuto con</span>
+                      {reg.map((c, i) => (
+                        <span key={c.user_id}>
+                          <Link href={`/u/${c.user_id}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>{c.name}</Link>
+                          {(i < reg.length - 1 || tagged.length > 0) ? ',' : ''}
+                        </span>
+                      ))}
+                      {tagged.length > 0 && <strong style={{ color: 'var(--text-dark-primary)' }}>{tagged.join(', ')}</strong>}
+                    </div>
+                  );
+                })()}
 
                 {/* Actions (Cheers, Commenta, Condividi) */}
                 <div className="activity-actions">

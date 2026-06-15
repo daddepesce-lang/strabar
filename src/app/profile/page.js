@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
-import { Calendar, User, Beer, Award, Heart, Shield, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users } from 'lucide-react';
+import { Calendar, User, Beer, Award, Heart, Shield, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
+
+const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -119,6 +122,26 @@ export default function ProfilePage() {
   const totalUnits = activities.reduce((acc, act) => acc + act.total_units, 0);
 
   const totalMinutes = activities.reduce((acc, act) => acc + act.duration, 0);
+
+  // Luoghi del bere dell'utente (per la mappa del profilo)
+  const drinkPlaces = (() => {
+    const map = {};
+    activities.forEach((a) => {
+      const loc = a.location;
+      if (!loc?.name || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
+      const key = loc.name.trim().toLowerCase();
+      if (!map[key]) map[key] = { name: loc.name, lat: loc.lat, lng: loc.lng, visits: 0, units: 0 };
+      map[key].visits += 1;
+      map[key].units += parseFloat(a.total_units || 0);
+    });
+    return Object.values(map).map((p) => ({
+      name: p.name,
+      lat: p.lat,
+      lng: p.lng,
+      label: p.visits,
+      note: `${p.visits} ${p.visits === 1 ? 'visita' : 'visite'} · ${p.units.toFixed(1)} U.A.`,
+    }));
+  })();
 
   // Calcola il drink preferito
   const drinkCounts = {};
@@ -397,6 +420,41 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* MAPPA DEI LUOGHI DEL BERE (Heatmap geografica) */}
+          <div className="card" style={{ marginTop: '10px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MapPin size={20} color="var(--primary)" />
+              Mappa delle Bevute 🗺️
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
+              Dove hai brindato. Il numero su ogni marker indica quante volte hai registrato una sessione in quel locale.
+            </p>
+            {drinkPlaces.length > 0 ? (
+              <>
+                <RouteMap waypoints={drinkPlaces} height="360px" connectLine={false} />
+                <div style={{ display: 'flex', gap: '20px', marginTop: '14px', flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{drinkPlaces.length}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>Locali visitati</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--secondary)' }}>
+                      {drinkPlaces.reduce((s, p) => s + p.label, 0)}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>Check-in totali</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg-input-dark)', borderRadius: 'var(--radius)', border: '1px dashed var(--border-dark)' }}>
+                <MapPin size={32} color="var(--text-dark-secondary)" style={{ marginBottom: '10px' }} />
+                <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
+                  Nessun luogo ancora sulla mappa. Registra una sessione indicando il <strong>locale</strong> e comparirà qui! 📍
+                </p>
+              </div>
+            )}
           </div>
 
           {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & LEADERBOARD SEGMENTI BAR) */}

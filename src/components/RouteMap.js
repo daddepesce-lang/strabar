@@ -7,11 +7,13 @@ import { useEffect, useRef } from 'react';
  * Mostra una lista di tappe numerate collegate da un percorso.
  *
  * props:
- *  - waypoints: [{ name, lat, lng, note }]
+ *  - waypoints: [{ name, lat, lng, note, label? }]
  *  - height: altezza CSS (default 420px)
  *  - interactive: se false disabilita scroll/drag (default true)
+ *  - connectLine: se false mostra solo i marker senza la polilinea (default true)
+ *  - markerColor: colore dei marker (default arancione primary)
  */
-export default function RouteMap({ waypoints = [], height = '420px', interactive = true }) {
+export default function RouteMap({ waypoints = [], height = '420px', interactive = true, connectLine = true, markerColor = '#FF5E00' }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null);
@@ -87,24 +89,27 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
       const lng = wp.lng ?? wp.lon;
       if (typeof lat !== 'number' || typeof lng !== 'number') return;
 
+      const label = wp.label != null ? wp.label : idx + 1;
       const icon = L.divIcon({
         className: 'custom-numbered-marker',
-        html: `<div style="background:#FF5E00;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);">${idx + 1}</div>`,
+        html: `<div style="background:${markerColor};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);">${label}</div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
 
       const marker = L.marker([lat, lng], { icon })
         .addTo(map)
-        .bindPopup(`<strong>${idx + 1}. ${wp.name || 'Tappa'}</strong>${wp.note ? `<br/>${wp.note}` : ''}`);
+        .bindPopup(`<strong>${wp.name || 'Tappa'}</strong>${wp.note ? `<br/>${wp.note}` : ''}`);
       layersRef.current.push(marker);
       coords.push([lat, lng]);
     });
 
     if (coords.length > 1) {
-      const line = L.polyline(coords, { color: '#FF5E00', weight: 3, dashArray: '8, 12', opacity: 0.85 }).addTo(map);
-      layersRef.current.push(line);
-      map.fitBounds(line.getBounds(), { padding: [40, 40] });
+      if (connectLine) {
+        const line = L.polyline(coords, { color: markerColor, weight: 3, dashArray: '8, 12', opacity: 0.85 }).addTo(map);
+        layersRef.current.push(line);
+      }
+      map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
     } else if (coords.length === 1) {
       map.setView(coords[0], 16);
     }

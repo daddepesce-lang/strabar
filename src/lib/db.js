@@ -422,14 +422,25 @@ export const db = {
     };
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('sessions')
-        .insert({
-          ...newActivity,
-          user_id: user.id
-        })
+        .insert({ ...newActivity, user_id: user.id })
         .select()
         .single();
+
+      // Fallback: se lo schema del DB non ha ancora alcune colonne opzionali
+      // (es. errore "Could not find the 'bac_level' column"), riprova senza di esse.
+      // Esegui comunque la MIGRAZIONE in supabase_schema.sql per non perdere questi dati.
+      if (error && (error.code === 'PGRST204' || /Could not find the '(\w+)' column/.test(error.message || ''))) {
+        const { bac_level, media, location, drank_with, description, ...essential } = newActivity;
+        console.warn('Colonne mancanti nello schema sessions, salvo i campi essenziali. Esegui la migrazione SQL.', error.message);
+        ({ data, error } = await supabase
+          .from('sessions')
+          .insert({ ...essential, user_id: user.id })
+          .select()
+          .single());
+      }
+
       if (error) throw error;
       return data;
     } else {
