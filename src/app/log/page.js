@@ -27,6 +27,9 @@ export default function LogActivityPage() {
     { name: PRESET_DRINKS[0].name, qty: 1, abv: PRESET_DRINKS[0].abv, units: PRESET_DRINKS[0].units }
   ]);
   
+  // Drink personalizzati caricati dal database
+  const [customPresets, setCustomPresets] = useState([]);
+  
   // Stato per taggare gli amici
   const [friendName, setFriendName] = useState('');
   const [taggedFriends, setTaggedFriends] = useState([]);
@@ -41,6 +44,15 @@ export default function LogActivityPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const loadCustomDrinks = async () => {
+    try {
+      const drinks = await db.getCustomDrinks();
+      setCustomPresets(drinks);
+    } catch (err) {
+      console.error("Errore nel caricamento dei drink personalizzati:", err);
+    }
+  };
+
   useEffect(() => {
     const checkUser = async () => {
       const user = await db.getCurrentUser();
@@ -48,6 +60,7 @@ export default function LogActivityPage() {
         router.push('/auth');
       } else {
         setCurrentUser(user);
+        loadCustomDrinks();
       }
     };
     checkUser();
@@ -78,20 +91,41 @@ export default function LogActivityPage() {
     setLoggedDrinks(updated);
   };
 
-  const handleCustomDrinkAdd = (e) => {
+  const handleCustomDrinkAdd = async (e) => {
     e.preventDefault();
     const name = e.target.customName.value;
     const abv = parseFloat(e.target.customAbv.value || 5);
     const volume = parseFloat(e.target.customVolume.value || 330);
+    const category = e.target.customCategory?.value || 'Custom';
     
     if (!name) return;
 
-    // Calcolo approssimativo unità: volume(L) * abv% * 10
-    const calculatedUnits = ((volume / 1000) * abv * 0.8 * 10) / 8; // standard units index
-    const units = parseFloat(calculatedUnits.toFixed(2));
-
-    setLoggedDrinks([...loggedDrinks, { name, qty: 1, abv, units }]);
-    e.target.reset();
+    try {
+      const newDrink = await db.addCustomDrink({
+        name,
+        abv,
+        volumeMl: volume,
+        category
+      });
+      
+      // Ricarica la lista globale dei drink personalizzati
+      await loadCustomDrinks();
+      
+      // Aggiungi alla sessione corrente
+      const existingIdx = loggedDrinks.findIndex(d => d.name === newDrink.name);
+      if (existingIdx > -1) {
+        const updated = [...loggedDrinks];
+        updated[existingIdx].qty += 1;
+        setLoggedDrinks(updated);
+      } else {
+        setLoggedDrinks([...loggedDrinks, { name: newDrink.name, qty: 1, abv: newDrink.abv, units: newDrink.units }]);
+      }
+      
+      e.target.reset();
+    } catch (err) {
+      console.error(err);
+      setError("Impossibile creare e salvare il drink personalizzato.");
+    }
   };
 
   const handleAddFriend = (e) => {
@@ -162,10 +196,7 @@ export default function LogActivityPage() {
     setMediaFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Calcolo tasso alcolico stimato nel sangue (BAC g/l) basato su formula di Widmark
-  // Stima approssimativa: (grammi di alcol / (peso corporeo * coefficiente genere))
-  // Unità alcolica = 10g di alcol. Assumiamo un peso medio di 70kg e coefficiente medio 0.65.
-  const calculatedBac = parseFloat(((totalUnits * 10) / (70 * 0.68)).toFixed(2));
+  const calculatedBac = db.calculateBAC(totalUnits, duration);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -438,10 +469,10 @@ export default function LogActivityPage() {
             {/* Custom Drink Add Form */}
             <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-dark-secondary)', marginBottom: '10px', textTransform: 'uppercase' }}>Aggiungi Drink Personalizzato</h4>
             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-              <form onSubmit={handleCustomDrinkAdd} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '10px', alignItems: 'end' }}>
+              <form onSubmit={handleCustomDrinkAdd} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.2fr 1fr auto', gap: '10px', alignItems: 'end' }}>
                 <div>
                   <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Nome Drink</label>
-                  <input name="customName" type="text" className="form-control" placeholder="es. Grappa di vitigno" style={{ height: '38px', fontSize: '13px' }} required />
+                  <input name="customName" type="text" className="form-control" placeholder="es. Grappa" style={{ height: '38px', fontSize: '13px' }} required />
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>ABV %</label>
@@ -451,7 +482,17 @@ export default function LogActivityPage() {
                   <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Vol (ml)</label>
                   <input name="customVolume" type="number" className="form-control" placeholder="40" style={{ height: '38px', fontSize: '13px' }} required />
                 </div>
-                <button type="submit" className="btn btn-secondary" style={{ height: '38px', padding: '0 15px', fontSize: '13px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Categoria</label>
+                  <select name="customCategory" className="form-control" style={{ height: '38px', fontSize: '13px', padding: '0 8px' }} required>
+                    <option value="Aperitivo">Aperitivo</option>
+                    <option value="Birra">Birra</option>
+                    <option value="Vino">Vino</option>
+                    <option value="Superalcolico">Superalcolico</option>
+                    <option value="Custom">Altro</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-secondary" style={{ height: '38px', padding: '0 12px', fontSize: '13px' }}>
                   Aggiungi
                 </button>
               </form>
@@ -563,6 +604,40 @@ export default function LogActivityPage() {
               ))}
             </div>
           </div>
+
+          {/* Preset dei Drink Personalizzati degli Utenti */}
+          {customPresets.length > 0 && (
+            <div className="card" style={{ border: '1px solid rgba(255, 176, 0, 0.2)' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Drink Personalizzati 🧪
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
+                Drink aggiunti in autonomia dagli atleti della community.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {customPresets.map((preset, idx) => (
+                  <button
+                    key={preset.id || idx}
+                    type="button"
+                    onClick={() => handleAddPresetDrink(preset)}
+                    className="btn btn-secondary"
+                    style={{ justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius)', fontSize: '13px', textAlign: 'left' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Beer size={14} color="var(--secondary)" />
+                      <div>
+                        <strong>{preset.name}</strong>
+                        <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{preset.category} | {preset.volumeMl}ml ({preset.abv}%)</div>
+                      </div>
+                    </div>
+                    <span style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700', fontSize: '11px' }}>
+                      +{preset.units}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

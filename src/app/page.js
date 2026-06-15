@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar } from 'lucide-react';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video } from 'lucide-react';
 
 export default function FeedPage() {
   const router = useRouter();
@@ -401,6 +401,90 @@ export default function FeedPage() {
     );
   }
 
+  // Dynamic variables for selected activity modal
+  let totalU = 0;
+  let derivedBac = 0;
+  let barSessions = [];
+  let localLegend = { name: "Nessuno", count: 0 };
+  let topUnitsLeaderboard = [];
+  let topBacLeaderboard = [];
+  let bacTimeline = [];
+
+  if (selectedActivity) {
+    totalU = parseFloat(selectedActivity.total_units || selectedActivity.drinks?.reduce((acc, d) => acc + ((d.units || 1.5) * d.qty), 0) || 0);
+    derivedBac = (selectedActivity.bac_level && parseFloat(selectedActivity.bac_level) > 0)
+      ? parseFloat(selectedActivity.bac_level)
+      : db.calculateBAC(totalU, selectedActivity.duration || 120);
+
+    if (selectedActivity.location && selectedActivity.location.name) {
+      const locNameNormalized = selectedActivity.location.name.trim().toLowerCase();
+      barSessions = activities.filter(act => 
+        act.location && 
+        act.location.name && 
+        act.location.name.trim().toLowerCase() === locNameNormalized
+      );
+
+      // Calcola Local Legend (visite)
+      const userVisits = {};
+      barSessions.forEach(s => {
+        const uId = s.user_id;
+        const name = s.profiles?.display_name || s.profiles?.username || "Atleta Strabar";
+        if (!userVisits[uId]) {
+          userVisits[uId] = { name, count: 0 };
+        }
+        userVisits[uId].count += 1;
+      });
+      
+      Object.values(userVisits).forEach(u => {
+        if (u.count > localLegend.count) {
+          localLegend = u;
+        }
+      });
+
+      // Top Carico (Max U.A. in una singola sessione)
+      topUnitsLeaderboard = [...barSessions]
+        .map(s => ({
+          name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
+          totalUnits: parseFloat(s.total_units || 0)
+        }))
+        .sort((a, b) => b.totalUnits - a.totalUnits)
+        .slice(0, 3);
+
+      // Top BAC (Tasso Alcolico Record in una singola sessione)
+      topBacLeaderboard = [...barSessions]
+        .map(s => {
+          const tU = parseFloat(s.total_units || 0);
+          const bac = (s.bac_level && parseFloat(s.bac_level) > 0) ? parseFloat(s.bac_level) : db.calculateBAC(tU, s.duration || 120);
+          return {
+            name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
+            bac
+          };
+        })
+        .sort((a, b) => b.bac - a.bac)
+        .slice(0, 3);
+    }
+
+    // Timeline BAC
+    const peakBac = (totalU * 8) / (70 * 0.68);
+    const durMin = selectedActivity.duration || 120;
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const fract = i / steps;
+      const tMin = Math.round(durMin * fract);
+      const hrs = tMin / 60;
+      let val = 0;
+      if (fract === 0) {
+        val = 0;
+      } else if (fract <= 0.4) {
+        val = (peakBac * (fract / 0.4)) - (0.12 * hrs);
+      } else {
+        val = peakBac - (0.15 * hrs);
+      }
+      val = Math.max(0, parseFloat(val.toFixed(2)));
+      bacTimeline.push({ tMin, label: `T+${tMin}m`, val });
+    }
+  }
+
   return (
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
@@ -728,14 +812,48 @@ export default function FeedPage() {
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Carico Alcolico</div>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--secondary)', marginTop: '5px' }}>
-                  {selectedActivity.total_units} <span style={{ fontSize: '12px', fontWeight: '600' }}>U.A.</span>
+                  {totalU.toFixed(1)} <span style={{ fontSize: '12px', fontWeight: '600' }}>U.A.</span>
                 </div>
               </div>
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>BAC Stimato</div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: (selectedActivity.bac_level || 0) > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '5px' }}>
-                  {selectedActivity.bac_level ? selectedActivity.bac_level.toFixed(2) : '0.00'} <span style={{ fontSize: '12px', fontWeight: '600' }}>g/l</span>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: derivedBac > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '5px' }}>
+                  {derivedBac.toFixed(2)} <span style={{ fontSize: '12px', fontWeight: '600' }}>g/l</span>
                 </div>
+              </div>
+            </div>
+
+            {/* TIMELINE CURVA BAC */}
+            <div style={{ marginBottom: '25px', background: 'rgba(255, 94, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '15px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📈 Curva d&apos;Ebbrezza (Assorbimento & Smaltimento Widmark)
+              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', padding: '10px 0' }}>
+                <div style={{ position: 'absolute', top: '24px', left: '20px', right: '20px', height: '3px', background: 'linear-gradient(90deg, var(--success) 0%, var(--primary) 50%, var(--error) 100%)', zIndex: 1 }} />
+                
+                {bacTimeline.map((pt, idx) => (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, flex: 1 }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600' }}>{pt.label}</span>
+                    <div style={{ 
+                      width: '18px', 
+                      height: '18px', 
+                      borderRadius: '50%', 
+                      background: pt.val > 0.8 ? 'var(--error)' : pt.val > 0.5 ? 'var(--primary)' : 'var(--success)', 
+                      border: '3px solid #000',
+                      boxShadow: '0 0 10px rgba(255,94,0,0.5)',
+                      marginTop: '6px',
+                      marginBottom: '6px'
+                    }} />
+                    <span style={{ fontSize: '12px', fontWeight: '800', color: pt.val > 0.5 ? 'var(--primary)' : '#FFF' }}>
+                      {pt.val.toFixed(2)} <span style={{ fontSize: '9px', fontWeight: 'normal', color: 'var(--text-dark-secondary)' }}>g/l</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '8px' }}>
+                <span>Inizio (Sobrio)</span>
+                <span>Fase di Salita</span>
+                <span>Fine Sforzo (Smaltimento fegato)</span>
               </div>
             </div>
 
@@ -777,8 +895,54 @@ export default function FeedPage() {
                     ></iframe>
                   </div>
 
-                  <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', background: 'rgba(255,176,0,0.05)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,176,0,0.1)' }}>
-                    👑 **Local Legend di questo bar**: <strong>@il_rossi</strong> (14 allenamenti registrati in questo locale).
+                  {/* Classifiche Segmento Bar */}
+                  <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      🏆 Classifiche Segmento Bar (Top Atleti)
+                    </h4>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                      {/* Top Carico Alcolico */}
+                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          🏋️‍♂️ Record Carico (Max U.A.)
+                        </div>
+                        {topUnitsLeaderboard.length === 0 ? (
+                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Nessun record</div>
+                        ) : (
+                          topUnitsLeaderboard.map((item, index) => (
+                            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', borderBottom: index < topUnitsLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
+                              <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '120px' }}>#{index+1} {item.name}</span>
+                              <strong style={{ color: 'var(--secondary)' }}>{item.totalUnits.toFixed(1)} U.A.</strong>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      
+                      {/* Top BAC */}
+                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          ⚡ Record BAC (Picco g/l)
+                        </div>
+                        {topBacLeaderboard.length === 0 ? (
+                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Nessun record</div>
+                        ) : (
+                          topBacLeaderboard.map((item, index) => (
+                            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', borderBottom: index < topBacLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
+                              <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '120px' }}>#{index+1} {item.name}</span>
+                              <strong style={{ color: 'var(--error)' }}>{item.bac.toFixed(2)} g/l</strong>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,176,0,0.04)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,176,0,0.1)', marginTop: '12px', fontSize: '12px' }}>
+                      <span>👑</span>
+                      <div>
+                        <strong>Local Legend di questo bar:</strong> {localLegend.name} ({localLegend.count} {localLegend.count === 1 ? 'allenamento' : 'allenamenti'} registrati qui).
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -814,7 +978,7 @@ export default function FeedPage() {
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>Dettagli della Prestazione (Drinks)</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
               {selectedActivity.drinks.map((drink, idx) => {
-                const calculatedUnits = (drink.units || (drink.qty * 1.5));
+                const calculatedUnits = (drink.units ? (drink.units * drink.qty) : (drink.qty * 1.5));
                 return (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

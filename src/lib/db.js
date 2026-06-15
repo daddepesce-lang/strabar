@@ -44,13 +44,18 @@ const INITIAL_ACTIVITIES = [
     title: 'Aperitivo Ignorante al Lido 🍹',
     description: 'Spritz infiniti con vista mare. Abbiamo provato anche i cicchetti, ma il Campari ha preso il sopravvento.',
     drinks: [
-      { name: 'Spritz Campari', qty: 4, abv: 11 },
-      { name: 'Negroni', qty: 1, abv: 26 }
+      { name: 'Spritz Campari', qty: 4, abv: 11, units: 1.3 },
+      { name: 'Negroni', qty: 1, abv: 26, units: 2.5 }
     ],
-    total_units: 5.2,
+    total_units: 7.7,
     duration: 180, // 3 ore
     drank_with: ['Luca Bianchi', 'Francesca Verdi'],
     feeling: 'Brillo Felice',
+    location: { name: 'Chiosco Al Faro', address: 'Via Interna Faro, Lido di Venezia, VE, Italia', lat: 45.4265, lng: 12.3789 },
+    bac_level: 1.62,
+    media: [
+      { type: 'image', name: 'spritz_vista_mare.jpg', url: 'https://images.unsplash.com/photo-1574085733277-851d9d856a3a?w=400&q=80' }
+    ],
     created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 ore fa
     cheers: ['user-2', 'user-3'],
     comments: [
@@ -63,12 +68,15 @@ const INITIAL_ACTIVITIES = [
     title: 'Birre post-calcetto (terzo tempo vero) ⚽️🍻',
     description: 'Il calcetto è solo una scusa per bere la birra gelata alla spina del bar del campo.',
     drinks: [
-      { name: 'Birra Bionda Media', qty: 3, abv: 4.8 }
+      { name: 'Birra Bionda Media', qty: 3, abv: 4.8, units: 1.6 }
     ],
-    total_units: 3.6,
+    total_units: 4.8,
     duration: 120,
     drank_with: ['Marco Rossi'],
     feeling: 'Assetato / Soddisfatto',
+    location: { name: 'Bar Sportivo', address: 'Campo Calcetto San Marco, Venezia, VE, Italia', lat: 45.4350, lng: 12.3320 },
+    bac_level: 1.01,
+    media: [],
     created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // ieri
     cheers: ['user-1'],
     comments: []
@@ -79,12 +87,17 @@ const INITIAL_ACTIVITIES = [
     title: 'Degustazione Vini Rossi in Cantina 🍷',
     description: 'Serata degustazione guidata. Ottimo Amarone e Barolo. Esperienza premium.',
     drinks: [
-      { name: 'Calice Vino Rosso', qty: 5, abv: 14 }
+      { name: 'Calice Vino Rosso', qty: 5, abv: 14, units: 1.3 }
     ],
-    total_units: 6.0,
+    total_units: 6.5,
     duration: 240,
     drank_with: [],
     feeling: 'Inteditore',
+    location: { name: 'Cantina Do Mori', address: 'Sestiere San Polo 429, Rialto, Venezia, VE, Italia', lat: 45.4382, lng: 12.3353 },
+    bac_level: 1.37,
+    media: [
+      { type: 'image', name: 'bicchieri_cantina.jpg', url: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80' }
+    ],
     created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
     cheers: ['user-1', 'user-2'],
     comments: [
@@ -543,5 +556,67 @@ export const db = {
       }
       return false;
     }
+  },
+
+  // --- CUSTOM DRINKS FOR WIDMARK CALCULATOR ---
+  async getCustomDrinks() {
+    if (isSupabaseConfigured) {
+      // Se supabase è configurato, leggiamo da una tabella custom 'drinks'
+      const { data, error } = await supabase
+        .from('drinks')
+        .select('*')
+        .order('name', { ascending: true });
+      
+      // Fallback a vuoto se tabella non configurata
+      if (error) return [];
+      return data;
+    } else {
+      if (typeof window === 'undefined') return [];
+      const custom = localStorage.getItem('sb_custom_drinks');
+      return custom ? JSON.parse(custom) : [];
+    }
+  },
+
+  async addCustomDrink(drinkData) {
+    const newDrink = {
+      id: 'drink-' + Math.random().toString(36).substr(2, 9),
+      name: drinkData.name,
+      abv: parseFloat(drinkData.abv),
+      volumeMl: parseInt(drinkData.volumeMl),
+      category: drinkData.category || 'Custom',
+      units: parseFloat((((parseInt(drinkData.volumeMl) / 1000) * parseFloat(drinkData.abv) * 0.8 * 10) / 8).toFixed(2)) // formula esatta U.A.
+    };
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('drinks')
+        .insert(newDrink)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } else {
+      if (typeof window === 'undefined') return newDrink;
+      const current = localStorage.getItem('sb_custom_drinks');
+      const list = current ? JSON.parse(current) : [];
+      list.push(newDrink);
+      localStorage.setItem('sb_custom_drinks', JSON.stringify(list));
+      return newDrink;
+    }
+  },
+
+  calculateBAC(totalUnits, durationMinutes) {
+    const totalU = parseFloat(totalUnits || 0);
+    if (totalU === 0) return 0;
+    // 1 Unit = 8g of alcohol (UK/Strabar standard: volumeMl * abv / 1000)
+    const grams = totalU * 8;
+    const weight = 70; // Peso medio in kg
+    const r = 0.68; // Coefficiente medio di distribuzione
+    const rawBac = grams / (weight * r);
+    const hours = (durationMinutes || 0) / 60;
+    const elimination = 0.15 * hours; // Smaltimento medio del fegato all'ora
+    const finalBac = Math.max(0, rawBac - elimination);
+    return parseFloat(finalBac.toFixed(2));
   }
 };
+
