@@ -124,12 +124,12 @@ const INITIAL_ROUTES = [
   {
     id: 'route-2',
     user_id: 'user-1',
-    name: 'London Soho Pub Crawl 🇬🇧',
-    description: 'A classic Soho pub crawl through narrow lanes and historic boozers. Start with wine, end with blues.',
+    name: 'Tour delle Birrerie di Trastevere a Roma 🏛️🍻',
+    description: 'Passeggiata tra i vicoli storici di Trastevere alla ricerca delle migliori birre artigianali e dei cocktail bar più rinomati della capitale.',
     waypoints: [
-      { name: 'The French House', lat: 51.5133, lng: -0.1318, note: 'Legendary Soho institution — no pints, only halves!' },
-      { name: 'The Dog and Duck', lat: 51.5138, lng: -0.1314, note: 'Tiny Victorian gem with great cask ales.' },
-      { name: 'Ain\'t Nothin But Blues Bar', lat: 51.5140, lng: -0.1375, note: 'Live blues every night, cheap drinks, sticky floors.' }
+      { name: 'Freni e Frizioni', lat: 41.8911, lng: 12.4705, note: 'Storico bar per aperitivi in un ex garage, famoso per i cocktail.' },
+      { name: 'Ma Che Siete Venuti a Fà', lat: 41.8902, lng: 12.4700, note: 'Il tempio indiscusso della birra artigianale a Roma.' },
+      { name: 'Birreria Trilussa', lat: 41.8906, lng: 12.4712, note: 'Ampia selezione di spine e ottimi stuzzichini romani.' }
     ],
     is_premium: false,
     created_at: new Date().toISOString()
@@ -137,13 +137,13 @@ const INITIAL_ROUTES = [
   {
     id: 'route-3',
     user_id: 'user-2',
-    name: 'Tokyo Golden Gai Izakaya Trail 🇯🇵',
-    description: 'Dive into the tiny six-seat bars of Golden Gai in Shinjuku. Sake, shochu, and yakitori in atmospheric alleyways.',
+    name: 'Milano Navigli Mixology Run 🍸🇮🇹',
+    description: 'Il tour definitivo per gli amanti della mixology lungo i Navigli milanesi. Dai classici cocktail milanesi ai twist d\'avanguardia.',
     waypoints: [
-      { name: 'Bar Albatross', lat: 35.6938, lng: 139.7036, note: 'Three-floor shoebox bar with a chandelier and strong highballs.' },
-      { name: 'Deathmatch in Hell', lat: 35.6941, lng: 139.7033, note: 'Horror-themed bar, surprisingly friendly. Try the absinthe.' },
-      { name: 'Bar Araku', lat: 35.6935, lng: 139.7039, note: 'Quiet standing bar with premium sake flights.' },
-      { name: 'Omoide Yokocho Yakitori Alley', lat: 35.6932, lng: 139.6991, note: 'Open-air yakitori stalls — grab a beer and a skewer.' }
+      { name: 'Rita & Cocktails', lat: 45.4518, lng: 9.1732, note: 'Pioniere indiscusso dei cocktail bar di qualità sui Navigli.' },
+      { name: 'Mag Café', lat: 45.4526, lng: 9.1755, note: 'Atmosfera retrò chic e cocktail ricchi di inventiva.' },
+      { name: 'Backdoor 43', lat: 45.4523, lng: 9.1748, note: 'Il bar più piccolo del mondo: si entra uno alla volta solo su prenotazione!' },
+      { name: 'Pinch Spirits & Kitchen', lat: 45.4528, lng: 9.1762, note: 'Atmosfera anni \'30, ottimi distillati e cucina di livello.' }
     ],
     is_premium: true,
     created_at: new Date().toISOString()
@@ -151,12 +151,12 @@ const INITIAL_ROUTES = [
   {
     id: 'route-4',
     user_id: 'user-2',
-    name: 'Barcelona El Born Tapas & Cava Run 🇪🇸',
-    description: 'Wind through the medieval streets of El Born sampling pintxos, vermut, and cava from local bodegas.',
+    name: 'London Soho Pub Crawl (Tradotto) 🇬🇧',
+    description: 'Un classico tour dei pub londinesi attraverso vicoli stretti e locali storici. Si parte con una pinta e si finisce a ritmo di blues.',
     waypoints: [
-      { name: 'El Xampanyet', lat: 41.3845, lng: 2.1822, note: 'Old-school cava bar with house-made anchovies.' },
-      { name: 'Bar del Pla', lat: 41.3840, lng: 2.1810, note: 'Creative tapas and natural wines in a cosy setting.' },
-      { name: 'Bodega La Puntual', lat: 41.3838, lng: 2.1830, note: 'Tiny neighbourhood vermutería with great montaditos.' }
+      { name: 'The French House', lat: 51.5133, lng: -0.1318, note: 'Leggendario pub di Soho che serve solo mezze pinte.' },
+      { name: 'The Dog and Duck', lat: 51.5138, lng: -0.1314, note: 'Un piccolo gioiello di epoca vittoriana con ottime ale.' },
+      { name: 'Ain\'t Nothin But Blues Bar', lat: 51.5140, lng: -0.1375, note: 'Blues dal vivo tutte le sere, ingresso gratuito e ottima birra.' }
     ],
     is_premium: false,
     created_at: new Date().toISOString()
@@ -164,13 +164,12 @@ const INITIAL_ROUTES = [
   {
     id: 'route-5',
     user_id: 'user-3',
-    name: 'New York East Village Bar Hop 🇺🇸',
-    description: 'Dive bars, craft cocktails, and cheap shots — the East Village has it all between 1st Ave and Avenue B.',
+    name: 'Tokyo Golden Gai Izakaya Trail (Tradotto) 🇯🇵',
+    description: 'Un viaggio sensoriale tra i piccolissimi bar di Golden Gai a Shinjuku (6 posti ciascuno). Sake, shochu e yakitori tradizionali.',
     waypoints: [
-      { name: 'McSorley\'s Old Ale House', lat: 40.7288, lng: -73.9897, note: 'NYC\'s oldest bar (1854). They only serve light or dark ale.' },
-      { name: 'Death & Company', lat: 40.7263, lng: -73.9848, note: 'Speakeasy-style craft cocktails — book ahead or queue.' },
-      { name: 'Manitoba\'s', lat: 40.7246, lng: -73.9817, note: 'Punk-rock dive bar run by Handsome Dick Manitoba.' },
-      { name: 'Amor y Amargo', lat: 40.7265, lng: -73.9852, note: 'Standing-room bitters bar with wild Negroni riffs.' }
+      { name: 'Bar Albatross', lat: 35.6938, lng: 139.7036, note: 'Locale su tre piani piccolissimo con lampadari di cristallo e ottimi highball.' },
+      { name: 'Deathmatch in Hell', lat: 35.6941, lng: 139.7033, note: 'Bar a tema horror metal. Molto accogliente, prova l\'assenzio.' },
+      { name: 'Bar Araku', lat: 35.6935, lng: 139.7039, note: 'Ottimo per chi vuole assaggiare diverse varietà di sake.' }
     ],
     is_premium: true,
     created_at: new Date().toISOString()
@@ -257,6 +256,39 @@ export const db = {
           is_premium: false,
           created_at: new Date().toISOString()
         };
+        profiles.push(profile);
+        setStored('sb_profiles', profiles);
+      }
+      
+      localStorage.setItem('sb_current_user', JSON.stringify(profile));
+      return profile;
+    }
+  },
+
+  async loginWithGoogle() {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : ''
+        }
+      });
+      if (error) throw error;
+      return data;
+    } else {
+      const mockGoogleProfile = {
+        id: 'user-google-' + Math.random().toString(36).substr(2, 9),
+        username: 'google_user',
+        display_name: 'Gara Google Demo',
+        avatar_url: '',
+        is_premium: false,
+        created_at: new Date().toISOString()
+      };
+      
+      const profiles = getStored('sb_profiles');
+      let profile = profiles.find(p => p.username === mockGoogleProfile.username);
+      if (!profile) {
+        profile = mockGoogleProfile;
         profiles.push(profile);
         setStored('sb_profiles', profiles);
       }

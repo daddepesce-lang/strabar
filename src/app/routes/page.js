@@ -231,15 +231,15 @@ export default function RoutesPage() {
         iconAnchor: [7, 7],
       });
 
-      const barName = bar.tags?.name || 'Unnamed Bar';
-      const barType = bar.tags?.amenity || 'bar';
+      const barName = bar.tags?.name || 'Bar senza nome';
+      const barType = bar.tags?.amenity === 'pub' ? 'Pub' : bar.tags?.amenity === 'biergarten' ? 'Birreria all\'aperto' : 'Bar';
 
       const marker = L.marker([bar.lat, bar.lon], { icon: venueIcon })
         .addTo(mapInstance.current)
         .bindPopup(`
-          <div style="min-width:160px;">
-            <strong style="font-size:14px;">${barName}</strong>
-            <br/><span style="font-size:11px;color:#666;text-transform:capitalize;">${barType}</span>
+          <div style="min-width:170px; font-family:inherit;">
+            <strong style="font-size:14px; color:#FFF;">${barName}</strong>
+            <br/><span style="font-size:11px;color:#9ca3af;">${barType}</span>
             <br/><button onclick="window.__addBarToTour(${bar.lat}, ${bar.lon}, '${barName.replace(/'/g, "\\'")}', '${barType}')" style="
               margin-top:8px;
               background:#FF5E00;
@@ -251,7 +251,20 @@ export default function RoutesPage() {
               font-weight:600;
               font-size:12px;
               width:100%;
-            ">+ Add to Tour</button>
+            ">+ Aggiungi al Tour</button>
+            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barName + ' ' + (bar.tags?.['addr:city'] || ''))}" target="_blank" rel="noopener noreferrer" style="
+              display:block;
+              text-align:center;
+              margin-top:6px;
+              background:#2a2f42;
+              color:#fff;
+              border:1px solid #4f5573;
+              padding:5px 12px;
+              border-radius:20px;
+              text-decoration:none;
+              font-weight:600;
+              font-size:11px;
+            ">🔍 Cerca su Google Maps</a>
           </div>
         `);
 
@@ -270,7 +283,7 @@ export default function RoutesPage() {
         if (alreadyExists) return prev;
         return [
           ...prev,
-          { name, lat, lng: lon, note: `${type.charAt(0).toUpperCase() + type.slice(1)} discovered via search` },
+          { name, lat, lng: lon, note: `${type} trovato tramite ricerca` },
         ];
       });
       // Close popup
@@ -398,21 +411,14 @@ out body;`;
     }
 
     try {
-      const saved = await db.createRoute({
-        name: newRouteName,
-        description: newRouteDesc,
-        waypoints: newRouteWaypoints,
-        is_premium: false,
-      });
-      const updatedList = await db.getRoutes();
-      setRoutes(updatedList);
+      const saved = await db.saveRoute(newRouteName, newRouteDesc, newRouteWaypoints);
+      setRoutes(prev => [saved, ...prev]);
       setSelectedRoute(saved);
       setIsCreating(false);
-      setDiscoveredBars([]);
-      setSearchQuery('');
+      alert('Itinerario salvato con successo!');
     } catch (err) {
       console.error(err);
-      alert('Could not save the route.');
+      alert('Impossibile salvare l\'itinerario.');
     }
   };
 
@@ -431,7 +437,7 @@ out body;`;
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Loader size={24} style={{ animation: 'spin 1s linear infinite' }} />
-          Loading pub crawl planner...
+          Caricamento pianificatore tour...
         </div>
       </div>
     );
@@ -445,10 +451,10 @@ out body;`;
         <div>
           <h1 style={{ fontSize: '32px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Map size={32} color="var(--primary)" />
-            Pub Crawl Planner 🗺️
+            Pianificatore Itinerari & Bacaro Tour 🗺️
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-            Discover bars worldwide and plan your perfect pub crawl route.
+            Scopri bar e pub in tutto il mondo e crea il tuo percorso ideale per brindare.
           </p>
         </div>
 
@@ -456,10 +462,10 @@ out body;`;
           {isCreating && currentUser?.is_premium ? (
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={handleCancelCreation} className="btn btn-secondary" style={{ borderRadius: '20px' }}>
-                <X size={16} /> Cancel
+                <X size={16} /> Annulla
               </button>
               <button onClick={handleSaveRoute} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-                <Save size={16} /> Save Tour
+                <Save size={16} /> Salva Tour
               </button>
             </div>
           ) : (
@@ -469,7 +475,7 @@ out body;`;
                 className={`btn ${currentUser?.is_premium ? 'btn-primary' : 'btn-premium'}`}
                 style={{ borderRadius: '20px' }}
               >
-                <Plus size={16} /> Create New Route
+                <Plus size={16} /> Crea Nuovo Itinerario
               </button>
             )
           )}
@@ -485,7 +491,7 @@ out body;`;
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ border: '1px solid var(--primary)', padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Navigation size={16} /> Search Location
+                <Navigation size={16} /> Cerca Posizione
               </h3>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
@@ -493,7 +499,7 @@ out body;`;
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Search city or area..."
+                    placeholder="Cerca città o zona..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }}
@@ -549,19 +555,19 @@ out body;`;
                 {isLoadingBars ? (
                   <>
                     <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                    Searching bars...
+                    Ricerca bar reali...
                   </>
                 ) : (
                   <>
                     <Beer size={14} />
-                    Load Bars in This Area
+                    Carica Bar in Questa Zona
                   </>
                 )}
               </button>
 
               {discoveredBars.length > 0 && (
                 <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', textAlign: 'center' }}>
-                  Found <strong style={{ color: '#F59E0B' }}>{discoveredBars.length}</strong> bars/pubs — click markers on map to add
+                  Trovati <strong style={{ color: '#F59E0B' }}>{discoveredBars.length}</strong> bar/pub — clicca sui marker nella mappa per aggiungerli
                 </p>
               )}
             </div>
@@ -571,24 +577,24 @@ out body;`;
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Beer size={16} color="var(--primary)" /> Tour Details
+                <Beer size={16} color="var(--primary)" /> Dettagli del Tour
               </h3>
               <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Tour Name</label>
+                <label className="form-label" style={{ fontSize: '10px' }}>Nome del Tour</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="e.g. London Soho Pub Crawl"
+                  placeholder="es. Giro dei Bacari di Venezia"
                   value={newRouteName}
                   onChange={(e) => setNewRouteName(e.target.value)}
                   style={{ height: '38px', fontSize: '13px' }}
                 />
               </div>
               <div className="form-group" style={{ marginBottom: '0' }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Description</label>
+                <label className="form-label" style={{ fontSize: '10px' }}>Descrizione</label>
                 <textarea
                   className="form-control"
-                  placeholder="Describe your pub crawl route..."
+                  placeholder="Descrivi l'itinerario e i locali consigliati..."
                   value={newRouteDesc}
                   onChange={(e) => setNewRouteDesc(e.target.value)}
                   rows={2}
@@ -603,16 +609,16 @@ out body;`;
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={16} color="var(--primary)" /> Tour Stops
+                  <MapPin size={16} color="var(--primary)" /> Tappe del Tour
                 </span>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-dark-secondary)' }}>
-                  {newRouteWaypoints.length} stop{newRouteWaypoints.length !== 1 ? 's' : ''}
+                  {newRouteWaypoints.length} {newRouteWaypoints.length === 1 ? 'tappa' : 'tappe'}
                 </span>
               </h3>
 
               {newRouteWaypoints.length === 0 ? (
                 <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
-                  Search a city, load bars, and click on markers to add stops to your tour.
+                  Cerca una città, carica i bar e fai clic sui marker arancioni sulla mappa per aggiungere fermate al tuo itinerario.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -679,12 +685,12 @@ out body;`;
           {!isCreating && (
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-                Available Tours
+                Itinerari Disponibili 🇮🇹
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {routes.length === 0 ? (
                   <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
-                    No saved tours yet. Create your first pub crawl!
+                    Nessun tour salvato al momento. Crea il tuo primo itinerario!
                   </p>
                 ) : (
                   routes.map((route) => {
@@ -724,7 +730,7 @@ out body;`;
                           {route.description}
                         </p>
                         <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>
-                          {route.waypoints?.length || 0} stops
+                          {route.waypoints?.length || 0} tappe
                         </span>
                       </button>
                     );
@@ -737,26 +743,26 @@ out body;`;
           {/* Route Statistics */}
           <div className="card" style={{ padding: '16px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              📊 Route Stats
+              📊 Dati del Percorso
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={14} color="var(--primary)" /> Bar Stops
+                  <MapPin size={14} color="var(--primary)" /> Tappe Totali
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>{currentActiveWaypoints.length}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={14} color="var(--primary)" /> Total Distance
+                  <MapPin size={14} color="var(--primary)" /> Distanza Totale
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>{routeDistance} km</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Footprints size={14} color="var(--primary)" /> Walking Time
+                  <Footprints size={14} color="var(--primary)" /> Tempo Stimato
                 </span>
-                <strong className="stat-value" style={{ fontSize: '15px' }}>~ {walkingTime} min</strong>
+                <strong className="stat-value" style={{ fontSize: '15px' }}>~ {walkingTime} min a piedi</strong>
               </div>
             </div>
           </div>
@@ -775,17 +781,17 @@ out body;`;
             <div className="paywall-overlay">
               <span className="paywall-badge">Strabar Summit 🏔️</span>
               <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#FFF', marginBottom: '12px' }}>
-                Create Custom Pub Crawl Routes
+                Pianifica i tuoi Bacaro Tour
               </h2>
               <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', maxWidth: '420px', marginBottom: '25px', lineHeight: '1.5' }}>
-                The pub crawl route planner with real bar discovery is a premium feature. Search bars worldwide, plan routes, and save your favorite pub crawls.
+                Il pianificatore avanzato di itinerari con mappatura automatica dei bar reali è una funzionalità Premium. Cerca bar in tutto il mondo, crea percorsi personalizzati e salvali.
               </p>
               <div style={{ display: 'flex', gap: '15px' }}>
                 <button onClick={handleCancelCreation} className="btn btn-secondary">
-                  View Public Routes
+                  Guarda Tour Pubblici
                 </button>
                 <Link href="/premium" className="btn btn-premium">
-                  Unlock with Premium
+                  Sblocca con Premium
                 </Link>
               </div>
             </div>
@@ -795,9 +801,9 @@ out body;`;
           {!isCreating && currentActiveWaypoints.length > 0 && (
             <div className="card" style={{ marginTop: '16px', padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px' }}>
-                {selectedRoute?.name || 'Tour'} — Stops
+                {selectedRoute?.name || 'Tour'} — Elenco Tappe
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
                 {currentActiveWaypoints.map((wp, idx) => (
                   <div key={idx} style={{
                     background: 'var(--bg-input-dark)',
@@ -807,30 +813,42 @@ out body;`;
                     display: 'flex',
                     gap: '10px',
                     alignItems: 'center',
+                    justifyContent: 'space-between'
                   }}>
-                    <div style={{
-                      background: '#EF4444',
-                      color: 'white',
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: '800',
-                      fontSize: '11px',
-                      flexShrink: 0,
-                    }}>
-                      {idx + 1}
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        background: '#EF4444',
+                        color: 'white',
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: '800',
+                        fontSize: '11px',
+                        flexShrink: 0,
+                      }}>
+                        {idx + 1}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={{ display: 'block', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {wp.name}
+                        </strong>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {wp.note}
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong style={{ display: 'block', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {wp.name}
-                      </strong>
-                      <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {wp.note}
-                      </span>
-                    </div>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(wp.name + ' ' + (selectedRoute?.name?.includes('Venezia') ? 'Venezia' : selectedRoute?.name?.includes('Roma') ? 'Roma' : selectedRoute?.name?.includes('Milano') ? 'Milano' : ''))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Cerca su Google Maps"
+                      style={{ fontSize: '16px', flexShrink: 0, textDecoration: 'none' }}
+                    >
+                      🗺️
+                    </a>
                   </div>
                 ))}
               </div>
