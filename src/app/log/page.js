@@ -263,9 +263,9 @@ export default function LogActivityPage() {
 
   const handleMediaUpload = (e) => {
     const files = Array.from(e.target.files);
-    const newMedia = [];
+    setError('');
 
-    for (let file of files) {
+    files.forEach(file => {
       // Limite dimensione: 10MB per foto/audio, 50MB per video
       const isVideo = file.type.startsWith('video/');
       const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024; // 50MB o 10MB
@@ -279,18 +279,18 @@ export default function LogActivityPage() {
       if (file.type.startsWith('video/')) type = 'video';
       else if (file.type.startsWith('audio/')) type = 'audio';
 
-      // Mock URL per simulazione upload client-side
-      const url = URL.createObjectURL(file);
-      newMedia.push({
-        type,
-        name: file.name,
-        url,
-        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
-      });
-    }
-
-    setMediaFiles(prev => [...prev, ...newMedia]);
-    setError('');
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Url = reader.result;
+        setMediaFiles(prev => [...prev, {
+          type,
+          name: file.name,
+          url: base64Url,
+          size: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleRemoveMedia = (idx) => {

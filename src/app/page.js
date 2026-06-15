@@ -26,6 +26,12 @@ export default function FeedPage() {
   const [newCommentText, setNewCommentText] = useState({});
   const [activeCommentsSection, setActiveCommentsSection] = useState({});
   const [selectedActivity, setSelectedActivity] = useState(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
+  const handleOpenActivity = (act) => {
+    setSelectedActivity(act);
+    setCurrentSlideIndex(0);
+  };
 
   const loadFeed = async () => {
     try {
@@ -600,9 +606,9 @@ export default function FeedPage() {
                   </div>
                 </div>
 
-                <h2 className="activity-title" style={{ cursor: 'pointer' }} onClick={() => setSelectedActivity(act)}>{act.title}</h2>
+                <h2 className="activity-title" style={{ cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>{act.title}</h2>
                 {act.description && (
-                  <p style={{ color: 'var(--text-dark-primary)', fontSize: '15px', marginBottom: '16px', lineHeight: '1.5', cursor: 'pointer' }} onClick={() => setSelectedActivity(act)}>
+                  <p style={{ color: 'var(--text-dark-primary)', fontSize: '15px', marginBottom: '16px', lineHeight: '1.5', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
                     {act.description}
                   </p>
                 )}
@@ -639,7 +645,7 @@ export default function FeedPage() {
                 </div>
 
                  {act.location && (
-                   <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setSelectedActivity(act)}>
+                   <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
                      <span>📍 presso <strong>{act.location.name}</strong></span>
                    </div>
                  )}
@@ -929,6 +935,55 @@ export default function FeedPage() {
               </div>
               <button className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setSelectedActivity(null)}>×</button>
             </div>
+
+            {/* Slideshow Copertina Attività (se ci sono immagini) */}
+            {(() => {
+              const images = selectedActivity.media?.filter(m => m.type === 'image') || [];
+              if (images.length === 0) return null;
+              return (
+                <div style={{ position: 'relative', width: '100%', height: '260px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', border: '1px solid var(--border-dark)' }}>
+                  {/* Immagine Attiva */}
+                  <div style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundImage: `url(${images[currentSlideIndex]?.url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    transition: 'background-image 0.2s ease-in-out'
+                  }} />
+                  
+                  {/* Nome e contatore Overlay */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)', padding: '20px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
+                    <span style={{ fontSize: '14px', fontWeight: '700' }}>
+                      {images[currentSlideIndex]?.name || `Immagine ${currentSlideIndex + 1}`}
+                    </span>
+                    <span style={{ fontSize: '12px', fontWeight: '600', background: 'rgba(0,0,0,0.5)', padding: '3px 8px', borderRadius: '20px' }}>
+                      {currentSlideIndex + 1} / {images.length}
+                    </span>
+                  </div>
+
+                  {/* Frecce Navigazione */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentSlideIndex(prev => (prev === 0 ? images.length - 1 : prev - 1))}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '18px', zIndex: 3 }}
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentSlideIndex(prev => (prev === images.length - 1 ? 0 : prev + 1))}
+                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '18px', zIndex: 3 }}
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Titolo e Descrizione */}
             <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>{selectedActivity.title}</h2>
