@@ -439,10 +439,26 @@ export const db = {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
         .from('sessions')
-        .select('*, profiles(username, display_name, avatar_url)')
+        .select(`
+          *,
+          profiles(username, display_name, avatar_url),
+          cheers(user_id),
+          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url))
+        `)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      
+      return data.map(act => ({
+        ...act,
+        cheers: act.cheers ? act.cheers.map(c => c.user_id) : [],
+        comments: act.comments ? act.comments.map(c => ({
+          id: c.id,
+          user_id: c.user_id,
+          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+          text: c.text,
+          created_at: c.created_at
+        })) : []
+      }));
     } else {
       const activities = getStored('sb_activities');
       const profiles = getStored('sb_profiles');
@@ -468,11 +484,27 @@ export const db = {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
         .from('sessions')
-        .select('*, profiles(username, display_name, avatar_url)')
+        .select(`
+          *,
+          profiles(username, display_name, avatar_url),
+          cheers(user_id),
+          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url))
+        `)
         .eq('id', activityId)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return null;
+      return {
+        ...data,
+        cheers: data.cheers ? data.cheers.map(c => c.user_id) : [],
+        comments: data.comments ? data.comments.map(c => ({
+          id: c.id,
+          user_id: c.user_id,
+          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+          text: c.text,
+          created_at: c.created_at
+        })) : []
+      };
     } else {
       if (typeof window === 'undefined') return null;
       const activities = getStored('sb_activities');
@@ -560,24 +592,30 @@ export const db = {
 
     if (isSupabaseConfigured) {
       // Controlla se ha già Cheers
-      const { data: existing } = await supabase
+      const { data: existing, error: checkError } = await supabase
         .from('cheers')
         .select('*')
         .eq('session_id', activityId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (checkError) {
+        console.error("Errore nel controllo del Cheers:", checkError);
+      }
 
       if (existing) {
-        await supabase
+        const { error: deleteError } = await supabase
           .from('cheers')
           .delete()
           .eq('session_id', activityId)
           .eq('user_id', user.id);
+        if (deleteError) throw deleteError;
         return false;
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('cheers')
           .insert({ session_id: activityId, user_id: user.id });
+        if (insertError) throw insertError;
         return true;
       }
     } else {
