@@ -962,6 +962,45 @@ export const db = {
     return Object.values(byUser).map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }));
   },
 
+  // Classifica globale degli atleti Strabar (per U.A. totali, sessioni, drink, locali)
+  async getUserLeaderboard() {
+    const activities = await this.getActivities();
+    const byUser = {};
+    activities.forEach((a) => {
+      const uid = a.user_id;
+      if (!uid) return;
+      if (!byUser[uid]) {
+        byUser[uid] = {
+          user_id: uid,
+          name: a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar',
+          username: a.profiles?.username || 'atleta',
+          is_premium: a.profiles?.is_premium || false,
+          sessions: 0,
+          units: 0,
+          drinks: 0,
+          places: new Set(),
+        };
+      }
+      const u = byUser[uid];
+      u.sessions += 1;
+      u.units += parseFloat(a.total_units || 0);
+      u.drinks += (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0);
+      if (a.location?.name) u.places.add(this.normalizePlaceKey(a.location.name));
+    });
+    return Object.values(byUser)
+      .map((u) => ({
+        user_id: u.user_id,
+        name: u.name,
+        username: u.username,
+        is_premium: u.is_premium,
+        sessions: u.sessions,
+        units: parseFloat(u.units.toFixed(1)),
+        drinks: u.drinks,
+        placesCount: u.places.size,
+      }))
+      .sort((a, b) => b.units - a.units || b.sessions - a.sessions);
+  },
+
   // --- RECENSIONI LOCALI ---
   getReviewsRaw() {
     if (typeof window === 'undefined') return [];

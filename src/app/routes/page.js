@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Navigation, Beer, Trash2 } from 'lucide-react';
+import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function RoutesPage() {
@@ -25,6 +25,7 @@ export default function RoutesPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingBars, setIsLoadingBars] = useState(false);
   const [discoveredBars, setDiscoveredBars] = useState([]);
+  const [justAdded, setJustAdded] = useState(null); // feedback "tappa aggiunta"
 
   // Leaflet refs
   const mapRef = useRef(null);
@@ -318,9 +319,11 @@ export default function RoutesPage() {
         if (alreadyExists) return prev;
         return [
           ...prev,
-          { name, lat, lng: lon, note: `${type} trovato tramite ricerca` },
+          { name, lat, lng: lon, note: `${type} trovato tramite ricerca`, units: 1.5 },
         ];
       });
+      setJustAdded(name);
+      setTimeout(() => setJustAdded(null), 2000);
       // Close popup
       if (mapInstance.current) {
         mapInstance.current.closePopup();
@@ -331,61 +334,53 @@ export default function RoutesPage() {
     };
   }, []);
 
-  // --- City Search (Nominatim) ---
-  const handleCitySearch = useCallback(async () => {
+  // --- Ricerca LOCALE per nome (Nominatim) ---
+  // L'utente cerca un bar/pub/osteria per nome e lo aggiunge direttamente come tappa.
+  const handleVenueSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     setSearchResults([]);
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=8&addressdetails=1&namedetails=1`
       );
       const data = await res.json();
       setSearchResults(data);
     } catch (err) {
-      console.error('Nominatim search error:', err);
+      console.error('Nominatim venue search error:', err);
     } finally {
       setIsSearching(false);
     }
   }, [searchQuery]);
 
-  const handleSelectCity = async (result) => {
+  // Centra la mappa su un risultato senza aggiungerlo (per esplorare)
+  const handleCenterOnResult = (result) => {
     if (!mapInstance.current) return;
+    mapInstance.current.setView([parseFloat(result.lat), parseFloat(result.lon)], 16);
+  };
+
+  // Aggiunge un risultato direttamente come tappa del tour
+  const handleAddVenue = (result) => {
     const lat = parseFloat(result.lat);
-    const lon = parseFloat(result.lon);
-    mapInstance.current.setView([lat, lon], 15);
-    setSearchResults([]);
-    setSearchQuery(result.display_name.split(',').slice(0, 2).join(','));
+    const lng = parseFloat(result.lon);
+    const name = result.namedetails?.name || result.display_name.split(',')[0];
+    const note = result.display_name.split(',').slice(1, 3).join(',').trim();
+    setNewRouteWaypoints((prev) => {
+      if (prev.some((wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lng) < 0.00001)) return prev;
+      return [...prev, { name, lat, lng, note, units: 1.5 }];
+    });
+    if (mapInstance.current) mapInstance.current.setView([lat, lng], 16);
+    setJustAdded(name);
+    setTimeout(() => setJustAdded(null), 2000);
+  };
 
-    // Carica automaticamente i bar vicino a questa posizione
-    setIsLoadingBars(true);
-    setDiscoveredBars([]);
-    try {
-      const offset = 0.015; // raggio di circa 1.5km
-      const south = (lat - offset).toFixed(6);
-      const west = (lon - offset).toFixed(6);
-      const north = (lat + offset).toFixed(6);
-      const east = (lon + offset).toFixed(6);
-
-      const query = `[out:json][timeout:15];
-(
-  node["amenity"="bar"](${south},${west},${north},${east});
-  node["amenity"="pub"](${south},${west},${north},${east});
-  node["amenity"="biergarten"](${south},${west},${north},${east});
-  node["amenity"="nightclub"](${south},${west},${north},${east});
-);
-out body;`;
-
-      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-
-      const data = await res.json();
-      const bars = (data.elements || []).filter((el) => el.lat && el.lon);
-      setDiscoveredBars(bars);
-    } catch (err) {
-      console.error('Overpass API auto-load error:', err);
-    } finally {
-      setIsLoadingBars(false);
-    }
+  // Aggiorna il fabbisogno alcolico (U.A.) di una tappa
+  const handleUpdateWaypointUnits = (idx, delta) => {
+    setNewRouteWaypoints((prev) =>
+      prev.map((wp, i) =>
+        i === idx ? { ...wp, units: Math.max(0, parseFloat(((wp.units || 0) + delta).toFixed(1))) } : wp
+      )
+    );
   };
 
   // --- Load Bars (Overpass API) ---
@@ -491,6 +486,7 @@ out body;`;
   const currentActiveWaypoints = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
   const routeDistance = calculateTotalDistance(currentActiveWaypoints);
   const walkingTime = Math.round((routeDistance / 4.5) * 60);
+  const routeTotalUnits = currentActiveWaypoints.reduce((s, wp) => s + (parseFloat(wp.units) || 0), 0);
 
   // --- LOADING STATE ---
   if (loading) {
@@ -548,27 +544,30 @@ out body;`;
         {/* LEFT SIDEBAR */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
 
-          {/* Search Bar (always visible during creation) */}
+          {/* Ricerca locale → aggiunta tappa (sempre visibile in creazione) */}
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ border: '1px solid var(--primary)', padding: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Navigation size={16} /> Cerca Posizione
+              <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Search size={16} /> 1. Cerca un locale
               </h3>
+              <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
+                Scrivi il nome di un bar, pub o osteria (es. &quot;Cantina Do Mori Venezia&quot;) e aggiungilo come tappa.
+              </p>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Cerca città o zona..."
+                    placeholder="Nome locale + città..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleVenueSearch(); }}
                     style={{ height: '40px', fontSize: '13px', paddingLeft: '36px' }}
                   />
                 </div>
                 <button
-                  onClick={handleCitySearch}
+                  onClick={handleVenueSearch}
                   className="btn btn-primary"
                   disabled={isSearching}
                   style={{ borderRadius: '10px', padding: '8px 14px', minWidth: '40px' }}
@@ -577,60 +576,74 @@ out body;`;
                 </button>
               </div>
 
-              {/* Search Results Dropdown */}
-              {searchResults.length > 0 && (
-                <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
-                  {searchResults.map((result, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSelectCity(result)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '10px 12px',
-                        background: 'transparent',
-                        border: 'none',
-                        borderBottom: idx < searchResults.length - 1 ? '1px solid var(--border-dark)' : 'none',
-                        color: 'var(--text-dark-primary)',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s',
-                      }}
-                      onMouseEnter={(e) => { e.target.style.background = 'rgba(255,94,0,0.1)'; }}
-                      onMouseLeave={(e) => { e.target.style.background = 'transparent'; }}
-                    >
-                      <MapPin size={12} style={{ marginRight: '6px', color: 'var(--primary)' }} />
-                      {result.display_name.length > 60 ? result.display_name.substring(0, 60) + '...' : result.display_name}
-                    </button>
-                  ))}
+              {justAdded && (
+                <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid var(--success)', color: 'var(--success)', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={13} /> Tappa aggiunta: {justAdded}
                 </div>
               )}
 
-              {/* Load Bars Button */}
-              <button
-                onClick={handleLoadBars}
-                className="btn btn-secondary"
-                disabled={isLoadingBars}
-                style={{ width: '100%', borderRadius: '10px', fontSize: '13px', height: '38px' }}
-              >
-                {isLoadingBars ? (
-                  <>
-                    <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                    Ricerca bar reali...
-                  </>
-                ) : (
-                  <>
-                    <Beer size={14} />
-                    Carica Bar in Questa Zona
-                  </>
-                )}
-              </button>
-
-              {discoveredBars.length > 0 && (
-                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', textAlign: 'center' }}>
-                  Trovati <strong style={{ color: '#F59E0B' }}>{discoveredBars.length}</strong> bar/pub — clicca sui marker nella mappa per aggiungerli
-                </p>
+              {/* Risultati ricerca locale */}
+              {searchResults.length > 0 && (
+                <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
+                  {searchResults.map((result, idx) => {
+                    const venueName = result.namedetails?.name || result.display_name.split(',')[0];
+                    const venueAddr = result.display_name.split(',').slice(1, 3).join(',').trim();
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
+                          borderBottom: idx < searchResults.length - 1 ? '1px solid var(--border-dark)' : 'none',
+                        }}
+                      >
+                        <button
+                          onClick={() => handleCenterOnResult(result)}
+                          title="Mostra sulla mappa"
+                          style={{ flex: 1, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', minWidth: 0 }}
+                        >
+                          <strong style={{ fontSize: '12px', color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <MapPin size={11} style={{ marginRight: '4px', color: 'var(--primary)' }} />{venueName}
+                          </strong>
+                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {venueAddr}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleAddVenue(result)}
+                          className="btn btn-primary"
+                          style={{ borderRadius: '8px', padding: '6px 10px', fontSize: '11px', flexShrink: 0 }}
+                        >
+                          <Plus size={13} /> Tappa
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
+
+              {/* Opzione secondaria: esplora bar sulla mappa */}
+              <details style={{ marginTop: '4px' }}>
+                <summary style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}>
+                  …oppure esplora i bar nella zona visibile sulla mappa
+                </summary>
+                <button
+                  onClick={handleLoadBars}
+                  className="btn btn-secondary"
+                  disabled={isLoadingBars}
+                  style={{ width: '100%', borderRadius: '10px', fontSize: '13px', height: '38px', marginTop: '8px' }}
+                >
+                  {isLoadingBars ? (
+                    <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Ricerca bar reali...</>
+                  ) : (
+                    <><Beer size={14} /> Carica Bar in Questa Zona</>
+                  )}
+                </button>
+                {discoveredBars.length > 0 && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', textAlign: 'center' }}>
+                    Trovati <strong style={{ color: '#F59E0B' }}>{discoveredBars.length}</strong> bar/pub — clicca sui marker arancioni per aggiungerli
+                  </p>
+                )}
+              </details>
             </div>
           )}
 
@@ -638,7 +651,7 @@ out body;`;
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Beer size={16} color="var(--primary)" /> Dettagli del Tour
+                <Beer size={16} color="var(--primary)" /> 2. Dettagli del Tour
               </h3>
               <div className="form-group" style={{ marginBottom: '12px' }}>
                 <label className="form-label" style={{ fontSize: '10px' }}>Nome del Tour</label>
@@ -668,18 +681,21 @@ out body;`;
           {/* Tour Stops List (during creation) */}
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ padding: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={16} color="var(--primary)" /> Tappe del Tour
+                  <MapPin size={16} color="var(--primary)" /> 3. Tappe del Tour
                 </span>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-dark-secondary)' }}>
                   {newRouteWaypoints.length} {newRouteWaypoints.length === 1 ? 'tappa' : 'tappe'}
                 </span>
               </h3>
+              <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
+                Imposta per ogni tappa il fabbisogno alcolico previsto (U.A.).
+              </p>
 
               {newRouteWaypoints.length === 0 ? (
                 <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
-                  Cerca una città, carica i bar e fai clic sui marker arancioni sulla mappa per aggiungere fermate al tuo itinerario.
+                  Usa la ricerca qui sopra per trovare un locale e premi <strong style={{ color: 'var(--primary)' }}>+ Tappa</strong> per aggiungerlo all&apos;itinerario.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -715,9 +731,17 @@ out body;`;
                         <strong style={{ display: 'block', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {wp.name}
                         </strong>
-                        <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                          {wp.lat.toFixed(4)}, {wp.lng.toFixed(4)}
-                        </span>
+                        {/* Fabbisogno alcolico per tappa */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '5px' }}>
+                          <Beer size={12} color="var(--secondary)" />
+                          <button type="button" onClick={() => handleUpdateWaypointUnits(idx, -0.5)}
+                            style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 13, lineHeight: 1, color: '#FFF' }}>−</button>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--secondary)', minWidth: 54, textAlign: 'center' }}>
+                            {(wp.units ?? 0).toFixed(1)} U.A.
+                          </span>
+                          <button type="button" onClick={() => handleUpdateWaypointUnits(idx, 0.5)}
+                            style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 13, lineHeight: 1, color: '#FFF' }}>+</button>
+                        </div>
                       </div>
                       <button
                         onClick={() => handleRemoveWaypoint(idx)}
@@ -819,11 +843,17 @@ out body;`;
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>{routeDistance} km</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Footprints size={14} color="var(--primary)" /> Tempo Stimato
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>~ {walkingTime} min a piedi</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Beer size={14} color="var(--secondary)" /> Fabbisogno Alcolico
+                </span>
+                <strong className="stat-value" style={{ fontSize: '15px', color: 'var(--secondary)' }}>{routeTotalUnits.toFixed(1)} U.A.</strong>
               </div>
             </div>
           </div>
@@ -899,6 +929,11 @@ out body;`;
                         <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {wp.note}
                         </span>
+                        {wp.units != null && (
+                          <span style={{ fontSize: '10px', color: 'var(--secondary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+                            <Beer size={10} /> {parseFloat(wp.units).toFixed(1)} U.A.
+                          </span>
+                        )}
                       </div>
                     </div>
                     <a

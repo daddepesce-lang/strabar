@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
-  Beer, Map, MapPin, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell,
+  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell,
 } from 'lucide-react';
 
 function timeAgo(dateString) {
@@ -100,7 +100,7 @@ export default function Navbar() {
   const navItems = [
     { href: '/', label: 'Feed', icon: Beer },
     { href: '/routes', label: 'Percorsi', icon: Map },
-    { href: '/places', label: 'Luoghi', icon: MapPin },
+    { href: '/places', label: 'Classifiche', icon: Trophy },
     { href: '/events', label: 'Eventi', icon: Calendar },
     { href: '/log', label: 'Registra', icon: PlusCircle },
     { href: '/profile', label: 'Profilo', icon: User },
@@ -133,6 +133,11 @@ export default function Navbar() {
         </div>
 
         <div className="nav-actions">
+          {/* Eventi: raggiungibile dalla barra superiore su mobile */}
+          <Link href="/events" className={`action-btn nav-action-mobile ${isActive('/events') ? 'active' : ''}`} title="Eventi">
+            <Calendar size={20} />
+          </Link>
+
           {user && (
             <div className="notif-wrapper" ref={notifRef}>
               <button onClick={toggleNotifs} className="action-btn" title="Notifiche" style={{ position: 'relative' }}>
@@ -216,17 +221,17 @@ export default function Navbar() {
           <Beer size={20} />
           Feed
         </Link>
-        <Link href="/places" className={isActive('/places') ? 'active' : ''}>
-          <MapPin size={20} />
-          Luoghi
+        <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
+          <Map size={20} />
+          Percorsi
         </Link>
         <Link href="/log" className={`mn-register ${isActive('/log') ? 'active' : ''}`}>
           <PlusCircle size={24} />
           Registra
         </Link>
-        <Link href="/events" className={isActive('/events') ? 'active' : ''}>
-          <Calendar size={20} />
-          Eventi
+        <Link href="/places" className={isActive('/places') ? 'active' : ''}>
+          <Trophy size={20} />
+          Classifiche
         </Link>
         <Link href="/profile" className={isActive('/profile') ? 'active' : ''}>
           <User size={20} />

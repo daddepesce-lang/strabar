@@ -177,6 +177,10 @@ button, input, select, textarea {
   gap: 15px;
 }
 
+/* Azione visibile solo su mobile nella barra superiore (es. Eventi) */
+.nav-action-mobile { display: none; }
+.nav-action-mobile.active { color: var(--primary); }
+
 /* Cards & Components */
 .card {
   background: var(--bg-card-dark);
@@ -632,6 +636,113 @@ button, input, select, textarea {
 .star { cursor: pointer; transition: transform 0.15s ease; }
 .star:hover { transform: scale(1.2); }
 
+/* ===== Tab segmentate (stile Strava) ===== */
+.seg-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-input-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 30px;
+  padding: 4px;
+}
+.seg-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 30px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-dark-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.seg-tab.active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(255,94,0,0.35);
+}
+
+/* ===== Podio top 3 ===== */
+.podium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+.podium-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  border-radius: 14px 14px 0 0;
+  text-align: center;
+}
+.podium-col.first { transform: translateY(-6px); }
+.podium-medal { font-size: 22px; }
+.podium-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 19px !important;
+  border: 2px solid var(--border-dark);
+}
+.podium-col.first .podium-avatar { width: 60px !important; height: 60px !important; font-size: 24px !important; border-color: var(--secondary); box-shadow: 0 0 16px rgba(255,176,0,0.45); }
+.podium-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.podium-metric { font-size: 12px; font-weight: 800; color: var(--primary); }
+.podium-bar {
+  margin-top: 6px;
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-input-dark);
+  border: 1px solid var(--border-dark);
+  border-bottom: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--text-dark-secondary);
+}
+.podium-bar.gold {
+  background: linear-gradient(180deg, rgba(255,176,0,0.25), rgba(255,94,0,0.08));
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+/* ===== Righe classifica ===== */
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.rank-row:hover { background: rgba(255,94,0,0.06); }
+.rank-row + .rank-row { border-top: 1px solid var(--border-dark); }
+.rank-num {
+  font-weight: 800;
+  font-size: 14px;
+  min-width: 30px;
+  text-align: center;
+  color: var(--text-dark-secondary);
+  flex-shrink: 0;
+}
+.rank-num.top { font-size: 18px; }
+
 /* Landing page helpers */
 .hero-title {
   font-size: 64px;
@@ -686,6 +797,7 @@ button, input, select, textarea {
   /* Trim the right-side actions so they fit small screens */
   .nav-actions { gap: 10px; }
   .nav-user-name { display: none !important; }
+  .nav-action-mobile { display: inline-flex; }
 
   .main-content {
     padding: 74px 14px 96px 14px; /* extra bottom space for mobile nav */
