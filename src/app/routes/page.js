@@ -234,39 +234,74 @@ export default function RoutesPage() {
       const barName = bar.tags?.name || 'Bar senza nome';
       const barType = bar.tags?.amenity === 'pub' ? 'Pub' : bar.tags?.amenity === 'biergarten' ? 'Birreria all\'aperto' : 'Bar';
 
+      // Programmatically create the popup elements to avoid inline script/quote escaping issues
+      const container = document.createElement('div');
+      container.style.minWidth = '170px';
+      container.style.fontFamily = 'inherit';
+
+      const titleEl = document.createElement('strong');
+      titleEl.style.fontSize = '14px';
+      titleEl.style.color = '#FFF';
+      titleEl.style.display = 'block';
+      titleEl.textContent = barName;
+      container.appendChild(titleEl);
+
+      const typeEl = document.createElement('span');
+      typeEl.style.fontSize = '11px';
+      typeEl.style.color = '#9ca3af';
+      typeEl.style.display = 'block';
+      typeEl.style.marginTop = '2px';
+      typeEl.textContent = barType;
+      container.appendChild(typeEl);
+
+      const addBtn = document.createElement('button');
+      addBtn.textContent = '+ Aggiungi al Percorso';
+      addBtn.style.marginTop = '8px';
+      addBtn.style.background = '#FF5E00';
+      addBtn.style.color = 'white';
+      addBtn.style.border = 'none';
+      addBtn.style.padding = '6px 14px';
+      addBtn.style.borderRadius = '20px';
+      addBtn.style.cursor = 'pointer';
+      addBtn.style.fontWeight = '600';
+      addBtn.style.fontSize = '12px';
+      addBtn.style.width = '100%';
+      addBtn.onclick = () => {
+        setNewRouteWaypoints((prev) => {
+          const alreadyExists = prev.some(
+            (wp) => Math.abs(wp.lat - bar.lat) < 0.00001 && Math.abs(wp.lng - bar.lon) < 0.00001
+          );
+          if (alreadyExists) return prev;
+          return [
+            ...prev,
+            { name: barName, lat: bar.lat, lng: bar.lon, note: `${barType} trovato tramite ricerca` },
+          ];
+        });
+        marker.closePopup();
+      };
+      container.appendChild(addBtn);
+
+      const mapsLink = document.createElement('a');
+      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barName + ' ' + (bar.tags?.['addr:city'] || ''))}`;
+      mapsLink.target = '_blank';
+      mapsLink.rel = 'noopener noreferrer';
+      mapsLink.textContent = '🔍 Cerca su Google Maps';
+      mapsLink.style.display = 'block';
+      mapsLink.style.textAlign = 'center';
+      mapsLink.style.marginTop = '6px';
+      mapsLink.style.background = '#2a2f42';
+      mapsLink.style.color = '#fff';
+      mapsLink.style.border = '1px solid #4f5573';
+      mapsLink.style.padding = '5px 12px';
+      mapsLink.style.borderRadius = '20px';
+      mapsLink.style.textDecoration = 'none';
+      mapsLink.style.fontWeight = '600';
+      mapsLink.style.fontSize = '11px';
+      container.appendChild(mapsLink);
+
       const marker = L.marker([bar.lat, bar.lon], { icon: venueIcon })
         .addTo(mapInstance.current)
-        .bindPopup(`
-          <div style="min-width:170px; font-family:inherit;">
-            <strong style="font-size:14px; color:#FFF;">${barName}</strong>
-            <br/><span style="font-size:11px;color:#9ca3af;">${barType}</span>
-            <br/><button onclick="window.__addBarToTour(${bar.lat}, ${bar.lon}, '${barName.replace(/'/g, "\\'")}', '${barType}')" style="
-              margin-top:8px;
-              background:#FF5E00;
-              color:white;
-              border:none;
-              padding:6px 14px;
-              border-radius:20px;
-              cursor:pointer;
-              font-weight:600;
-              font-size:12px;
-              width:100%;
-            ">+ Aggiungi al Tour</button>
-            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barName + ' ' + (bar.tags?.['addr:city'] || ''))}" target="_blank" rel="noopener noreferrer" style="
-              display:block;
-              text-align:center;
-              margin-top:6px;
-              background:#2a2f42;
-              color:#fff;
-              border:1px solid #4f5573;
-              padding:5px 12px;
-              border-radius:20px;
-              text-decoration:none;
-              font-weight:600;
-              font-size:11px;
-            ">🔍 Cerca su Google Maps</a>
-          </div>
-        `);
+        .bindPopup(container);
 
       venueMarkersRef.current.push(marker);
     });
@@ -314,13 +349,43 @@ export default function RoutesPage() {
     }
   }, [searchQuery]);
 
-  const handleSelectCity = (result) => {
+  const handleSelectCity = async (result) => {
     if (!mapInstance.current) return;
     const lat = parseFloat(result.lat);
     const lon = parseFloat(result.lon);
     mapInstance.current.setView([lat, lon], 15);
     setSearchResults([]);
     setSearchQuery(result.display_name.split(',').slice(0, 2).join(','));
+
+    // Carica automaticamente i bar vicino a questa posizione
+    setIsLoadingBars(true);
+    setDiscoveredBars([]);
+    try {
+      const offset = 0.015; // raggio di circa 1.5km
+      const south = (lat - offset).toFixed(6);
+      const west = (lon - offset).toFixed(6);
+      const north = (lat + offset).toFixed(6);
+      const east = (lon + offset).toFixed(6);
+
+      const query = `[out:json][timeout:15];
+(
+  node["amenity"="bar"](${south},${west},${north},${east});
+  node["amenity"="pub"](${south},${west},${north},${east});
+  node["amenity"="biergarten"](${south},${west},${north},${east});
+  node["amenity"="nightclub"](${south},${west},${north},${east});
+);
+out body;`;
+
+      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+
+      const data = await res.json();
+      const bars = (data.elements || []).filter((el) => el.lat && el.lon);
+      setDiscoveredBars(bars);
+    } catch (err) {
+      console.error('Overpass API auto-load error:', err);
+    } finally {
+      setIsLoadingBars(false);
+    }
   };
 
   // --- Load Bars (Overpass API) ---
@@ -345,11 +410,7 @@ export default function RoutesPage() {
 );
 out body;`;
 
-      const res = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `data=${encodeURIComponent(query)}`,
-      });
+      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
 
       const data = await res.json();
       const bars = (data.elements || []).filter((el) => el.lat && el.lon);
