@@ -22,10 +22,30 @@ export default function LogActivityPage() {
   const [duration, setDuration] = useState(120); // 2 ore di default
   const [feeling, setFeeling] = useState('Brillo Felice');
   
-  // Lista dei drink aggiunti in questa sessione
-  const [loggedDrinks, setLoggedDrinks] = useState([
+  // Lista complessiva dei drink (calcolata in automatico)
+  const [loggedDrinks, setLoggedDrinks] = useState([]);
+  
+  // Drink generici non associati ad una tappa
+  const [generalDrinks, setGeneralDrinks] = useState([
     { name: PRESET_DRINKS[0].name, qty: 1, abv: PRESET_DRINKS[0].abv, units: PRESET_DRINKS[0].units }
   ]);
+  
+  // Drink associati alle tappe del percorso
+  const [waypointDrinks, setWaypointDrinks] = useState({}); // { [wpName]: [ { name, qty, abv, units } ] }
+
+  // Sincronizza loggedDrinks sommando generici e tappe
+  useEffect(() => {
+    const flatWpDrinks = Object.values(waypointDrinks).flat();
+    const merged = {};
+    [...generalDrinks, ...flatWpDrinks].forEach(d => {
+      if (!merged[d.name]) {
+        merged[d.name] = { ...d };
+      } else {
+        merged[d.name].qty += d.qty;
+      }
+    });
+    setLoggedDrinks(Object.values(merged));
+  }, [generalDrinks, waypointDrinks]);
   
   // Drink personalizzati caricati dal database
   const [customPresets, setCustomPresets] = useState([]);
@@ -97,23 +117,23 @@ export default function LogActivityPage() {
   }, 0).toFixed(1);
 
   const handleAddPresetDrink = (preset) => {
-    const existingIdx = loggedDrinks.findIndex(d => d.name === preset.name);
+    const existingIdx = generalDrinks.findIndex(d => d.name === preset.name);
     if (existingIdx > -1) {
-      const updated = [...loggedDrinks];
+      const updated = [...generalDrinks];
       updated[existingIdx].qty += 1;
-      setLoggedDrinks(updated);
+      setGeneralDrinks(updated);
     } else {
-      setLoggedDrinks([...loggedDrinks, { name: preset.name, qty: 1, abv: preset.abv, units: preset.units }]);
+      setGeneralDrinks([...generalDrinks, { name: preset.name, qty: 1, abv: preset.abv, units: preset.units }]);
     }
   };
 
   const handleUpdateQty = (index, increment) => {
-    const updated = [...loggedDrinks];
+    const updated = [...generalDrinks];
     updated[index].qty += increment;
     if (updated[index].qty <= 0) {
       updated.splice(index, 1);
     }
-    setLoggedDrinks(updated);
+    setGeneralDrinks(updated);
   };
 
   const handleCustomDrinkAdd = async (e) => {
@@ -137,13 +157,13 @@ export default function LogActivityPage() {
       await loadCustomDrinks();
       
       // Aggiungi alla sessione corrente
-      const existingIdx = loggedDrinks.findIndex(d => d.name === newDrink.name);
+      const existingIdx = generalDrinks.findIndex(d => d.name === newDrink.name);
       if (existingIdx > -1) {
-        const updated = [...loggedDrinks];
+        const updated = [...generalDrinks];
         updated[existingIdx].qty += 1;
-        setLoggedDrinks(updated);
+        setGeneralDrinks(updated);
       } else {
-        setLoggedDrinks([...loggedDrinks, { name: newDrink.name, qty: 1, abv: newDrink.abv, units: newDrink.units }]);
+        setGeneralDrinks([...generalDrinks, { name: newDrink.name, qty: 1, abv: newDrink.abv, units: newDrink.units }]);
       }
       
       e.target.reset();
@@ -151,6 +171,38 @@ export default function LogActivityPage() {
       console.error(err);
       setError("Impossibile creare e salvare il drink personalizzato.");
     }
+  };
+
+  const handleAddWaypointDrink = (wpName, preset) => {
+    const currentWpDrinks = waypointDrinks[wpName] || [];
+    const existingIdx = currentWpDrinks.findIndex(d => d.name === preset.name);
+    let updatedWpDrinks;
+    if (existingIdx > -1) {
+      updatedWpDrinks = [...currentWpDrinks];
+      updatedWpDrinks[existingIdx].qty += 1;
+    } else {
+      updatedWpDrinks = [...currentWpDrinks, { name: preset.name, qty: 1, abv: preset.abv, units: preset.units }];
+    }
+    setWaypointDrinks({
+      ...waypointDrinks,
+      [wpName]: updatedWpDrinks
+    });
+  };
+
+  const handleUpdateWaypointQty = (wpName, drinkName, increment) => {
+    const currentWpDrinks = waypointDrinks[wpName] || [];
+    const existingIdx = currentWpDrinks.findIndex(d => d.name === drinkName);
+    if (existingIdx === -1) return;
+    
+    let updatedWpDrinks = [...currentWpDrinks];
+    updatedWpDrinks[existingIdx].qty += increment;
+    if (updatedWpDrinks[existingIdx].qty <= 0) {
+      updatedWpDrinks.splice(existingIdx, 1);
+    }
+    setWaypointDrinks({
+      ...waypointDrinks,
+      [wpName]: updatedWpDrinks
+    });
   };
 
   const handleFriendSearchChange = async (val) => {
@@ -259,8 +311,18 @@ export default function LogActivityPage() {
 
     let finalDescription = description;
     if (activeRoute) {
-      const visitedNames = visitedWaypoints.map((wp, i) => `${i + 1}. ${wp.name}`).join('\n');
-      finalDescription += `\n\n🛣️ Percorso completato: ${activeRoute.name}\n📍 Tappe visitate:\n${visitedNames || 'Nessuna'}`;
+      let visitedSummary = '';
+      activeRoute.waypoints.forEach((wp, i) => {
+        const isVisited = visitedWaypoints.some(v => v.name === wp.name && Math.abs(v.lat - wp.lat) < 0.0001);
+        if (isVisited) {
+          const wpDr = waypointDrinks[wp.name] || [];
+          const drinksStr = wpDr.length > 0 
+            ? wpDr.map(d => `${d.qty}x ${d.name}`).join(', ') 
+            : 'Check-in (nessun drink registrato)';
+          visitedSummary += `📍 Tappa ${i + 1}: ${wp.name} — ${drinksStr}\n`;
+        }
+      });
+      finalDescription += `\n\n🛣️ Percorso completato: ${activeRoute.name}\n${visitedSummary}`;
     }
 
     const activityData = {
@@ -311,44 +373,143 @@ export default function LogActivityPage() {
                 🗺️ Percorso Attivo: {activeRoute.name}
               </h3>
               <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-                Ecco le tappe previste. Seleziona quelle che hai effettivamente visitato in questa sessione.
+                Registra i drink consumati a ciascuna tappa nell&apos;ordine del tour. Spunta la tappa per fare check-in.
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 {activeRoute.waypoints?.map((wp, idx) => {
                   const isVisited = visitedWaypoints.some(v => v.name === wp.name && Math.abs(v.lat - wp.lat) < 0.0001);
+                  const wpDr = waypointDrinks[wp.name] || [];
+                  
                   return (
-                    <label
+                    <div
                       key={idx}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        background: isVisited ? 'rgba(255, 94, 0, 0.08)' : 'var(--bg-input-dark)',
+                        background: isVisited ? 'rgba(255, 94, 0, 0.04)' : 'var(--bg-input-dark)',
                         border: isVisited ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        userSelect: 'none',
+                        padding: '15px',
+                        borderRadius: '12px',
                         transition: 'all 0.2s'
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isVisited}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setVisitedWaypoints([...visitedWaypoints, wp]);
-                          } else {
-                            setVisitedWaypoints(visitedWaypoints.filter(v => v.name !== wp.name));
-                          }
-                        }}
-                        style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-                      />
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '800', display: 'block' }}>Tappa {idx + 1}</span>
-                        <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wp.name}</strong>
+                      {/* Intestazione Tappa */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: isVisited ? '12px' : '0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ 
+                            background: isVisited ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+                            color: isVisited ? '#FFF' : 'var(--text-dark-secondary)', 
+                            width: '24px', 
+                            height: '24px', 
+                            borderRadius: '50%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: '12px', 
+                            fontWeight: '800' 
+                          }}>
+                            {idx + 1}
+                          </span>
+                          <div>
+                            <strong style={{ fontSize: '15px', color: '#FFF', display: 'block' }}>{wp.name}</strong>
+                          </div>
+                        </div>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, userSelect: 'none' }}>
+                          <input
+                            type="checkbox"
+                            checked={isVisited}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setVisitedWaypoints([...visitedWaypoints, wp]);
+                              } else {
+                                setVisitedWaypoints(visitedWaypoints.filter(v => v.name !== wp.name));
+                                setWaypointDrinks(prev => {
+                                  const updated = { ...prev };
+                                  delete updated[wp.name];
+                                  return updated;
+                                });
+                              }
+                            }}
+                            style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: isVisited ? 'var(--primary)' : 'var(--text-dark-secondary)' }}>
+                            {isVisited ? 'Visitata ✓' : 'Fai Check-in'}
+                          </span>
+                        </label>
                       </div>
-                    </label>
+
+                      {/* Drink Sezione per Tappa Attiva */}
+                      {isVisited && (
+                        <div style={{ borderTop: '1px dashed var(--border-dark)', paddingTop: '12px', marginTop: '10px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
+                            Aggiungi Drink in questa tappa:
+                          </span>
+                          
+                          {/* Quick preset buttons for waypoints */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                            {[
+                              { label: '🍹 Spritz', name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3 },
+                              { label: '🍺 Birra', name: 'Birra Chiara Media', abv: 5, units: 1.6 },
+                              { label: '🍷 Vino', name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3 },
+                              { label: '🥃 Shot', name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3 }
+                            ].map((preset, pIdx) => (
+                              <button
+                                key={pIdx}
+                                type="button"
+                                onClick={() => handleAddWaypointDrink(wp.name, preset)}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '15px' }}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* List of drinks registered at this waypoint */}
+                          {wpDr.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {wpDr.map((drink, dIdx) => (
+                                <div
+                                  key={dIdx}
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    background: 'rgba(255,255,255,0.02)',
+                                    padding: '8px 12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(255,255,255,0.03)'
+                                  }}
+                                >
+                                  <span style={{ fontSize: '13px', color: '#FFF' }}>
+                                    {drink.name} <span style={{ color: 'var(--primary)', fontWeight: '700' }}>x{drink.qty}</span>
+                                  </span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateWaypointQty(wp.name, drink.name, -1)}
+                                      style={{ width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', border: 'none' }}
+                                    >
+                                      <Minus size={10} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateWaypointQty(wp.name, drink.name, 1)}
+                                      style={{ width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', border: 'none' }}
+                                    >
+                                      <Plus size={10} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>
+                              Nessun drink registrato ancora per questa tappa.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -539,17 +700,19 @@ export default function LogActivityPage() {
           {/* Sezione Selettore Drink */}
           <div className="card">
             <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-              Drink Consumati
+              {activeRoute ? 'Drink Extra / Sessione Generale 🍹' : 'Drink Consumati 🍹'}
             </h3>
 
             {/* List of current session's logged drinks */}
-            {loggedDrinks.length === 0 ? (
+            {((activeRoute ? generalDrinks : loggedDrinks).length === 0) ? (
               <div style={{ textAlign: 'center', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed var(--border-dark)', marginBottom: '20px' }}>
-                <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Nessun drink aggiunto ancora. Seleziona dai preset qui a destra.</p>
+                <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
+                  {activeRoute ? 'Nessun drink extra aggiunto. Usa la sezione del percorso o i preset.' : 'Nessun drink aggiunto ancora. Seleziona dai preset qui a destra.'}
+                </p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-                {loggedDrinks.map((drink, idx) => (
+                {(activeRoute ? generalDrinks : loggedDrinks).map((drink, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 15px', background: 'var(--bg-input-dark)', borderRadius: 'var(--radius)', border: '1px solid var(--border-dark)' }}>
                     <div>
                       <strong style={{ fontSize: '15px' }}>{drink.name}</strong>
