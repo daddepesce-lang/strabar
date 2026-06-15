@@ -57,6 +57,23 @@ export default function RoutesPage() {
         setCurrentUser(user);
         const data = await db.getRoutes();
         setRoutes(data);
+
+        // Leggi il parametro di condivisione del percorso
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const routeId = params.get('routeId');
+          if (routeId) {
+            const sharedRoute = await db.getRoute(routeId);
+            if (sharedRoute) {
+              setSelectedRoute(sharedRoute);
+              if (!data.some(r => r.id === sharedRoute.id)) {
+                setRoutes(prev => [sharedRoute, ...prev]);
+              }
+              return;
+            }
+          }
+        }
+
         if (data.length > 0) {
           setSelectedRoute(data[0]);
         }
@@ -944,6 +961,34 @@ out body;`;
                 <strong className="stat-value" style={{ fontSize: '15px', color: 'var(--secondary)' }}>{routeTotalUnits.toFixed(1)} U.A.</strong>
               </div>
             </div>
+
+            {/* Azioni sul percorso selezionato */}
+            {!isCreating && selectedRoute && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px', borderTop: '1px solid var(--border-dark)', paddingTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push(`/log?routeId=${selectedRoute.id}`);
+                  }}
+                  className="btn btn-primary"
+                  style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '700' }}
+                >
+                  <Beer size={16} /> Avvia Sessione & Navigazione 🍻
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shareUrl = `${window.location.origin}/routes?routeId=${selectedRoute.id}`;
+                    navigator.clipboard.writeText(shareUrl);
+                    alert("Link del percorso copiato negli appunti! Ora puoi condividerlo.");
+                  }}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  🔗 Condividi Percorso
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

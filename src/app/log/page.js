@@ -45,6 +45,10 @@ export default function LogActivityPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Stati per gestire l'inizio della sessione da un percorso
+  const [activeRoute, setActiveRoute] = useState(null);
+  const [visitedWaypoints, setVisitedWaypoints] = useState([]);
+
   const loadCustomDrinks = async () => {
     try {
       const drinks = await db.getCustomDrinks();
@@ -62,6 +66,26 @@ export default function LogActivityPage() {
       } else {
         setCurrentUser(user);
         loadCustomDrinks();
+
+        // Controlla se è stato passato un routeId per iniziare una sessione da percorso
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const rId = params.get('routeId');
+          if (rId) {
+            try {
+              const route = await db.getRoute(rId);
+              if (route) {
+                setActiveRoute(route);
+                setTitle(`Pub Crawl: ${route.name} 🍻`);
+                setDescription(`Ho completato le tappe del percorso: "${route.name}".`);
+                // Pre-imposta tutte le tappe come visitate di default
+                setVisitedWaypoints(route.waypoints || []);
+              }
+            } catch (err) {
+              console.error("Errore nel recupero del percorso:", err);
+            }
+          }
+        }
       }
     };
     checkUser();
@@ -233,9 +257,15 @@ export default function LogActivityPage() {
     setLoading(true);
     setError('');
 
+    let finalDescription = description;
+    if (activeRoute) {
+      const visitedNames = visitedWaypoints.map((wp, i) => `${i + 1}. ${wp.name}`).join('\n');
+      finalDescription += `\n\n🛣️ Percorso completato: ${activeRoute.name}\n📍 Tappe visitate:\n${visitedNames || 'Nessuna'}`;
+    }
+
     const activityData = {
       title: title || 'Aperitivo Strabar 🍻',
-      description,
+      description: finalDescription,
       duration,
       feeling,
       drinks: loggedDrinks,
@@ -275,6 +305,56 @@ export default function LogActivityPage() {
       <div className="log-grid">
         {/* Colonna Sinistra: Modulo principale */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {activeRoute && (
+            <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.05) 100%)' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🗺️ Percorso Attivo: {activeRoute.name}
+              </h3>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
+                Ecco le tappe previste. Seleziona quelle che hai effettivamente visitato in questa sessione.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+                {activeRoute.waypoints?.map((wp, idx) => {
+                  const isVisited = visitedWaypoints.some(v => v.name === wp.name && Math.abs(v.lat - wp.lat) < 0.0001);
+                  return (
+                    <label
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: isVisited ? 'rgba(255, 94, 0, 0.08)' : 'var(--bg-input-dark)',
+                        border: isVisited ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isVisited}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setVisitedWaypoints([...visitedWaypoints, wp]);
+                          } else {
+                            setVisitedWaypoints(visitedWaypoints.filter(v => v.name !== wp.name));
+                          }
+                        }}
+                        style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                      />
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '800', display: 'block' }}>Tappa {idx + 1}</span>
+                        <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wp.name}</strong>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
               Dettagli Attività

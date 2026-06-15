@@ -1265,6 +1265,26 @@ export const db = {
   // Alias usato dalla pagina percorsi (firma compatta)
   async saveRoute(name, description, waypoints, isPremium = false) {
     return this.createRoute({ name, description, waypoints, is_premium: isPremium });
+  },
+
+  async getRoute(routeId) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('routes')
+        .select('*')
+        .eq('id', routeId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } else {
+      if (typeof window === 'undefined') return null;
+      const routes = getStored('sb_routes');
+      let found = routes.find(r => r.id === routeId);
+      if (!found) {
+        found = INITIAL_ROUTES.find(r => r.id === routeId);
+      }
+      return found || null;
+    }
   }
 };
 
