@@ -502,6 +502,22 @@ export default function FeedPage() {
                   ))}
                 </div>
 
+                 {act.location && (
+                   <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => setSelectedActivity(act)}>
+                     <span>📍 presso <strong>{act.location.name}</strong></span>
+                   </div>
+                 )}
+
+                 {act.media && act.media.length > 0 && (
+                   <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', overflowX: 'auto', paddingBottom: '4px' }}>
+                     {act.media.map((med, idx) => (
+                       <span key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', color: '#FFF', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                         {med.type === 'video' ? '🎥' : med.type === 'audio' ? '🎵' : '🖼️'} {med.name}
+                       </span>
+                     ))}
+                   </div>
+                 )}
+
                 {act.drank_with && act.drank_with.length > 0 && (
                   <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', fontStyle: 'italic' }}>
                     👥 In compagnia di: <strong>{act.drank_with.join(', ')}</strong>
@@ -696,26 +712,103 @@ export default function FeedPage() {
             )}
 
             {/* Performance Stats (Griglia Strava-style) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '25px', background: 'rgba(255, 94, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 94, 0, 0.15)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '25px', background: 'rgba(255, 94, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 94, 0, 0.15)' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Drink Totali</div>
-                <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Drink Totali</div>
+                <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
                   {selectedActivity.drinks.reduce((acc, d) => acc + d.qty, 0)}
                 </div>
               </div>
-              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)', borderRight: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Tempo Sforzo</div>
-                <div style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginTop: '8px' }}>
+              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Tempo Sforzo</div>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginTop: '8px' }}>
                   {Math.floor(selectedActivity.duration / 60)}h {selectedActivity.duration % 60}m
                 </div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Carico Alcolico</div>
-                <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--secondary)', marginTop: '5px' }}>
-                  {selectedActivity.total_units} <span style={{ fontSize: '14px', fontWeight: '600' }}>U.A.</span>
+              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Carico Alcolico</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--secondary)', marginTop: '5px' }}>
+                  {selectedActivity.total_units} <span style={{ fontSize: '12px', fontWeight: '600' }}>U.A.</span>
+                </div>
+              </div>
+              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>BAC Stimato</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: (selectedActivity.bac_level || 0) > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '5px' }}>
+                  {selectedActivity.bac_level ? selectedActivity.bac_level.toFixed(2) : '0.00'} <span style={{ fontSize: '12px', fontWeight: '600' }}>g/l</span>
                 </div>
               </div>
             </div>
+
+            {/* SEZIONE MAPPA / INTEGRAZIONE LOCALE */}
+            {selectedActivity.location && (
+              <div style={{ marginBottom: '25px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  📍 Sede del Brindisi (Integrazione Mappe)
+                </h3>
+                <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <strong style={{ color: '#FFF', fontSize: '15px' }}>{selectedActivity.location.name}</strong>
+                      <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{selectedActivity.location.address}</div>
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedActivity.location.name + ' ' + selectedActivity.location.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px' }}
+                    >
+                      Apri in Google Maps
+                    </a>
+                  </div>
+                  
+                  {/* Iframe di anteprima statica di OpenStreetMap */}
+                  <div style={{ height: '180px', width: '100%', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-dark)', position: 'relative' }}>
+                    <iframe
+                      title="Mappa Locale"
+                      width="100%"
+                      height="100%"
+                      frameBorder="0"
+                      scrolling="no"
+                      marginHeight="0"
+                      marginWidth="0"
+                      src={`https://maps.google.com/maps?q=${selectedActivity.location.lat},${selectedActivity.location.lng}&z=16&output=embed&iwloc=near`}
+                      style={{ filter: 'invert(90%) hue-rotate(180deg) grayscale(30%)' }}
+                    ></iframe>
+                  </div>
+
+                  <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', background: 'rgba(255,176,0,0.05)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,176,0,0.1)' }}>
+                    👑 **Local Legend di questo bar**: <strong>@il_rossi</strong> (14 allenamenti registrati in questo locale).
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SEZIONE ALLEGATI MULTIMEDIALI (FOTO / AUDIO / VIDEO) */}
+            {selectedActivity.media && selectedActivity.media.length > 0 && (
+              <div style={{ marginBottom: '25px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px' }}>
+                  🖼️ Media e Ricordi della Serata
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
+                  {selectedActivity.media.map((med, idx) => (
+                    <div key={idx} style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px', textAlign: 'center', position: 'relative', overflow: 'hidden', height: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                      {med.type === 'image' && (
+                        <div style={{ width: '100%', height: '100%', backgroundSize: 'cover', backgroundImage: `url(${med.url})`, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+                      )}
+                      
+                      <div style={{ zIndex: 1, color: med.type === 'image' ? '#FFF' : 'var(--primary)', background: med.type === 'image' ? 'rgba(0,0,0,0.6)' : 'none', padding: med.type === 'image' ? '6px' : '0', borderRadius: med.type === 'image' ? '50%' : '0' }}>
+                        {med.type === 'video' ? <Video size={32} /> : med.type === 'audio' ? <Volume2 size={32} /> : <Camera size={20} />}
+                      </div>
+                      
+                      <span style={{ zIndex: 1, fontSize: '11px', fontWeight: '600', color: '#FFF', background: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: '4px', maxWidth: '90%', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                        {med.name || (med.type.toUpperCase())}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Elenco completo e dettagliato delle consumazioni */}
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>Dettagli della Prestazione (Drinks)</h3>

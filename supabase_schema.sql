@@ -58,6 +58,9 @@ CREATE TABLE public.sessions (
     duration INTEGER DEFAULT 60 NOT NULL, -- in minuti
     drank_with JSONB NOT NULL DEFAULT '[]'::jsonb,
     feeling TEXT NOT NULL,
+    location JSONB DEFAULT NULL, -- es. { name: "Cantina Do Mori", lat: 45.4382, lng: 12.3353 }
+    bac_level NUMERIC(3,2) DEFAULT 0.00 NOT NULL, -- tasso alcolico stimato nel sangue (g/l)
+    media JSONB DEFAULT NULL, -- array di oggetti { type: 'image' | 'video' | 'audio', url: string }
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

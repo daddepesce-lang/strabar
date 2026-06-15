@@ -344,6 +344,9 @@ export const db = {
       duration: parseInt(activityData.duration || 60),
       drank_with: activityData.drank_with || [],
       feeling: activityData.feeling || 'Normale',
+      location: activityData.location || null,
+      bac_level: parseFloat(activityData.bac_level || 0),
+      media: activityData.media || null,
       created_at: new Date().toISOString()
     };
 

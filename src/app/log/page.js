@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Beer, Plus, Minus, Calendar, Clock, Heart, Users, Save, Trash2 } from 'lucide-react';
+import { Beer, Plus, Minus, Calendar, Clock, Heart, Users, Save, Trash2, MapPin, Camera, Video, Mic, Volume2 } from 'lucide-react';
 
 const PRESET_DRINKS = [
   { name: 'Spritz (Campari/Aperol/Select)', abv: 11, volumeMl: 150, category: 'Aperitivo', units: 1.3 },
@@ -30,7 +30,14 @@ export default function LogActivityPage() {
   // Stato per taggare gli amici
   const [friendName, setFriendName] = useState('');
   const [taggedFriends, setTaggedFriends] = useState([]);
-  
+
+  // Nuovi stati per localizzazione e media
+  const [location, setLocation] = useState(null);
+  const [locationSearchQuery, setLocationSearchQuery] = useState('');
+  const [locationResults, setLocationResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState([]); // Array di { type, name, url, size }
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -99,6 +106,67 @@ export default function LogActivityPage() {
     setTaggedFriends(taggedFriends.filter(f => f !== name));
   };
 
+  const handleLocationSearch = async (e) => {
+    e.preventDefault();
+    if (!locationSearchQuery.trim()) return;
+    setSearchLoading(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationSearchQuery)}&limit=5`);
+      const data = await response.json();
+      setLocationResults(data.map(item => ({
+        name: item.display_name.split(',')[0],
+        address: item.display_name,
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon)
+      })));
+    } catch (err) {
+      console.error("Errore nella ricerca del bar:", err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleMediaUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const newMedia = [];
+
+    for (let file of files) {
+      // Limite dimensione: 10MB per foto/audio, 50MB per video
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024; // 50MB o 10MB
+      
+      if (file.size > maxSize) {
+        setError(`Il file ${file.name} supera il limite massimo di dimensione (${isVideo ? '50MB' : '10MB'})!`);
+        return;
+      }
+
+      let type = 'image';
+      if (file.type.startsWith('video/')) type = 'video';
+      else if (file.type.startsWith('audio/')) type = 'audio';
+
+      // Mock URL per simulazione upload client-side
+      const url = URL.createObjectURL(file);
+      newMedia.push({
+        type,
+        name: file.name,
+        url,
+        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+      });
+    }
+
+    setMediaFiles(prev => [...prev, ...newMedia]);
+    setError('');
+  };
+
+  const handleRemoveMedia = (idx) => {
+    setMediaFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Calcolo tasso alcolico stimato nel sangue (BAC g/l) basato su formula di Widmark
+  // Stima approssimativa: (grammi di alcol / (peso corporeo * coefficiente genere))
+  // Unità alcolica = 10g di alcol. Assumiamo un peso medio di 70kg e coefficiente medio 0.65.
+  const calculatedBac = parseFloat(((totalUnits * 10) / (70 * 0.68)).toFixed(2));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (loggedDrinks.length === 0) {
@@ -116,7 +184,10 @@ export default function LogActivityPage() {
       feeling,
       drinks: loggedDrinks,
       total_units: totalUnits,
-      drank_with: taggedFriends
+      drank_with: taggedFriends,
+      location: location,
+      bac_level: calculatedBac,
+      media: mediaFiles.map(m => ({ type: m.type, name: m.name, url: m.url }))
     };
 
     try {
@@ -211,6 +282,121 @@ export default function LogActivityPage() {
                   <option value="Postumi Assicurati">Postumi Assicurati 🤕</option>
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* NUOVO CARD: RICERCA E LOCALIZZAZIONE BAR */}
+          <div className="card">
+            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MapPin size={18} color="var(--primary)" />
+              Presso (Locale / Bar)
+            </h3>
+            
+            {location ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 94, 0, 0.08)', border: '1px dashed var(--primary)', padding: '12px 16px', borderRadius: '8px', marginBottom: '10px' }}>
+                <div>
+                  <strong style={{ color: '#FFF' }}>📍 {location.name}</strong>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{location.address}</div>
+                </div>
+                <button type="button" onClick={() => setLocation(null)} style={{ color: 'var(--error)', fontWeight: '600', fontSize: '12px', cursor: 'pointer' }}>Rimuovi</button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Cerca il nome del bar (es. Cantina Do Mori)..."
+                    value={locationSearchQuery}
+                    onChange={(e) => setLocationSearchQuery(e.target.value)}
+                  />
+                  <button type="button" onClick={handleLocationSearch} className="btn btn-secondary" style={{ padding: '0 20px' }} disabled={searchLoading}>
+                    {searchLoading ? 'Cerca...' : 'Cerca'}
+                  </button>
+                </div>
+
+                {locationResults.length > 0 && (
+                  <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {locationResults.map((res, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setLocation(res);
+                          setLocationResults([]);
+                          setLocationSearchQuery('');
+                        }}
+                        style={{ textAlign: 'left', padding: '10px 15px', borderBottom: idx < locationResults.length - 1 ? '1px solid var(--border-dark)' : 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                      >
+                        <strong style={{ fontSize: '14px', color: '#FFF' }}>{res.name}</strong>
+                        <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{res.address}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* NUOVO CARD: ALLEGATI MULTIMEDIALI (FOTO, VIDEO, AUDIO) */}
+          <div className="card">
+            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Camera size={18} color="var(--secondary)" />
+              Foto, Video e Audio della sessione
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
+              Carica foto e registrazioni vocali dell&apos;impresa. Limiti: <strong>10MB</strong> per immagini/audio, <strong>50MB</strong> per file video.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type="file"
+                  accept="image/*,video/*,audio/*"
+                  onChange={handleMediaUpload}
+                  multiple
+                  style={{ display: 'none' }}
+                  id="media-file-input"
+                />
+                <label
+                  htmlFor="media-file-input"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', border: '1px dashed var(--border-dark)', background: 'rgba(255,255,255,0.01)', padding: '20px', borderRadius: '12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                >
+                  <div style={{ display: 'flex', gap: '10px', color: 'var(--primary)' }}>
+                    <Camera size={20} />
+                    <Video size={20} />
+                    <Mic size={20} />
+                  </div>
+                  <strong style={{ fontSize: '14px', color: '#FFF' }}>Seleziona allegati multimediali</strong>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Trascina o clicca per caricare file</span>
+                </label>
+              </div>
+
+              {mediaFiles.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
+                  {mediaFiles.map((media, idx) => (
+                    <div key={idx} style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px', position: 'relative', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMedia(idx)}
+                        style={{ position: 'absolute', top: '4px', right: '6px', color: 'var(--error)', fontWeight: '800', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        ×
+                      </button>
+                      <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--primary)', marginTop: '8px' }}>
+                        {media.type === 'video' ? <Video size={24} /> : media.type === 'audio' ? <Volume2 size={24} /> : <Camera size={24} />}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#FFF', fontWeight: '600', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 4px' }}>
+                        {media.name}
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'var(--text-dark-secondary)' }}>
+                        {media.size}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
