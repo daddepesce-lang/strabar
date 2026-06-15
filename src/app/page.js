@@ -130,7 +130,7 @@ export default function FeedPage() {
   // SCHERMATA D'IMPATTO IN STILE STRAVA LANDING SE L'UTENTE NON E LOGGATO
   if (!currentUser) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '80px', marginTop: '-30px', paddingBottom: '80px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '90px', marginTop: '-30px', paddingBottom: '90px' }}>
         
         {/* HERO SECTION */}
         <section style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px', alignItems: 'center', minHeight: '80vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)' }}>
@@ -216,6 +216,131 @@ export default function FeedPage() {
           <div className="card" style={{ padding: '30px' }}>
             <h3 style={{ fontSize: '42px', fontWeight: '900', color: '#10B981' }}>0.0%</h3>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Giudizio Morale</p>
+          </div>
+        </section>
+
+        {/* DEFAULT VENICE ITINERARY PREVIEW SECTION */}
+        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '50px', alignItems: 'center', borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
+          <div>
+            <span style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              🗺️ Itinerario di Esempio di Default
+            </span>
+            <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', marginTop: '15px', marginBottom: '15px' }}>
+              Giro dei Bacari Storico a Venezia 🛶
+            </h2>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6', marginBottom: '25px' }}>
+              Esplora la laguna veneziana attraverso il nostro itinerario più celebre. Strabar ti permette di pianificare le tappe con coordinate reali del GPS dei pub, calcolare le calorie e le distanze, e tracciare le soste per l&apos;aperitivo.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px' }}>1</span>
+                <div>
+                  <strong style={{ color: '#FFF' }}>Cantina Do Mori</strong>
+                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Il locale più antico di Venezia (fondato nel 1462). Famoso per i cicheti &quot;francobolli&quot;.</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px' }}>2</span>
+                <div>
+                  <strong style={{ color: '#FFF' }}>Osteria All&apos;Arco</strong>
+                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Tappa leggendaria per i cicheti caldi preparati al momento con ingredienti freschi del mercato.</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px' }}>3</span>
+                <div>
+                  <strong style={{ color: '#FFF' }}>Osteria Al Mercà</strong>
+                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Famoso per lo spritz al Select o al Campari, servito al volo in piedi proprio davanti a Rialto.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ marginTop: '30px' }}>
+              <Link href="/routes" className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }}>
+                Vedi Tutti i Percorsi Sulla Mappa
+              </Link>
+            </div>
+          </div>
+
+          {/* Mappa visuale simulata con design premium */}
+          <div style={{ background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow)', position: 'relative', height: '420px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, background: '#11131c', borderRadius: '12px', position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid var(--border-dark)' }}>
+              
+              {/* Canali e Strade stilizzati con CSS */}
+              <div style={{ position: 'absolute', width: '100%', height: '40px', background: 'rgba(255,94,0,0.1)', top: '120px', transform: 'rotate(-5deg)' }}></div>
+              <div style={{ position: 'absolute', width: '50px', height: '100%', background: 'rgba(255,94,0,0.06)', left: '160px' }}></div>
+              
+              {/* Tracciato Percorso (Simulazione GPS) */}
+              <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                <path d="M 80 280 L 160 160 L 280 140 L 330 80" fill="none" stroke="var(--primary)" strokeWidth="4" strokeDasharray="6 4" />
+              </svg>
+
+              {/* Waypoint Markers */}
+              <div style={{ position: 'absolute', left: '80px', top: '280px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>1</div>
+                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>Do Mori</div>
+              </div>
+
+              <div style={{ position: 'absolute', left: '160px', top: '160px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>2</div>
+                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>All&apos;Arco</div>
+              </div>
+
+              <div style={{ position: 'absolute', left: '280px', top: '140px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>3</div>
+                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>Al Mercà</div>
+              </div>
+
+              <div style={{ position: 'absolute', left: '330px', top: '80px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>4</div>
+                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>Aziende Agricole</div>
+              </div>
+
+              <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(0,0,0,0.8)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--border-dark)' }}>
+                📍 Venezia, Italia • Distanza a piedi: <strong>1.4 km</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* LOCAL LEGEND / LEADERBOARD INFO SECTION */}
+        <section style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '50px', alignItems: 'center' }}>
+          <div style={{ background: 'linear-gradient(135deg, rgba(255, 176, 0, 0.05) 0%, rgba(22, 24, 34, 0.8) 100%)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '30px', boxShadow: 'var(--shadow)' }}>
+            <div style={{ color: 'var(--secondary)', marginBottom: '15px' }}>
+              <Trophy size={36} />
+            </div>
+            <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Leaderboard: Diventa &quot;Local Legend&quot; 👑</h3>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', lineHeight: '1.5', marginBottom: '20px' }}>
+              Su Strabar, ogni locale o bar reale ha la sua classifica e la sua leggenda locale (proprio come i segmenti di corsa su Strava). Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 Cantina Do Mori (Venezia)</span>
+                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Local Legend: <strong>@il_rossi</strong> (14 visite)</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 The French House (Londra)</span>
+                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Local Legend: <strong>@london_carl</strong> (8 visite)</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 Bar Albatross (Tokyo)</span>
+                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Local Legend: <strong>@sake_boss</strong> (11 visite)</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', width: 'fit-content' }}>
+              📈 Statistiche & Analisi
+            </span>
+            <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF' }}>
+              Non è alcolismo. È analisi statistica.
+            </h2>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6' }}>
+              Analizziamo ogni sessione generando una heatmap mensile delle tue bevute, proprio come la mappa di calore dei tuoi allenamenti. Tieni traccia dell&apos;andamento del fegato, controlla la gradazione media di ogni bevuta e analizza i tempi spesi a tavola per ottimizzare le tue performance sociali nel tempo.
+            </p>
           </div>
         </section>
 
