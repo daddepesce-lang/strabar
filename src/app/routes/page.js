@@ -544,11 +544,42 @@ out body;`;
         {/* LEFT SIDEBAR */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
 
+          {/* Tour Details Form (during creation) */}
+          {isCreating && currentUser?.is_premium && (
+            <div className="card" style={{ padding: '16px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Beer size={16} color="var(--primary)" /> 1. Dettagli del Tour
+              </h3>
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label className="form-label" style={{ fontSize: '10px' }}>Nome del Tour</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="es. Giro dei Bacari di Venezia"
+                  value={newRouteName}
+                  onChange={(e) => setNewRouteName(e.target.value)}
+                  style={{ height: '38px', fontSize: '13px' }}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '0' }}>
+                <label className="form-label" style={{ fontSize: '10px' }}>Descrizione</label>
+                <textarea
+                  className="form-control"
+                  placeholder="Descrivi l'itinerario e i locali consigliati..."
+                  value={newRouteDesc}
+                  onChange={(e) => setNewRouteDesc(e.target.value)}
+                  rows={2}
+                  style={{ fontSize: '13px', resize: 'vertical' }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Ricerca locale → aggiunta tappa (sempre visibile in creazione) */}
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ border: '1px solid var(--primary)', padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Search size={16} /> 1. Cerca un locale
+                <Search size={16} /> 2. Cerca un locale
               </h3>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
                 Scrivi il nome di un bar, pub o osteria (es. &quot;Cantina Do Mori Venezia&quot;) e aggiungilo come tappa.
@@ -644,37 +675,6 @@ out body;`;
                   </p>
                 )}
               </details>
-            </div>
-          )}
-
-          {/* Tour Details Form (during creation) */}
-          {isCreating && currentUser?.is_premium && (
-            <div className="card" style={{ padding: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Beer size={16} color="var(--primary)" /> 2. Dettagli del Tour
-              </h3>
-              <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Nome del Tour</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="es. Giro dei Bacari di Venezia"
-                  value={newRouteName}
-                  onChange={(e) => setNewRouteName(e.target.value)}
-                  style={{ height: '38px', fontSize: '13px' }}
-                />
-              </div>
-              <div className="form-group" style={{ marginBottom: '0' }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Descrizione</label>
-                <textarea
-                  className="form-control"
-                  placeholder="Descrivi l'itinerario e i locali consigliati..."
-                  value={newRouteDesc}
-                  onChange={(e) => setNewRouteDesc(e.target.value)}
-                  rows={2}
-                  style={{ fontSize: '13px', resize: 'vertical' }}
-                />
-              </div>
             </div>
           )}
 

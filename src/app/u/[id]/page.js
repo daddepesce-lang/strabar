@@ -110,24 +110,24 @@ export default function AthleteProfilePage({ params }) {
     );
   }
 
-  // Statistiche
-  const totalDrinks = activities.reduce((acc, a) => acc + (a.drinks || []).reduce((s, d) => s + d.qty, 0), 0);
-  const totalUnits = activities.reduce((acc, a) => acc + parseFloat(a.total_units || 0), 0);
-  const totalMinutes = activities.reduce((acc, a) => acc + (a.duration || 0), 0);
-
-  const drinkCounts = {};
-  activities.forEach((a) => (a.drinks || []).forEach((d) => { drinkCounts[d.name] = (drinkCounts[d.name] || 0) + d.qty; }));
-  let favoriteDrink = 'Nessuno';
-  let maxQty = 0;
-  Object.entries(drinkCounts).forEach(([name, qty]) => { if (qty > maxQty) { maxQty = qty; favoriteDrink = name; } });
-
-  const formatDate = (ds) => new Date(ds).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-
   // Lista combinata: sessioni create + sessioni in cui è taggato (marcate)
   const combinedActivities = [
     ...activities.map((a) => ({ ...a, _tagged: false })),
     ...taggedActivities.map((a) => ({ ...a, _tagged: true })),
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  // Statistiche (includono sia le sessioni create sia quelle in cui è stato taggato)
+  const totalDrinks = combinedActivities.reduce((acc, a) => acc + (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0), 0);
+  const totalUnits = combinedActivities.reduce((acc, a) => acc + parseFloat(a.total_units || 0), 0);
+  const totalMinutes = combinedActivities.reduce((acc, a) => acc + (a.duration || 0), 0);
+
+  const drinkCounts = {};
+  combinedActivities.forEach((a) => (a.drinks || []).forEach((d) => { drinkCounts[d.name] = (drinkCounts[d.name] || 0) + (d.qty || 0); }));
+  let favoriteDrink = 'Nessuno';
+  let maxQty = 0;
+  Object.entries(drinkCounts).forEach(([name, qty]) => { if (qty > maxQty) { maxQty = qty; favoriteDrink = name; } });
+
+  const formatDate = (ds) => new Date(ds).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

@@ -121,12 +121,14 @@ ALTER TABLE public.routes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "I percorsi sono pubblici" ON public.routes;
 CREATE POLICY "I percorsi sono pubblici" ON public.routes FOR SELECT USING (true);
 
+-- Salvataggio percorsi: basta essere autenticati e proprietari del record.
+-- NB: il "premium" è una prova gratuita di 90 giorni calcolata lato client (vedi db.getCurrentUser),
+-- NON un flag nel DB (profiles.is_premium resta FALSE), quindi NON va richiesto qui:
+-- altrimenti l'INSERT fallisce con 403 / "violates row-level security policy".
 DROP POLICY IF EXISTS "Gli utenti premium possono salvare percorsi" ON public.routes;
-CREATE POLICY "Gli utenti premium possono salvare percorsi"
-ON public.routes FOR INSERT WITH CHECK (
-    auth.uid() = user_id AND
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_premium = true)
-);
+DROP POLICY IF EXISTS "Gli utenti possono salvare percorsi" ON public.routes;
+CREATE POLICY "Gli utenti possono salvare percorsi"
+ON public.routes FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Gli utenti possono cancellare i propri percorsi" ON public.routes;
 CREATE POLICY "Gli utenti possono cancellare i propri percorsi"
