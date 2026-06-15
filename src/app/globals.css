@@ -1,26 +1,532 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Strava / Strabar Design System Tokens */
+  --primary: #FF5E00;         /* Neon Beer Orange */
+  --primary-hover: #E04D00;
+  --secondary: #FFB000;       /* Beer Gold */
+  --secondary-hover: #E09600;
+  
+  --bg-dark: #0B0C10;         /* Deep Pub Night */
+  --bg-card-dark: #161822;    /* Card background */
+  --bg-input-dark: #202433;
+  --border-dark: #2A2F42;
+  --text-dark-primary: #F3F4F6;
+  --text-dark-secondary: #9CA3AF;
+  
+  --bg-light: #F4F5F7;        /* Day Light Theme */
+  --bg-card-light: #FFFFFF;
+  --bg-input-light: #E5E7EB;
+  --border-light: #E5E7EB;
+  --text-light-primary: #1F2937;
+  --text-light-secondary: #4B5563;
+
+  /* State Colors */
+  --success: #10B981;
+  --error: #EF4444;
+  --info: #3B82F6;
+  --premium-gradient: linear-gradient(135deg, #FF5E00 0%, #FFB000 100%);
+  --premium-neon: 0 0 15px rgba(255, 94, 0, 0.4);
+
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --radius: 12px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Default Theme: Dark Pub Theme for Strabar */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-dark);
+  color: var(--text-dark-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Global Reset & Base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+/* Base Utility Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: 80px 20px 40px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Premium Layout Grid: Feed & Sidebar */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 30px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Navbar */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  background: rgba(22, 24, 34, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-dark);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 40px;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.nav-brand {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.5px;
+}
+
+.nav-brand span {
+  color: #FFFFFF;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.nav-link {
+  font-weight: 500;
+  color: var(--text-dark-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-link:hover, .nav-link.active {
+  color: var(--primary);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Cards & Components */
+.card {
+  background: var(--bg-card-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 94, 0, 0.3);
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #FFFFFF;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  box-shadow: var(--premium-neon);
+}
+
+.btn-secondary {
+  background: var(--bg-input-dark);
+  border: 1px solid var(--border-dark);
+  color: var(--text-dark-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--border-dark);
+}
+
+.btn-premium {
+  background: var(--premium-gradient);
+  color: #FFFFFF;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--premium-neon);
+}
+
+.btn-premium:hover {
+  filter: brightness(1.1);
+  transform: scale(1.03);
+}
+
+.btn-danger {
+  background: var(--error);
+  color: #FFFFFF;
+}
+
+.btn-danger:hover {
+  background: #D32F2F;
+}
+
+/* Forms */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-dark-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-input-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  color: var(--text-dark-primary);
+  font-size: 16px;
+  transition: var(--transition);
+}
+
+.form-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 8px rgba(255, 94, 0, 0.25);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+/* Feed Activities (Strava Style) */
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.activity-card {
+  border-radius: var(--radius);
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.activity-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.activity-avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: var(--premium-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: white;
+  font-size: 18px;
+  border: 2px solid var(--border-dark);
+}
+
+.activity-author {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-dark-primary);
+}
+
+.activity-meta {
+  font-size: 12px;
+  color: var(--text-dark-secondary);
+  margin-top: 2px;
+}
+
+.activity-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-dark-primary);
+  margin-bottom: 12px;
+}
+
+.activity-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 15px;
+  background: var(--bg-input-dark);
+  padding: 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  border: 1px solid var(--border-dark);
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-dark-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-dark-primary);
+}
+
+.stat-value.highlight {
+  color: var(--primary);
+}
+
+.activity-drinks-detail {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--text-dark-secondary);
+}
+
+.drink-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 94, 0, 0.1);
+  border: 1px solid rgba(255, 94, 0, 0.2);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.activity-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-top: 1px solid var(--border-dark);
+  padding-top: 12px;
+  font-size: 14px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dark-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.action-btn:hover {
+  color: var(--primary);
+}
+
+.action-btn.active {
+  color: var(--primary);
+}
+
+/* Calendar widget (Strava heat map / calendar) */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.calendar-day-header {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark-secondary);
+  padding-bottom: 5px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--bg-input-dark);
+  border: 1px solid var(--border-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dark-secondary);
+  position: relative;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.calendar-day:hover {
+  transform: scale(1.1);
+  z-index: 10;
+  border-color: var(--primary);
+}
+
+.calendar-day.drink-level-1 { background-color: rgba(255, 176, 0, 0.2); color: #FFF; border-color: rgba(255, 176, 0, 0.4); }
+.calendar-day.drink-level-2 { background-color: rgba(255, 94, 0, 0.4); color: #FFF; border-color: rgba(255, 94, 0, 0.6); }
+.calendar-day.drink-level-3 { background-color: rgba(255, 94, 0, 0.7); color: #FFF; border-color: var(--primary); }
+.calendar-day.drink-level-4 { background-color: #E04D00; color: #FFF; border-color: #FF5E00; box-shadow: 0 0 8px rgba(255, 94, 0, 0.5); }
+
+/* Leaflet maps container */
+.map-container {
+  height: 450px;
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-dark);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Paywall overlay */
+.paywall-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(11, 12, 16, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+}
+
+.paywall-badge {
+  background: var(--premium-gradient);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 15px;
+}
+
+/* Share card container for Canvas / download */
+.share-preview-card {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  aspect-ratio: 1/1;
+  background: linear-gradient(135deg, #1C1D24 0%, #0D0E12 100%);
+  border: 4px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.share-preview-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(255, 94, 0, 0.15) 0%, transparent 70%);
+  z-index: 0;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.badge-premium {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--premium-gradient);
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: white;
+  vertical-align: middle;
 }
