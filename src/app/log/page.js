@@ -272,7 +272,7 @@ export default function LogActivityPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '30px' }}>
+      <div className="log-grid">
         {/* Colonna Sinistra: Modulo principale */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="card">
@@ -494,7 +494,7 @@ export default function LogActivityPage() {
             {/* Custom Drink Add Form */}
             <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-dark-secondary)', marginBottom: '10px', textTransform: 'uppercase' }}>Aggiungi Drink Personalizzato</h4>
             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-              <form onSubmit={handleCustomDrinkAdd} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.2fr 1fr auto', gap: '10px', alignItems: 'end' }}>
+              <form onSubmit={handleCustomDrinkAdd} className="custom-drink-grid">
                 <div>
                   <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Nome Drink</label>
                   <input name="customName" type="text" className="form-control" placeholder="es. Grappa" style={{ height: '38px', fontSize: '13px' }} required />
