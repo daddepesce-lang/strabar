@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Download, Share2, ArrowLeft, Beer } from 'lucide-react';
+import { Download, Share2, ArrowLeft, Beer, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ShareActivityPage({ params }) {
@@ -190,6 +190,37 @@ export default function ShareActivityPage({ params }) {
     link.click();
   };
 
+  const shareCaption = () => {
+    const drinks = activity.drinks.reduce((acc, d) => acc + d.qty, 0);
+    return `🍻 ${activity.title}\n${drinks} drink • ${activity.total_units} U.A. • Stato: ${activity.feeling}\n\nTraccia le tue bevute su Strabar!`;
+  };
+
+  // Condivisione nativa con l'immagine (apre il foglio di sistema: WhatsApp, IG, ecc.)
+  const handleNativeShare = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
+      const file = new File([blob], 'strabar.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: shareCaption() });
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({ text: shareCaption() });
+        return;
+      }
+      handleDownload();
+    } catch {
+      /* annullato dall'utente */
+    }
+  };
+
+  // Condivisione testuale diretta su WhatsApp (l'immagine va scaricata e allegata a mano)
+  const handleWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareCaption())}`, '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -231,14 +262,33 @@ export default function ShareActivityPage({ params }) {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
-        <button 
-          onClick={handleDownload} 
-          className="btn btn-primary" 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <button
+          onClick={handleNativeShare}
+          className="btn btn-primary"
           style={{ padding: '14px', borderRadius: '30px', fontSize: '16px', width: '100%' }}
         >
-          <Download size={18} /> Scarica Immagine (HQ)
+          <Share2 size={18} /> Condividi (Instagram, WhatsApp…)
         </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <button
+            onClick={handleWhatsApp}
+            className="btn"
+            style={{ padding: '13px', borderRadius: '30px', fontSize: '15px', width: '100%', background: '#25D366', color: '#fff', fontWeight: 700 }}
+          >
+            <MessageCircle size={18} /> WhatsApp
+          </button>
+          <button
+            onClick={handleDownload}
+            className="btn btn-secondary"
+            style={{ padding: '13px', borderRadius: '30px', fontSize: '15px', width: '100%' }}
+          >
+            <Download size={18} /> Scarica
+          </button>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '4px' }}>
+          Su telefono &quot;Condividi&quot; allega direttamente l&apos;immagine. Il pulsante WhatsApp condivide il testo: per la foto, scaricala e allegala.
+        </p>
       </div>
     </div>
   );

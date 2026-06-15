@@ -117,12 +117,19 @@ export default function Navbar() {
         </Link>
 
         <div className="nav-links">
-          {navItems.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} className={`nav-link ${isActive(href) ? 'active' : ''}`}>
-              <Icon size={18} />
-              {label}
-            </Link>
-          ))}
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const isReg = href === '/log';
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={isReg ? `nav-link-register` : `nav-link ${isActive(href) ? 'active' : ''}`}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            );
+          })}
         </div>
 
         <div className="nav-actions">
@@ -213,8 +220,8 @@ export default function Navbar() {
           <MapPin size={20} />
           Luoghi
         </Link>
-        <Link href="/log" className={isActive('/log') ? 'active' : ''}>
-          <PlusCircle size={22} />
+        <Link href="/log" className={`mn-register ${isActive('/log') ? 'active' : ''}`}>
+          <PlusCircle size={24} />
           Registra
         </Link>
         <Link href="/events" className={isActive('/events') ? 'active' : ''}>

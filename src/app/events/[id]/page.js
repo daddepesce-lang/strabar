@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
-  Route as RouteIcon, Trash2, UserPlus, ExternalLink,
+  Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
 } from 'lucide-react';
 
 function formatEventDate(ds) {
@@ -32,6 +32,7 @@ export default function EventDetailPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [toInvite, setToInvite] = useState([]);
+  const [copied, setCopied] = useState(false);
 
   const load = async () => {
     try {
@@ -66,6 +67,28 @@ export default function EventDetailPage({ params }) {
     if (!confirm('Vuoi davvero eliminare questo evento?')) return;
     await db.deleteEvent(id);
     router.push('/events');
+  };
+
+  const shareText = () => {
+    const d = event?.date ? formatEventDate(event.date) : '';
+    return `🍻 ${event?.title || 'Evento Strabar'}\n📅 ${d}${event?.location_name ? `\n📍 ${event.location_name}` : ''}\n\nUnisciti a me su Strabar! ${window.location.href}`;
+  };
+
+  const shareEvent = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: event?.title, text: shareText() });
+        return;
+      } catch { /* utente ha annullato */ }
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const shareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText())}`, '_blank', 'noopener,noreferrer');
   };
 
   const sendInvites = async () => {
@@ -109,11 +132,19 @@ export default function EventDetailPage({ params }) {
       <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.06) 100%)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 800 }}>{event.title}</h1>
-          {isHost && (
-            <button onClick={handleDelete} className="btn btn-secondary" style={{ padding: '8px 14px', color: 'var(--error)' }}>
-              <Trash2 size={15} /> Elimina
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button onClick={shareWhatsApp} className="btn" style={{ padding: '8px 14px', fontSize: '13px', background: '#25D366', color: '#fff', fontWeight: 700 }}>
+              <MessageCircle size={15} /> WhatsApp
             </button>
-          )}
+            <button onClick={shareEvent} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px', color: copied ? 'var(--success)' : 'var(--text-dark-primary)' }}>
+              <Share2 size={15} /> {copied ? 'Link copiato!' : 'Condividi'}
+            </button>
+            {isHost && (
+              <button onClick={handleDelete} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px', color: 'var(--error)' }}>
+                <Trash2 size={15} /> Elimina
+              </button>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>

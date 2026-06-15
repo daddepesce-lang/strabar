@@ -3,8 +3,20 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video } from 'lucide-react';
+
+// Mappa Leaflet reale (caricata solo lato client)
+const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
+
+// Tappe reali del Giro dei Bacari di Venezia (coordinate GPS reali)
+const VENICE_TOUR = [
+  { name: 'Cantina Do Mori', lat: 45.4382, lng: 12.3353, note: 'Il più antico (1462). Imperdibile il francobollo.' },
+  { name: "Osteria All'Arco", lat: 45.4384, lng: 12.3355, note: 'Famoso per i cicheti caldi al momento.' },
+  { name: 'Osteria Al Mercà', lat: 45.4386, lng: 12.3360, note: 'Spritz al volo davanti al mercato di Rialto.' },
+  { name: 'Cantina Aziende Agricole', lat: 45.4430, lng: 12.3300, note: 'Ottimo vino della casa e polpettine.' },
+];
 
 export default function FeedPage() {
   const router = useRouter();
@@ -130,7 +142,7 @@ export default function FeedPage() {
   // SCHERMATA D'IMPATTO IN STILE STRAVA LANDING SE L'UTENTE NON E LOGGATO
   if (!currentUser) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '90px', marginTop: '-30px', paddingBottom: '90px' }}>
+      <div className="landing-section-gap" style={{ display: 'flex', flexDirection: 'column', gap: '90px', marginTop: '-30px', paddingBottom: '90px' }}>
         
         {/* HERO SECTION */}
         <section className="r-grid-2-1" style={{ alignItems: 'center', minHeight: '80vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)' }}>
@@ -138,14 +150,14 @@ export default function FeedPage() {
             <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '14px', fontWeight: '700', width: 'fit-content', textTransform: 'uppercase', letterSpacing: '1px' }}>
               🎖️ Il Social Network degli Atleti da Bar
             </span>
-            <h1 style={{ fontSize: '64px', fontWeight: '900', lineHeight: '1.1', letterSpacing: '-1.5px', color: '#FFF' }}>
+            <h1 className="hero-title">
               Traccia le tue bevute. <br />
               Sblocca <span style={{ background: 'var(--premium-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>nuovi record</span>.
             </h1>
-            <p style={{ fontSize: '20px', color: 'var(--text-dark-secondary)', lineHeight: '1.6', maxWidth: '600px' }}>
+            <p className="hero-para">
               Unisciti a milioni di atleti del terzo tempo in tutto il mondo. Traccia le tue sessioni, analizza le unità alcoliche (U.A.) assunte e sfida gli amici nelle classifiche dei pub di tutto il mondo.
             </p>
-            <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+            <div className="hero-btns">
               <Link href="/auth" className="btn btn-primary" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px', fontWeight: '700' }}>
                 Comincia Ora (Gratis)
               </Link>
@@ -200,27 +212,27 @@ export default function FeedPage() {
         </section>
 
         {/* STATS SECTION */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '30px', textAlign: 'center' }}>
-          <div className="card" style={{ padding: '30px' }}>
-            <h3 style={{ fontSize: '42px', fontWeight: '900', color: 'var(--primary)' }}>12+ Mln</h3>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Brindisi Registrati</p>
+        <section className="r-grid-stat-4" style={{ gap: '20px', textAlign: 'center' }}>
+          <div className="card" style={{ padding: '24px 16px' }}>
+            <div className="landing-stat-num" style={{ color: 'var(--primary)' }}>12+ Mln</div>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Brindisi Registrati</p>
           </div>
-          <div className="card" style={{ padding: '30px' }}>
-            <h3 style={{ fontSize: '42px', fontWeight: '900', color: '#FFF' }}>380k</h3>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Atleti Attivi</p>
+          <div className="card" style={{ padding: '24px 16px' }}>
+            <div className="landing-stat-num" style={{ color: '#FFF' }}>380k</div>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Atleti Attivi</p>
           </div>
-          <div className="card" style={{ padding: '30px' }}>
-            <h3 style={{ fontSize: '42px', fontWeight: '900', color: 'var(--secondary)' }}>80+ Paesi</h3>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Percorsi Pub Crawl</p>
+          <div className="card" style={{ padding: '24px 16px' }}>
+            <div className="landing-stat-num" style={{ color: 'var(--secondary)' }}>80+</div>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Paesi</p>
           </div>
-          <div className="card" style={{ padding: '30px' }}>
-            <h3 style={{ fontSize: '42px', fontWeight: '900', color: '#10B981' }}>0.0%</h3>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Giudizio Morale</p>
+          <div className="card" style={{ padding: '24px 16px' }}>
+            <div className="landing-stat-num" style={{ color: '#10B981' }}>0.0%</div>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Giudizio Morale</p>
           </div>
         </section>
 
         {/* DEFAULT VENICE ITINERARY PREVIEW SECTION */}
-        <section className="r-grid-1-2" style={{ borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
+        <section className="r-grid-1-2 landing-section-padded" style={{ borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
           <div>
             <span style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               🗺️ Itinerario di Esempio di Default
@@ -263,43 +275,11 @@ export default function FeedPage() {
             </div>
           </div>
 
-          {/* Mappa visuale simulata con design premium */}
-          <div style={{ background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow)', position: 'relative', height: '420px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, background: '#11131c', borderRadius: '12px', position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '1px solid var(--border-dark)' }}>
-              
-              {/* Canali e Strade stilizzati con CSS */}
-              <div style={{ position: 'absolute', width: '100%', height: '40px', background: 'rgba(255,94,0,0.1)', top: '120px', transform: 'rotate(-5deg)' }}></div>
-              <div style={{ position: 'absolute', width: '50px', height: '100%', background: 'rgba(255,94,0,0.06)', left: '160px' }}></div>
-              
-              {/* Tracciato Percorso (Simulazione GPS) */}
-              <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                <path d="M 80 280 L 160 160 L 280 140 L 330 80" fill="none" stroke="var(--primary)" strokeWidth="4" strokeDasharray="6 4" />
-              </svg>
-
-              {/* Waypoint Markers */}
-              <div style={{ position: 'absolute', left: '80px', top: '280px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>1</div>
-                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>Do Mori</div>
-              </div>
-
-              <div style={{ position: 'absolute', left: '160px', top: '160px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>2</div>
-                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>All&apos;Arco</div>
-              </div>
-
-              <div style={{ position: 'absolute', left: '280px', top: '140px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>3</div>
-                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>Al Mercà</div>
-              </div>
-
-              <div style={{ position: 'absolute', left: '330px', top: '80px', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                <div style={{ background: 'var(--primary)', width: '22px', height: '22px', borderRadius: '50%', color: '#FFF', fontSize: '11px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FFF' }}>4</div>
-                <div style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', color: '#FFF', whiteSpace: 'nowrap', marginTop: '4px' }}>Aziende Agricole</div>
-              </div>
-
-              <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(0,0,0,0.8)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--border-dark)' }}>
-                📍 Venezia, Italia • Distanza a piedi: <strong>1.4 km</strong>
-              </div>
+          {/* Mappa Leaflet REALE e interattiva del tour di Venezia */}
+          <div className="landing-fake-map" style={{ position: 'relative', height: '420px' }}>
+            <RouteMap waypoints={VENICE_TOUR} height="100%" />
+            <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(0,0,0,0.8)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--border-dark)', zIndex: 500, pointerEvents: 'none' }}>
+              📍 Venezia, Italia • <strong>4 tappe reali</strong>
             </div>
           </div>
         </section>
@@ -385,7 +365,7 @@ export default function FeedPage() {
         </section>
 
         {/* CTA CARD */}
-        <section className="card" style={{ background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+        <section className="card landing-cta-pad" style={{ background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
           <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', maxWidth: '600px' }}>
             Pronto per il prossimo record personale al tavolo?
           </h2>
@@ -627,7 +607,8 @@ export default function FeedPage() {
 
                   <Link href={`/share/${act.id}`} className="action-btn">
                     <Share2 size={18} />
-                    <span>Esporta Social</span>
+                    <span className="action-btn-label-long">Esporta Social</span>
+                    <span className="action-btn-label-short" style={{ display: 'none' }}>Esporta</span>
                   </Link>
                 </div>
 
