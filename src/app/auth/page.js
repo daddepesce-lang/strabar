@@ -41,9 +41,12 @@ export default function AuthPage() {
         await db.signup(email, password, displayName, username);
       }
       
+      // Piccolo timeout per dare tempo al cookie store e a Supabase di sincronizzarsi nel client
+      await new Promise((resolve) => setTimeout(resolve, 600));
       // Notifica la navbar dell'avvenuto accesso
       window.dispatchEvent(new Event('auth-change'));
       router.push('/');
+      router.refresh();
     } catch (err) {
       setError(err.message || "Qualcosa è andato storto. Riprova!");
     } finally {

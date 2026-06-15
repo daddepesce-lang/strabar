@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createBrowserClient } from '@/utils/supabase/client';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -6,7 +6,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || proc
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
 export const supabase = isSupabaseConfigured
-  ? createSupabaseClient(supabaseUrl, supabaseAnonKey)
+  ? createBrowserClient()
   : null;
 
 // --- MOCK DATABASE (localStorage based) ---
@@ -201,12 +201,16 @@ export const db = {
       if (!user) return null;
       
       // Get profile
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
-      return { ...user, ...profile };
+        .maybeSingle();
+        
+      if (error) {
+        console.error("Errore nel recupero del profilo:", error);
+      }
+      return { ...user, ...(profile || { username: user.email.split('@')[0], display_name: user.email.split('@')[0], is_premium: false }) };
     } else {
       if (typeof window === 'undefined') return null;
       const current = localStorage.getItem('sb_current_user');

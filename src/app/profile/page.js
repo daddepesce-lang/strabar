@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { db } from '@/lib/db';
 import { Calendar, User, Beer, Award, Heart, Shield, Clock, TrendingUp, Info } from 'lucide-react';
 
