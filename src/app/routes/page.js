@@ -21,6 +21,7 @@ export default function RoutesPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [routeSearchQuery, setRouteSearchQuery] = useState(''); // Filtro lista itinerari
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingBars, setIsLoadingBars] = useState(false);
@@ -157,6 +158,8 @@ export default function RoutesPage() {
   }, [loading]);
 
   // Recupera il percorso stradale reale (foot o driving) tramite OSRM API
+  // Nota: Utilizziamo il profilo 'driving' di OSRM come base per le strade reali per evitare errori 404/400 (il server pubblico supporta principalmente driving)
+  // e ricalcoliamo la durata a piedi sul lato client se travelMode è 'foot'.
   useEffect(() => {
     const activeWaypoints = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
     if (activeWaypoints.length < 2) {
@@ -169,15 +172,21 @@ export default function RoutesPage() {
     const fetchRoute = async () => {
       try {
         const coordString = activeWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
-        const mode = travelMode === 'driving' ? 'driving' : 'foot';
-        const res = await fetch(`https://router.project-osrm.org/route/v1/${mode}/${coordString}?overview=full&geometries=geojson`);
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`);
         const data = await res.json();
         if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
           const route = data.routes[0];
           const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
           setRouteCoordsState(coords);
-          setOsrmDistance(parseFloat((route.distance / 1000).toFixed(2)));
-          setOsrmDuration(Math.round(route.duration / 60));
+          const distKm = parseFloat((route.distance / 1000).toFixed(2));
+          setOsrmDistance(distKm);
+          
+          if (travelMode === 'foot') {
+            // Calcolo tempo a piedi: ~4.5 km/h
+            setOsrmDuration(Math.round((distKm / 4.5) * 60));
+          } else {
+            setOsrmDuration(Math.round(route.duration / 60));
+          }
         } else {
           const straightCoords = activeWaypoints.map(wp => [wp.lat, wp.lng]);
           setRouteCoordsState(straightCoords);
@@ -244,6 +253,7 @@ export default function RoutesPage() {
 
     // Draw dashed polyline connecting tour stops
     if (routeCoordsState && routeCoordsState.length > 1) {
+      mapInstance.current.invalidateSize(); // Corregge dimensioni grigie di Leaflet in React
       polylineRef.current = L.polyline(routeCoordsState, {
         color: '#FF5E00',
         weight: 4,
@@ -546,6 +556,18 @@ out body;`;
   const travelTime = osrmDuration > 0 ? osrmDuration : Math.round((routeDistance / 4.5) * 60);
   const routeTotalUnits = currentActiveWaypoints.reduce((s, wp) => s + (parseFloat(wp.units) || 0), 0);
 
+  const filteredRoutes = routes.filter(route => {
+    const q = routeSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const nameMatch = route.name?.toLowerCase().includes(q);
+    const descMatch = route.description?.toLowerCase().includes(q);
+    const waypointMatch = route.waypoints?.some(wp => 
+      wp.name?.toLowerCase().includes(q) || 
+      wp.address?.toLowerCase().includes(q)
+    );
+    return nameMatch || descMatch || waypointMatch;
+  });
+
   // --- LOADING STATE ---
   if (loading) {
     return (
@@ -566,7 +588,7 @@ out body;`;
         <div>
           <h1 style={{ fontSize: '32px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Map size={32} color="var(--primary)" />
-            Pianificatore Itinerari & Bacaro Tour 🗺️
+            Pianificatore Itinerari & Pub Crawl 🗺️
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
             Scopri bar e pub in tutto il mondo e crea il tuo percorso ideale per brindare.
@@ -828,15 +850,56 @@ out body;`;
           {!isCreating && (
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-                Itinerari Disponibili 🇮🇹
+                Itinerari Disponibili 🍺
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {routes.length === 0 ? (
+
+              {/* Barra di ricerca per area/città/nome */}
+              <div style={{ position: 'relative', marginBottom: '15px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Cerca per città, area o nome..."
+                  value={routeSearchQuery}
+                  onChange={(e) => setRouteSearchQuery(e.target.value)}
+                  style={{
+                    paddingLeft: '32px',
+                    height: '34px',
+                    fontSize: '12px',
+                    background: 'var(--bg-input-dark)',
+                    border: '1px solid var(--border-dark)',
+                    borderRadius: '8px'
+                  }}
+                />
+                {routeSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setRouteSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-dark-secondary)',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      padding: 0
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto', paddingRight: '2px' }}>
+                {filteredRoutes.length === 0 ? (
                   <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
-                    Nessun tour salvato al momento. Crea il tuo primo itinerario!
+                    {routes.length === 0 ? 'Nessun tour salvato al momento. Crea il tuo primo itinerario!' : 'Nessun itinerario corrisponde alla ricerca.'}
                   </p>
                 ) : (
-                  routes.map((route) => {
+                  filteredRoutes.map((route) => {
                     const isSelected = selectedRoute?.id === route.id;
                     return (
                       <button
@@ -1005,7 +1068,7 @@ out body;`;
             <div className="paywall-overlay">
               <span className="paywall-badge">Strabar Summit 🏔️</span>
               <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#FFF', marginBottom: '12px' }}>
-                Pianifica i tuoi Bacaro Tour
+                Pianifica i tuoi Pub Crawl
               </h2>
               <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', maxWidth: '420px', marginBottom: '25px', lineHeight: '1.5' }}>
                 Il pianificatore avanzato di itinerari con mappatura automatica dei bar reali è una funzionalità Premium. Cerca bar in tutto il mondo, crea percorsi personalizzati e salvali.

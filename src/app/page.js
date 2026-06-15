@@ -511,7 +511,7 @@ export default function FeedPage() {
           <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '10px' }}>🍻 Unisciti alla Community di Strabar!</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginBottom: '20px', maxWidth: '500px', margin: '0 auto 20px auto' }}>
-              Registra le tue bevute, sfida i tuoi amici in classifica e pianifica i tuoi Bacaro Tour preferiti.
+              Registra le tue bevute, sfida i tuoi amici in classifica e pianifica i tuoi percorsi preferiti.
             </p>
             <Link href="/auth" className="btn btn-primary">
               Crea un Account Gratuito
@@ -781,7 +781,7 @@ export default function FeedPage() {
             Sfida del Mese
           </h3>
           <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.4', marginBottom: '15px' }}>
-            <strong>Strabar Giro d&apos;Italia:</strong> Completa almeno 3 Bacaro Tour differenti nel mese di Giugno e sblocca il badge digitale esclusivo &quot;Gomito di Bronzo&quot;.
+            <strong>Strabar Giro d&apos;Italia:</strong> Completa almeno 3 percorsi differenti nel mese di Giugno e sblocca il badge digitale esclusivo &quot;Gomito di Bronzo&quot;.
           </p>
           <Link href="/routes" className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '8px 0', fontSize: '13px' }}>
             Trova Percorsi

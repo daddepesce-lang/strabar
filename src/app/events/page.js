@@ -214,7 +214,7 @@ export default function EventsPage() {
 
             <div className="form-group">
               <label className="form-label">Titolo</label>
-              <input className="form-control" placeholder="es. Bacaro Tour del Sabato" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input className="form-control" placeholder="es. Pub Crawl del Sabato" value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
 
             <div className="form-row">

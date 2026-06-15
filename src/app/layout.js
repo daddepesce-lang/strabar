@@ -3,8 +3,8 @@ import Navbar from "@/components/Navbar";
 
 export const metadata = {
   title: "Strabar | Lo Strava delle Bevute",
-  description: "Traccia le tue sessioni alcoliche, tagga gli amici, pianifica percorsi (Bacaro Tour) ed esporta le tue performance per i social media.",
-  keywords: "strabar, strava delle bevute, bacaro tour, pub crawl, alcol tracker",
+  description: "Traccia le tue sessioni alcoliche, tagga gli amici, pianifica percorsi (Pub Crawl) ed esporta le tue performance per i social media.",
+  keywords: "strabar, strava delle bevute, pub crawl, bar crawl, alcol tracker",
 };
 
 export const viewport = {

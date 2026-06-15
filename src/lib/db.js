@@ -599,7 +599,7 @@ export const db = {
     }
   },
 
-  // --- ROUTES (BACARO TOURS) ---
+  // --- ROUTES (PUB CRAWLS) ---
   async getRoutes() {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase

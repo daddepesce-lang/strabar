@@ -64,7 +64,7 @@ export default function PremiumPage() {
           <ShieldCheck size={50} color="var(--success)" style={{ margin: '0 auto 15px auto' }} />
           <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Abbonamento Attivato! 🍻</h2>
           <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '20px' }}>
-            Benvenuto in Strabar Premium! Ora hai accesso completo a tutte le mappe di pianificazione dei Bacaro Tour e ai grafici avanzati.
+            Benvenuto in Strabar Premium! Ora hai accesso completo a tutte le mappe di pianificazione dei percorsi e ai grafici avanzati.
           </p>
           <button onClick={() => router.push('/routes')} className="btn btn-primary">
             Vai a Pianificare Percorsi
@@ -80,9 +80,9 @@ export default function PremiumPage() {
               <Map size={24} />
             </div>
             <div>
-              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Pianificatore Bacaro Tour Illimitato 🗺️</h4>
+              <h4 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Pianificatore Itinerari Pub Crawl Illimitato 🗺️</h4>
               <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: '1.4' }}>
-                Disegna itinerari pub crawl personalizzati sulle mappe Leaflet. Salva le tappe nei bar storici veneziani o nelle tue zone preferite.
+                Disegna itinerari pub crawl personalizzati sulle mappe Leaflet. Salva le tappe nei bar o nelle tue zone preferite.
               </p>
             </div>
           </div>
