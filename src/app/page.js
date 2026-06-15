@@ -13,6 +13,7 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [newCommentText, setNewCommentText] = useState({});
   const [activeCommentsSection, setActiveCommentsSection] = useState({});
+  const [selectedActivity, setSelectedActivity] = useState(null);
 
   const loadFeed = async () => {
     try {
@@ -126,6 +127,155 @@ export default function FeedPage() {
     );
   }
 
+  // SCHERMATA D'IMPATTO IN STILE STRAVA LANDING SE L'UTENTE NON E LOGGATO
+  if (!currentUser) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '80px', marginTop: '-30px', paddingBottom: '80px' }}>
+        
+        {/* HERO SECTION */}
+        <section style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '40px', alignItems: 'center', minHeight: '80vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+            <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '14px', fontWeight: '700', width: 'fit-content', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              🎖️ Il Social Network degli Atleti da Bar
+            </span>
+            <h1 style={{ fontSize: '64px', fontWeight: '900', lineHeight: '1.1', letterSpacing: '-1.5px', color: '#FFF' }}>
+              Traccia le tue bevute. <br />
+              Sblocca <span style={{ background: 'var(--premium-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>nuovi record</span>.
+            </h1>
+            <p style={{ fontSize: '20px', color: 'var(--text-dark-secondary)', lineHeight: '1.6', maxWidth: '600px' }}>
+              Unisciti a milioni di atleti del terzo tempo in tutto il mondo. Traccia le tue sessioni, analizza le unità alcoliche (U.A.) assunte e sfida gli amici nelle classifiche dei pub di tutto il mondo.
+            </p>
+            <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+              <Link href="/auth" className="btn btn-primary" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px', fontWeight: '700' }}>
+                Comincia Ora (Gratis)
+              </Link>
+              <Link href="/routes" className="btn btn-secondary" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px' }}>
+                Esplora i Percorsi
+              </Link>
+            </div>
+          </div>
+
+          {/* Grafica del telefono / mockup di performance */}
+          <div style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.9) 0%, rgba(255, 94, 0, 0.15) 100%)', border: '2px solid var(--primary)', borderRadius: '24px', padding: '30px', boxShadow: '0px 10px 40px rgba(255, 94, 0, 0.15)', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', background: 'var(--primary)', filter: 'blur(80px)', borderRadius: '50%', opacity: 0.4 }}></div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="activity-avatar" style={{ border: '2px solid var(--primary)', width: '38px', height: '38px', fontSize: '14px' }}>M</div>
+                <div>
+                  <h4 style={{ fontSize: '14px', fontWeight: '700' }}>Marco Rossi</h4>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Oggi alle 19:42</span>
+                </div>
+              </div>
+              <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
+            </div>
+
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Aperitivo Sforzo Massimo 🏆</h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-dark)' }}>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>Drink</span>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--primary)' }}>5</div>
+              </div>
+              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)', borderRight: '1px solid var(--border-dark)' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>Tempo</span>
+                <div style={{ fontSize: '18px', fontWeight: '800' }}>2h 15m</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>Carico</span>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--secondary)' }}>5.2 UA</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              <span className="drink-tag" style={{ fontSize: '11px' }}>🍺 3x Birra Chiara</span>
+              <span className="drink-tag" style={{ fontSize: '11px' }}>🍹 2x Spritz Campari</span>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+              <span>👥 Con Luca e Francesca</span>
+              <span style={{ color: 'var(--primary)', fontWeight: '700' }}>Stato: Molto Caldo 🔥</span>
+            </div>
+          </div>
+        </section>
+
+        {/* STATS SECTION */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '30px', textAlign: 'center' }}>
+          <div className="card" style={{ padding: '30px' }}>
+            <h3 style={{ fontSize: '42px', fontWeight: '900', color: 'var(--primary)' }}>12+ Mln</h3>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Brindisi Registrati</p>
+          </div>
+          <div className="card" style={{ padding: '30px' }}>
+            <h3 style={{ fontSize: '42px', fontWeight: '900', color: '#FFF' }}>380k</h3>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Atleti Attivi</p>
+          </div>
+          <div className="card" style={{ padding: '30px' }}>
+            <h3 style={{ fontSize: '42px', fontWeight: '900', color: 'var(--secondary)' }}>80+ Paesi</h3>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Percorsi Pub Crawl</p>
+          </div>
+          <div className="card" style={{ padding: '30px' }}>
+            <h3 style={{ fontSize: '42px', fontWeight: '900', color: '#10B981' }}>0.0%</h3>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '5px' }}>Giudizio Morale</p>
+          </div>
+        </section>
+
+        {/* FEATURES GRID SECTION */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF' }}>Le Caratteristiche del Campione 🥇</h2>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '18px', marginTop: '10px' }}>Tutte le funzionalità di cui hai bisogno per tracciare le tue sessioni sociali.</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '35px' }}>
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
+              <div style={{ color: 'var(--primary)', background: 'rgba(255, 94, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
+                <Beer size={28} />
+              </div>
+              <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Analizzatore del Carico (U.A.)</h3>
+              <p style={{ color: 'var(--text-dark-secondary)', lineHeight: '1.6', fontSize: '15px' }}>
+                Traccia l&apos;alcol in base alle Unità Alcoliche (U.A.) reali dei singoli drink, calcolate secondo gradazione (ABV) e volume del bicchiere. Monitora lo sforzo e capisci quando fermarti.
+              </p>
+            </div>
+
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
+              <div style={{ color: 'var(--secondary)', background: 'rgba(255, 176, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
+                <Trophy size={28} />
+              </div>
+              <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Classifiche Club & Sfide</h3>
+              <p style={{ color: 'var(--text-dark-secondary)', lineHeight: '1.6', fontSize: '15px' }}>
+                Competi nelle classifiche settimanali del club. Guadagna badge digitali esclusivi completando le sfide del mese, proprio come i badge del dislivello su Strava.
+              </p>
+            </div>
+
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
+              <div style={{ color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
+                <Flame size={28} />
+              </div>
+              <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Mappe & Ricerca Locali</h3>
+              <p style={{ color: 'var(--text-dark-secondary)', lineHeight: '1.6', fontSize: '15px' }}>
+                Crea itinerari personalizzati integrati con OpenStreetMap. Cerca bar reali ovunque ti trovi nel mondo, pianifica le tappe e calcola le distanze di camminata tra un cicchetto e l&apos;altro.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA CARD */}
+        <section className="card" style={{ background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+          <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', maxWidth: '600px' }}>
+            Pronto per il prossimo record personale al tavolo?
+          </h2>
+          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '17px', maxWidth: '500px', lineHeight: '1.5' }}>
+            Crea il tuo profilo atleta, tagga i tuoi compagni di brindisi e inizia subito ad analizzare le tue sessioni.
+          </p>
+          <Link href="/auth" className="btn btn-primary" style={{ padding: '16px 36px', borderRadius: '30px', fontSize: '18px', fontWeight: '700', marginTop: '10px' }}>
+            Registrati Subito Gratis
+          </Link>
+        </section>
+
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
@@ -189,9 +339,9 @@ export default function FeedPage() {
                   </div>
                 </div>
 
-                <h2 className="activity-title">{act.title}</h2>
+                <h2 className="activity-title" style={{ cursor: 'pointer' }} onClick={() => setSelectedActivity(act)}>{act.title}</h2>
                 {act.description && (
-                  <p style={{ color: 'var(--text-dark-primary)', fontSize: '15px', marginBottom: '16px', lineHeight: '1.5' }}>
+                  <p style={{ color: 'var(--text-dark-primary)', fontSize: '15px', marginBottom: '16px', lineHeight: '1.5', cursor: 'pointer' }} onClick={() => setSelectedActivity(act)}>
                     {act.description}
                   </p>
                 )}
@@ -392,6 +542,102 @@ export default function FeedPage() {
           </Link>
         </div>
       </div>
+
+      {/* MODAL DETTAGLI ATTIVITA (STRAVA WORKOUT STYLE) */}
+      {selectedActivity && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedActivity(null)}>
+          <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 94, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            
+            {/* Header del Modal */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="activity-avatar" style={{ width: '45px', height: '45px', fontSize: '18px', border: '2px solid var(--primary)' }}>
+                  {selectedActivity.profiles?.display_name ? selectedActivity.profiles.display_name.charAt(0) : 'U'}
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>{selectedActivity.profiles?.display_name || 'Atleta Strabar'}</h4>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{formatDate(selectedActivity.created_at)}</span>
+                </div>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setSelectedActivity(null)}>×</button>
+            </div>
+
+            {/* Titolo e Descrizione */}
+            <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>{selectedActivity.title}</h2>
+            {selectedActivity.description && (
+              <p style={{ color: 'var(--text-dark-primary)', fontSize: '16px', lineHeight: '1.6', marginBottom: '20px', background: 'rgba(255, 255, 255, 0.02)', padding: '12px', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
+                {selectedActivity.description}
+              </p>
+            )}
+
+            {/* Performance Stats (Griglia Strava-style) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '25px', background: 'rgba(255, 94, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 94, 0, 0.15)' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Drink Totali</div>
+                <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
+                  {selectedActivity.drinks.reduce((acc, d) => acc + d.qty, 0)}
+                </div>
+              </div>
+              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)', borderRight: '1px solid var(--border-dark)' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Tempo Sforzo</div>
+                <div style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginTop: '8px' }}>
+                  {Math.floor(selectedActivity.duration / 60)}h {selectedActivity.duration % 60}m
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Carico Alcolico</div>
+                <div style={{ fontSize: '26px', fontWeight: '800', color: 'var(--secondary)', marginTop: '5px' }}>
+                  {selectedActivity.total_units} <span style={{ fontSize: '14px', fontWeight: '600' }}>U.A.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Elenco completo e dettagliato delle consumazioni */}
+            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>Dettagli della Prestazione (Drinks)</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
+              {selectedActivity.drinks.map((drink, idx) => {
+                const calculatedUnits = (drink.units || (drink.qty * 1.5));
+                return (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Beer size={18} color="var(--primary)" />
+                      <div>
+                        <strong style={{ fontSize: '15px' }}>{drink.name}</strong>
+                        <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Gradazione: {drink.abv}%</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{drink.qty} bicchieri</div>
+                      <div style={{ fontSize: '11px', color: 'var(--primary)' }}>~ {calculatedUnits.toFixed(1)} Unità</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Social details (Compagnia e Cheers) */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '20px', fontSize: '14px' }}>
+              {selectedActivity.drank_with && selectedActivity.drank_with.length > 0 ? (
+                <div style={{ color: 'var(--text-dark-secondary)' }}>
+                  👥 Compagni di allenamento: <strong style={{ color: '#FFF' }}>{selectedActivity.drank_with.join(', ')}</strong>
+                </div>
+              ) : (
+                <div style={{ color: 'var(--text-dark-secondary)' }}>🏃 Allenamento Solitario</div>
+              )}
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ color: 'var(--text-dark-secondary)' }}>
+                  🔥 Livello Sforzo: <strong style={{ color: 'var(--primary)' }}>{selectedActivity.feeling}</strong>
+                </span>
+                <Link href={`/share/${selectedActivity.id}`} className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => setSelectedActivity(null)}>
+                  <Share2 size={14} /> Esporta
+                </Link>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
