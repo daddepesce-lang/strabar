@@ -16,6 +16,7 @@ export default function AthleteProfilePage({ params }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [taggedActivities, setTaggedActivities] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -43,6 +44,10 @@ export default function AthleteProfilePage({ params }) {
       setActivities(acts);
       setFollowing(fol);
       setFollowers(fers);
+      // Attività in cui questo atleta è stato taggato da altri
+      if (prof?.username) {
+        setTaggedActivities(await db.getTaggedActivities(prof.username, id));
+      }
 
       if (me) {
         const followingMe = await db.getFollowing(me.id);
@@ -117,6 +122,12 @@ export default function AthleteProfilePage({ params }) {
   Object.entries(drinkCounts).forEach(([name, qty]) => { if (qty > maxQty) { maxQty = qty; favoriteDrink = name; } });
 
   const formatDate = (ds) => new Date(ds).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+
+  // Lista combinata: sessioni create + sessioni in cui è taggato (marcate)
+  const combinedActivities = [
+    ...activities.map((a) => ({ ...a, _tagged: false })),
+    ...taggedActivities.map((a) => ({ ...a, _tagged: true })),
+  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -197,18 +208,33 @@ export default function AthleteProfilePage({ params }) {
           <Users size={20} color="var(--primary)" /> Attività di {profile.display_name}
         </h2>
 
-        {activities.length === 0 ? (
+        {combinedActivities.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '34px', color: 'var(--text-dark-secondary)' }}>
             Questo atleta non ha ancora registrato sessioni. 🍻
           </div>
         ) : (
           <div className="feed-list">
-            {activities.map((act) => (
-              <article key={act.id} className="card activity-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h3 className="activity-title" style={{ margin: 0 }}>{act.title}</h3>
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', flexShrink: 0, marginLeft: '10px' }}>{formatDate(act.created_at)}</span>
+            {combinedActivities.map((act) => (
+              <article key={`${act._tagged ? 'tag' : 'own'}-${act.id}`} className="card activity-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                  <h3 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.title}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    {act._tagged && (
+                      <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--secondary)', background: 'rgba(255,176,0,0.12)', padding: '3px 8px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        <Users size={11} /> Taggato
+                      </span>
+                    )}
+                    <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{formatDate(act.created_at)}</span>
+                  </div>
                 </div>
+                {act._tagged && (
+                  <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>
+                    Sessione di{' '}
+                    <Link href={`/u/${act.user_id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {act.profiles?.display_name || 'un atleta'}
+                    </Link>
+                  </p>
+                )}
                 {act.description && (
                   <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginBottom: '12px' }}>{act.description}</p>
                 )}

@@ -875,6 +875,18 @@ export const db = {
     return all.filter(a => a.user_id === userId);
   },
 
+  // Attività in cui l'utente è stato TAGGATO (drank_with contiene "@username"),
+  // escluse quelle che ha creato lui stesso. Usato per mostrarle sul suo profilo.
+  async getTaggedActivities(username, excludeUserId = null) {
+    if (!username) return [];
+    const needle = `(@${username})`.toLowerCase();
+    const all = await this.getActivities();
+    return all.filter((a) => {
+      if (excludeUserId && a.user_id === excludeUserId) return false;
+      return (a.drank_with || []).some((d) => String(d).toLowerCase().includes(needle));
+    });
+  },
+
   // --- FRIENDS HELPERS ---
   async isFollowing(targetId) {
     const user = await this.getCurrentUser();
