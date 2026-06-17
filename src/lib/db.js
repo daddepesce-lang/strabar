@@ -839,6 +839,129 @@ export const db = {
     return parseFloat(finalBac.toFixed(2));
   },
 
+  async updateActivity(activityId, updatedData) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('sessions')
+        .update(updatedData)
+        .eq('id', activityId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } else {
+      const activities = getStored('sb_activities');
+      const idx = activities.findIndex(a => a.id === activityId);
+      if (idx === -1) throw new Error("Attività non trovata!");
+      
+      activities[idx] = {
+        ...activities[idx],
+        ...updatedData
+      };
+      setStored('sb_activities', activities);
+      return activities[idx];
+    }
+  },
+
+  getDrinksWithTimestamps(drinks, created_at, durationMinutes) {
+    if (!drinks) return [];
+    const endTime = new Date(created_at || Date.now());
+    const startTime = new Date(endTime.getTime() - (durationMinutes || 120) * 60 * 1000);
+    
+    return drinks.map((d, index) => {
+      if (d.added_at) return { ...d };
+      
+      // Spazia i drink senza timestamp uniformemente
+      const numDrinks = drinks.length;
+      const offsetMs = numDrinks > 1 
+        ? ((durationMinutes || 120) * 60 * 1000 * index) / (numDrinks - 1)
+        : 0;
+      return {
+        ...d,
+        qty: d.qty || 1,
+        added_at: new Date(startTime.getTime() + offsetMs).toISOString()
+      };
+    });
+  },
+
+  calculateBACTimeline(drinks, created_at, durationMinutes) {
+    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
+    if (parsedDrinks.length === 0) return [];
+
+    const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
+    const startTime = new Date(Math.min(...timestamps));
+    const maxDrinkTime = Math.max(...timestamps);
+    const createdAtTime = new Date(created_at || Date.now()).getTime();
+    
+    // L'end time è la fine della sessione o il momento dell'ultimo drink, più 2 ore per vedere lo smaltimento
+    const endTime = new Date(Math.max(maxDrinkTime, createdAtTime) + 2 * 60 * 60 * 1000);
+    
+    const totalDurationMs = endTime.getTime() - startTime.getTime();
+    const numSteps = 5;
+    const timepoints = [];
+
+    for (let i = 0; i < numSteps; i++) {
+      const T = new Date(startTime.getTime() + (totalDurationMs * i) / (numSteps - 1));
+      
+      // Calcoliamo il BAC a questo punto temporale T
+      let totalAbsorbedGrams = 0;
+      parsedDrinks.forEach(d => {
+        const drinkTime = new Date(d.added_at).getTime();
+        const dtHours = (T.getTime() - drinkTime) / (1000 * 60 * 60);
+        
+        if (dtHours >= 0) {
+          // Tasso di assorbimento: picco a 30 minuti (0.5 ore)
+          const absorbedFraction = Math.min(1, dtHours / 0.5);
+          const drinkUnits = (d.units || 1.3) * (d.qty || 1);
+          totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
+        }
+      });
+
+      const hoursSinceStart = (T.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      const totalEliminatedGrams = 7.14 * hoursSinceStart; // 0.15 g/l * 70kg * 0.68 r = 7.14g all'ora
+      
+      const netGramsInBlood = Math.max(0, totalAbsorbedGrams - totalEliminatedGrams);
+      const bac = netGramsInBlood / (70 * 0.68); // peso 70 kg, r = 0.68
+
+      timepoints.push({
+        time: T,
+        label: T.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        val: Math.max(0, parseFloat(bac.toFixed(2)))
+      });
+    }
+
+    return timepoints;
+  },
+
+  calculateCurrentBAC(drinks, created_at, durationMinutes) {
+    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
+    if (parsedDrinks.length === 0) return 0;
+
+    const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
+    const startTime = new Date(Math.min(...timestamps));
+    const now = new Date();
+    
+    let totalAbsorbedGrams = 0;
+    parsedDrinks.forEach(d => {
+      const drinkTime = new Date(d.added_at).getTime();
+      const dtHours = (now.getTime() - drinkTime) / (1000 * 60 * 60);
+      
+      if (dtHours >= 0) {
+        const absorbedFraction = Math.min(1, dtHours / 0.5);
+        const drinkUnits = (d.units || 1.3) * (d.qty || 1);
+        totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
+      }
+    });
+
+    const hoursSinceStart = (now.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    const totalEliminatedGrams = 7.14 * hoursSinceStart;
+    
+    const netGramsInBlood = Math.max(0, totalAbsorbedGrams - totalEliminatedGrams);
+    const bac = netGramsInBlood / (70 * 0.68);
+    
+    return parseFloat(bac.toFixed(2));
+  },
+
   // --- SOCIAL (FOLLOWERS / FOLLOWING) ---
   async getAllProfiles() {
     if (isSupabaseConfigured) {

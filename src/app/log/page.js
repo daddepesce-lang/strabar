@@ -336,12 +336,36 @@ export default function LogActivityPage() {
       finalDescription += `\n\n🛣️ Percorso completato: ${activeRoute.name}\n${visitedSummary}`;
     }
 
+    // Espandiamo i drink e impostiamo i timestamp uniformi basati sulla durata e la data di creazione
+    const now = new Date();
+    const startTime = new Date(now.getTime() - duration * 60 * 1000);
+    const expandedDrinks = [];
+    
+    loggedDrinks.forEach(drink => {
+      for (let i = 0; i < drink.qty; i++) {
+        expandedDrinks.push({
+          name: drink.name,
+          abv: drink.abv,
+          units: drink.units,
+          qty: 1
+        });
+      }
+    });
+
+    const numDrinks = expandedDrinks.length;
+    expandedDrinks.forEach((d, index) => {
+      const offsetMs = numDrinks > 1
+        ? (duration * 60 * 1000 * index) / (numDrinks - 1)
+        : 0;
+      d.added_at = new Date(startTime.getTime() + offsetMs).toISOString();
+    });
+
     const activityData = {
       title: title || 'Aperitivo Strabar 🍻',
       description: finalDescription,
       duration,
       feeling,
-      drinks: loggedDrinks,
+      drinks: expandedDrinks,
       total_units: totalUnits,
       drank_with: taggedFriends,
       location: location,

@@ -79,6 +79,10 @@ DROP POLICY IF EXISTS "Gli utenti possono eliminare le proprie sessioni" ON publ
 CREATE POLICY "Gli utenti possono eliminare le proprie sessioni"
 ON public.sessions FOR DELETE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Gli utenti possono modificare le proprie sessioni" ON public.sessions;
+CREATE POLICY "Gli utenti possono modificare le proprie sessioni"
+ON public.sessions FOR UPDATE USING (auth.uid() = user_id);
+
 
 -- ============================================================
 -- 3. CHEERS

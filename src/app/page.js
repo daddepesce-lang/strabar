@@ -91,6 +91,70 @@ export default function FeedPage() {
     }
   };
 
+  const handleAddDrinkToSession = async (preset) => {
+    if (!selectedActivity) return;
+    
+    try {
+      const nowStr = new Date().toISOString();
+      const newDrink = {
+        name: preset.name,
+        abv: preset.abv,
+        units: preset.units,
+        qty: 1,
+        added_at: nowStr
+      };
+      
+      // Assicura che i drink esistenti abbiano orari validi
+      const existingDrinks = db.getDrinksWithTimestamps(
+        selectedActivity.drinks || [],
+        selectedActivity.created_at,
+        selectedActivity.duration || 120
+      );
+      
+      const updatedDrinks = [...existingDrinks, newDrink];
+      
+      // Nuova somma delle unità
+      const newTotalUnits = updatedDrinks.reduce((acc, d) => acc + (d.units * (d.qty || 1)), 0);
+      
+      // Calcola la nuova durata: tempo trascorso dal primo drink all'ora corrente
+      const timestamps = updatedDrinks.map(d => new Date(d.added_at).getTime());
+      const startTimeMs = Math.min(...timestamps);
+      const newDuration = Math.max(
+        selectedActivity.duration || 120,
+        Math.round((new Date().getTime() - startTimeMs) / (60 * 1000))
+      );
+      
+      // Calcola il nuovo BAC stimato
+      const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration);
+      
+      const updatedFields = {
+        drinks: updatedDrinks,
+        total_units: parseFloat(newTotalUnits.toFixed(1)),
+        duration: newDuration,
+        bac_level: parseFloat(newBac.toFixed(2))
+      };
+      
+      // Aggiorna nel database
+      await db.updateActivity(selectedActivity.id, updatedFields);
+      
+      // Ricarica feed e aggiorna modal locale
+      await loadFeed();
+      
+      // Aggiorna selectedActivity locale per mostrare all'istante le modifiche
+      setSelectedActivity(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          ...updatedFields
+        };
+      });
+      
+    } catch (err) {
+      console.error("Errore nell'aggiunta del drink alla sessione:", err);
+      alert("Impossibile aggiungere il drink: " + (err.message || err));
+    }
+  };
+
   const handleCommentChange = (activityId, text) => {
     setNewCommentText(prev => ({
       ...prev,
@@ -520,25 +584,8 @@ export default function FeedPage() {
         .slice(0, 3);
     }
 
-    // Timeline BAC
-    const peakBac = (totalU * 8) / (70 * 0.68);
-    const durMin = selectedActivity.duration || 120;
-    const steps = 4;
-    for (let i = 0; i <= steps; i++) {
-      const fract = i / steps;
-      const tMin = Math.round(durMin * fract);
-      const hrs = tMin / 60;
-      let val = 0;
-      if (fract === 0) {
-        val = 0;
-      } else if (fract <= 0.4) {
-        val = (peakBac * (fract / 0.4)) - (0.12 * hrs);
-      } else {
-        val = peakBac - (0.15 * hrs);
-      }
-      val = Math.max(0, parseFloat(val.toFixed(2)));
-      bacTimeline.push({ tMin, label: `T+${tMin}m`, val });
-    }
+    // Timeline BAC reale basata sugli orari di aggiunta dei singoli drink
+    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120);
   }
 
   return (
@@ -1177,23 +1224,59 @@ export default function FeedPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
               {selectedActivity.drinks.map((drink, idx) => {
                 const calculatedUnits = (drink.units ? (drink.units * drink.qty) : (drink.qty * 1.5));
+                const drinkTime = drink.added_at 
+                  ? new Date(drink.added_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                  : '';
+                
                 return (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <Beer size={18} color="var(--primary)" />
                       <div>
                         <strong style={{ fontSize: '15px' }}>{drink.name}</strong>
-                        <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Gradazione: {drink.abv}%</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+                          Gradazione: {drink.abv}% {drinkTime && `| Consumato alle: ${drinkTime}`}
+                        </div>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{drink.qty} bicchieri</div>
+                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{drink.qty} bicchiere/i</div>
                       <div style={{ fontSize: '11px', color: 'var(--primary)' }}>~ {calculatedUnits.toFixed(1)} Unità</div>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Sezione Aggiungi Drink (Modifica Sessione) */}
+            {currentUser && selectedActivity.user_id === currentUser.id && (
+              <div style={{ background: 'rgba(255, 94, 0, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={16} /> Aggiungi Drink in tempo reale
+                </h4>
+                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
+                  Aggiungi un drink consumato adesso. La curva di ebbrezza e la durata della sessione verranno ricalcolate all&apos;orario corrente.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {[
+                    { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
+                    { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
+                    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
+                    { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' }
+                  ].map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => handleAddDrinkToSession(preset)}
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px' }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Social details (Compagnia e Cheers) */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '20px', fontSize: '14px' }}>
