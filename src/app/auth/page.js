@@ -13,6 +13,7 @@ export default function AuthPage() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -24,11 +25,20 @@ export default function AuthPage() {
       }
     };
     checkLogged();
+
+    // Mostra un messaggio se il login social è fallito (ritorno dal callback OAuth)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('error') === 'oauth') {
+        setError("Accesso con Google non riuscito. Riprova o usa email e password.");
+      }
+    }
   }, [router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setInfo('');
     setLoading(true);
 
     try {
@@ -38,9 +48,18 @@ export default function AuthPage() {
         if (!displayName || !username) {
           throw new Error("Tutti i campi sono obbligatori per la registrazione!");
         }
-        await db.signup(email, password, displayName, username);
+        const result = await db.signup(email, password, displayName, username);
+
+        // Se serve la conferma via email non c'è ancora una sessione: non reindirizzare.
+        if (result && result.needsEmailConfirmation) {
+          setInfo("Registrazione completata! 📧 Ti abbiamo inviato una email di conferma: clicca il link al suo interno e poi accedi.");
+          setIsLogin(true);
+          setPassword('');
+          setLoading(false);
+          return;
+        }
       }
-      
+
       // Piccolo timeout per dare tempo al cookie store e a Supabase di sincronizzarsi nel client
       await new Promise((resolve) => setTimeout(resolve, 600));
       // Notifica la navbar dell'avvenuto accesso
@@ -72,6 +91,12 @@ export default function AuthPage() {
         {error && (
           <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--error)', color: '#FF7D7D', padding: '12px 16px', borderRadius: 'var(--radius)', fontSize: '14px', marginBottom: '20px', fontWeight: '500' }}>
             {error}
+          </div>
+        )}
+
+        {info && (
+          <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10B981', color: '#6EE7B7', padding: '12px 16px', borderRadius: 'var(--radius)', fontSize: '14px', marginBottom: '20px', fontWeight: '500', lineHeight: '1.5' }}>
+            {info}
           </div>
         )}
 

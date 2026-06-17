@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2 } from 'lucide-react';
+import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera } from 'lucide-react';
+import { notify } from '@/lib/notify';
 
 export default function LogActivityPage() {
   const router = useRouter();
@@ -17,20 +18,26 @@ export default function LogActivityPage() {
   const [showCloseActiveForm, setShowCloseActiveForm] = useState(false);
   const [isAppendingToSession, setIsAppendingToSession] = useState(false);
 
-  // Stati per la selezione del locale
+  // Stati per la selezione del locale (ricerca reale OpenStreetMap)
   const [showLocaleSelector, setShowLocaleSelector] = useState(false);
-  const [localesList, setLocalesList] = useState([]);
+  const [nearbyVenues, setNearbyVenues] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const [localeSearchQuery, setLocaleSearchQuery] = useState('');
-  const [selectedLocale, setSelectedLocale] = useState(null);
+  const [loadingVenues, setLoadingVenues] = useState(false);
+  const [searchingVenues, setSearchingVenues] = useState(false);
+  const [userCoords, setUserCoords] = useState(null);
+  const [geoError, setGeoError] = useState(null);
+  const [nearbyRadius, setNearbyRadius] = useState(200);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualPlace, setManualPlace] = useState({ name: '', address: '' });
 
-  // Stati per geofencing GPS
+  // Loader a tutto schermo durante l'effettivo avvio della sessione
   const [checkingGps, setCheckingGps] = useState(false);
-  const [showGeofencingModal, setShowGeofencingModal] = useState(false);
-  const [geofencingData, setGeofencingData] = useState({ inside: false, distance: null, error: null });
 
   // Stati per registrazione a posteriori
   const [showRetroForm, setShowRetroForm] = useState(false);
   const [retroSaving, setRetroSaving] = useState(false);
+  const [retroPhotoUploading, setRetroPhotoUploading] = useState(false);
   const [retroForm, setRetroForm] = useState({
     title: '',
     date: new Date().toISOString().slice(0, 16), // datetime-local format
@@ -38,8 +45,32 @@ export default function LogActivityPage() {
     location: '',
     feeling: 'Allegro',
     description: '',
-    drinks: []
+    drinks: [],
+    media: []
   });
+
+  const handleRetroAddPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert("Seleziona un file immagine valido.");
+      return;
+    }
+    setRetroPhotoUploading(true);
+    try {
+      const url = await db.uploadFileToStorage(file);
+      setRetroForm((p) => ({ ...p, media: [...p.media, { type: 'image', name: file.name, url }] }));
+    } catch (err) {
+      console.error('Errore upload foto:', err);
+      alert("Errore nel caricamento della foto: " + (err.message || err));
+    } finally {
+      setRetroPhotoUploading(false);
+    }
+  };
+  const handleRetroRemovePhoto = (idx) => {
+    setRetroForm((p) => ({ ...p, media: p.media.filter((_, i) => i !== idx) }));
+  };
   const DRINK_PRESETS = [
     { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
     { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
@@ -94,6 +125,7 @@ export default function LogActivityPage() {
         feeling: retroForm.feeling,
         location: retroForm.location ? { name: retroForm.location } : null,
         bac_level: parseFloat(bac.toFixed(2)),
+        media: retroForm.media && retroForm.media.length > 0 ? retroForm.media : null,
         is_active: false,
         created_at: createdAt,  // data passata dall'utente per sessioni a posteriori
       });
@@ -142,18 +174,85 @@ export default function LogActivityPage() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('action') === 'append') {
       setIsAppendingToSession(true);
-      const openSelectorDirectly = async () => {
-        try {
-          const list = await db.getPlaces();
-          setLocalesList(list);
-          setShowLocaleSelector(true);
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      openSelectorDirectly();
+      openVenueSelector();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // Richiede la posizione GPS dell'utente (non bloccante: risolve null se negata)
+  const requestUserLocation = () =>
+    new Promise((resolve) => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => {
+          console.warn('Geolocalizzazione non disponibile:', err.message || err);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    });
+
+  // Apre il selettore locali: chiede il GPS e carica i bar reali vicini (OSM + community)
+  const openVenueSelector = async () => {
+    setShowLocaleSelector(true);
+    setShowManualEntry(false);
+    setLocaleSearchQuery('');
+    setSearchResults([]);
+    setGeoError(null);
+    setLoadingVenues(true);
+    const coords = await requestUserLocation();
+    setUserCoords(coords);
+    if (!coords) {
+      setGeoError(
+        'Posizione GPS non disponibile (permesso negato o segnale assente). Cerca il tuo locale per nome qui sotto.'
+      );
+    }
+    try {
+      const { venues, radius, widened } = await db.getCombinedNearbyPlaces(coords?.lat, coords?.lng, 200);
+      setNearbyVenues(venues);
+      setNearbyRadius(radius);
+      if (coords && widened) {
+        setGeoError(
+          `Nessun locale entro 200m. Ti mostro quelli entro ${radius >= 1000 ? (radius / 1000) + ' km' : radius + ' m'}.`
+        );
+      } else if (coords && venues.length === 0) {
+        setGeoError('Nessun locale rilevato nelle vicinanze. Cercalo per nome o inseriscilo a mano.');
+      }
+    } catch (err) {
+      console.error('Errore caricamento locali vicini:', err);
+    } finally {
+      setLoadingVenues(false);
+    }
+  };
+
+  // Ricerca locali per nome su OpenStreetMap (debounced)
+  useEffect(() => {
+    const q = localeSearchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchingVenues(false);
+      return;
+    }
+    setSearchingVenues(true);
+    const handle = setTimeout(async () => {
+      const res = await db.searchVenues(q, userCoords);
+      // Annota la distanza se abbiamo il GPS
+      const annotated = res.map((v) => ({
+        ...v,
+        distance:
+          userCoords && v.lat && v.lng
+            ? db.checkGeofencing(v.lat, v.lng, userCoords.lat, userCoords.lng, Infinity).distance
+            : null,
+      }));
+      setSearchResults(annotated);
+      setSearchingVenues(false);
+    }, 450);
+    return () => clearTimeout(handle);
+  }, [localeSearchQuery, userCoords]);
 
   // Chiudi sessione corrente per avviare una nuova sessione
   const handleForceNewSession = async () => {
@@ -221,11 +320,7 @@ export default function LogActivityPage() {
       });
 
       // Notifica PWA
-      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-        new Notification("Brindisi Live Avviato! 🔴", {
-          body: "Registra i tuoi drink uno alla volta per monitorare il tasso alcolico in tempo reale!"
-        });
-      }
+      notify("Brindisi Live Avviato! 🔴", "Registra i tuoi drink uno alla volta per monitorare il tasso alcolico in tempo reale!");
 
       router.push('/');
     } catch (err) {
@@ -236,212 +331,107 @@ export default function LogActivityPage() {
   };
 
   // Clicca opzione check-in locale
-  const handleLocaleCheckInClick = async () => {
+  const handleLocaleCheckInClick = () => {
     if (activeSession) {
       setShowActiveSessionWarning(true);
       return;
     }
-
-    try {
-      const list = await db.getPlaces();
-      setLocalesList(list);
-      setShowLocaleSelector(true);
-    } catch (err) {
-      alert("Errore nel recupero dei locali: " + err.message);
-    }
+    setIsAppendingToSession(false);
+    openVenueSelector();
   };
 
-  // Seleziona un locale e verifica geofencing GPS
-  const handleSelectLocale = async (locale) => {
-    setSelectedLocale(locale);
+  // Costruisce i campi aggiornati per aggiungere una tappa alla sessione attiva
+  const buildAppendFields = (session, venue) => {
+    let sequence = [];
+    if (session.location?.sequence && Array.isArray(session.location.sequence)) {
+      sequence = [...session.location.sequence];
+    } else if (session.location?.name) {
+      sequence = [{
+        name: session.location.name,
+        address: session.location.address,
+        lat: session.location.lat,
+        lng: session.location.lng ?? session.location.lon,
+      }];
+    }
+    sequence.push({
+      name: venue.name,
+      address: venue.address || '',
+      lat: venue.lat ?? null,
+      lng: venue.lng ?? null,
+      visited_at: new Date().toISOString(),
+    });
+    const title = `Giro dei Bar: ${sequence.map((s) => s.name).join(' ➔ ')}`;
+    return {
+      location: {
+        name: venue.name,
+        address: venue.address || '',
+        lat: venue.lat ?? null,
+        lng: venue.lng ?? null,
+        sequence,
+      },
+      title: title.length > 80 ? title.substring(0, 77) + '...' : title,
+    };
+  };
+
+  // Avvia (o estende) una sessione live presso il locale scelto.
+  // Nessun blocco GPS rigido: l'utente ha scelto attivamente il locale dalla lista reale.
+  const startSessionAtVenue = async (venue) => {
+    if (!venue || !venue.name) return;
     setShowLocaleSelector(false);
-    setCheckingGps(true);
-
-    const startSession = async () => {
-      try {
-        await db.createActivity({
-          title: `Brindisi live presso ${locale.name} 🍻`,
-          location: {
-            name: locale.name,
-            address: locale.address,
-            lat: locale.lat,
-            lng: locale.lng
-          },
-          drinks: [],
-          is_active: true,
-          bac_level: 0,
-          total_units: 0,
-          duration: 1
-        });
-        
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification("Brindisi Live Avviato! 🔴", {
-            body: `Registra i tuoi drink presso ${locale.name} per monitorare il BAC in tempo reale!`
-          });
-        }
-        router.push('/');
-      } catch (err) {
-        alert("Errore nell'avvio della sessione geolocalizzata: " + err.message);
-      } finally {
-        setCheckingGps(false);
-      }
-    };
-
-    const appendLocaleToActiveSession = async () => {
-      try {
-        if (!activeSession) throw new Error("Nessuna sessione attiva trovata da aggiornare.");
-
-        let currentSequence = [];
-        if (activeSession.location && activeSession.location.sequence && Array.isArray(activeSession.location.sequence)) {
-          currentSequence = [...activeSession.location.sequence];
-        } else if (activeSession.location) {
-          currentSequence = [{
-            name: activeSession.location.name,
-            address: activeSession.location.address,
-            lat: activeSession.location.lat,
-            lng: activeSession.location.lng ?? activeSession.location.lon
-          }];
-        }
-
-        const newWaypoint = {
-          name: locale.name,
-          address: locale.address,
-          lat: locale.lat,
-          lng: locale.lng ?? locale.lon,
-          visited_at: new Date().toISOString()
-        };
-        currentSequence.push(newWaypoint);
-
-        const updatedTitle = `Giro dei Bar: ${currentSequence.map(s => s.name).join(' ➔ ')}`;
-
-        const updatedFields = {
-          location: {
-            name: locale.name,
-            address: locale.address,
-            lat: locale.lat,
-            lng: locale.lng ?? locale.lon,
-            sequence: currentSequence
-          },
-          title: updatedTitle.length > 80 ? updatedTitle.substring(0, 77) + '...' : updatedTitle
-        };
-
-        await db.updateActivity(activeSession.id, updatedFields);
-
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification("Tappa Aggiunta! 📍", {
-            body: `Sei arrivato a ${locale.name}. La tua sessione live è stata aggiornata!`
-          });
-        }
-        router.push('/');
-      } catch (err) {
-        alert("Errore nell'aggiunta del locale alla sessione: " + err.message);
-      } finally {
-        setCheckingGps(false);
-      }
-    };
-
-    if (!navigator.geolocation) {
-      setGeofencingData({ inside: false, distance: null, error: "Geolocalizzazione non supportata." });
-      setShowGeofencingModal(true);
-      setCheckingGps(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const userLat = pos.coords.latitude;
-        const userLng = pos.coords.longitude;
-        
-        const geo = db.checkGeofencing(locale.lat, locale.lng, userLat, userLng);
-        if (geo.inside) {
-          if (isAppendingToSession) {
-            await appendLocaleToActiveSession();
-          } else {
-            await startSession();
-          }
-        } else {
-          setGeofencingData({ inside: false, distance: geo.distance, error: null });
-          setShowGeofencingModal(true);
-        }
-        setCheckingGps(false);
-      },
-      (err) => {
-        console.warn("Errore geolocalizzazione:", err);
-        setGeofencingData({ inside: false, distance: null, error: "Impossibile rilevare la tua posizione GPS. Permesso negato o segnale assente." });
-        setShowGeofencingModal(true);
-        setCheckingGps(false);
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  };
-
-  // Forza Demo Start per locale selezionato (Bypass range check)
-  const handleForceDemoStart = async () => {
-    if (!selectedLocale) return;
-    setShowGeofencingModal(false);
     setCheckingGps(true);
     try {
       if (isAppendingToSession) {
-        if (!activeSession) throw new Error("Nessuna sessione attiva.");
-        let currentSequence = [];
-        if (activeSession.location && activeSession.location.sequence && Array.isArray(activeSession.location.sequence)) {
-          currentSequence = [...activeSession.location.sequence];
-        } else if (activeSession.location) {
-          currentSequence = [{
-            name: activeSession.location.name,
-            address: activeSession.location.address,
-            lat: activeSession.location.lat,
-            lng: activeSession.location.lng ?? activeSession.location.lon
-          }];
-        }
-        currentSequence.push({
-          name: selectedLocale.name,
-          address: selectedLocale.address,
-          lat: selectedLocale.lat,
-          lng: selectedLocale.lng,
-          visited_at: new Date().toISOString()
-        });
-        const updatedTitle = `Giro dei Bar: ${currentSequence.map(s => s.name).join(' ➔ ')}`;
-        await db.updateActivity(activeSession.id, {
-          location: {
-            name: selectedLocale.name,
-            address: selectedLocale.address,
-            lat: selectedLocale.lat,
-            lng: selectedLocale.lng,
-            sequence: currentSequence
-          },
-          title: updatedTitle.length > 80 ? updatedTitle.substring(0, 77) + '...' : updatedTitle
-        });
-        router.push('/');
+        if (!activeSession) throw new Error('Nessuna sessione attiva da aggiornare.');
+        await db.updateActivity(activeSession.id, buildAppendFields(activeSession, venue));
+        notify('Tappa Aggiunta! 📍', `Sei arrivato a ${venue.name}. Sessione aggiornata!`);
       } else {
         await db.createActivity({
-          title: `Brindisi live presso ${selectedLocale.name} (Demo Mode) 🍻`,
+          title: `Brindisi live presso ${venue.name} 🍻`,
           location: {
-            name: selectedLocale.name,
-            address: selectedLocale.address,
-            lat: selectedLocale.lat,
-            lng: selectedLocale.lng
+            name: venue.name,
+            address: venue.address || '',
+            lat: venue.lat ?? null,
+            lng: venue.lng ?? null,
           },
           drinks: [],
           is_active: true,
           bac_level: 0,
           total_units: 0,
-          duration: 1
+          duration: 1,
         });
-        router.push('/');
+        notify('Brindisi Live Avviato! 🔴', `Registra i tuoi drink presso ${venue.name} per monitorare il BAC in tempo reale!`);
       }
+      router.push('/');
     } catch (err) {
-      alert("Errore nell'avvio forzato: " + err.message);
-    } finally {
+      alert("Errore nell'avvio della sessione: " + (err.message || err));
       setCheckingGps(false);
     }
   };
 
-  // Filtra locali per ricerca
-  const filteredLocales = localesList.filter(loc => 
-    loc.name.toLowerCase().includes(localeSearchQuery.toLowerCase()) ||
-    (loc.address || '').toLowerCase().includes(localeSearchQuery.toLowerCase())
-  );
+  // Avvia sessione da locale inserito manualmente.
+  // Allega la posizione GPS attuale: così il locale diventa geolocalizzato
+  // e comparirà tra i locali vicini anche per gli altri utenti.
+  const handleManualStart = () => {
+    const name = manualPlace.name.trim();
+    if (!name) {
+      alert('Inserisci almeno il nome del locale!');
+      return;
+    }
+    startSessionAtVenue({
+      name,
+      address: manualPlace.address.trim(),
+      lat: userCoords?.lat ?? null,
+      lng: userCoords?.lng ?? null,
+    });
+  };
+
+  // Lista visualizzata nel selettore: risultati di ricerca o locali vicini
+  const displayedVenues = localeSearchQuery.trim().length >= 2 ? searchResults : nearbyVenues;
+
+  const formatDistance = (m) => {
+    if (m == null) return null;
+    return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+  };
 
   if (loadingUser || checkingGps) {
     return (
@@ -596,19 +586,13 @@ export default function LogActivityPage() {
 
             {!showCloseActiveForm ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button 
-                  onClick={async () => {
+                <button
+                  onClick={() => {
                     setIsAppendingToSession(true);
                     setShowActiveSessionWarning(false);
-                    try {
-                      const list = await db.getPlaces();
-                      setLocalesList(list);
-                      setShowLocaleSelector(true);
-                    } catch (err) {
-                      alert("Errore nel recupero dei locali: " + err.message);
-                    }
-                  }} 
-                  className="btn btn-primary" 
+                    openVenueSelector();
+                  }}
+                  className="btn btn-primary"
                   style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                 >
                   📍 Aggiungi Tappa / Cambia Bar
@@ -666,104 +650,140 @@ export default function LogActivityPage() {
         </div>
       )}
 
-      {/* MODAL 2: Selettore Locale */}
+      {/* MODAL 2: Selettore Locale (ricerca reale OpenStreetMap) */}
       {showLocaleSelector && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '20px' }}>
-          <div className="card" style={{ maxWidth: '500px', width: '100%', border: '1px solid var(--border-dark)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative' }}>
-            <button 
-              onClick={() => setShowLocaleSelector(false)} 
+          <div className="card" style={{ maxWidth: '500px', width: '100%', border: '1px solid var(--border-dark)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative' }}>
+            <button
+              onClick={() => setShowLocaleSelector(false)}
               style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}
+              aria-label="Chiudi"
             >
               <X size={20} />
             </button>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '8px' }}>Seleziona Locale 📍</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>Scegli un bar o pub per avviare il brindisi live geolocalizzato.</p>
-            
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '8px' }}>
+              {isAppendingToSession ? 'Aggiungi Tappa 📍' : 'Dove stai bevendo? 📍'}
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
+              {localeSearchQuery.trim().length >= 2
+                ? 'Risultati della ricerca su mappa.'
+                : userCoords
+                ? `Bar e locali reali nel raggio di ${nearbyRadius >= 1000 ? (nearbyRadius / 1000) + ' km' : nearbyRadius + ' m'} da te. Non lo trovi? Cercalo per nome.`
+                : 'Cerca il tuo locale per nome oppure inseriscilo manualmente.'}
+            </p>
+
             {/* Input Cerca */}
-            <div style={{ position: 'relative', marginBottom: '15px' }}>
+            <div style={{ position: 'relative', marginBottom: '12px' }}>
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-              <input 
-                type="text" 
-                className="form-control" 
-                placeholder="Cerca locale per nome o indirizzo..." 
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Cerca un locale per nome o città..."
                 value={localeSearchQuery}
                 onChange={(e) => setLocaleSearchQuery(e.target.value)}
-                style={{ paddingLeft: '38px', height: '38px', fontSize: '13px' }}
+                style={{ paddingLeft: '38px', height: '40px', fontSize: '14px' }}
               />
+              {searchingVenues && (
+                <Loader size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+              )}
             </div>
 
+            {geoError && localeSearchQuery.trim().length < 2 && (
+              <div style={{ fontSize: '12px', color: 'var(--secondary)', background: 'rgba(255,176,0,0.08)', border: '1px solid rgba(255,176,0,0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', lineHeight: '1.4' }}>
+                ⚠️ {geoError}
+              </div>
+            )}
+
             {/* Lista Locali */}
-            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
-              {filteredLocales.length === 0 ? (
-                <p style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>Nessun locale trovato.</p>
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px', minHeight: '120px' }}>
+              {loadingVenues && localeSearchQuery.trim().length < 2 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '30px 0', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>
+                  <Loader size={26} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+                  Sto cercando i locali vicino a te... 📡
+                </div>
+              ) : displayedVenues.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-dark-secondary)', fontSize: '13px', lineHeight: '1.5' }}>
+                  {localeSearchQuery.trim().length >= 2
+                    ? (searchingVenues ? 'Ricerca in corso...' : 'Nessun locale trovato con questo nome.')
+                    : 'Nessun locale rilevato nelle vicinanze. Prova a cercarlo per nome qui sopra, oppure inseriscilo manualmente.'}
+                </div>
               ) : (
-                filteredLocales.map((loc) => (
-                  <div 
+                displayedVenues.map((loc) => (
+                  <div
                     key={loc.key}
-                    onClick={() => handleSelectLocale(loc)}
-                    style={{ 
-                      padding: '12px', 
-                      background: 'rgba(255,255,255,0.01)', 
-                      border: '1px solid var(--border-dark)', 
-                      borderRadius: '8px', 
-                      cursor: 'pointer',
-                      transition: 'var(--transition)'
-                    }}
+                    onClick={() => startSessionAtVenue(loc)}
+                    style={{ padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-dark)', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition)' }}
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'rgba(255,94,0,0.02)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-dark)'; e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
                   >
-                    <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>{loc.name}</strong>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginTop: '2px' }}>{loc.address}</span>
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
-                      <span>⭐ {loc.avgRating || '0.0'} ({loc.reviewsCount} recensioni)</span>
-                      <span>👥 {loc.uniqueDrinkers || 0} atleti</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <strong style={{ fontSize: '14px', color: '#FFF' }}>{loc.name}</strong>
+                      {formatDistance(loc.distance) && (
+                        <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '700', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <MapPin size={11} /> {formatDistance(loc.distance)}
+                        </span>
+                      )}
+                    </div>
+                    {loc.address && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginTop: '2px' }}>{loc.address}</span>
+                    )}
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '11px', color: 'var(--text-dark-secondary)', flexWrap: 'wrap' }}>
+                      {loc.source === 'community' || loc.sessionsCount > 0 ? (
+                        <>
+                          <span>⭐ {loc.avgRating || '0.0'} ({loc.reviewsCount || 0} recensioni)</span>
+                          <span>👥 {loc.uniqueDrinkers || 0} atleti</span>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--secondary)' }}>📍 Locale reale da OpenStreetMap</span>
+                      )}
                     </div>
                   </div>
                 ))
               )}
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* MODAL 3: Avviso Distanza Geofencing */}
-      {showGeofencingModal && selectedLocale && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '20px' }}>
-          <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--secondary)', boxShadow: '0 0 25px rgba(255, 176, 0, 0.2)', padding: '24px', position: 'relative' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Sei fuori portata! 📍</h2>
-            
-            {geofencingData.error ? (
-              <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
-                {geofencingData.error}
-              </p>
-            ) : (
-              <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
-                Ti trovi a circa <strong>{geofencingData.distance} metri</strong> da <strong>{selectedLocale.name}</strong>. Per iniziare un brindisi geolocalizzato reale devi trovarti entro 200m dal locale.
-              </p>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button 
-                onClick={() => handleSelectLocale(selectedLocale)} 
-                className="btn btn-primary" 
-                style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', fontWeight: 'bold' }}
-              >
-                🔄 Riprova GPS
-              </button>
-              <button 
-                onClick={handleForceDemoStart} 
-                className="btn btn-secondary" 
-                style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', border: '1px dashed var(--secondary)' }}
-              >
-                🚀 Forza Demo Mode (Bypass GPS)
-              </button>
-              <button 
-                onClick={() => setShowGeofencingModal(false)} 
-                className="btn btn-secondary" 
-                style={{ borderRadius: '20px', padding: '10px', fontSize: '14px' }}
-              >
-                Annulla
-              </button>
+            {/* Inserimento manuale */}
+            <div style={{ borderTop: '1px solid var(--border-dark)', marginTop: '12px', paddingTop: '12px' }}>
+              {!showManualEntry ? (
+                <button
+                  onClick={() => setShowManualEntry(true)}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px' }}
+                >
+                  ✏️ Non trovi il locale? Inseriscilo a mano
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Nome del locale *"
+                    value={manualPlace.name}
+                    onChange={(e) => setManualPlace((p) => ({ ...p, name: e.target.value }))}
+                    style={{ height: '38px', fontSize: '13px', padding: '0 12px' }}
+                  />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Indirizzo / città (opzionale)"
+                    value={manualPlace.address}
+                    onChange={(e) => setManualPlace((p) => ({ ...p, address: e.target.value }))}
+                    style={{ height: '38px', fontSize: '13px', padding: '0 12px' }}
+                  />
+                  <span style={{ fontSize: '11px', color: userCoords ? 'var(--success)' : 'var(--text-dark-secondary)', lineHeight: '1.4' }}>
+                    {userCoords
+                      ? '📍 Useremo la tua posizione attuale: il locale sarà visibile agli altri atleti nelle vicinanze.'
+                      : 'GPS non disponibile: il locale verrà salvato senza posizione precisa.'}
+                  </span>
+                  <button
+                    onClick={handleManualStart}
+                    className="btn btn-primary"
+                    style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px', fontWeight: 'bold' }}
+                  >
+                    {isAppendingToSession ? 'Aggiungi questa tappa' : 'Avvia qui il brindisi 🍻'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -914,6 +934,39 @@ export default function LogActivityPage() {
                     Clicca sui preset sopra per aggiungere i drink 🍺
                   </div>
                 )}
+              </div>
+
+              {/* Foto */}
+              <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '10px', fontWeight: '600' }}>
+                  Foto della serata (opzionale)
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                  {retroForm.media.map((med, idx) => (
+                    <div key={idx} style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={med.url} alt={med.name || 'foto'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        onClick={() => handleRetroRemovePhoto(idx)}
+                        style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', color: '#FFF', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '12px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <label style={{ width: '64px', height: '64px', borderRadius: '8px', border: '1px dashed var(--border-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: retroPhotoUploading ? 'wait' : 'pointer', color: 'var(--text-dark-secondary)', gap: '2px' }}>
+                    {retroPhotoUploading ? (
+                      <Loader size={18} style={{ animation: 'spin 1s linear infinite', color: '#10B981' }} />
+                    ) : (
+                      <>
+                        <Camera size={18} />
+                        <span style={{ fontSize: '9px' }}>Aggiungi</span>
+                      </>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleRetroAddPhoto} disabled={retroPhotoUploading} style={{ display: 'none' }} />
+                  </label>
+                </div>
               </div>
 
               {/* Submit */}

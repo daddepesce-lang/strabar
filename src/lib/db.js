@@ -378,7 +378,8 @@ export const db = {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : ''
+          // Reindirizza al route handler che scambia il code per una sessione (flusso PKCE)
+          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : ''
         }
       });
       if (error) throw error;
@@ -419,14 +420,14 @@ export const db = {
         }
       });
       if (error) throw error;
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return data.user;
+
+      // Se non c'è sessione, Supabase richiede la conferma via email prima dell'accesso.
+      return { user: data.user, session: data.session, needsEmailConfirmation: !data.session };
     } else {
       const profiles = getStored('sb_profiles');
       const existing = profiles.find(p => p.username === username);
       if (existing) throw new Error("Questo username è già registrato!");
-      
+
       const newProfile = {
         id: 'user-' + Math.random().toString(36).substr(2, 9),
         username,
@@ -435,11 +436,11 @@ export const db = {
         is_premium: true,
         created_at: new Date().toISOString()
       };
-      
+
       profiles.push(newProfile);
       setStored('sb_profiles', profiles);
       localStorage.setItem('sb_current_user', JSON.stringify(newProfile));
-      return newProfile;
+      return { user: newProfile, session: { mock: true }, needsEmailConfirmation: false };
     }
   },
 
@@ -1448,6 +1449,196 @@ export const db = {
           avgRating: parseFloat(avgRating.toFixed(1)),
         };
       });
+  },
+
+  // --- RICERCA LOCALI REALI (OpenStreetMap) ---
+  // Normalizza un risultato OSM (Nominatim o Overpass) nella forma usata dai selettori.
+  _normalizeOsmVenue(raw) {
+    const tags = raw.tags || {};
+    const name =
+      raw.name ||
+      tags.name ||
+      (raw.display_name ? raw.display_name.split(',')[0] : null);
+    if (!name) return null;
+
+    const lat = parseFloat(raw.lat ?? raw.center?.lat);
+    const lng = parseFloat(raw.lon ?? raw.center?.lon);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+    // Costruisci un indirizzo leggibile
+    let address = raw.display_name || '';
+    if (!address && (tags['addr:street'] || tags['addr:city'])) {
+      address = [
+        [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(' '),
+        tags['addr:city'],
+      ]
+        .filter(Boolean)
+        .join(', ');
+    }
+    const amenity = tags.amenity || raw.type || raw.category || '';
+
+    return {
+      key: this.normalizePlaceKey(name) + '|' + lat.toFixed(4) + ',' + lng.toFixed(4),
+      name,
+      address,
+      lat,
+      lng,
+      amenity,
+      source: 'osm',
+      avgRating: 0,
+      reviewsCount: 0,
+      uniqueDrinkers: 0,
+      sessionsCount: 0,
+    };
+  },
+
+  // Deduplica una lista di locali per nome+coordinate ravvicinate
+  _dedupeVenues(list) {
+    const seen = new Map();
+    list.forEach((v) => {
+      if (!v) return;
+      const k = this.normalizePlaceKey(v.name);
+      const existing = seen.get(k);
+      if (!existing) {
+        seen.set(k, v);
+      } else if ((v.sessionsCount || 0) > (existing.sessionsCount || 0)) {
+        // Preferisci la versione con più dati community
+        seen.set(k, { ...v, ...existing, ...v });
+      }
+    });
+    return Array.from(seen.values());
+  },
+
+  // Cerca locali per nome/indirizzo su OpenStreetMap (Nominatim).
+  // `near` opzionale: { lat, lng } per dare priorità ai risultati vicini.
+  async searchVenues(query, near = null) {
+    const q = (query || '').trim();
+    if (q.length < 2) return [];
+    try {
+      const params = new URLSearchParams({
+        q,
+        format: 'jsonv2',
+        limit: '20',
+        addressdetails: '1',
+        'accept-language': 'it',
+      });
+      if (near && near.lat && near.lng) {
+        const d = 0.15; // ~15km di bias attorno alla posizione
+        params.set(
+          'viewbox',
+          `${near.lng - d},${near.lat - d},${near.lng + d},${near.lat + d}`
+        );
+      }
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      if (!res.ok) throw new Error('Nominatim ' + res.status);
+      const data = await res.json();
+      return this._dedupeVenues(
+        (data || []).map((r) => this._normalizeOsmVenue(r)).filter(Boolean)
+      );
+    } catch (err) {
+      console.warn('Ricerca locali OSM fallita:', err.message || err);
+      return [];
+    }
+  },
+
+  // Trova bar/pub/locali reali vicini a una posizione GPS (Overpass API).
+  async getNearbyVenues(lat, lng, radius = 200) {
+    if (!lat || !lng) return [];
+    const filters = [
+      'amenity~"^(bar|pub|biergarten|nightclub|cafe|restaurant|fast_food|ice_cream)$"',
+      'shop~"^(wine|beverages|alcohol)$"',
+    ];
+    const body =
+      `[out:json][timeout:20];(` +
+      filters
+        .map(
+          (f) =>
+            `node[${f}](around:${radius},${lat},${lng});way[${f}](around:${radius},${lat},${lng});`
+        )
+        .join('') +
+      `);out center 60;`;
+    try {
+      const res = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(body),
+      });
+      if (!res.ok) throw new Error('Overpass ' + res.status);
+      const data = await res.json();
+      const venues = (data.elements || [])
+        .map((el) => this._normalizeOsmVenue(el))
+        .filter(Boolean)
+        .map((v) => ({
+          ...v,
+          distance: this.checkGeofencing(v.lat, v.lng, lat, lng, Infinity).distance,
+        }))
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      return this._dedupeVenues(venues);
+    } catch (err) {
+      console.warn('Ricerca locali vicini (Overpass) fallita:', err.message || err);
+      return [];
+    }
+  },
+
+  // Locali reali entro un raggio dalla posizione GPS (default 200m, come da geofencing),
+  // combinati con i locali community (dalle sessioni) che cadono nello stesso raggio.
+  // Ritorna { venues, radius, widened } così la UI può informare l'utente se ha allargato il raggio.
+  async getCombinedNearbyPlaces(lat, lng, radius = 200) {
+    // Senza GPS non possiamo limitare al raggio: restituiamo solo i locali community.
+    if (!lat || !lng) {
+      const community = await this.getPlaces().catch(() => []);
+      return {
+        venues: community.map((p) => ({ ...p, source: 'community', distance: null })),
+        radius: null,
+        widened: false,
+      };
+    }
+
+    const withDistance = (list, src) =>
+      list
+        .map((p) => ({
+          ...p,
+          source: p.source || src,
+          distance:
+            p.lat && p.lng
+              ? this.checkGeofencing(p.lat, p.lng, lat, lng, Infinity).distance
+              : null,
+        }));
+
+    const community = withDistance(await this.getPlaces().catch(() => []), 'community');
+
+    // Cerca i locali reali entro il raggio richiesto; se nessuno, allarga progressivamente.
+    let osm = await this.getNearbyVenues(lat, lng, radius);
+    let usedRadius = radius;
+    let widened = false;
+    const widenSteps = [500, 1000];
+    for (const r of widenSteps) {
+      if (osm.length > 0) break;
+      osm = await this.getNearbyVenues(lat, lng, r);
+      usedRadius = r;
+      widened = true;
+    }
+
+    // Includi i locali community che cadono entro il raggio effettivamente usato.
+    const nearbyCommunity = community.filter(
+      (p) => p.distance != null && p.distance <= usedRadius
+    );
+
+    const merged = this._dedupeVenues([...nearbyCommunity, ...osm]).filter(
+      (v) => v.distance == null || v.distance <= usedRadius
+    );
+
+    merged.sort((a, b) => {
+      if (a.distance != null && b.distance != null) return a.distance - b.distance;
+      if (a.distance != null) return -1;
+      if (b.distance != null) return 1;
+      return (b.sessionsCount || 0) - (a.sessionsCount || 0);
+    });
+
+    return { venues: merged, radius: usedRadius, widened };
   },
 
   // Classifica atleti per un singolo locale (visite + unità alcoliche)

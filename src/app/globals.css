@@ -43,6 +43,23 @@ body {
   font-family: var(--font-sans);
   min-height: 100vh;
   overflow-x: hidden;
+  /* Comfort mobile: niente flash blu al tap, niente zoom involontario del testo */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Le immagini non escono mai dai contenitori su mobile */
+img {
+  max-width: 100%;
+}
+
+/* Evita overflow orizzontale da nomi/URL lunghi nelle card del feed e dei profili */
+.activity-author,
+.activity-title,
+.activity-meta {
+  overflow-wrap: anywhere;
 }
 
 /* Global Reset & Base */
@@ -76,7 +93,8 @@ button, input, select, textarea {
 
 .main-content {
   flex: 1;
-  padding: 80px 20px 40px 20px;
+  /* Tiene conto del notch in alto (viewport-fit: cover) */
+  padding: calc(80px + env(safe-area-inset-top, 0px)) 20px 40px 20px;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
@@ -101,14 +119,16 @@ button, input, select, textarea {
   top: 0;
   left: 0;
   right: 0;
-  height: 70px;
+  height: calc(70px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   background: rgba(22, 24, 34, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-dark);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 40px;
+  padding-left: max(40px, env(safe-area-inset-left, 0px));
+  padding-right: max(40px, env(safe-area-inset-right, 0px));
   z-index: 1000;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
@@ -569,6 +589,11 @@ button, input, select, textarea {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .badge-premium {
   display: inline-flex;
   align-items: center;
@@ -786,8 +811,10 @@ button, input, select, textarea {
 /* ---- PHONE ---- */
 @media (max-width: 768px) {
   .navbar {
-    padding: 0 16px;
-    height: 60px;
+    height: calc(60px + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
   .nav-brand { font-size: 22px; }
 
@@ -800,7 +827,11 @@ button, input, select, textarea {
   .nav-action-mobile { display: inline-flex; }
 
   .main-content {
-    padding: 74px 14px 96px 14px; /* extra bottom space for mobile nav */
+    /* notch in alto + spazio per la bottom-nav (con home indicator) in basso */
+    padding-top: calc(64px + env(safe-area-inset-top, 0px));
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   }
 
   .card { padding: 16px; }

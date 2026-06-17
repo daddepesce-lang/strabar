@@ -1,15 +1,30 @@
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata = {
   title: "Strabar | Il Social Network degli Atleti da Bar",
   description: "Traccia le tue sessioni alcoliche, tagga gli amici, pianifica percorsi (Pub Crawl) ed esporta le tue performance per i social media.",
   keywords: "strabar, atleti da bar, pub crawl, bar crawl, alcol tracker, social drinking",
+  applicationName: "Strabar",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Strabar",
+  },
+  formatDetection: { telephone: false },
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg" }],
+  },
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#0f1117",
 };
 
 export default function RootLayout({ children }) {
@@ -25,6 +40,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
+        <ServiceWorkerRegister />
         <div className="app-container">
           <Navbar />
           <main className="main-content">

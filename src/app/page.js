@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2 } from 'lucide-react';
+import { notify, ensureNotificationPermission } from '@/lib/notify';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
@@ -36,6 +37,17 @@ export default function FeedPage() {
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
 
+  // Stati per il tagging amici e upload foto nella sessione live
+  const [friendQuery, setFriendQuery] = useState('');
+  const [friendResults, setFriendResults] = useState([]);
+  const [searchingFriends, setSearchingFriends] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  // Stati social: filtro feed (amici/tutti) e gestione follow
+  const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
+  const [followingIds, setFollowingIds] = useState([]);
+  const [followBusy, setFollowBusy] = useState({});
+
   // Stati per il completamento profilo Google obbligatorio
   const [showCompleteProfileModal, setShowCompleteProfileModal] = useState(false);
   const [customName, setCustomName] = useState('');
@@ -49,13 +61,8 @@ export default function FeedPage() {
   };
 
   const triggerLocalNotification = (title, body) => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, { body });
-      } catch (err) {
-        console.warn("Notification error:", err);
-      }
-    }
+    // Usa il service worker quando disponibile (necessario per le PWA mobile)
+    notify(title, body);
   };
 
   const loadFeed = async () => {
@@ -74,6 +81,16 @@ export default function FeedPage() {
         }
         const list = typeof db.getAllProfiles === 'function' ? await db.getAllProfiles() : [];
         setProfilesList(list);
+
+        // Chi seguo (per il filtro "Amici" e i bottoni Segui nel feed)
+        if (typeof db.getFollowing === 'function') {
+          try {
+            const following = await db.getFollowing(user.id);
+            setFollowingIds((following || []).map((f) => f.id));
+          } catch (err) {
+            console.error('Errore caricamento following:', err);
+          }
+        }
 
         // Controllo completezza profilo per Google Login
         const emailPrefix = user.email ? user.email.split('@')[0] : '';
@@ -98,11 +115,7 @@ export default function FeedPage() {
     loadFeed();
 
     // Richiedi permessi notifiche PWA
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
+    ensureNotificationPermission();
   }, []);
 
   // Timer per la sessione attiva
@@ -130,6 +143,37 @@ export default function FeedPage() {
       await loadFeed();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Segui / smetti di seguire un atleta direttamente dal feed
+  const handleToggleFollow = async (userId) => {
+    if (!currentUser) {
+      router.push('/auth');
+      return;
+    }
+    if (userId === currentUser.id) return;
+    setFollowBusy((prev) => ({ ...prev, [userId]: true }));
+    const isFollowing = followingIds.includes(userId);
+    // Aggiornamento ottimistico
+    setFollowingIds((prev) =>
+      isFollowing ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+    try {
+      if (isFollowing) {
+        await db.unfollowUser(userId);
+      } else {
+        await db.followUser(userId);
+      }
+    } catch (err) {
+      console.error('Errore follow/unfollow:', err);
+      // Rollback in caso di errore
+      setFollowingIds((prev) =>
+        isFollowing ? [...prev, userId] : prev.filter((id) => id !== userId)
+      );
+      alert('Operazione non riuscita: ' + (err.message || err));
+    } finally {
+      setFollowBusy((prev) => ({ ...prev, [userId]: false }));
     }
   };
 
@@ -329,10 +373,79 @@ export default function FeedPage() {
     }
   };
 
+  // Ricerca amici da taggare (debounced) usando i profili reali
+  useEffect(() => {
+    if (!activeSession) return;
+    const q = friendQuery.trim();
+    if (q.length < 1) {
+      setFriendResults([]);
+      setSearchingFriends(false);
+      return;
+    }
+    setSearchingFriends(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = typeof db.searchProfiles === 'function' ? await db.searchProfiles(q) : [];
+        const already = (activeSession.drank_with || []).join(' ').toLowerCase();
+        const filtered = (res || []).filter(
+          (p) =>
+            p.id !== currentUser?.id &&
+            !already.includes('(@' + (p.username || '').toLowerCase() + ')')
+        );
+        setFriendResults(filtered);
+      } catch (err) {
+        console.error('Errore ricerca amici:', err);
+        setFriendResults([]);
+      } finally {
+        setSearchingFriends(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [friendQuery, activeSession, currentUser]);
+
+  // Aggiunge un compagno alla sessione (profilo reale o testo libero)
+  const addCompanion = async (value) => {
+    if (!activeSession || !value) return;
+    const updated = [...(activeSession.drank_with || []), value];
+    setActiveSession((prev) => (prev ? { ...prev, drank_with: updated } : prev));
+    setFriendQuery('');
+    setFriendResults([]);
+    try {
+      await db.updateActivity(activeSession.id, { drank_with: updated });
+    } catch (err) {
+      console.error('Errore nel taggare il compagno:', err);
+      alert('Impossibile aggiungere il compagno: ' + (err.message || err));
+    }
+  };
+
+  // Carica una foto e la allega alla sessione live in corso
+  const handleAddSessionPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !activeSession) return;
+    if (!file.type.startsWith('image/')) {
+      alert("Seleziona un file immagine valido.");
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const url = await db.uploadFileToStorage(file);
+      const newMedia = [...(activeSession.media || []), { type: 'image', name: file.name, url }];
+      setActiveSession((prev) => (prev ? { ...prev, media: newMedia } : prev));
+      await db.updateActivity(activeSession.id, { media: newMedia });
+      triggerLocalNotification("Foto aggiunta! 📸", "La tua foto è stata allegata alla sessione live.");
+    } catch (err) {
+      console.error("Errore upload foto:", err);
+      alert("Errore nel caricamento della foto: " + (err.message || err));
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   const handleCloseActiveSession = async (e) => {
     e.preventDefault();
     if (!activeSession) return;
-    
+
     const feeling = e.target.feeling.value || 'Brillo Felice';
     const description = e.target.description.value || '';
     
@@ -989,6 +1102,14 @@ export default function FeedPage() {
     bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120);
   }
 
+  // Feed filtrato: "Amici" mostra le sessioni di chi seguo + le mie
+  const visibleActivities =
+    feedFilter === 'friends' && currentUser
+      ? activities.filter(
+          (a) => a.user_id === currentUser.id || followingIds.includes(a.user_id)
+        )
+      : activities;
+
   return (
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
@@ -1016,6 +1137,25 @@ export default function FeedPage() {
                 <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark-secondary)' }}>
                   Tempo: {elapsedMinutes} min
                 </span>
+              </div>
+
+              {/* Titolo e info modificabili della sessione live */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '15px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#FFF', wordBreak: 'break-word' }}>
+                    {activeSession.title || 'Brindisi Live 🍻'}
+                  </h3>
+                  {activeSession.description && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{activeSession.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleEditActivity(activeSession)}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}
+                >
+                  <Edit size={12} /> Modifica info
+                </button>
               </div>
 
               {/* Statistiche Live */}
@@ -1078,31 +1218,63 @@ export default function FeedPage() {
                 </div>
               </div>
 
-              {/* Gestione Compagni (drank_with) */}
+              {/* Gestione Compagni (drank_with) con ricerca amici reale */}
               <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
-                  Compagni di bevuta:
+                  Tagga i compagni di bevuta:
                 </span>
-                
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+
+                <div style={{ position: 'relative', marginBottom: '10px' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Nome o @username dell'amico..."
-                    style={{ height: '32px', fontSize: '12px', padding: '0 10px' }}
-                    onKeyDown={async (e) => {
+                    placeholder="Cerca un amico per nome o @username..."
+                    value={friendQuery}
+                    onChange={(e) => setFriendQuery(e.target.value)}
+                    style={{ height: '34px', fontSize: '12px', padding: '0 10px 0 30px' }}
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        const val = e.target.value.trim();
-                        if (!val) return;
-                        const updatedDrankWith = [...(activeSession.drank_with || []), val];
-                        await db.updateActivity(activeSession.id, { drank_with: updatedDrankWith });
-                        setActiveSession(prev => ({ ...prev, drank_with: updatedDrankWith }));
-                        e.target.value = '';
+                        const val = friendQuery.trim();
+                        if (val) addCompanion(val);
                       }
                     }}
                   />
-                  <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>[Invio per inserire]</span>
+                  {searchingFriends && (
+                    <Loader size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+                  )}
+
+                  {/* Dropdown risultati */}
+                  {friendQuery.trim().length >= 1 && (friendResults.length > 0 || (!searchingFriends)) && (
+                    <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--surface-dark, #161822)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
+                      {friendResults.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => addCompanion(`${p.display_name || p.username} (@${p.username})`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,94,0,0.08)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                        >
+                          <span className="activity-avatar" style={{ width: '26px', height: '26px', fontSize: '12px', flexShrink: 0 }}>
+                            {(p.display_name || p.username || 'U').charAt(0).toUpperCase()}
+                          </span>
+                          <span style={{ display: 'flex', flexDirection: 'column' }}>
+                            <strong style={{ fontSize: '12px' }}>{p.display_name || p.username}</strong>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>
+                          </span>
+                        </button>
+                      ))}
+                      {friendResults.length === 0 && !searchingFriends && (
+                        <button
+                          onClick={() => addCompanion(friendQuery.trim())}
+                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dark-secondary)', fontSize: '12px' }}
+                        >
+                          Nessun atleta registrato. Tagga &quot;<strong style={{ color: '#FFF' }}>{friendQuery.trim()}</strong>&quot; come ospite ↵
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -1112,8 +1284,8 @@ export default function FeedPage() {
                       <button
                         onClick={async () => {
                           const updated = activeSession.drank_with.filter((_, i) => i !== idx);
-                          await db.updateActivity(activeSession.id, { drank_with: updated });
                           setActiveSession(prev => ({ ...prev, drank_with: updated }));
+                          await db.updateActivity(activeSession.id, { drank_with: updated });
                         }}
                         style={{ color: 'var(--error)', cursor: 'pointer', border: 'none', background: 'none', fontWeight: 'bold' }}
                       >
@@ -1121,6 +1293,51 @@ export default function FeedPage() {
                       </button>
                     </span>
                   ))}
+                </div>
+              </div>
+
+              {/* Foto della sessione live */}
+              <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
+                  Foto della serata:
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                  {activeSession.media?.filter(m => m.type === 'image').map((med, idx) => (
+                    <div key={idx} style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={med.url} alt={med.name || 'foto'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button
+                        onClick={async () => {
+                          const updated = (activeSession.media || []).filter((_, i) => i !== idx);
+                          setActiveSession(prev => ({ ...prev, media: updated }));
+                          await db.updateActivity(activeSession.id, { media: updated });
+                        }}
+                        style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', color: '#FFF', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '12px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <label
+                    style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed var(--border-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: photoUploading ? 'wait' : 'pointer', color: 'var(--text-dark-secondary)', gap: '2px' }}
+                  >
+                    {photoUploading ? (
+                      <Loader size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                    ) : (
+                      <>
+                        <Camera size={18} />
+                        <span style={{ fontSize: '9px' }}>Aggiungi</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleAddSessionPhoto}
+                      disabled={photoUploading}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
                 </div>
               </div>
 
@@ -1195,12 +1412,36 @@ export default function FeedPage() {
           </div>
         )}
 
-        {activities.length === 0 ? (
+        {/* Filtro feed: Amici / Tutti */}
+        {currentUser && activities.length > 0 && (
+          <div className="seg-tabs" style={{ marginBottom: '6px' }}>
+            <div
+              className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
+              onClick={() => setFeedFilter('friends')}
+            >
+              👥 Amici
+            </div>
+            <div
+              className={`seg-tab ${feedFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setFeedFilter('all')}
+            >
+              🌍 Tutti
+            </div>
+          </div>
+        )}
+
+        {visibleActivities.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-            <p style={{ color: 'var(--text-dark-secondary)' }}>Nessuna attività registrata. Sii il primo a brindare! 🥂</p>
+            {feedFilter === 'friends' ? (
+              <p style={{ color: 'var(--text-dark-secondary)' }}>
+                Nessuna sessione dai tuoi amici. Segui altri atleti o passa a <strong style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setFeedFilter('all')}>🌍 Tutti</strong>.
+              </p>
+            ) : (
+              <p style={{ color: 'var(--text-dark-secondary)' }}>Nessuna attività registrata. Sii il primo a brindare! 🥂</p>
+            )}
           </div>
         ) : (
-          activities.map((act) => {
+          visibleActivities.map((act) => {
             const hasCheered = act.cheers?.includes(currentUser?.id);
             const isReallyActive = act.is_active && (new Date().getTime() - new Date(act.created_at).getTime() < 6 * 60 * 60 * 1000);
             return (
@@ -1237,6 +1478,16 @@ export default function FeedPage() {
                       </div>
                       <div className="activity-meta">{formatDate(act.created_at)}</div>
                     </div>
+                    {currentUser && act.user_id !== currentUser.id && (
+                      <button
+                        onClick={() => handleToggleFollow(act.user_id)}
+                        disabled={followBusy[act.user_id]}
+                        className={`btn ${followingIds.includes(act.user_id) ? 'btn-secondary' : 'btn-primary'}`}
+                        style={{ marginLeft: '4px', padding: '4px 12px', fontSize: '12px', borderRadius: '16px', fontWeight: '700', flexShrink: 0 }}
+                      >
+                        {followingIds.includes(act.user_id) ? 'Segui già ✓' : '+ Segui'}
+                      </button>
+                    )}
                   </div>
                   <div style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {isReallyActive && (
