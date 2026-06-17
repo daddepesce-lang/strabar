@@ -77,13 +77,7 @@ export default function ProfilePage() {
   const handleSearchFriends = async (queryText) => {
     setFriendsSearchQuery(queryText);
     if (!queryText.trim()) {
-      try {
-        const all = await db.getAllProfiles();
-        const filtered = all.filter(u => u.id !== currentUser?.id);
-        setSearchResults(filtered);
-      } catch (err) {
-        console.error(err);
-      }
+      setSearchResults([]);
       return;
     }
     setIsSearchingFriends(true);
@@ -101,16 +95,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (currentUser && activeTab === 'friends') {
       loadSocialData(currentUser.id);
-      const loadAllUsers = async () => {
-        try {
-          const all = await db.getAllProfiles();
-          const filtered = all.filter(u => u.id !== currentUser.id);
-          setSearchResults(filtered);
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      loadAllUsers();
+      setSearchResults([]);
     }
   }, [currentUser, activeTab]);
 
@@ -457,56 +442,206 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & LEADERBOARD SEGMENTI BAR) */}
-          <div className="r-grid-2-1" style={{ marginTop: '10px' }}>
-            
-            {/* Curva Alcolica BAC Settimanale */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', overflow: 'hidden' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📈 Curva di Ebbrezza BAC Settimanale (Simulata Widmark)
-                {(!currentUser?.is_premium) && (
-                  <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
-                )}
-              </h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
-                Monitora l&apos;assorbimento dell&apos;alcol nel sangue (g/l) nelle ultime 7 giornate per comprendere i tuoi picchi di carico.
-              </p>
+          {/* ===== PREMI & BADGE ===== */}
+          {(() => {
+            const sessionsCount = activities.length;
+            const totalU = activities.reduce((acc, a) => acc + parseFloat(a.total_units || 0), 0);
+            const uniqueBars = new Set(activities.map(a => a.location?.name).filter(Boolean)).size;
+            const barHopSessions = activities.filter(a =>
+              a.location?.sequence && Array.isArray(a.location.sequence) && a.location.sequence.length > 1
+            ).length;
+            const maxSingleUnits = activities.reduce((max, a) => Math.max(max, parseFloat(a.total_units || 0)), 0);
+            const daysWithSession = new Set(activities.map(a => new Date(a.created_at).toDateString())).size;
 
-              {currentUser?.is_premium ? (
-                <div style={{ padding: '20px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', height: '180px', paddingTop: '20px', position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: '100px', left: 0, right: 0, height: '1px', borderTop: '1px dashed var(--error)', zIndex: 1 }} />
-                    <span style={{ position: 'absolute', top: '82px', right: '5px', fontSize: '9px', color: 'var(--error)', fontWeight: '700', zIndex: 2 }}>Limite Guida (0.5 g/l)</span>
+            const allBadges = [
+              { id: 'first_sip',       icon: '🍺', title: 'Primo Sorso',              desc: 'Prima sessione registrata!',                earned: sessionsCount >= 1,  threshold: '1 sessione' },
+              { id: 'habitue',         icon: '🥂', title: 'Habitué',                  desc: '5 sessioni nel taccuino.',                  earned: sessionsCount >= 5,  threshold: '5 sessioni' },
+              { id: 'veteran',         icon: '🏅', title: 'Veterano da Bar',           desc: '10 sessioni registrate.',                   earned: sessionsCount >= 10, threshold: '10 sessioni' },
+              { id: 'champion',        icon: '🏆', title: 'Campione del Terzo Tempo', desc: '20 sessioni. Sei un\'istituzione.',          earned: sessionsCount >= 20, threshold: '20 sessioni' },
+              { id: 'ua_10',           icon: '💪', title: 'Forza Vitale',             desc: '10 U.A. totali consumate.',                 earned: totalU >= 10,        threshold: '10 U.A.' },
+              { id: 'ua_50',           icon: '🔥', title: 'Fuoco Sacro',              desc: '50 U.A. totali consumate.',                 earned: totalU >= 50,        threshold: '50 U.A.' },
+              { id: 'ua_100',          icon: '💥', title: 'Centometrista',            desc: '100 U.A. totali. Leggendario.',             earned: totalU >= 100,       threshold: '100 U.A.' },
+              { id: 'bar_3',           icon: '📍', title: 'Esploratore',              desc: '3 bar diversi visitati.',                   earned: uniqueBars >= 3,     threshold: '3 bar' },
+              { id: 'bar_10',          icon: '🗺️', title: 'Cartografo del Bere',     desc: '10 locali diversi sulla mappa.',            earned: uniqueBars >= 10,    threshold: '10 bar' },
+              { id: 'barhop_1',        icon: '🔄', title: 'Giramondo',                desc: 'Cambiato bar durante una sessione live.',   earned: barHopSessions >= 1, threshold: '1 giro dei bar' },
+              { id: 'barhop_3',        icon: '🎯', title: 'Re del Giro',              desc: '3 sessioni con cambio di bar.',             earned: barHopSessions >= 3, threshold: '3 giri dei bar' },
+              { id: 'heavy_session',   icon: '⚡', title: 'Sessione Pesante',         desc: 'Oltre 5 U.A. in una singola sessione.',     earned: maxSingleUnits >= 5, threshold: '5 U.A. in 1 sessione' },
+              { id: 'active_7',        icon: '📅', title: 'Settimana di Fuoco',       desc: 'Sessioni in 7 giorni diversi.',             earned: daysWithSession >= 7, threshold: '7 giorni attivi' },
+              { id: 'active_30',       icon: '📊', title: 'Allenamento Mensile',      desc: 'Sessioni in 30 giorni diversi.',            earned: daysWithSession >= 30, threshold: '30 giorni attivi' },
+            ];
 
-                    {[
-                      { day: 'Lun', val: 0.12, h: '25%' },
-                      { day: 'Mar', val: 0.00, h: '4%' },
-                      { day: 'Mer', val: 0.45, h: '65%' },
-                      { day: 'Gio', val: 0.20, h: '35%' },
-                      { day: 'Ven', val: 0.84, h: '120px' },
-                      { day: 'Sab', val: 1.15, h: '160px' },
-                      { day: 'Dom', val: 0.35, h: '50%' }
-                    ].map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '8px', zIndex: 2 }}>
-                        <span style={{ fontSize: '10px', fontWeight: '700', color: item.val > 0.5 ? 'var(--error)' : 'var(--success)' }}>{item.val.toFixed(2)}</span>
-                        <div style={{ width: '22px', height: item.h, background: item.val > 0.5 ? 'var(--premium-gradient)' : 'var(--success)', borderRadius: '4px', transition: 'height 0.5s ease' }} />
-                        <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{item.day}</span>
+            const earnedBadges = allBadges.filter(b => b.earned);
+            const lockedBadges = allBadges.filter(b => !b.earned);
+
+            return (
+              <div className="card" style={{ marginTop: '10px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🏅 Premi &amp; Badge
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '18px' }}>
+                  Achievement sbloccati automaticamente dalle tue sessioni reali.{' '}
+                  <strong style={{ color: earnedBadges.length > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>
+                    {earnedBadges.length}/{allBadges.length} ottenuti
+                  </strong>
+                </p>
+
+                {earnedBadges.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dark-secondary)', fontSize: '14px', border: '1px dashed var(--border-dark)', borderRadius: '10px', marginBottom: '16px' }}>
+                    🎯 Nessun badge ancora. Registra la tua prima sessione per iniziare!
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                    {earnedBadges.map(b => (
+                      <div key={b.id} style={{ background: 'linear-gradient(135deg, rgba(255,176,0,0.10) 0%, rgba(22,24,34,1) 100%)', border: '1px solid rgba(255,176,0,0.4)', borderRadius: '10px', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', textAlign: 'center' }}>
+                        <span style={{ fontSize: '26px' }}>{b.icon}</span>
+                        <strong style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: '800', lineHeight: 1.2 }}>{b.title}</strong>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', lineHeight: 1.3 }}>{b.desc}</span>
                       </div>
                     ))}
                   </div>
+                )}
+
+                {lockedBadges.length > 0 && (
+                  <>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
+                      🔒 Da sbloccare:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {lockedBadges.map(b => (
+                        <div key={b.id} title={`Sblocca con: ${b.threshold}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '20px', padding: '4px 10px' }}>
+                          <span style={{ fontSize: '13px', filter: 'grayscale(1)', opacity: 0.5 }}>{b.icon}</span>
+                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{b.title}</span>
+                          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)' }}>({b.threshold})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & LEADERBOARD SEGMENTI BAR) */}
+          <div className="r-grid-2-1" style={{ marginTop: '10px' }}>
+            
+            {/* Curva Alcolica BAC Settimanale — DATI REALI */}
+            {(() => {
+              // Calcola picco BAC reale per ciascuno degli ultimi 7 giorni
+              // sommando tutti i drink di TUTTE le sessioni di quel giorno
+              const weekDays = [];
+              const shortDays = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+              const now = new Date();
+              for (let i = 6; i >= 0; i--) {
+                const d = new Date(now);
+                d.setDate(now.getDate() - i);
+                const dayLabel = shortDays[d.getDay()];
+                const dateStr = d.toDateString();
+                // Filtra sessioni del giorno
+                const daySessions = activities.filter(a => new Date(a.created_at).toDateString() === dateStr);
+                // Concatena tutti i drink del giorno
+                const allDrinks = daySessions.flatMap(a => (a.drinks || []));
+                // Durata totale del giorno: somma delle durate o almeno 60 min
+                const totalDuration = daySessions.reduce((acc, a) => acc + (a.duration || 0), 0) || 60;
+                const firstCreatedAt = daySessions.length > 0 ? daySessions[0].created_at : d.toISOString();
+                // referenceTime = fine stimata dell'ultima sessione (non oggi) per mostrare il BAC al picco, non adesso
+                let referenceTime;
+                if (daySessions.length > 0 && i !== 0) {
+                  const lastSession = daySessions[daySessions.length - 1];
+                  referenceTime = new Date(
+                    new Date(lastSession.created_at).getTime() + (lastSession.duration || 60) * 60 * 1000
+                  ).toISOString();
+                }
+                const peakBac = allDrinks.length > 0
+                  ? parseFloat(db.calculateCurrentBAC(allDrinks, firstCreatedAt, totalDuration, referenceTime).toFixed(2))
+                  : 0;
+                weekDays.push({ label: dayLabel, val: peakBac, sessionsCount: daySessions.length });
+              }
+              const maxBac = Math.max(...weekDays.map(d => d.val), 1.0);
+              const hasSomeData = weekDays.some(d => d.val > 0);
+
+              return (
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', overflow: 'hidden' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📈 Curva di Ebbrezza BAC Settimanale
+                    {(!currentUser?.is_premium) && (
+                      <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
+                    )}
+                  </h3>
+
+                  {/* Nota esplicativa */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'rgba(255,176,0,0.06)', border: '1px solid rgba(255,176,0,0.18)', borderRadius: '8px', padding: '10px 12px' }}>
+                    <span style={{ fontSize: '14px', flexShrink: 0 }}>ℹ️</span>
+                    <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+                      <strong style={{ color: 'var(--secondary)' }}>Riepilogo cumulativo di tutte le sessioni.</strong>{' '}
+                      Ogni barra mostra il <em>picco BAC stimato</em> (formula Widmark) raggiunto in quel giorno sommando i drink di <strong>tutte le sessioni</strong> registrate in quella giornata. Non è la curva di una singola sessione.
+                    </p>
+                  </div>
+
+                  {currentUser?.is_premium ? (
+                    <div style={{ padding: '20px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
+                      {/* Riga limite guida */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '160px', paddingTop: '10px', position: 'relative' }}>
+                        {/* Linea limite guida posizionata al 50% di 1.0 g/l => 50% altezza */}
+                        <div style={{ position: 'absolute', bottom: `${(0.5 / maxBac) * 100}%`, left: 0, right: 0, height: '1px', borderTop: '1px dashed var(--error)', zIndex: 1 }} />
+                        <span style={{ position: 'absolute', bottom: `calc(${(0.5 / maxBac) * 100}% + 4px)`, right: '4px', fontSize: '9px', color: 'var(--error)', fontWeight: '700', zIndex: 2 }}>Limite guida 0.5 g/l</span>
+
+                        {weekDays.map((item, idx) => {
+                          const barHeightPct = maxBac > 0 ? Math.max(2, (item.val / maxBac) * 100) : 2;
+                          return (
+                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px', zIndex: 2, height: '100%', justifyContent: 'flex-end' }}>
+                              {item.val > 0 && (
+                                <span style={{ fontSize: '9px', fontWeight: '700', color: item.val > 0.5 ? 'var(--error)' : 'var(--success)', textAlign: 'center' }}>{item.val.toFixed(2)}</span>
+                              )}
+                              <div
+                                title={item.sessionsCount > 0 ? `${item.sessionsCount} sessione/i · BAC picco ${item.val.toFixed(2)} g/l` : 'Nessuna sessione'}
+                                style={{
+                                  width: '22px',
+                                  height: `${barHeightPct}%`,
+                                  background: item.val === 0 ? 'rgba(255,255,255,0.05)' : item.val > 0.5 ? 'var(--premium-gradient)' : 'var(--success)',
+                                  borderRadius: '4px 4px 0 0',
+                                  transition: 'height 0.5s ease',
+                                  border: item.val === 0 ? '1px dashed rgba(255,255,255,0.08)' : 'none'
+                                }}
+                              />
+                              <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>{item.label}</span>
+                              {item.sessionsCount > 0 && (
+                                <span style={{ fontSize: '8px', color: 'var(--primary)', fontWeight: '700' }}>{item.sessionsCount}s</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {!hasSomeData && (
+                        <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '12px', fontStyle: 'italic' }}>
+                          Nessuna sessione negli ultimi 7 giorni. Inizia a tracciare le tue bevute! 🍻
+                        </p>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '12px', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <div style={{ width: '10px', height: '10px', background: 'var(--success)', borderRadius: '2px' }} /> Sotto limite guida
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <div style={{ width: '10px', height: '10px', background: 'var(--error)', borderRadius: '2px' }} /> Sopra limite guida (0.5 g/l)
+                        </span>
+                        <span style={{ marginLeft: 'auto' }}>s = sessioni del giorno</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ flex: 1, background: 'rgba(0,0,0,0.5)', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', textAlign: 'center', border: '1px dashed var(--border-dark)', minHeight: '220px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '8px' }}>Contenuto Protetto da Strabar Summit 🏔️</div>
+                      <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', maxWidth: '350px', marginBottom: '20px' }}>
+                        L&apos;analisi scientifica avanzata del tasso alcolico nel sangue (BAC) e lo storico grafico settimanale è riservata ai membri Summit.
+                      </p>
+                      <Link href="/premium" className="btn btn-premium" style={{ padding: '8px 18px', fontSize: '13px' }}>
+                        Abbonati a Premium (€4.99)
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div style={{ flex: 1, background: 'rgba(0,0,0,0.5)', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', textAlign: 'center', border: '1px dashed var(--border-dark)', minHeight: '220px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '8px' }}>Contenuto Protetto da Strabar Summit 🏔️</div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', maxWidth: '350px', marginBottom: '20px' }}>
-                    L&apos;analisi scientifica avanzata del tasso alcolico nel sangue (BAC) e lo storico grafico settimanale è riservata ai membri Summit.
-                  </p>
-                  <Link href="/premium" className="btn btn-premium" style={{ padding: '8px 18px', fontSize: '13px' }}>
-                    Abbonati a Premium (€4.99)
-                  </Link>
-                </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Classifiche Segmenti Bar */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -573,6 +708,8 @@ export default function ProfilePage() {
 
             {isSearchingFriends ? (
               <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Ricerca in corso...</p>
+            ) : !friendsSearchQuery.trim() ? (
+              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', fontStyle: 'italic' }}>Digita un nome o username per cercare atleti...</p>
             ) : searchResults.length === 0 ? (
               <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Nessun utente registrato trovato.</p>
             ) : (

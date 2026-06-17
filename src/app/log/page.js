@@ -3,1022 +3,935 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Beer, Plus, Minus, Calendar, Clock, Heart, Users, Save, Trash2, MapPin, Camera, Video, Mic, Volume2 } from 'lucide-react';
-
-const PRESET_DRINKS = [
-  { name: 'Spritz (Campari/Aperol/Select)', abv: 11, volumeMl: 150, category: 'Aperitivo', units: 1.3 },
-  { name: 'Birra Chiara Media', abv: 5, volumeMl: 400, category: 'Birra', units: 1.6 },
-  { name: 'Birra IPA Artigianale', abv: 6.5, volumeMl: 400, category: 'Birra', units: 2.1 },
-  { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, volumeMl: 125, category: 'Vino', units: 1.3 },
-  { name: 'Cocktail (Gin Tonic/Negroni/Moscow Mule)', abv: 25, volumeMl: 150, category: 'Cocktail', units: 2.5 },
-  { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, volumeMl: 40, category: 'Shot', units: 1.3 }
-];
+import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2 } from 'lucide-react';
 
 export default function LogActivityPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [duration, setDuration] = useState(120); // 2 ore di default
-  const [feeling, setFeeling] = useState('Brillo Felice');
-  
-  // Lista complessiva dei drink (calcolata in automatico)
-  const [loggedDrinks, setLoggedDrinks] = useState([]);
-  
-  // Drink generici non associati ad una tappa
-  const [generalDrinks, setGeneralDrinks] = useState([
-    { name: PRESET_DRINKS[0].name, qty: 1, abv: PRESET_DRINKS[0].abv, units: PRESET_DRINKS[0].units }
-  ]);
-  
-  // Drink associati alle tappe del percorso
-  const [waypointDrinks, setWaypointDrinks] = useState({}); // { [wpName]: [ { name, qty, abv, units } ] }
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [startingSession, setStartingSession] = useState(false);
 
-  // Sincronizza loggedDrinks sommando generici e tappe
-  useEffect(() => {
-    const flatWpDrinks = Object.values(waypointDrinks).flat();
-    const merged = {};
-    [...generalDrinks, ...flatWpDrinks].forEach(d => {
-      if (!merged[d.name]) {
-        merged[d.name] = { ...d };
-      } else {
-        merged[d.name].qty += d.qty;
+  // Stati per la gestione della sessione già attiva
+  const [activeSession, setActiveSession] = useState(null);
+  const [showActiveSessionWarning, setShowActiveSessionWarning] = useState(false);
+  const [showCloseActiveForm, setShowCloseActiveForm] = useState(false);
+  const [isAppendingToSession, setIsAppendingToSession] = useState(false);
+
+  // Stati per la selezione del locale
+  const [showLocaleSelector, setShowLocaleSelector] = useState(false);
+  const [localesList, setLocalesList] = useState([]);
+  const [localeSearchQuery, setLocaleSearchQuery] = useState('');
+  const [selectedLocale, setSelectedLocale] = useState(null);
+
+  // Stati per geofencing GPS
+  const [checkingGps, setCheckingGps] = useState(false);
+  const [showGeofencingModal, setShowGeofencingModal] = useState(false);
+  const [geofencingData, setGeofencingData] = useState({ inside: false, distance: null, error: null });
+
+  // Stati per registrazione a posteriori
+  const [showRetroForm, setShowRetroForm] = useState(false);
+  const [retroSaving, setRetroSaving] = useState(false);
+  const [retroForm, setRetroForm] = useState({
+    title: '',
+    date: new Date().toISOString().slice(0, 16), // datetime-local format
+    duration: 60,
+    location: '',
+    feeling: 'Allegro',
+    description: '',
+    drinks: []
+  });
+  const DRINK_PRESETS = [
+    { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
+    { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
+    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
+    { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' },
+    { name: 'Cocktail (Negroni/Mojito/Cosmopolitan)', abv: 15, units: 1.5, label: '🍸 Cocktail' },
+    { name: 'Acqua Fresca', abv: 0, units: 0, label: '💧 Acqua' },
+  ];
+  const handleRetroAddDrink = (preset) => {
+    setRetroForm(prev => {
+      const existing = prev.drinks.findIndex(d => d.name === preset.name);
+      if (existing >= 0) {
+        const updated = [...prev.drinks];
+        updated[existing] = { ...updated[existing], qty: updated[existing].qty + 1 };
+        return { ...prev, drinks: updated };
       }
+      return { ...prev, drinks: [...prev.drinks, { ...preset, qty: 1 }] };
     });
-    setLoggedDrinks(Object.values(merged));
-  }, [generalDrinks, waypointDrinks]);
-  
-  // Drink personalizzati caricati dal database
-  const [customPresets, setCustomPresets] = useState([]);
-  
-  // Stato per taggare gli amici
-  const [friendName, setFriendName] = useState('');
-  const [taggedFriends, setTaggedFriends] = useState([]);
-  const [friendSearchResults, setFriendSearchResults] = useState([]);
-
-  // Nuovi stati per localizzazione e media
-  const [location, setLocation] = useState(null);
-  const [locationSearchQuery, setLocationSearchQuery] = useState('');
-  const [locationResults, setLocationResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [mediaFiles, setMediaFiles] = useState([]); // Array di { type, name, url, size }
-  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Stati per gestire l'inizio della sessione da un percorso
-  const [activeRoute, setActiveRoute] = useState(null);
-  const [visitedWaypoints, setVisitedWaypoints] = useState([]);
-
-  const loadCustomDrinks = async () => {
+  };
+  const handleRetroChangeDrinkQty = (idx, delta) => {
+    setRetroForm(prev => {
+      const updated = [...prev.drinks];
+      updated[idx] = { ...updated[idx], qty: Math.max(0, updated[idx].qty + delta) };
+      return { ...prev, drinks: updated.filter(d => d.qty > 0) };
+    });
+  };
+  const handleRetroRemoveDrink = (idx) => {
+    setRetroForm(prev => ({ ...prev, drinks: prev.drinks.filter((_, i) => i !== idx) }));
+  };
+  const handleRetroSubmit = async (e) => {
+    e.preventDefault();
+    if (retroForm.drinks.length === 0) {
+      alert('Aggiungi almeno un drink alla sessione!');
+      return;
+    }
+    setRetroSaving(true);
     try {
-      const drinks = await db.getCustomDrinks();
-      setCustomPresets(drinks);
+      const createdAt = new Date(retroForm.date).toISOString();
+      const totalUnits = retroForm.drinks.reduce((acc, d) => acc + d.units * d.qty, 0);
+      const bac = db.calculateCurrentBAC(
+        retroForm.drinks,
+        createdAt,
+        retroForm.duration,
+        new Date(new Date(retroForm.date).getTime() + retroForm.duration * 60 * 1000).toISOString()
+      );
+      await db.createActivity({
+        title: retroForm.title || `Sessione del ${new Date(retroForm.date).toLocaleDateString('it-IT')}`,
+        description: retroForm.description,
+        drinks: retroForm.drinks,
+        total_units: parseFloat(totalUnits.toFixed(1)),
+        duration: retroForm.duration,
+        feeling: retroForm.feeling,
+        location: retroForm.location ? { name: retroForm.location } : null,
+        bac_level: parseFloat(bac.toFixed(2)),
+        is_active: false,
+        created_at: createdAt,  // data passata dall'utente per sessioni a posteriori
+      });
+      // Aggiorna il created_at della sessione appena creata se supportato
+      // Nota: Supabase permette di passare created_at nell'insert
+      alert('✅ Sessione registrata con successo!');
+      router.push('/');
     } catch (err) {
-      console.error("Errore nel caricamento dei drink personalizzati:", err);
+      alert('Errore nel salvataggio: ' + err.message);
+    } finally {
+      setRetroSaving(false);
     }
   };
 
   useEffect(() => {
     const checkUser = async () => {
-      const user = await db.getCurrentUser();
-      if (!user) {
-        router.push('/auth');
-      } else {
-        setCurrentUser(user);
-        loadCustomDrinks();
-
-        // Controlla se è stato passato un routeId per iniziare una sessione da percorso
-        if (typeof window !== 'undefined') {
-          const params = new URLSearchParams(window.location.search);
-          const rId = params.get('routeId');
-          if (rId) {
-            try {
-              const route = await db.getRoute(rId);
-              if (route) {
-                setActiveRoute(route);
-                setTitle(`Pub Crawl: ${route.name} 🍻`);
-                setDescription(`Ho completato le tappe del percorso: "${route.name}".`);
-                // Pre-imposta tutte le tappe come visitate di default
-                setVisitedWaypoints(route.waypoints || []);
+      try {
+        if (!db || typeof db.getCurrentUser !== 'function') return;
+        const user = await db.getCurrentUser();
+        if (!user) {
+          router.push('/auth');
+        } else {
+          setCurrentUser(user);
+          if (typeof db.getActiveSession === 'function') {
+            const active = await db.getActiveSession(user.id);
+            if (active) {
+              setActiveSession(active);
+              
+              // Se l'azione NON è append, mostriamo il warning. Se è append, bypassiamo il warning.
+              const urlParams = new URLSearchParams(window.location.search);
+              if (urlParams.get('action') !== 'append') {
+                setShowActiveSessionWarning(true);
               }
-            } catch (err) {
-              console.error("Errore nel recupero del percorso:", err);
             }
           }
         }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingUser(false);
       }
     };
     checkUser();
+
+    // Gestione query parameter ?action=append per aggiungere una tappa direttamente
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'append') {
+      setIsAppendingToSession(true);
+      const openSelectorDirectly = async () => {
+        try {
+          const list = await db.getPlaces();
+          setLocalesList(list);
+          setShowLocaleSelector(true);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      openSelectorDirectly();
+    }
   }, [router]);
 
-  // Calcola le unità alcoliche totali in tempo reale
-  const totalUnits = loggedDrinks.reduce((acc, drink) => {
-    return acc + (drink.units * drink.qty);
-  }, 0).toFixed(1);
-
-  const handleAddPresetDrink = (preset) => {
-    const existingIdx = generalDrinks.findIndex(d => d.name === preset.name);
-    if (existingIdx > -1) {
-      const updated = [...generalDrinks];
-      updated[existingIdx].qty += 1;
-      setGeneralDrinks(updated);
-    } else {
-      setGeneralDrinks([...generalDrinks, { name: preset.name, qty: 1, abv: preset.abv, units: preset.units }]);
-    }
-  };
-
-  const handleUpdateQty = (index, increment) => {
-    const updated = [...generalDrinks];
-    updated[index].qty += increment;
-    if (updated[index].qty <= 0) {
-      updated.splice(index, 1);
-    }
-    setGeneralDrinks(updated);
-  };
-
-  const handleCustomDrinkAdd = async (e) => {
-    e.preventDefault();
-    const name = e.target.customName.value;
-    const abv = parseFloat(e.target.customAbv.value || 5);
-    const volume = parseFloat(e.target.customVolume.value || 330);
-    const category = e.target.customCategory?.value || 'Custom';
-    
-    if (!name) return;
-
+  // Chiudi sessione corrente per avviare una nuova sessione
+  const handleForceNewSession = async () => {
     try {
-      const newDrink = await db.addCustomDrink({
-        name,
-        abv,
-        volumeMl: volume,
-        category
+      if (!activeSession) return;
+      const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
+      const elapsed = Math.max(1, Math.round(diffMs / (60 * 1000)));
+      await db.closeSession(activeSession.id, {
+        is_active: false,
+        feeling: activeSession.feeling || 'Sobrio',
+        description: 'Chiusa per avviare una nuova sessione.',
+        duration: elapsed
       });
-      
-      // Ricarica la lista globale dei drink personalizzati
-      await loadCustomDrinks();
-      
-      // Aggiungi alla sessione corrente
-      const existingIdx = generalDrinks.findIndex(d => d.name === newDrink.name);
-      if (existingIdx > -1) {
-        const updated = [...generalDrinks];
-        updated[existingIdx].qty += 1;
-        setGeneralDrinks(updated);
-      } else {
-        setGeneralDrinks([...generalDrinks, { name: newDrink.name, qty: 1, abv: newDrink.abv, units: newDrink.units }]);
-      }
-      
-      e.target.reset();
+      setActiveSession(null);
+      setShowActiveSessionWarning(false);
+      setShowCloseActiveForm(false);
     } catch (err) {
-      console.error(err);
-      setError("Impossibile creare e salvare il drink personalizzato.");
+      alert("Errore nella chiusura della sessione precedente: " + err.message);
     }
   };
 
-  const handleAddWaypointDrink = (wpName, preset) => {
-    const currentWpDrinks = waypointDrinks[wpName] || [];
-    const existingIdx = currentWpDrinks.findIndex(d => d.name === preset.name);
-    let updatedWpDrinks;
-    if (existingIdx > -1) {
-      updatedWpDrinks = [...currentWpDrinks];
-      updatedWpDrinks[existingIdx].qty += 1;
-    } else {
-      updatedWpDrinks = [...currentWpDrinks, { name: preset.name, qty: 1, abv: preset.abv, units: preset.units }];
-    }
-    setWaypointDrinks({
-      ...waypointDrinks,
-      [wpName]: updatedWpDrinks
-    });
-  };
-
-  const handleUpdateWaypointQty = (wpName, drinkName, increment) => {
-    const currentWpDrinks = waypointDrinks[wpName] || [];
-    const existingIdx = currentWpDrinks.findIndex(d => d.name === drinkName);
-    if (existingIdx === -1) return;
+  // Chiudi e salva la sessione compilando il form
+  const handleCloseActiveSession = async (e) => {
+    e.preventDefault();
+    if (!activeSession) return;
+    const formData = new FormData(e.target);
+    const feeling = formData.get('feeling');
+    const description = formData.get('description');
     
-    let updatedWpDrinks = [...currentWpDrinks];
-    updatedWpDrinks[existingIdx].qty += increment;
-    if (updatedWpDrinks[existingIdx].qty <= 0) {
-      updatedWpDrinks.splice(existingIdx, 1);
-    }
-    setWaypointDrinks({
-      ...waypointDrinks,
-      [wpName]: updatedWpDrinks
-    });
-  };
-
-  const handleFriendSearchChange = async (val) => {
-    setFriendName(val);
-    if (!val.trim()) {
-      setFriendSearchResults([]);
-      return;
-    }
     try {
-      const results = await db.searchProfiles(val);
-      setFriendSearchResults(results);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleSelectFriend = (user) => {
-    const nameToAdd = `${user.display_name} (@${user.username})`;
-    if (!taggedFriends.includes(nameToAdd)) {
-      setTaggedFriends([...taggedFriends, nameToAdd]);
-    }
-    setFriendName('');
-    setFriendSearchResults([]);
-  };
-
-  const handleAddFriend = (e) => {
-    e.preventDefault();
-    if (friendName.trim() && !taggedFriends.includes(friendName.trim())) {
-      setTaggedFriends([...taggedFriends, friendName.trim()]);
-      setFriendName('');
-      setFriendSearchResults([]);
-    }
-  };
-
-  const handleRemoveFriend = (name) => {
-    setTaggedFriends(taggedFriends.filter(f => f !== name));
-  };
-
-  const handleLocationSearch = async (e) => {
-    e.preventDefault();
-    if (!locationSearchQuery.trim()) return;
-    setSearchLoading(true);
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationSearchQuery)}&limit=5`);
-      const data = await response.json();
-      setLocationResults(data.map(item => ({
-        name: item.display_name.split(',')[0],
-        address: item.display_name,
-        lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon)
-      })));
-    } catch (err) {
-      console.error("Errore nella ricerca del bar:", err);
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  const handleMediaUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-    setError('');
-    setIsUploadingMedia(true);
-
-    try {
-      const uploadPromises = files.map(async (file) => {
-        const isVideo = file.type.startsWith('video/');
-        const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024; // 50MB o 10MB
-        
-        if (file.size > maxSize) {
-          throw new Error(`Il file ${file.name} supera il limite massimo di dimensione (${isVideo ? '50MB' : '10MB'})!`);
-        }
-
-        let type = 'image';
-        if (file.type.startsWith('video/')) type = 'video';
-        else if (file.type.startsWith('audio/')) type = 'audio';
-
-        // Carica su storage Supabase (con fallback base64 integrato in db.uploadFileToStorage)
-        const url = await db.uploadFileToStorage(file);
-        
-        return {
-          type,
-          name: file.name,
-          url,
-          size: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
-        };
+      const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
+      const elapsed = Math.max(1, Math.round(diffMs / (60 * 1000)));
+      await db.closeSession(activeSession.id, {
+        is_active: false,
+        feeling,
+        description,
+        duration: elapsed
       });
-
-      const uploadedFiles = await Promise.all(uploadPromises);
-      setMediaFiles(prev => [...prev, ...uploadedFiles]);
+      setActiveSession(null);
+      setShowActiveSessionWarning(false);
+      setShowCloseActiveForm(false);
     } catch (err) {
-      console.error("Errore durante il caricamento dei media:", err);
-      setError(err.message || "Si è verificato un errore durante il caricamento dei file.");
-    } finally {
-      setIsUploadingMedia(false);
-      // Reset input value to allow uploading the same file again if deleted
-      e.target.value = '';
+      alert("Errore nella chiusura della sessione: " + err.message);
     }
   };
 
-  const handleRemoveMedia = (idx) => {
-    setMediaFiles(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const calculatedBac = db.calculateBAC(totalUnits, duration);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (loggedDrinks.length === 0) {
-      setError("Inserisci almeno un drink consumato!");
+  // Avvia Brindisi Libero / Roaming
+  const handleStartFreeSession = async () => {
+    if (activeSession) {
+      setShowActiveSessionWarning(true);
       return;
     }
 
-    setLoading(true);
-    setError('');
+    setStartingSession(true);
+    try {
+      if (!db || typeof db.createActivity !== 'function') return;
 
-    let finalDescription = description;
-    if (activeRoute) {
-      let visitedSummary = '';
-      activeRoute.waypoints.forEach((wp, i) => {
-        const isVisited = visitedWaypoints.some(v => v.name === wp.name && Math.abs(v.lat - wp.lat) < 0.0001);
-        if (isVisited) {
-          const wpDr = waypointDrinks[wp.name] || [];
-          const drinksStr = wpDr.length > 0 
-            ? wpDr.map(d => `${d.qty}x ${d.name}`).join(', ') 
-            : 'Check-in (nessun drink registrato)';
-          visitedSummary += `📍 Tappa ${i + 1}: ${wp.name} — ${drinksStr}\n`;
-        }
+      await db.createActivity({
+        title: 'Brindisi Live 🍻',
+        drinks: [],
+        is_active: true,
+        bac_level: 0,
+        total_units: 0,
+        duration: 1
       });
-      finalDescription += `\n\n🛣️ Percorso completato: ${activeRoute.name}\n${visitedSummary}`;
-    }
 
-    // Espandiamo i drink e impostiamo i timestamp uniformi basati sulla durata e la data di creazione
-    const now = new Date();
-    const startTime = new Date(now.getTime() - duration * 60 * 1000);
-    const expandedDrinks = [];
-    
-    loggedDrinks.forEach(drink => {
-      for (let i = 0; i < drink.qty; i++) {
-        expandedDrinks.push({
-          name: drink.name,
-          abv: drink.abv,
-          units: drink.units,
-          qty: 1
+      // Notifica PWA
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification("Brindisi Live Avviato! 🔴", {
+          body: "Registra i tuoi drink uno alla volta per monitorare il tasso alcolico in tempo reale!"
         });
       }
-    });
 
-    const numDrinks = expandedDrinks.length;
-    expandedDrinks.forEach((d, index) => {
-      const offsetMs = numDrinks > 1
-        ? (duration * 60 * 1000 * index) / (numDrinks - 1)
-        : 0;
-      d.added_at = new Date(startTime.getTime() + offsetMs).toISOString();
-    });
-
-    const activityData = {
-      title: title || 'Aperitivo Strabar 🍻',
-      description: finalDescription,
-      duration,
-      feeling,
-      drinks: expandedDrinks,
-      total_units: totalUnits,
-      drank_with: taggedFriends,
-      location: location,
-      bac_level: calculatedBac,
-      media: mediaFiles.map(m => ({ type: m.type, name: m.name, url: m.url }))
-    };
-
-    try {
-      await db.createActivity(activityData);
       router.push('/');
     } catch (err) {
-      setError(err.message || "Impossibile salvare l'attività.");
+      alert("Errore nell'avvio della sessione libera: " + err.message);
     } finally {
-      setLoading(false);
+      setStartingSession(false);
     }
   };
 
-  return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '32px', fontWeight: '800', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <Beer size={32} color="var(--primary)" fill="var(--primary)" />
-        Registra una Sessione Alcolica
-      </h1>
-      <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '30px' }}>
-        Tieni traccia delle tue bevute, tagga gli amici e calcola le tue statistiche, proprio come faresti con un allenamento.
-      </p>
+  // Clicca opzione check-in locale
+  const handleLocaleCheckInClick = async () => {
+    if (activeSession) {
+      setShowActiveSessionWarning(true);
+      return;
+    }
 
-      {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--error)', color: '#FF7D7D', padding: '12px 16px', borderRadius: 'var(--radius)', fontSize: '14px', marginBottom: '20px' }}>
-          {error}
+    try {
+      const list = await db.getPlaces();
+      setLocalesList(list);
+      setShowLocaleSelector(true);
+    } catch (err) {
+      alert("Errore nel recupero dei locali: " + err.message);
+    }
+  };
+
+  // Seleziona un locale e verifica geofencing GPS
+  const handleSelectLocale = async (locale) => {
+    setSelectedLocale(locale);
+    setShowLocaleSelector(false);
+    setCheckingGps(true);
+
+    const startSession = async () => {
+      try {
+        await db.createActivity({
+          title: `Brindisi live presso ${locale.name} 🍻`,
+          location: {
+            name: locale.name,
+            address: locale.address,
+            lat: locale.lat,
+            lng: locale.lng
+          },
+          drinks: [],
+          is_active: true,
+          bac_level: 0,
+          total_units: 0,
+          duration: 1
+        });
+        
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification("Brindisi Live Avviato! 🔴", {
+            body: `Registra i tuoi drink presso ${locale.name} per monitorare il BAC in tempo reale!`
+          });
+        }
+        router.push('/');
+      } catch (err) {
+        alert("Errore nell'avvio della sessione geolocalizzata: " + err.message);
+      } finally {
+        setCheckingGps(false);
+      }
+    };
+
+    const appendLocaleToActiveSession = async () => {
+      try {
+        if (!activeSession) throw new Error("Nessuna sessione attiva trovata da aggiornare.");
+
+        let currentSequence = [];
+        if (activeSession.location && activeSession.location.sequence && Array.isArray(activeSession.location.sequence)) {
+          currentSequence = [...activeSession.location.sequence];
+        } else if (activeSession.location) {
+          currentSequence = [{
+            name: activeSession.location.name,
+            address: activeSession.location.address,
+            lat: activeSession.location.lat,
+            lng: activeSession.location.lng ?? activeSession.location.lon
+          }];
+        }
+
+        const newWaypoint = {
+          name: locale.name,
+          address: locale.address,
+          lat: locale.lat,
+          lng: locale.lng ?? locale.lon,
+          visited_at: new Date().toISOString()
+        };
+        currentSequence.push(newWaypoint);
+
+        const updatedTitle = `Giro dei Bar: ${currentSequence.map(s => s.name).join(' ➔ ')}`;
+
+        const updatedFields = {
+          location: {
+            name: locale.name,
+            address: locale.address,
+            lat: locale.lat,
+            lng: locale.lng ?? locale.lon,
+            sequence: currentSequence
+          },
+          title: updatedTitle.length > 80 ? updatedTitle.substring(0, 77) + '...' : updatedTitle
+        };
+
+        await db.updateActivity(activeSession.id, updatedFields);
+
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification("Tappa Aggiunta! 📍", {
+            body: `Sei arrivato a ${locale.name}. La tua sessione live è stata aggiornata!`
+          });
+        }
+        router.push('/');
+      } catch (err) {
+        alert("Errore nell'aggiunta del locale alla sessione: " + err.message);
+      } finally {
+        setCheckingGps(false);
+      }
+    };
+
+    if (!navigator.geolocation) {
+      setGeofencingData({ inside: false, distance: null, error: "Geolocalizzazione non supportata." });
+      setShowGeofencingModal(true);
+      setCheckingGps(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+        
+        const geo = db.checkGeofencing(locale.lat, locale.lng, userLat, userLng);
+        if (geo.inside) {
+          if (isAppendingToSession) {
+            await appendLocaleToActiveSession();
+          } else {
+            await startSession();
+          }
+        } else {
+          setGeofencingData({ inside: false, distance: geo.distance, error: null });
+          setShowGeofencingModal(true);
+        }
+        setCheckingGps(false);
+      },
+      (err) => {
+        console.warn("Errore geolocalizzazione:", err);
+        setGeofencingData({ inside: false, distance: null, error: "Impossibile rilevare la tua posizione GPS. Permesso negato o segnale assente." });
+        setShowGeofencingModal(true);
+        setCheckingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  // Forza Demo Start per locale selezionato (Bypass range check)
+  const handleForceDemoStart = async () => {
+    if (!selectedLocale) return;
+    setShowGeofencingModal(false);
+    setCheckingGps(true);
+    try {
+      if (isAppendingToSession) {
+        if (!activeSession) throw new Error("Nessuna sessione attiva.");
+        let currentSequence = [];
+        if (activeSession.location && activeSession.location.sequence && Array.isArray(activeSession.location.sequence)) {
+          currentSequence = [...activeSession.location.sequence];
+        } else if (activeSession.location) {
+          currentSequence = [{
+            name: activeSession.location.name,
+            address: activeSession.location.address,
+            lat: activeSession.location.lat,
+            lng: activeSession.location.lng ?? activeSession.location.lon
+          }];
+        }
+        currentSequence.push({
+          name: selectedLocale.name,
+          address: selectedLocale.address,
+          lat: selectedLocale.lat,
+          lng: selectedLocale.lng,
+          visited_at: new Date().toISOString()
+        });
+        const updatedTitle = `Giro dei Bar: ${currentSequence.map(s => s.name).join(' ➔ ')}`;
+        await db.updateActivity(activeSession.id, {
+          location: {
+            name: selectedLocale.name,
+            address: selectedLocale.address,
+            lat: selectedLocale.lat,
+            lng: selectedLocale.lng,
+            sequence: currentSequence
+          },
+          title: updatedTitle.length > 80 ? updatedTitle.substring(0, 77) + '...' : updatedTitle
+        });
+        router.push('/');
+      } else {
+        await db.createActivity({
+          title: `Brindisi live presso ${selectedLocale.name} (Demo Mode) 🍻`,
+          location: {
+            name: selectedLocale.name,
+            address: selectedLocale.address,
+            lat: selectedLocale.lat,
+            lng: selectedLocale.lng
+          },
+          drinks: [],
+          is_active: true,
+          bac_level: 0,
+          total_units: 0,
+          duration: 1
+        });
+        router.push('/');
+      }
+    } catch (err) {
+      alert("Errore nell'avvio forzato: " + err.message);
+    } finally {
+      setCheckingGps(false);
+    }
+  };
+
+  // Filtra locali per ricerca
+  const filteredLocales = localesList.filter(loc => 
+    loc.name.toLowerCase().includes(localeSearchQuery.toLowerCase()) ||
+    (loc.address || '').toLowerCase().includes(localeSearchQuery.toLowerCase())
+  );
+
+  if (loadingUser || checkingGps) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Loader size={36} className="pulse" style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+        <div style={{ color: 'var(--primary)', fontSize: '18px', fontWeight: 'bold' }}>
+          {checkingGps ? "Agganciando il satellite GPS... 📡" : "Versando una fresca... 🍺"}
+        </div>
+        <style jsx global>{`
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: '600px', margin: '40px auto', padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+      <div style={{ textAlign: 'center' }}>
+        <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          ⏱️ Registrazione in Tempo Reale
+        </span>
+        <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#FFF', marginTop: '15px' }}>
+          Inizia un Brindisi Live 🍻
+        </h1>
+        <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '10px', lineHeight: '1.6' }}>
+          Su Strabar non inseriamo più i dati a posteriori come le vecchie app. <br />
+          Tracciamo lo sforzo in tempo reale per monitorare il tasso alcolico (BAC) e l&apos;assorbimento fegato minuto per minuto!
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        
+        {/* OPZIONE 1: Al locale */}
+        <div 
+          onClick={handleLocaleCheckInClick}
+          className="card" 
+          style={{ 
+            cursor: 'pointer', 
+            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 94, 0, 0.05) 100%)', 
+            border: '1px solid var(--border-dark)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            padding: '24px',
+            transition: 'var(--transition)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--primary)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-dark)';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <div style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%' }}>
+            <MapPin size={28} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Brindisi al Locale (Geolocalizzato)</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
+              Fai check-in in un pub o bar reale nelle vicinanze. Richiede la prossimità GPS (200m).
+            </p>
+          </div>
+        </div>
+
+        {/* OPZIONE 2: Libera/Roaming */}
+        <div 
+          onClick={handleStartFreeSession}
+          className="card" 
+          style={{ 
+            cursor: startingSession ? 'not-allowed' : 'pointer', 
+            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 176, 0, 0.05) 100%)', 
+            border: '1px solid var(--border-dark)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            padding: '24px',
+            transition: 'var(--transition)'
+          }}
+          onMouseEnter={(e) => {
+            if (!startingSession) {
+              e.currentTarget.style.borderColor = 'var(--secondary)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!startingSession) {
+              e.currentTarget.style.borderColor = 'var(--border-dark)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }
+          }}
+        >
+          <div style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '16px', borderRadius: '50%' }}>
+            {startingSession ? (
+              <Loader size={28} style={{ animation: 'spin 1s linear infinite' }} />
+            ) : (
+              <Play size={28} fill="var(--secondary)" />
+            )}
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Brindisi Libero / Roaming</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
+              Inizia una sessione alcolica libera (es. festa a casa, picnic, degustazione itinerante) senza vincoli di posizione.
+            </p>
+          </div>
+        </div>
+        {/* OPZIONE 3: Registra a Posteriori */}
+        <div
+          onClick={() => setShowRetroForm(true)}
+          className="card"
+          style={{
+            cursor: 'pointer',
+            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(16, 185, 129, 0.04) 100%)',
+            border: '1px dashed rgba(16,185,129,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            padding: '24px',
+            transition: 'var(--transition)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#10B981';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(16,185,129,0.4)';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
+            <Clock size={28} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Registra Sessione Passata ⏳</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
+              Hai dimenticato di avviare il live? Inserisci una serata passata specificando data, drink consumati e locale.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      {/* MODAL 1: Avviso Sessione Attiva */}
+      {showActiveSessionWarning && activeSession && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 94, 0, 0.25)', padding: '24px', position: 'relative' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Sessione Live Attiva! 🚨</h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
+              Hai già un brindisi live attivo presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> (durata: {Math.max(1, Math.round((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000))} min).
+            </p>
+
+            {!showCloseActiveForm ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button 
+                  onClick={async () => {
+                    setIsAppendingToSession(true);
+                    setShowActiveSessionWarning(false);
+                    try {
+                      const list = await db.getPlaces();
+                      setLocalesList(list);
+                      setShowLocaleSelector(true);
+                    } catch (err) {
+                      alert("Errore nel recupero dei locali: " + err.message);
+                    }
+                  }} 
+                  className="btn btn-primary" 
+                  style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                >
+                  📍 Aggiungi Tappa / Cambia Bar
+                </button>
+                <button 
+                  onClick={() => router.push('/')} 
+                  className="btn btn-secondary" 
+                  style={{ borderRadius: '20px', padding: '10px', fontSize: '14px' }}
+                >
+                  Continua Sessione Attiva 🍻
+                </button>
+                <button 
+                  onClick={() => setShowCloseActiveForm(true)} 
+                  className="btn btn-secondary" 
+                  style={{ borderRadius: '20px', padding: '10px', fontSize: '14px' }}
+                >
+                  Termina e Salva Sessione Corrente 🏁
+                </button>
+                <button 
+                  onClick={handleForceNewSession} 
+                  className="btn btn-secondary" 
+                  style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', color: 'var(--error)' }}
+                >
+                  Chiudi e Avvia Nuova Sessione 🚀
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleCloseActiveSession} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Stato d&apos;animo finale</label>
+                  <select name="feeling" className="form-control" style={{ height: '38px', fontSize: '13px' }}>
+                    <option value="Sobrio">Sobrio</option>
+                    <option value="Allegro">Allegro</option>
+                    <option value="Brillo Felice">Brillo Felice</option>
+                    <option value="Intenditore">Intenditore</option>
+                    <option value="Molto Caldo">Molto Caldo 🔥</option>
+                    <option value="Pieno Raso">Pieno Raso 💀</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Note di chiusura</label>
+                  <textarea name="description" className="form-control" placeholder="Com'è andata la serata? Racconta..." rows={2} style={{ fontSize: '13px', resize: 'none' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" onClick={() => setShowCloseActiveForm(false)} className="btn btn-secondary" style={{ flex: 1, borderRadius: '20px', fontSize: '13px' }}>
+                    Indietro
+                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 2, borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>
+                    Salva e Chiudi
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="log-grid">
-        {/* Colonna Sinistra: Modulo principale */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {activeRoute && (
-            <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.05) 100%)' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🗺️ Percorso Attivo: {activeRoute.name}
-              </h3>
-              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-                Registra i drink consumati a ciascuna tappa nell&apos;ordine del tour. Spunta la tappa per fare check-in.
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {activeRoute.waypoints?.map((wp, idx) => {
-                  const isVisited = visitedWaypoints.some(v => v.name === wp.name && Math.abs(v.lat - wp.lat) < 0.0001);
-                  const wpDr = waypointDrinks[wp.name] || [];
-                  
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        background: isVisited ? 'rgba(255, 94, 0, 0.04)' : 'var(--bg-input-dark)',
-                        border: isVisited ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
-                        padding: '15px',
-                        borderRadius: '12px',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {/* Intestazione Tappa */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: isVisited ? '12px' : '0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ 
-                            background: isVisited ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
-                            color: isVisited ? '#FFF' : 'var(--text-dark-secondary)', 
-                            width: '24px', 
-                            height: '24px', 
-                            borderRadius: '50%', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            fontSize: '12px', 
-                            fontWeight: '800' 
-                          }}>
-                            {idx + 1}
-                          </span>
-                          <div>
-                            <strong style={{ fontSize: '15px', color: '#FFF', display: 'block' }}>{wp.name}</strong>
-                          </div>
-                        </div>
-
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, userSelect: 'none' }}>
-                          <input
-                            type="checkbox"
-                            checked={isVisited}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setVisitedWaypoints([...visitedWaypoints, wp]);
-                              } else {
-                                setVisitedWaypoints(visitedWaypoints.filter(v => v.name !== wp.name));
-                                setWaypointDrinks(prev => {
-                                  const updated = { ...prev };
-                                  delete updated[wp.name];
-                                  return updated;
-                                });
-                              }
-                            }}
-                            style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-                          />
-                          <span style={{ fontSize: '13px', fontWeight: '700', color: isVisited ? 'var(--primary)' : 'var(--text-dark-secondary)' }}>
-                            {isVisited ? 'Visitata ✓' : 'Fai Check-in'}
-                          </span>
-                        </label>
-                      </div>
-
-                      {/* Drink Sezione per Tappa Attiva */}
-                      {isVisited && (
-                        <div style={{ borderTop: '1px dashed var(--border-dark)', paddingTop: '12px', marginTop: '10px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '700', display: 'block', marginBottom: '8px' }}>
-                            Aggiungi Drink in questa tappa:
-                          </span>
-                            {/* Quick preset buttons for waypoints */}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
-                            {[
-                              { label: '🍹 Spritz', name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3 },
-                              { label: '🍺 Birra', name: 'Birra Chiara Media', abv: 5, units: 1.6 },
-                              { label: '🍷 Vino', name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3 },
-                              { label: '🥃 Shot', name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3 }
-                            ].map((preset, pIdx) => (
-                              <button
-                                key={pIdx}
-                                type="button"
-                                onClick={() => handleAddWaypointDrink(wp.name, preset)}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '15px' }}
-                              >
-                                {preset.label}
-                              </button>
-                            ))}
-                            
-                            <select
-                              onChange={(e) => {
-                                const selectedName = e.target.value;
-                                if (!selectedName) return;
-                                const selectedPreset = [...PRESET_DRINKS, ...customPresets].find(d => d.name === selectedName);
-                                if (selectedPreset) {
-                                  handleAddWaypointDrink(wp.name, selectedPreset);
-                                }
-                                e.target.value = ''; // Resetta
-                              }}
-                              style={{
-                                background: 'var(--bg-input-dark)',
-                                border: '1px solid var(--border-dark)',
-                                color: '#FFF',
-                                padding: '5px 10px',
-                                borderRadius: '15px',
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                outline: 'none'
-                              }}
-                            >
-                              <option value="">+ Altro...</option>
-                              <optgroup label="Standard Presets">
-                                {PRESET_DRINKS.map((d, dIdx) => (
-                                  <option key={`preset-${dIdx}`} value={d.name}>{d.name} ({d.abv}%)</option>
-                                ))}
-                              </optgroup>
-                              {customPresets.length > 0 && (
-                                <optgroup label="I tuoi Drink Personalizzati">
-                                  {customPresets.map((d, dIdx) => (
-                                    <option key={`custom-${dIdx}`} value={d.name}>{d.name} ({d.abv}%)</option>
-                                  ))}
-                                </optgroup>
-                              )}
-                            </select>
-                          </div>
-
-                          {/* List of drinks registered at this waypoint */}
-                          {wpDr.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {wpDr.map((drink, dIdx) => (
-                                <div
-                                  key={dIdx}
-                                  style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    background: 'rgba(255,255,255,0.02)',
-                                    padding: '8px 12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(255,255,255,0.03)'
-                                  }}
-                                >
-                                  <span style={{ fontSize: '13px', color: '#FFF' }}>
-                                    {drink.name} <span style={{ color: 'var(--primary)', fontWeight: '700' }}>x{drink.qty}</span>
-                                  </span>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateWaypointQty(wp.name, drink.name, -1)}
-                                      style={{ width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', border: 'none' }}
-                                    >
-                                      <Minus size={10} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUpdateWaypointQty(wp.name, drink.name, 1)}
-                                      style={{ width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', cursor: 'pointer', border: 'none' }}
-                                    >
-                                      <Plus size={10} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>
-                              Nessun drink registrato ancora per questa tappa.
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-              Dettagli Attività
-            </h3>
+      {/* MODAL 2: Selettore Locale */}
+      {showLocaleSelector && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '20px' }}>
+          <div className="card" style={{ maxWidth: '500px', width: '100%', border: '1px solid var(--border-dark)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative' }}>
+            <button 
+              onClick={() => setShowLocaleSelector(false)} 
+              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}
+            >
+              <X size={20} />
+            </button>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '8px' }}>Seleziona Locale 📍</h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>Scegli un bar o pub per avviare il brindisi live geolocalizzato.</p>
             
-            <div className="form-group">
-              <label className="form-label">Titolo Bevuta</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="es. Aperitivo Ignorante, Terzo Tempo Calcetto"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
+            {/* Input Cerca */}
+            <div style={{ position: 'relative', marginBottom: '15px' }}>
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
+              <input 
+                type="text" 
+                className="form-control" 
+                placeholder="Cerca locale per nome o indirizzo..." 
+                value={localeSearchQuery}
+                onChange={(e) => setLocaleSearchQuery(e.target.value)}
+                style={{ paddingLeft: '38px', height: '38px', fontSize: '13px' }}
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Note / Descrizione della serata</label>
-              <textarea
-                className="form-control"
-                placeholder="Racconta com'è andata la serata, cosa hai mangiato, aneddoti divertenti..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                style={{ resize: 'vertical' }}
-              />
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Durata (minuti)</label>
-                <div style={{ position: 'relative' }}>
-                  <Clock size={18} style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-dark-secondary)' }} />
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={duration}
-                    onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
-                    style={{ paddingLeft: '40px' }}
-                    min={1}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Stato d&apos;animo / Livello</label>
-                <select
-                  className="form-control"
-                  value={feeling}
-                  onChange={(e) => setFeeling(e.target.value)}
-                  required
-                >
-                  <option value="Sobrio">Sobrio / Autista</option>
-                  <option value="Allegro">Allegro</option>
-                  <option value="Brillo Felice">Brillo Felice</option>
-                  <option value="Intenditore">Intenditore di Cantina</option>
-                  <option value="Molto Caldo">Molto Caldo 🔥</option>
-                  <option value="Pieno raso">Pieno Raso 💀</option>
-                  <option value="Postumi Assicurati">Postumi Assicurati 🤕</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* NUOVO CARD: RICERCA E LOCALIZZAZIONE BAR */}
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MapPin size={18} color="var(--primary)" />
-              Presso (Locale / Bar)
-            </h3>
-            
-            {location ? (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 94, 0, 0.08)', border: '1px dashed var(--primary)', padding: '12px 16px', borderRadius: '8px', marginBottom: '10px' }}>
-                <div>
-                  <strong style={{ color: '#FFF' }}>📍 {location.name}</strong>
-                  <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{location.address}</div>
-                </div>
-                <button type="button" onClick={() => setLocation(null)} style={{ color: 'var(--error)', fontWeight: '600', fontSize: '12px', cursor: 'pointer' }}>Rimuovi</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Cerca il nome del bar (es. Cantina Do Mori)..."
-                    value={locationSearchQuery}
-                    onChange={(e) => setLocationSearchQuery(e.target.value)}
-                  />
-                  <button type="button" onClick={handleLocationSearch} className="btn btn-secondary" style={{ padding: '0 20px' }} disabled={searchLoading}>
-                    {searchLoading ? 'Cerca...' : 'Cerca'}
-                  </button>
-                </div>
-
-                {locationResults.length > 0 && (
-                  <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    {locationResults.map((res, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setLocation(res);
-                          setLocationResults([]);
-                          setLocationSearchQuery('');
-                        }}
-                        style={{ textAlign: 'left', padding: '10px 15px', borderBottom: idx < locationResults.length - 1 ? '1px solid var(--border-dark)' : 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
-                      >
-                        <strong style={{ fontSize: '14px', color: '#FFF' }}>{res.name}</strong>
-                        <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{res.address}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* NUOVO CARD: ALLEGATI MULTIMEDIALI (FOTO, VIDEO, AUDIO) */}
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Camera size={18} color="var(--secondary)" />
-              Foto, Video e Audio della sessione
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-              Carica foto e registrazioni vocali dell&apos;impresa. Limiti: <strong>10MB</strong> per immagini/audio, <strong>50MB</strong> per file video.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div style={{ position: 'relative', width: '100%' }}>
-                <input
-                  type="file"
-                  accept="image/*,video/*,audio/*"
-                  onChange={handleMediaUpload}
-                  multiple
-                  style={{ display: 'none' }}
-                  id="media-file-input"
-                  disabled={isUploadingMedia}
-                />
-                <label
-                  htmlFor={isUploadingMedia ? undefined : "media-file-input"}
-                  className="btn btn-secondary"
-                  style={{
-                    width: '100%',
-                    border: isUploadingMedia ? '1px dashed var(--primary)' : '1px dashed var(--border-dark)',
-                    background: isUploadingMedia ? 'rgba(255,94,0,0.05)' : 'rgba(255,255,255,0.01)',
-                    padding: '20px',
-                    borderRadius: '12px',
-                    cursor: isUploadingMedia ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    opacity: isUploadingMedia ? 0.7 : 1,
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '10px', color: 'var(--primary)', animation: isUploadingMedia ? 'pulse 1.5s infinite' : 'none' }}>
-                    <Camera size={20} />
-                    <Video size={20} />
-                    <Mic size={20} />
-                  </div>
-                  <strong style={{ fontSize: '14px', color: isUploadingMedia ? 'var(--primary)' : '#FFF' }}>
-                    {isUploadingMedia ? 'Caricamento file in corso...' : 'Seleziona allegati multimediali'}
-                  </strong>
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-                    {isUploadingMedia ? 'Caricamento in corso su Supabase...' : 'Trascina o clicca per caricare file'}
-                  </span>
-                </label>
-              </div>
-
-              {mediaFiles.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
-                  {mediaFiles.map((media, idx) => (
-                    <div key={idx} style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px', position: 'relative', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMedia(idx)}
-                        style={{ position: 'absolute', top: '4px', right: '6px', color: 'var(--error)', fontWeight: '800', cursor: 'pointer', fontSize: '12px' }}
-                      >
-                        ×
-                      </button>
-                      <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--primary)', marginTop: '8px' }}>
-                        {media.type === 'video' ? <Video size={24} /> : media.type === 'audio' ? <Volume2 size={24} /> : <Camera size={24} />}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#FFF', fontWeight: '600', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 4px' }}>
-                        {media.name}
-                      </div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-dark-secondary)' }}>
-                        {media.size}
-                      </div>
+            {/* Lista Locali */}
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+              {filteredLocales.length === 0 ? (
+                <p style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>Nessun locale trovato.</p>
+              ) : (
+                filteredLocales.map((loc) => (
+                  <div 
+                    key={loc.key}
+                    onClick={() => handleSelectLocale(loc)}
+                    style={{ 
+                      padding: '12px', 
+                      background: 'rgba(255,255,255,0.01)', 
+                      border: '1px solid var(--border-dark)', 
+                      borderRadius: '8px', 
+                      cursor: 'pointer',
+                      transition: 'var(--transition)'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'rgba(255,94,0,0.02)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-dark)'; e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
+                  >
+                    <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>{loc.name}</strong>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginTop: '2px' }}>{loc.address}</span>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
+                      <span>⭐ {loc.avgRating || '0.0'} ({loc.reviewsCount} recensioni)</span>
+                      <span>👥 {loc.uniqueDrinkers || 0} atleti</span>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Sezione Selettore Drink */}
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-              {activeRoute ? 'Drink Extra / Sessione Generale 🍹' : 'Drink Consumati 🍹'}
-            </h3>
-
-            {/* List of current session's logged drinks */}
-            {((activeRoute ? generalDrinks : loggedDrinks).length === 0) ? (
-              <div style={{ textAlign: 'center', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed var(--border-dark)', marginBottom: '20px' }}>
-                <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-                  {activeRoute ? 'Nessun drink extra aggiunto. Usa la sezione del percorso o i preset.' : 'Nessun drink aggiunto ancora. Seleziona dai preset qui a destra.'}
-                </p>
-              </div>
+      {/* MODAL 3: Avviso Distanza Geofencing */}
+      {showGeofencingModal && selectedLocale && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '20px' }}>
+          <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--secondary)', boxShadow: '0 0 25px rgba(255, 176, 0, 0.2)', padding: '24px', position: 'relative' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Sei fuori portata! 📍</h2>
+            
+            {geofencingData.error ? (
+              <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
+                {geofencingData.error}
+              </p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-                {(activeRoute ? generalDrinks : loggedDrinks).map((drink, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 15px', background: 'var(--bg-input-dark)', borderRadius: 'var(--radius)', border: '1px solid var(--border-dark)' }}>
-                    <div>
-                      <strong style={{ fontSize: '15px' }}>{drink.name}</strong>
-                      <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-                        Gradazione: {drink.abv}% | Unità: {(drink.units * drink.qty).toFixed(1)} U.A.
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <button type="button" onClick={() => handleUpdateQty(idx, -1)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center' }}>
-                        <Minus size={14} />
-                      </button>
-                      <strong style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>{drink.qty}</strong>
-                      <button type="button" onClick={() => handleUpdateQty(idx, 1)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center' }}>
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
+                Ti trovi a circa <strong>{geofencingData.distance} metri</strong> da <strong>{selectedLocale.name}</strong>. Per iniziare un brindisi geolocalizzato reale devi trovarti entro 200m dal locale.
+              </p>
             )}
 
-            {/* Custom Drink Add Form */}
-            <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-dark-secondary)', marginBottom: '10px', textTransform: 'uppercase' }}>Aggiungi Drink Personalizzato</h4>
-            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-              <form onSubmit={handleCustomDrinkAdd} className="custom-drink-grid">
-                <div>
-                  <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Nome Drink</label>
-                  <input name="customName" type="text" className="form-control" placeholder="es. Grappa" style={{ height: '38px', fontSize: '13px' }} required />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>ABV %</label>
-                  <input name="customAbv" type="number" step="0.1" className="form-control" placeholder="40" style={{ height: '38px', fontSize: '13px' }} required />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Vol (ml)</label>
-                  <input name="customVolume" type="number" className="form-control" placeholder="40" style={{ height: '38px', fontSize: '13px' }} required />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Categoria</label>
-                  <select name="customCategory" className="form-control" style={{ height: '38px', fontSize: '13px', padding: '0 8px' }} required>
-                    <option value="Aperitivo">Aperitivo</option>
-                    <option value="Birra">Birra</option>
-                    <option value="Vino">Vino</option>
-                    <option value="Superalcolico">Superalcolico</option>
-                    <option value="Custom">Altro</option>
-                  </select>
-                </div>
-                <button type="submit" className="btn btn-secondary" style={{ height: '38px', padding: '0 12px', fontSize: '13px' }}>
-                  Aggiungi
-                </button>
-              </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                onClick={() => handleSelectLocale(selectedLocale)} 
+                className="btn btn-primary" 
+                style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', fontWeight: 'bold' }}
+              >
+                🔄 Riprova GPS
+              </button>
+              <button 
+                onClick={handleForceDemoStart} 
+                className="btn btn-secondary" 
+                style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', border: '1px dashed var(--secondary)' }}
+              >
+                🚀 Forza Demo Mode (Bypass GPS)
+              </button>
+              <button 
+                onClick={() => setShowGeofencingModal(false)} 
+                className="btn btn-secondary" 
+                style={{ borderRadius: '20px', padding: '10px', fontSize: '14px' }}
+              >
+                Annulla
+              </button>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Sezione Compagnia / Tag Amici */}
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-              Ha bevuto con...
-            </h3>
-            
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', position: 'relative' }}>
-              <div style={{ position: 'relative', flex: 1 }}>
-                <Users size={18} style={{ position: 'absolute', left: '12px', top: '14px', color: 'var(--text-dark-secondary)' }} />
+      <style jsx global>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
+
+      {/* MODAL 4: Form Registrazione a Posteriori */}
+      {showRetroForm && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1100, padding: '20px', overflowY: 'auto' }}>
+          <div className="card" style={{ maxWidth: '520px', width: '100%', border: '1px solid rgba(16,185,129,0.4)', boxShadow: '0 0 30px rgba(16,185,129,0.1)', padding: '28px', position: 'relative', marginTop: '20px', marginBottom: '20px' }}>
+            <button onClick={() => setShowRetroForm(false)} style={{ position: 'absolute', top: '18px', right: '18px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', fontSize: '22px' }}>×</button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '16px' }}>
+              <Clock size={20} color="#10B981" />
+              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Registra Sessione Passata</h2>
+            </div>
+
+            <form onSubmit={handleRetroSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+              {/* Titolo */}
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Titolo (opzionale)</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Cerca amici o inserisci un nome..."
-                  value={friendName}
-                  onChange={(e) => handleFriendSearchChange(e.target.value)}
-                  style={{ paddingLeft: '40px' }}
+                  placeholder="Es: Aperitivo con amici, Cena di laurea..."
+                  value={retroForm.title}
+                  onChange={e => setRetroForm(p => ({ ...p, title: e.target.value }))}
+                  style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
                 />
+              </div>
 
-                {/* Dropdown dei risultati di ricerca amici */}
-                {friendSearchResults.length > 0 && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1d2e', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
-                    {friendSearchResults.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => handleSelectFriend(user)}
-                        style={{ width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', cursor: 'pointer', transition: 'background 0.2s' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,94,0,0.1)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        <div className="activity-avatar" style={{ width: '24px', height: '24px', fontSize: '10px' }}>
-                          {user.display_name?.charAt(0) || 'U'}
-                        </div>
+              {/* Data e ora */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Data e Ora Inizio *</label>
+                  <input
+                    type="datetime-local"
+                    className="form-control"
+                    required
+                    value={retroForm.date}
+                    max={new Date().toISOString().slice(0, 16)}
+                    onChange={e => setRetroForm(p => ({ ...p, date: e.target.value }))}
+                    style={{ height: '40px', padding: '0 10px', fontSize: '13px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Durata (min)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    min="1"
+                    max="720"
+                    value={retroForm.duration}
+                    onChange={e => setRetroForm(p => ({ ...p, duration: parseInt(e.target.value) || 60 }))}
+                    style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Locale */}
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Locale / Luogo (opzionale)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Es: Momi's Pub, Casa di Marco, Spiaggia..."
+                  value={retroForm.location}
+                  onChange={e => setRetroForm(p => ({ ...p, location: e.target.value }))}
+                  style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
+                />
+              </div>
+
+              {/* Stato */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Come ti sentivi?</label>
+                  <select className="form-control" value={retroForm.feeling} onChange={e => setRetroForm(p => ({ ...p, feeling: e.target.value }))} style={{ height: '40px', padding: '0 10px', fontSize: '13px' }}>
+                    <option value="Sobrio">Sobrio</option>
+                    <option value="Allegro">Allegro</option>
+                    <option value="Brillo Felice">Brillo Felice</option>
+                    <option value="Intenditore">Intenditore</option>
+                    <option value="Molto Caldo">Molto Caldo 🔥</option>
+                    <option value="Pieno Raso">Pieno Raso 💀</option>
+                    <option value="Postumi Assicurati">Postumi Assicurati 🤕</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Note</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Note brevi..."
+                    value={retroForm.description}
+                    onChange={e => setRetroForm(p => ({ ...p, description: e.target.value }))}
+                    style={{ height: '40px', padding: '0 12px', fontSize: '13px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Selezione Drink */}
+              <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '10px', fontWeight: '600' }}>
+                  Drink Consumati * ({retroForm.drinks.reduce((a, d) => a + d.qty, 0)} totali)
+                </label>
+
+                {/* Preset buttons */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                  {DRINK_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleRetroAddDrink(preset)}
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.15)' }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Lista drink aggiunti */}
+                {retroForm.drinks.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+                    {retroForm.drinks.map((d, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', padding: '8px 12px', borderRadius: '8px' }}>
                         <div>
-                          <span style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{user.username}</span>
+                          <strong style={{ fontSize: '13px', color: '#FFF' }}>{d.name}</strong>
+                          <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{(d.units * d.qty).toFixed(1)} U.A. · {d.abv}%</span>
                         </div>
-                      </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button type="button" onClick={() => handleRetroChangeDrinkQty(i, -1)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-dark)', color: '#FFF' }}>−</button>
+                          <strong style={{ fontSize: '15px', minWidth: '18px', textAlign: 'center' }}>{d.qty}</strong>
+                          <button type="button" onClick={() => handleRetroChangeDrinkQty(i, 1)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-dark)', color: '#FFF' }}>+</button>
+                          <button type="button" onClick={() => handleRetroRemoveDrink(i)} style={{ color: 'var(--error)', marginLeft: '6px', cursor: 'pointer', background: 'none', border: 'none' }}><Trash2 size={14} /></button>
+                        </div>
+                      </div>
                     ))}
+                    <div style={{ fontSize: '12px', color: '#10B981', fontWeight: '700', textAlign: 'right', marginTop: '4px' }}>
+                      Totale: {retroForm.drinks.reduce((a, d) => a + d.units * d.qty, 0).toFixed(1)} U.A.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-dark-secondary)', fontSize: '13px', border: '1px dashed var(--border-dark)', borderRadius: '8px' }}>
+                    Clicca sui preset sopra per aggiungere i drink 🍺
                   </div>
                 )}
               </div>
-              <button type="button" onClick={handleAddFriend} className="btn btn-secondary" style={{ borderRadius: 'var(--radius)' }}>
-                Tagga
-              </button>
-            </div>
 
-            {taggedFriends.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {taggedFriends.map((friend, idx) => (
-                  <span key={idx} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', padding: '6px 12px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '500' }}>
-                    {friend}
-                    <button type="button" onClick={() => handleRemoveFriend(friend)} style={{ cursor: 'pointer', display: 'inline-flex', color: 'var(--error)' }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '30px', fontSize: '18px' }} disabled={loading || isUploadingMedia}>
-            <Save size={18} /> {loading ? 'Salvataggio...' : isUploadingMedia ? 'Caricamento media...' : 'Salva Attività su Strabar'}
-          </button>
-        </form>
-
-        {/* Colonna Destra: Quick presets & Stats */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Calcolatore Live Stats (Social Tracker Style) */}
-          <div className="card" style={{ border: '2px solid var(--primary)' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '15px', color: 'var(--primary)' }}>
-              Live Stats 📊
-            </h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>
-                  Stima Unità Alcoliche (U.A.)
-                </span>
-                <div style={{ fontSize: '36px', fontWeight: '800', color: '#FFF' }}>
-                  {totalUnits}
-                </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                  1 Unità Alcolica (U.A.) corrisponde a circa 10 grammi di alcol puro.
-                </p>
-              </div>
-
-              <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>
-                  Intensità Sforzo (Stima BAC)
-                </span>
-                <div style={{ fontSize: '16px', fontWeight: '700', marginTop: '5px', color: parseFloat(totalUnits) > 5 ? 'var(--error)' : parseFloat(totalUnits) > 2.5 ? 'var(--primary)' : 'var(--success)' }}>
-                  {parseFloat(totalUnits) === 0 ? 'Sobrio 🟢' : parseFloat(totalUnits) < 2.5 ? 'Leggero (Brillo) 🟡' : parseFloat(totalUnits) < 5 ? 'Medio (Caldo) 🟠' : 'Massimo Sforzo (Pieno) 🔴'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Preset dei Drink Comuni */}
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px' }}>
-              Drink Comuni 🍺
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-              Clicca per aggiungere istantaneamente un drink alla tua sessione.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {PRESET_DRINKS.map((preset, idx) => (
+              {/* Submit */}
+              <div style={{ display: 'flex', gap: '10px', paddingTop: '10px' }}>
+                <button type="button" onClick={() => setShowRetroForm(false)} className="btn btn-secondary" style={{ flex: 1, borderRadius: '20px' }}>Annulla</button>
                 <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleAddPresetDrink(preset)}
-                  className="btn btn-secondary"
-                  style={{ justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius)', fontSize: '13px', textAlign: 'left' }}
+                  type="submit"
+                  disabled={retroSaving || retroForm.drinks.length === 0}
+                  className="btn btn-primary"
+                  style={{ flex: 2, borderRadius: '20px', fontWeight: '800', background: '#10B981', opacity: retroSaving || retroForm.drinks.length === 0 ? 0.5 : 1 }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Beer size={14} color="var(--primary)" />
-                    <div>
-                      <strong>{preset.name}</strong>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{preset.category} | {preset.volumeMl}ml</div>
-                    </div>
-                  </div>
-                  <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700', fontSize: '11px' }}>
-                    +{preset.units}
-                  </span>
+                  {retroSaving ? 'Salvataggio...' : '✅ Salva Sessione Passata'}
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Preset dei Drink Personalizzati degli Utenti */}
-          {customPresets.length > 0 && (
-            <div className="card" style={{ border: '1px solid rgba(255, 176, 0, 0.2)' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                Drink Personalizzati 🧪
-              </h3>
-              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-                Drink aggiunti in autonomia dagli atleti della community.
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {customPresets.map((preset, idx) => (
-                  <button
-                    key={preset.id || idx}
-                    type="button"
-                    onClick={() => handleAddPresetDrink(preset)}
-                    className="btn btn-secondary"
-                    style={{ justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius)', fontSize: '13px', textAlign: 'left' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Beer size={14} color="var(--secondary)" />
-                      <div>
-                        <strong>{preset.name}</strong>
-                        <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{preset.category} | {preset.volumeMl}ml ({preset.abv}%)</div>
-                      </div>
-                    </div>
-                    <span style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700', fontSize: '11px' }}>
-                      +{preset.units}
-                    </span>
-                  </button>
-                ))}
               </div>
-            </div>
-          )}
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

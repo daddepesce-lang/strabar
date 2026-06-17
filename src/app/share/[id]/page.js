@@ -15,6 +15,7 @@ export default function ShareActivityPage({ params }) {
   const [activity, setActivity] = useState(null);
   const [loading, setLoading] = useState(true);
   const canvasRef = useRef(null);
+  const [sharingTheme, setSharingTheme] = useState('gradient');
 
   useEffect(() => {
     const loadActivity = async () => {
@@ -43,140 +44,202 @@ export default function ShareActivityPage({ params }) {
     canvas.width = size;
     canvas.height = size;
 
-    // Disegna Sfondo (Gradiente Ambra Scuro / Nero)
-    const gradient = ctx.createLinearGradient(0, 0, size, size);
-    gradient.addColorStop(0, '#1E1B18'); // Grigio scuro caldo
-    gradient.addColorStop(0.5, '#0B0A09'); // Quasi nero
-    gradient.addColorStop(1, '#FF5E00'); // Arancio neon Strabar (angolo basso destro)
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
+    const images = activity.media?.filter(m => m.type === 'image') || [];
+    const hasPhoto = images.length > 0;
+    const usePhoto = sharingTheme === 'photo' && hasPhoto;
 
-    // Disegna Cerchi Decorativi sfumati
-    ctx.fillStyle = 'rgba(255, 94, 0, 0.08)';
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, 400, 0, Math.PI * 2);
-    ctx.fill();
+    const drawStats = () => {
+      // 1. Disegna lo sfondo
+      if (usePhoto) {
+        // Vignettatura scura in alto
+        const topGrad = ctx.createLinearGradient(0, 0, 0, 300);
+        topGrad.addColorStop(0, 'rgba(0,0,0,0.85)');
+        topGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = topGrad;
+        ctx.fillRect(0, 0, size, 300);
 
-    ctx.fillStyle = 'rgba(255, 176, 0, 0.05)';
-    ctx.beginPath();
-    ctx.arc(size, 0, 300, 0, Math.PI * 2);
-    ctx.fill();
+        // Vignettatura scura in basso
+        const bottomGrad = ctx.createLinearGradient(0, size - 450, 0, size);
+        bottomGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        bottomGrad.addColorStop(1, 'rgba(0,0,0,0.9)');
+        ctx.fillStyle = bottomGrad;
+        ctx.fillRect(0, size - 450, size, 450);
 
-    // Bordi Neon Orange
-    ctx.strokeStyle = '#FF5E00';
-    ctx.lineWidth = 20;
-    ctx.strokeRect(10, 10, size - 20, size - 20);
+        // Bordo neon leggero
+        ctx.strokeStyle = '#FF5E00';
+        ctx.lineWidth = 14;
+        ctx.strokeRect(7, 7, size - 14, size - 14);
+      } else {
+        // Gradiente classico Strabar
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#1E1B18'); // Grigio scuro caldo
+        gradient.addColorStop(0.5, '#0B0A09'); // Quasi nero
+        gradient.addColorStop(1, '#FF5E00'); // Arancio neon Strabar
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
 
-    // LOGO "STRABAR" in alto
-    ctx.fillStyle = '#FF5E00';
-    ctx.font = 'bold 50px Outfit, -apple-system, sans-serif';
-    ctx.fillText('STRA', 80, 120);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('BAR', 215, 120);
+        // Disegna Cerchi Decorativi sfumati
+        ctx.fillStyle = 'rgba(255, 94, 0, 0.08)';
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, 400, 0, Math.PI * 2);
+        ctx.fill();
 
-    // Sottotitolo "IL TERZO TEMPO DEGLI ATLETI"
-    ctx.fillStyle = '#9CA3AF';
-    ctx.font = '600 22px Outfit, -apple-system, sans-serif';
-    ctx.fillText('LO SPORT DEL BRINDISI', 80, 160);
+        ctx.fillStyle = 'rgba(255, 176, 0, 0.05)';
+        ctx.beginPath();
+        ctx.arc(size, 0, 300, 0, Math.PI * 2);
+        ctx.fill();
 
-    // Icona del boccale (semplice disegno a tratti o testo emoji per compatibilità)
-    ctx.font = '70px Arial';
-    ctx.fillText('🍻', size - 160, 130);
+        // Bordi Neon Orange
+        ctx.strokeStyle = '#FF5E00';
+        ctx.lineWidth = 20;
+        ctx.strokeRect(10, 10, size - 20, size - 20);
+      }
 
-    // Titolo Attività (Centrato o allineato a sinistra)
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '800 64px Outfit, -apple-system, sans-serif';
-    // Gestione testo lungo
-    const title = activity.title || 'Sessione Alcolica';
-    ctx.fillText(title.length > 25 ? title.substring(0, 25) + '...' : title, 80, 280);
+      // LOGO "STRABAR" in alto
+      ctx.fillStyle = '#FF5E00';
+      ctx.font = 'bold 50px Outfit, -apple-system, sans-serif';
+      ctx.fillText('STRA', 80, 120);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('BAR', 215, 120);
 
-    // Nome Autore e data
-    const author = activity.profiles?.display_name || 'Utente Strabar';
-    const dateStr = new Date(activity.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
-    ctx.fillStyle = '#FFB000';
-    ctx.font = '600 32px Outfit, -apple-system, sans-serif';
-    ctx.fillText(`Registrato da: ${author}`, 80, 340);
-    ctx.fillStyle = '#9CA3AF';
-    ctx.font = '400 24px Outfit, -apple-system, sans-serif';
-    ctx.fillText(dateStr, 80, 380);
+      // Sottotitolo
+      ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
+      ctx.font = '600 22px Outfit, -apple-system, sans-serif';
+      ctx.fillText('LO SPORT DEL BRINDISI', 80, 160);
 
-    // Riquadro per le statistiche principali (Centro)
-    const boxY = 460;
-    const boxW = 920;
-    const boxH = 320;
-    
-    // Sfondo riquadro glassmorphic
-    ctx.fillStyle = 'rgba(22, 24, 34, 0.85)';
-    ctx.strokeStyle = 'rgba(255, 94, 0, 0.3)';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.roundRect(80, boxY, boxW, boxH, 24);
-    ctx.fill();
-    ctx.stroke();
+      // Icona emoji
+      ctx.font = '70px Arial';
+      ctx.fillText('🍻', size - 160, 130);
 
-    // 3 Colonne per le Statistiche
-    const colWidth = boxW / 3;
+      // Titolo Attività
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 64px Outfit, -apple-system, sans-serif';
+      const title = activity.title || 'Sessione Alcolica';
+      ctx.fillText(title.length > 25 ? title.substring(0, 25) + '...' : title, 80, 280);
 
-    // Stat 1: Drink Totali
-    const totalDrinks = activity.drinks.reduce((acc, d) => acc + d.qty, 0);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#9CA3AF';
-    ctx.font = '600 24px Outfit, -apple-system, sans-serif';
-    ctx.fillText('DRINK TOTALI', 80 + colWidth / 2, boxY + 80);
-    ctx.fillStyle = '#FF5E00';
-    ctx.font = '800 96px Outfit, -apple-system, sans-serif';
-    ctx.fillText(totalDrinks.toString(), 80 + colWidth / 2, boxY + 200);
+      // Nome Autore e data
+      const author = activity.profiles?.display_name || 'Utente Strabar';
+      const dateStr = new Date(activity.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+      ctx.fillStyle = '#FFB000';
+      ctx.font = '600 32px Outfit, -apple-system, sans-serif';
+      ctx.fillText(`Registrato da: ${author}`, 80, 340);
+      ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
+      ctx.font = '400 24px Outfit, -apple-system, sans-serif';
+      ctx.fillText(dateStr, 80, 380);
 
-    // Stat 2: Tempo
-    const hrs = Math.floor(activity.duration / 60);
-    const mins = activity.duration % 60;
-    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
-    ctx.fillStyle = '#9CA3AF';
-    ctx.font = '600 24px Outfit, -apple-system, sans-serif';
-    ctx.fillText('DURATA SFORZO', 80 + colWidth + colWidth / 2, boxY + 80);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '800 70px Outfit, -apple-system, sans-serif';
-    ctx.fillText(timeStr, 80 + colWidth + colWidth / 2, boxY + 185);
+      // Riquadro per le statistiche principali (Centro)
+      const boxY = 460;
+      const boxW = 920;
+      const boxH = 320;
+      
+      // Sfondo riquadro glassmorphic
+      ctx.fillStyle = usePhoto ? 'rgba(11, 10, 9, 0.65)' : 'rgba(22, 24, 34, 0.85)';
+      ctx.strokeStyle = 'rgba(255, 94, 0, 0.4)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(80, boxY, boxW, boxH, 24);
+      ctx.fill();
+      ctx.stroke();
 
-    // Stat 3: Unità Alcoliche
-    ctx.fillStyle = '#9CA3AF';
-    ctx.font = '600 24px Outfit, -apple-system, sans-serif';
-    ctx.fillText('UNITA ALCOLICHE', 80 + colWidth * 2 + colWidth / 2, boxY + 80);
-    ctx.fillStyle = '#FFB000';
-    ctx.font = '800 80px Outfit, -apple-system, sans-serif';
-    ctx.fillText(`${activity.total_units} U.A.`, 80 + colWidth * 2 + colWidth / 2, boxY + 195);
+      // 3 Colonne per le Statistiche
+      const colWidth = boxW / 3;
 
-    // Reset allineamento a sinistra
-    ctx.textAlign = 'left';
+      // Stat 1: Drink Totali
+      const totalDrinks = activity.drinks ? activity.drinks.reduce((acc, d) => acc + d.qty, 0) : 0;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '600 24px Outfit, -apple-system, sans-serif';
+      ctx.fillText('DRINK TOTALI', 80 + colWidth / 2, boxY + 80);
+      ctx.fillStyle = '#FF5E00';
+      ctx.font = '800 96px Outfit, -apple-system, sans-serif';
+      ctx.fillText(totalDrinks.toString(), 80 + colWidth / 2, boxY + 200);
 
-    // Lista Drink consumati in basso
-    ctx.fillStyle = '#E5E7EB';
-    ctx.font = '600 28px Outfit, -apple-system, sans-serif';
-    ctx.fillText('LISTA PRESTAZIONI:', 80, 850);
+      // Stat 2: Tempo
+      const hrs = Math.floor(activity.duration / 60);
+      const mins = activity.duration % 60;
+      const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '600 24px Outfit, -apple-system, sans-serif';
+      ctx.fillText('DURATA SFORZO', 80 + colWidth + colWidth / 2, boxY + 80);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 70px Outfit, -apple-system, sans-serif';
+      ctx.fillText(timeStr, 80 + colWidth + colWidth / 2, boxY + 185);
 
-    let drinkTags = activity.drinks.map(d => `${d.qty}x ${d.name}`).join('  •  ');
-    if (drinkTags.length > 55) drinkTags = drinkTags.substring(0, 52) + '...';
-    
-    ctx.fillStyle = '#9CA3AF';
-    ctx.font = '400 26px Outfit, -apple-system, sans-serif';
-    ctx.fillText(drinkTags, 80, 900);
+      // Stat 3: Unità Alcoliche
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '600 24px Outfit, -apple-system, sans-serif';
+      ctx.fillText('UNITA ALCOLICHE', 80 + colWidth * 2 + colWidth / 2, boxY + 80);
+      ctx.fillStyle = '#FFB000';
+      ctx.font = '800 80px Outfit, -apple-system, sans-serif';
+      ctx.fillText(`${activity.total_units} U.A.`, 80 + colWidth * 2 + colWidth / 2, boxY + 195);
 
-    // Livello Ebbrezza in basso a destra
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 28px Outfit, -apple-system, sans-serif';
-    ctx.fillText(`Ebbrezza: ${activity.feeling}`, size - 80, 850);
-    ctx.textAlign = 'left';
+      // Reset allineamento a sinistra
+      ctx.textAlign = 'left';
 
-    // Footer branding
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.font = '500 22px Outfit, -apple-system, sans-serif';
-    ctx.fillText('Scarica Strabar su strabar.app', 80, size - 70);
+      // Lista Drink consumati in basso
+      ctx.fillStyle = '#E5E7EB';
+      ctx.font = '600 28px Outfit, -apple-system, sans-serif';
+      ctx.fillText('LISTA PRESTAZIONI:', 80, 850);
 
-    ctx.textAlign = 'right';
-    ctx.fillText('#StraBarAthletes', size - 80, size - 70);
+      let drinkTags = activity.drinks ? activity.drinks.map(d => `${d.qty}x ${d.name}`).join('  •  ') : '';
+      if (drinkTags.length > 55) drinkTags = drinkTags.substring(0, 52) + '...';
+      
+      ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
+      ctx.font = '400 26px Outfit, -apple-system, sans-serif';
+      ctx.fillText(drinkTags, 80, 900);
 
-  }, [activity]);
+      // Livello Ebbrezza in basso a destra
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 28px Outfit, -apple-system, sans-serif';
+      ctx.fillText(`Ebbrezza: ${activity.feeling}`, size - 80, 850);
+      ctx.textAlign = 'left';
+
+      // Footer branding
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.font = '500 22px Outfit, -apple-system, sans-serif';
+      ctx.fillText('Scarica Strabar su strabar.app', 80, size - 70);
+
+      ctx.textAlign = 'right';
+      ctx.fillText('#StraBarAthletes', size - 80, size - 70);
+    };
+
+    if (usePhoto) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const imgRatio = img.width / img.height;
+        let drawWidth = size;
+        let drawHeight = size;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (imgRatio > 1) {
+          drawWidth = size * imgRatio;
+          offsetX = -(drawWidth - size) / 2;
+        } else {
+          drawHeight = size / imgRatio;
+          offsetY = -(drawHeight - size) / 2;
+        }
+
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        drawStats();
+      };
+      img.onerror = () => {
+        // Fallback gradiente classico in caso di errore caricamento foto
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#1E1B18');
+        gradient.addColorStop(0.5, '#0B0A09');
+        gradient.addColorStop(1, '#FF5E00');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        drawStats();
+      };
+      img.src = images[0].url;
+    } else {
+      drawStats();
+    }
+  }, [activity, sharingTheme]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -252,6 +315,50 @@ export default function ShareActivityPage({ params }) {
       <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginBottom: '25px' }}>
         Abbiamo generato una card grafica quadrata perfetta per le tue storie di Instagram o post su WhatsApp/Twitter. Scaricala con il pulsante qui sotto.
       </p>
+
+      {/* Selettore Stile Condivisione (solo se ci sono foto) */}
+      {activity.media?.filter(m => m.type === 'image').length > 0 && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <button 
+            type="button"
+            onClick={() => setSharingTheme('gradient')} 
+            className="btn" 
+            style={{ 
+              flex: 1, 
+              borderRadius: '20px', 
+              fontSize: '13px', 
+              padding: '10px',
+              fontWeight: 'bold',
+              background: sharingTheme === 'gradient' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
+              color: sharingTheme === 'gradient' ? '#FFF' : 'var(--text-dark-secondary)',
+              border: sharingTheme === 'gradient' ? 'none' : '1px solid var(--border-dark)',
+              cursor: 'pointer',
+              transition: 'var(--transition)'
+            }}
+          >
+            🎨 Sfondo Gradiente
+          </button>
+          <button 
+            type="button"
+            onClick={() => setSharingTheme('photo')} 
+            className="btn" 
+            style={{ 
+              flex: 1, 
+              borderRadius: '20px', 
+              fontSize: '13px', 
+              padding: '10px',
+              fontWeight: 'bold',
+              background: sharingTheme === 'photo' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
+              color: sharingTheme === 'photo' ? '#FFF' : 'var(--text-dark-secondary)',
+              border: sharingTheme === 'photo' ? 'none' : '1px solid var(--border-dark)',
+              cursor: 'pointer',
+              transition: 'var(--transition)'
+            }}
+          >
+            📸 Stile Foto Overlay
+          </button>
+        </div>
+      )}
 
       {/* Canvas nascosto o mostrato a dimensione ridotta per preview responsiva */}
       <div style={{ width: '100%', border: '2px solid var(--border-dark)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)', marginBottom: '25px', aspectRatio: '1' }}>

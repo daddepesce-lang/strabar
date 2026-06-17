@@ -274,7 +274,7 @@ export const db = {
       if (!user) return null;
       
       // Get profile
-      const { data: profile, error } = await supabase
+      let { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
@@ -284,9 +284,26 @@ export const db = {
         console.error("Errore nel recupero del profilo:", error);
       }
       
+      // Se il profilo ha un display_name provvisorio (pari al prefisso email) ma nei metadati social abbiamo il nome completo reale, lo aggiorniamo nel DB
+      if (profile && user.user_metadata) {
+        const metaName = user.user_metadata.full_name || user.user_metadata.name || user.user_metadata.display_name;
+        const emailPrefix = user.email ? user.email.split('@')[0] : '';
+        if (metaName && metaName !== emailPrefix && profile.display_name === emailPrefix) {
+          try {
+            await supabase
+              .from('profiles')
+              .update({ display_name: metaName })
+              .eq('id', user.id);
+            profile.display_name = metaName;
+          } catch (updateErr) {
+            console.error("Errore aggiornamento automatico display_name da metadata:", updateErr);
+          }
+        }
+      }
+
       const profileData = profile || { 
-        username: user.email.split('@')[0], 
-        display_name: user.email.split('@')[0],
+        username: user.user_metadata?.username || (user.email ? user.email.split('@')[0] : 'utente'), 
+        display_name: user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || (user.email ? user.email.split('@')[0] : 'Utente Strabar'),
         is_premium: true,
         created_at: user.created_at || new Date().toISOString()
       };
@@ -532,7 +549,7 @@ export const db = {
 
   async createActivity(activityData) {
     const user = await this.getCurrentUser();
-    if (!user) throw new Error("Devi essere loggato per registrare una sessione!");
+    if (!user) throw new Error("Devi essere loggato per registrarare una sessione!");
 
     const newActivity = {
       title: activityData.title || 'Nuova Bevuta',
@@ -545,7 +562,9 @@ export const db = {
       location: activityData.location || null,
       bac_level: parseFloat(activityData.bac_level || 0),
       media: activityData.media || null,
-      created_at: new Date().toISOString()
+      is_active: activityData.is_active !== undefined ? activityData.is_active : false,
+      // Usa created_at personalizzato per sessioni a posteriori, altrimenti adesso
+      created_at: activityData.created_at || new Date().toISOString()
     };
 
     if (isSupabaseConfigured) {
@@ -556,16 +575,30 @@ export const db = {
         .single();
 
       // Fallback: se lo schema del DB non ha ancora alcune colonne opzionali
-      // (es. errore "Could not find the 'bac_level' column"), riprova senza di esse.
+      // (es. errore "Could not find the 'bac_level' column" o column doesn't exist), riprova senza di esse.
       // Esegui comunque la MIGRAZIONE in supabase_schema.sql per non perdere questi dati.
-      if (error && (error.code === 'PGRST204' || /Could not find the '(\w+)' column/.test(error.message || ''))) {
-        const { bac_level, media, location, drank_with, description, ...essential } = newActivity;
+      if (error && (error.code === 'PGRST204' || error.code === '42703' || /Could not find the '(\w+)' column|column .* does not exist/i.test(error.message || ''))) {
+        const { bac_level, media, location, drank_with, description, is_active, ...essential } = newActivity;
         console.warn('Colonne mancanti nello schema sessions, salvo i campi essenziali. Esegui la migrazione SQL.', error.message);
         ({ data, error } = await supabase
           .from('sessions')
           .insert({ ...essential, user_id: user.id })
           .select()
           .single());
+        
+        // Se la creazione della sessione live è riuscita ma la colonna is_active non esiste nel DB,
+        // salviamo comunque l'ID in localStorage come fallback locale!
+        if (!error && data && newActivity.is_active) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sb_active_session_id', data.id);
+          }
+        }
+      }
+
+      if (!error && data && newActivity.is_active) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sb_active_session_id', data.id);
+        }
       }
 
       if (error) throw error;
@@ -778,6 +811,32 @@ export const db = {
     }
   },
 
+  async updateProfile(userId, profileData) {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', userId);
+      if (error) throw error;
+      return true;
+    } else {
+      const profiles = getStored('sb_profiles');
+      const idx = profiles.findIndex(p => p.id === userId);
+      if (idx > -1) {
+        profiles[idx] = { ...profiles[idx], ...profileData };
+        setStored('sb_profiles', profiles);
+        
+        // Aggiorna anche utente corrente in sessione
+        const currentUser = JSON.parse(localStorage.getItem('sb_current_user') || '{}');
+        if (currentUser.id === userId) {
+          localStorage.setItem('sb_current_user', JSON.stringify({ ...currentUser, ...profileData }));
+        }
+        return true;
+      }
+      return false;
+    }
+  },
+
   // --- CUSTOM DRINKS FOR WIDMARK CALCULATOR ---
   async getCustomDrinks() {
     if (isSupabaseConfigured) {
@@ -841,13 +900,30 @@ export const db = {
 
   async updateActivity(activityId, updatedData) {
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('sessions')
         .update(updatedData)
         .eq('id', activityId)
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        // Fallback: se la colonna is_active non esiste nel DB e stiamo provando a modificarla, rimuoviamola e riproviamo
+        if (error.code === '42703' || /column .* does not exist/i.test(error.message || '')) {
+          const { is_active, ...rest } = updatedData;
+          if (Object.keys(rest).length > 0) {
+            const { data: retryData, error: retryError } = await supabase
+              .from('sessions')
+              .update(rest)
+              .eq('id', activityId)
+              .select()
+              .single();
+            if (retryError) throw retryError;
+            return retryData;
+          }
+          return null;
+        }
+        throw error;
+      }
       return data;
     } else {
       const activities = getStored('sb_activities');
@@ -861,6 +937,154 @@ export const db = {
       setStored('sb_activities', activities);
       return activities[idx];
     }
+  },
+
+  async deleteActivity(activityId) {
+    if (typeof window !== 'undefined') {
+      const localActiveId = localStorage.getItem('sb_active_session_id');
+      if (localActiveId === activityId) {
+        localStorage.removeItem('sb_active_session_id');
+      }
+    }
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', activityId);
+      if (error) throw error;
+    } else {
+      const activities = getStored('sb_activities');
+      const filtered = activities.filter(a => a.id !== activityId);
+      setStored('sb_activities', filtered);
+    }
+  },
+
+  async getActiveSession(userId) {
+    if (isSupabaseConfigured) {
+      let data = null;
+      let dbError = null;
+      
+      try {
+        const { data: dbData, error } = await supabase
+          .from('sessions')
+          .select(`
+            *,
+            profiles(username, display_name, avatar_url),
+            cheers(user_id),
+            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url))
+          `)
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+        data = dbData;
+        dbError = error;
+      } catch (err) {
+        dbError = err;
+      }
+
+      if (dbError) {
+        console.warn("La sessione attiva non può essere recuperata dal DB (potrebbe mancare la colonna 'is_active'):", dbError.message || dbError);
+      }
+
+      // Fallback a localStorage se la query DB non ha restituito dati
+      if (!data && typeof window !== 'undefined') {
+        const localActiveId = localStorage.getItem('sb_active_session_id');
+        if (localActiveId) {
+          try {
+            const activeSessionData = await this.getActivity(localActiveId);
+            if (activeSessionData && activeSessionData.user_id === userId) {
+              data = activeSessionData;
+            } else {
+              localStorage.removeItem('sb_active_session_id');
+            }
+          } catch (err) {
+            console.error("Errore recupero sessione attiva da localStorage:", err);
+          }
+        }
+      }
+
+      if (!data) return null;
+
+      // Auto-expire se è più vecchia di 6 ore
+      const createdTime = new Date(data.created_at).getTime();
+      const elapsedHours = (Date.now() - createdTime) / (1000 * 60 * 60);
+      if (elapsedHours > 6) {
+        await this.closeSession(data.id, {
+          feeling: data.feeling || 'Sobrio',
+          description: data.description || 'Chiusa automaticamente dal sistema dopo 6 ore.',
+          duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
+        });
+        return null;
+      }
+
+      return {
+        ...data,
+        cheers: data.cheers ? data.cheers.map(c => c.user_id) : [],
+        comments: data.comments ? data.comments.map(c => ({
+          id: c.id,
+          user_id: c.user_id,
+          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+          text: c.text,
+          created_at: c.created_at
+        })) : []
+      };
+    } else {
+      if (typeof window === 'undefined') return null;
+      const activities = getStored('sb_activities');
+      const found = activities.find(a => a.user_id === userId && a.is_active === true);
+      if (!found) return null;
+
+      // Auto-expire se è più vecchia di 6 ore
+      const createdTime = new Date(found.created_at).getTime();
+      const elapsedHours = (Date.now() - createdTime) / (1000 * 60 * 60);
+      if (elapsedHours > 6) {
+        await this.closeSession(found.id, {
+          feeling: found.feeling || 'Sobrio',
+          description: found.description || 'Chiusa automaticamente dal sistema dopo 6 ore.',
+          duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
+        });
+        return null;
+      }
+
+      const profiles = getStored('sb_profiles');
+      const profile = profiles.find(p => p.id === userId) || { username: 'utente_sconosciuto', display_name: 'Utente Sconosciuto' };
+      return {
+        ...found,
+        profiles: profile
+      };
+    }
+  },
+
+  async closeSession(sessionId, finalData) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sb_active_session_id');
+    }
+    const updatedData = {
+      is_active: false,
+      ...finalData
+    };
+    return this.updateActivity(sessionId, updatedData);
+  },
+
+  checkGeofencing(placeLat, placeLng, userLat, userLng, maxDistance = 200) {
+    if (!placeLat || !placeLng || !userLat || !userLng) return { inside: true, distance: 0 };
+    
+    const R = 6371e3; // Raggio della terra in metri
+    const φ1 = (placeLat * Math.PI) / 180;
+    const φ2 = (userLat * Math.PI) / 180;
+    const Δφ = ((userLat - placeLat) * Math.PI) / 180;
+    const Δλ = ((userLng - placeLng) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    const distance = R * c; // In metri
+    return {
+      inside: distance <= maxDistance,
+      distance: Math.round(distance)
+    };
   },
 
   getDrinksWithTimestamps(drinks, created_at, durationMinutes) {
@@ -903,18 +1127,16 @@ export const db = {
     for (let i = 0; i < numSteps; i++) {
       const T = new Date(startTime.getTime() + (totalDurationMs * i) / (numSteps - 1));
       
-      // Calcoliamo il BAC a questo punto temporale T
       let totalAbsorbedGrams = 0;
       parsedDrinks.forEach(d => {
         const drinkTime = new Date(d.added_at).getTime();
         const dtHours = (T.getTime() - drinkTime) / (1000 * 60 * 60);
         
-        if (dtHours >= 0) {
-          // Tasso di assorbimento: picco a 30 minuti (0.5 ore)
-          const absorbedFraction = Math.min(1, dtHours / 0.5);
-          const drinkUnits = (d.units || 1.3) * (d.qty || 1);
-          totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
-        }
+        // Se dtHours è leggermente negativo (drift temporale), lo trattiamo come 0 (assorbimento istantaneo al 50%)
+        const effectiveDtHours = Math.max(0, dtHours);
+        const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
+        const drinkUnits = (d.units || 1.3) * (d.qty || 1);
+        totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
       });
 
       const hoursSinceStart = (T.getTime() - startTime.getTime()) / (1000 * 60 * 60);
@@ -933,27 +1155,31 @@ export const db = {
     return timepoints;
   },
 
-  calculateCurrentBAC(drinks, created_at, durationMinutes) {
+  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return 0;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = new Date(Math.min(...timestamps));
-    const now = new Date();
+
+    // referenceTime: se non passato usa "adesso" (sessione live).
+    // Per sessioni storiche, passa la fine stimata della sessione (created_at + duration)
+    // in modo da mostrare il BAC al picco della sessione, non 0 dopo giorni.
+    const refMs = referenceTime ? new Date(referenceTime).getTime() : Date.now();
     
     let totalAbsorbedGrams = 0;
     parsedDrinks.forEach(d => {
       const drinkTime = new Date(d.added_at).getTime();
-      const dtHours = (now.getTime() - drinkTime) / (1000 * 60 * 60);
+      const dtHours = (refMs - drinkTime) / (1000 * 60 * 60);
       
-      if (dtHours >= 0) {
-        const absorbedFraction = Math.min(1, dtHours / 0.5);
-        const drinkUnits = (d.units || 1.3) * (d.qty || 1);
-        totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
-      }
+      // Se dtHours è leggermente negativo (drift temporale), lo trattiamo come 0 (assorbimento istantaneo al 50%)
+      const effectiveDtHours = Math.max(0, dtHours);
+      const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
+      const drinkUnits = (d.units || 1.3) * (d.qty || 1);
+      totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
     });
 
-    const hoursSinceStart = (now.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    const hoursSinceStart = (refMs - startTime.getTime()) / (1000 * 60 * 60);
     const totalEliminatedGrams = 7.14 * hoursSinceStart;
     
     const netGramsInBlood = Math.max(0, totalAbsorbedGrams - totalEliminatedGrams);

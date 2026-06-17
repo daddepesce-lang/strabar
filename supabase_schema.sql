@@ -34,7 +34,7 @@ BEGIN
     VALUES (
         new.id,
         COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
-        COALESCE(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
+        COALESCE(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
         FALSE
     )
     ON CONFLICT (id) DO NOTHING;
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.sessions (
     location JSONB DEFAULT NULL,
     bac_level NUMERIC(3,2) DEFAULT 0.00 NOT NULL,
     media JSONB DEFAULT NULL,
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
@@ -299,6 +300,7 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS media JSONB DEFAULT NULL;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS location JSONB DEFAULT NULL;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS drank_with JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL;
 
 -- Ricarica la cache dello schema di PostgREST (Supabase) così le nuove colonne sono subito visibili
 NOTIFY pgrst, 'reload schema';

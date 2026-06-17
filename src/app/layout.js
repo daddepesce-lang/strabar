@@ -2,9 +2,9 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata = {
-  title: "Strabar | Lo Strava delle Bevute",
+  title: "Strabar | Il Social Network degli Atleti da Bar",
   description: "Traccia le tue sessioni alcoliche, tagga gli amici, pianifica percorsi (Pub Crawl) ed esporta le tue performance per i social media.",
-  keywords: "strabar, strava delle bevute, pub crawl, bar crawl, alcol tracker",
+  keywords: "strabar, atleti da bar, pub crawl, bar crawl, alcol tracker, social drinking",
 };
 
 export const viewport = {
@@ -14,7 +14,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="it">
+    <html lang="it" suppressHydrationWarning>
       <head>
         {/* Leaflet CSS per le mappe interattive */}
         <link 

@@ -60,8 +60,201 @@ export default function ClassifichePage() {
   const [newReview, setNewReview] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Geofencing and GPS States
+  const [showGeofencingModal, setShowGeofencingModal] = useState(false);
+  const [geofencingData, setGeofencingData] = useState(null);
+  const [checkingGps, setCheckingGps] = useState(false);
+
+  // Active Session transfer states
+  const [activeSession, setActiveSession] = useState(null);
+  const [showConfirmCloseModal, setShowConfirmCloseModal] = useState(false);
+  const [pendingPlace, setPendingPlace] = useState(null);
+
+  const handleStartBrindisi = async () => {
+    if (!currentUser) {
+      alert("Devi effettuare l'accesso per iniziare un brindisi!");
+      return;
+    }
+
+    if (activeSession) {
+      setPendingPlace(selected);
+      setShowConfirmCloseModal(true);
+      return;
+    }
+
+    setCheckingGps(true);
+    
+    const startSession = async () => {
+      try {
+        const newAct = await db.createActivity({
+          title: `Brindisi live presso ${selected.name} 🍻`,
+          location: {
+            name: selected.name,
+            address: selected.address,
+            lat: selected.lat,
+            lng: selected.lng
+          },
+          drinks: [],
+          is_active: true,
+          bac_level: 0,
+          total_units: 0,
+          duration: 1
+        });
+        
+        window.location.href = '/';
+      } catch (err) {
+        alert("Errore nell'avvio della sessione: " + err.message);
+      }
+    };
+
+    if (!navigator.geolocation) {
+      setGeofencingData({ inside: false, distance: null, error: "Geolocalizzazione non supportata dal browser." });
+      setShowGeofencingModal(true);
+      setCheckingGps(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+        
+        const geo = db.checkGeofencing(selected.lat, selected.lng, userLat, userLng);
+        
+        if (geo.inside) {
+          await startSession();
+        } else {
+          setGeofencingData({ inside: false, distance: geo.distance, error: null });
+          setShowGeofencingModal(true);
+        }
+        setCheckingGps(false);
+      },
+      (err) => {
+        console.warn("Errore geolocalizzazione:", err);
+        setGeofencingData({ inside: false, distance: null, error: "Impossibile rilevare la tua posizione GPS. Permesso negato o segnale assente." });
+        setShowGeofencingModal(true);
+        setCheckingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const handleCloseAndStartNewSession = async () => {
+    if (!activeSession || !pendingPlace) return;
+    try {
+      const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
+      const elapsed = Math.max(1, Math.round(diffMs / (60 * 1000)));
+      
+      // Chiudi sessione precedente
+      await db.closeSession(activeSession.id, {
+        is_active: false,
+        feeling: activeSession.feeling || 'Sobrio',
+        description: 'Chiuso per iniziare un nuovo brindisi.',
+        duration: elapsed
+      });
+      
+      setActiveSession(null);
+      setShowConfirmCloseModal(false);
+      setCheckingGps(true);
+      
+      const startSession = async () => {
+        try {
+          const newAct = await db.createActivity({
+            title: `Brindisi live presso ${pendingPlace.name} 🍻`,
+            location: {
+              name: pendingPlace.name,
+              address: pendingPlace.address,
+              lat: pendingPlace.lat,
+              lng: pendingPlace.lng
+            },
+            drinks: [],
+            is_active: true,
+            bac_level: 0,
+            total_units: 0,
+            duration: 1
+          });
+          
+          window.location.href = '/';
+        } catch (err) {
+          alert("Errore nell'avvio della sessione: " + err.message);
+        }
+      };
+
+      if (!navigator.geolocation) {
+        setGeofencingData({ inside: false, distance: null, error: "Geolocalizzazione non supportata dal browser." });
+        setShowGeofencingModal(true);
+        setCheckingGps(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const userLat = pos.coords.latitude;
+          const userLng = pos.coords.longitude;
+          
+          const geo = db.checkGeofencing(pendingPlace.lat, pendingPlace.lng, userLat, userLng);
+          
+          if (geo.inside) {
+            await startSession();
+          } else {
+            setGeofencingData({ inside: false, distance: geo.distance, error: null });
+            setShowGeofencingModal(true);
+          }
+          setCheckingGps(false);
+        },
+        (err) => {
+          console.warn("Errore geolocalizzazione:", err);
+          setGeofencingData({ inside: false, distance: null, error: "Impossibile rilevare la tua posizione GPS. Permesso negato o segnale assente." });
+          setShowGeofencingModal(true);
+          setCheckingGps(false);
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } catch (err) {
+      alert("Errore nel completamento dell'operazione: " + err.message);
+    }
+  };
+
+  const handleForceDemoStart = async () => {
+    try {
+      const placeToUse = pendingPlace || selected;
+      if (!placeToUse) return;
+
+      if (activeSession) {
+        const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
+        const elapsed = Math.max(1, Math.round(diffMs / (60 * 1000)));
+        await db.closeSession(activeSession.id, {
+          is_active: false,
+          feeling: activeSession.feeling || 'Sobrio',
+          description: 'Chiuso per iniziare un nuovo brindisi.',
+          duration: elapsed
+        });
+      }
+
+      const newAct = await db.createActivity({
+        title: `Brindisi live presso ${placeToUse.name} (Demo Mode) 🍻`,
+        location: {
+          name: placeToUse.name,
+          address: placeToUse.address,
+          lat: placeToUse.lat,
+          lng: placeToUse.lng
+        },
+        drinks: [],
+        is_active: true,
+        bac_level: 0,
+        total_units: 0,
+        duration: 1
+      });
+      
+      window.location.href = '/';
+    } catch (err) {
+      alert("Errore nell'avvio della sessione demo: " + err.message);
+    }
+  };
+
   const loadAll = async () => {
     try {
+      if (!db || typeof db.getPlaces !== 'function') return;
       const [pl, us, user] = await Promise.all([
         db.getPlaces(),
         db.getUserLeaderboard(),
@@ -70,6 +263,10 @@ export default function ClassifichePage() {
       setPlaces(pl);
       setUsers(us);
       setCurrentUser(user);
+      if (user && typeof db.getActiveSession === 'function') {
+        const active = await db.getActiveSession(user.id);
+        setActiveSession(active);
+      }
     } catch (err) {
       console.error('Errore caricamento classifiche:', err);
     } finally {
@@ -79,6 +276,12 @@ export default function ClassifichePage() {
 
   useEffect(() => {
     loadAll();
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'locali' || params.get('action') === 'checkin') {
+        setTab('locali');
+      }
+    }
   }, []);
 
   const openPlace = async (place) => {
@@ -338,6 +541,16 @@ export default function ClassifichePage() {
               </button>
             </div>
 
+            <button
+              onClick={handleStartBrindisi}
+              disabled={checkingGps}
+              className="btn btn-primary"
+              style={{ width: '100%', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              <Beer size={16} />
+              {checkingGps ? 'Verifico posizione GPS...' : 'Inizia Brindisi Qui 🍻'}
+            </button>
+
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.name + ' ' + (selected.address || ''))}`}
               target="_blank"
@@ -425,6 +638,105 @@ export default function ClassifichePage() {
           </div>
         </div>
       )}
+
+      {/* MODALE DI AVVISO GEOFENCING / ANTICHEAT */}
+      {showGeofencingModal && geofencingData && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '480px', border: '2px solid var(--primary)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'scaleUp 0.2s ease' }}>
+            <div style={{ fontSize: '50px' }}>⚠️</div>
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Fuori Portata GPS!</h3>
+            
+            <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: '1.6' }}>
+              {geofencingData.error ? (
+                geofencingData.error
+              ) : (
+                `Ti trovi a circa ${geofencingData.distance} metri da "${selected?.name}".`
+              )}
+            </p>
+            
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.5' }}>
+              Per garantire l&apos;integrità delle classifiche locali, puoi avviare un brindisi solo se sei entro <strong>200 metri</strong> dal locale.
+            </p>
+
+            <div style={{ background: 'rgba(255, 94, 0, 0.05)', border: '1px dashed rgba(255, 94, 0, 0.3)', padding: '12px', borderRadius: '8px', fontSize: '12px', color: 'var(--primary)' }}>
+              <strong>Sviluppatore o Tester?</strong> Puoi forzare l&apos;avvio per simulare e testare le funzionalità.
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={() => {
+                  setShowGeofencingModal(false);
+                  setGeofencingData(null);
+                }}
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  setShowGeofencingModal(false);
+                  setGeofencingData(null);
+                  handleForceDemoStart();
+                }}
+                className="btn btn-primary"
+                style={{ flex: 1.5, fontWeight: 'bold' }}
+              >
+                Forza Demo Mode 🚀
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DI CONFERMA CHIUSURA SESSIONE ATTIVA */}
+      {showConfirmCloseModal && activeSession && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '480px', border: '2px solid var(--primary)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'scaleUp 0.2s ease' }}>
+            <div style={{ fontSize: '50px' }}>🚨</div>
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Sessione Live in Corso!</h3>
+            
+            <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: '1.6' }}>
+              Hai già una sessione attiva avviata presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong>.
+            </p>
+            
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.5' }}>
+              Per iniziare un nuovo brindisi presso <strong>{pendingPlace?.name}</strong>, devi chiudere quella precedente. Vuoi procedere?
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={() => {
+                  setShowConfirmCloseModal(false);
+                  setPendingPlace(null);
+                }}
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  window.location.href = '/';
+                }}
+                className="btn btn-secondary"
+                style={{ flex: 1, border: '1px dashed var(--primary)' }}
+              >
+                Gestisci Live 🧭
+              </button>
+              <button
+                onClick={handleCloseAndStartNewSession}
+                className="btn btn-primary"
+                style={{ flex: 1.5, fontWeight: 'bold' }}
+              >
+                Chiudi e Inizia Qui 🍻
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       <style jsx global>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

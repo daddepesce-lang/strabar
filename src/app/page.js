@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video } from 'lucide-react';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2 } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
@@ -28,18 +28,65 @@ export default function FeedPage() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
+  // Nuovi stati per il paradigma Live Session e Slideshow Feed
+  const [activeSession, setActiveSession] = useState(null);
+  const [elapsedMinutes, setElapsedMinutes] = useState(0);
+  const [feedSlideIndices, setFeedSlideIndices] = useState({}); // { [actId]: index }
+  const [profilesList, setProfilesList] = useState([]);
+  const [showCloseForm, setShowCloseForm] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
+
+  // Stati per il completamento profilo Google obbligatorio
+  const [showCompleteProfileModal, setShowCompleteProfileModal] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customUsername, setCustomUsername] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
   const handleOpenActivity = (act) => {
     setSelectedActivity(act);
     setCurrentSlideIndex(0);
   };
 
+  const triggerLocalNotification = (title, body) => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, { body });
+      } catch (err) {
+        console.warn("Notification error:", err);
+      }
+    }
+  };
+
   const loadFeed = async () => {
     try {
+      if (!db || typeof db.getCurrentUser !== 'function') return;
       const user = await db.getCurrentUser();
       setCurrentUser(user);
       
-      const acts = await db.getActivities();
+      const acts = typeof db.getActivities === 'function' ? await db.getActivities() : [];
       setActivities(acts);
+
+      if (user) {
+        if (typeof db.getActiveSession === 'function') {
+          const active = await db.getActiveSession(user.id);
+          setActiveSession(active);
+        }
+        const list = typeof db.getAllProfiles === 'function' ? await db.getAllProfiles() : [];
+        setProfilesList(list);
+
+        // Controllo completezza profilo per Google Login
+        const emailPrefix = user.email ? user.email.split('@')[0] : '';
+        const isGoogleDefault = user.app_metadata?.provider === 'google' || 
+                                user.identities?.some(id => id.provider === 'google') || 
+                                (user.id && user.id.startsWith('user-google-'));
+        
+        if (isGoogleDefault && (user.display_name === emailPrefix || user.display_name === 'Gara Google Demo' || user.display_name === 'google_user' || !user.display_name)) {
+          setShowCompleteProfileModal(true);
+          setCustomName(user.display_name !== 'Gara Google Demo' && user.display_name !== 'google_user' ? user.display_name : '');
+          setCustomUsername(user.username && user.username !== 'google_user' ? user.username : '');
+        }
+      }
     } catch (err) {
       console.error("Errore nel caricamento del feed:", err);
     } finally {
@@ -49,7 +96,28 @@ export default function FeedPage() {
 
   useEffect(() => {
     loadFeed();
+
+    // Richiedi permessi notifiche PWA
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
   }, []);
+
+  // Timer per la sessione attiva
+  useEffect(() => {
+    if (!activeSession) return;
+    const interval = setInterval(() => {
+      const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
+      setElapsedMinutes(Math.max(1, Math.round(diffMs / (60 * 1000))));
+    }, 15000); // aggiorna ogni 15s
+
+    const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
+    setElapsedMinutes(Math.max(1, Math.round(diffMs / (60 * 1000))));
+
+    return () => clearInterval(interval);
+  }, [activeSession]);
 
   const handleCheers = async (activityId) => {
     if (!currentUser) {
@@ -62,6 +130,46 @@ export default function FeedPage() {
       await loadFeed();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleCompleteProfileSubmit = async (e) => {
+    e.preventDefault();
+    setProfileError('');
+    setSavingProfile(true);
+    
+    try {
+      const name = customName.trim();
+      const username = customUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      
+      if (!name) throw new Error("Inserisci il tuo nome reale!");
+      if (username.length < 3) throw new Error("Lo username deve contenere almeno 3 caratteri!");
+      
+      // Controlla se lo username è già occupato
+      if (typeof db.getAllProfiles === 'function') {
+        const all = await db.getAllProfiles();
+        const existing = all.find(p => p.username === username && p.id !== currentUser.id);
+        if (existing) throw new Error("Questo username è già registrato da un altro atleta!");
+      }
+      
+      // Aggiorna
+      if (typeof db.updateProfile === 'function') {
+        await db.updateProfile(currentUser.id, {
+          display_name: name,
+          username: username
+        });
+      }
+      
+      // Ricarica l'utente aggiornato
+      const updatedUser = await db.getCurrentUser();
+      setCurrentUser(updatedUser);
+      setShowCompleteProfileModal(false);
+      triggerLocalNotification("Profilo Aggiornato! 🏅", `Benvenuto su Strabar, ${name}!`);
+      await loadFeed();
+    } catch (err) {
+      setProfileError(err.message || "Impossibile aggiornare il profilo.");
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -104,11 +212,17 @@ export default function FeedPage() {
         added_at: nowStr
       };
       
+      // IMPORTANTE: rileggi sempre la sessione fresca dal DB per evitare stato stale
+      const freshAct = typeof db.getActivity === 'function'
+        ? await db.getActivity(selectedActivity.id)
+        : null;
+      const baseActivity = freshAct || selectedActivity;
+
       // Assicura che i drink esistenti abbiano orari validi
       const existingDrinks = db.getDrinksWithTimestamps(
-        selectedActivity.drinks || [],
-        selectedActivity.created_at,
-        selectedActivity.duration || 120
+        baseActivity.drinks || [],
+        baseActivity.created_at,
+        baseActivity.duration || 120
       );
       
       const updatedDrinks = [...existingDrinks, newDrink];
@@ -148,11 +262,293 @@ export default function FeedPage() {
           ...updatedFields
         };
       });
+
+      if (preset.abv > 0) {
+        triggerLocalNotification("Drink Aggiunto! 🍺", `Hai aggiunto ${preset.name}. Il tuo BAC stimato è ora di ${newBac.toFixed(2)} g/l.`);
+      } else {
+        triggerLocalNotification("Idratazione! 💧", "Ottima scelta, bere acqua previene i postumi!");
+      }
       
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione:", err);
       alert("Impossibile aggiungere il drink: " + (err.message || err));
     }
+  };
+
+  const handleAddDrinkToActiveSession = async (preset) => {
+    if (!activeSession) return;
+    
+    try {
+      const nowStr = new Date().toISOString();
+      const newDrink = {
+        name: preset.name,
+        abv: preset.abv,
+        units: preset.units,
+        qty: 1,
+        added_at: nowStr
+      };
+
+      // IMPORTANTE: rileggi sempre la sessione fresca dal DB per evitare
+      // che lo stato React stale contenga drink di sessioni precedenti.
+      const freshSession = typeof db.getActivity === 'function'
+        ? await db.getActivity(activeSession.id)
+        : null;
+      const currentDrinks = (freshSession || activeSession).drinks || [];
+      
+      const updatedDrinks = [...currentDrinks, newDrink];
+      const newTotalUnits = updatedDrinks.reduce((acc, d) => acc + ((d.units || 0) * (d.qty || 1)), 0);
+      
+      // Calcola la durata: differenza tra primo drink e ora corrente
+      const timestamps = updatedDrinks.map(d => new Date(d.added_at).getTime());
+      const startTimeMs = Math.min(...timestamps);
+      const duration = Math.max(1, Math.round((new Date().getTime() - startTimeMs) / (60 * 1000)));
+      
+      // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default)
+      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration);
+      
+      const updatedFields = {
+        drinks: updatedDrinks,
+        total_units: parseFloat(newTotalUnits.toFixed(1)),
+        duration: duration,
+        bac_level: parseFloat(newBac.toFixed(2))
+      };
+      
+      await db.updateActivity(activeSession.id, updatedFields);
+      
+      // Ricarica feed e aggiorna stato locale
+      await loadFeed();
+      
+      if (preset.abv > 0) {
+        triggerLocalNotification("Drink Aggiunto! 🍺", `Hai aggiunto ${preset.name} alla sessione live. BAC stimato: ${newBac.toFixed(2)} g/l. Ricordati di alternare con dell'acqua! 💧`);
+      } else {
+        triggerLocalNotification("Ottima idratazione! 💧", `Hai aggiunto ${preset.name}. Bere acqua aiuta lo smaltimento!`);
+      }
+    } catch (err) {
+      console.error("Errore nell'aggiunta del drink alla sessione attiva:", err);
+      alert("Impossibile aggiungere il drink: " + err.message);
+    }
+  };
+
+  const handleCloseActiveSession = async (e) => {
+    e.preventDefault();
+    if (!activeSession) return;
+    
+    const feeling = e.target.feeling.value || 'Brillo Felice';
+    const description = e.target.description.value || '';
+    
+    const finalData = {
+      is_active: false,
+      feeling,
+      description,
+      duration: elapsedMinutes
+    };
+    
+    try {
+      await db.closeSession(activeSession.id, finalData);
+      triggerLocalNotification("Sessione Chiusa! 🏁", `Allenamento completato! Hai totalizzato ${activeSession.total_units} U.A. e un BAC di ${activeSession.bac_level} g/l.`);
+      setActiveSession(null);
+      await loadFeed();
+    } catch (err) {
+      console.error("Errore nella chiusura della sessione:", err);
+      alert("Errore durante la chiusura: " + err.message);
+    }
+  };
+
+  const handleEditActivity = (act) => {
+    setEditingActivity({
+      ...act,
+      drinks: act.drinks ? JSON.parse(JSON.stringify(act.drinks)) : []
+    });
+  };
+
+  const handleUpdateEditField = (field, value) => {
+    setEditingActivity(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleUpdateEditDrinkQty = (index, increment) => {
+    setEditingActivity(prev => {
+      const drinks = [...prev.drinks];
+      drinks[index] = { ...drinks[index] };
+      drinks[index].qty += increment;
+      
+      if (drinks[index].qty <= 0) {
+        drinks.splice(index, 1);
+      }
+      
+      return {
+        ...prev,
+        drinks
+      };
+    });
+  };
+
+  const handleRemoveEditDrink = (index) => {
+    setEditingActivity(prev => {
+      const drinks = prev.drinks.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        drinks
+      };
+    });
+  };
+
+  const handleAddTaskPresetToEdit = (preset) => {
+    setEditingActivity(prev => {
+      const existingIdx = prev.drinks.findIndex(d => d.name === preset.name);
+      const drinks = [...prev.drinks];
+      if (existingIdx > -1) {
+        drinks[existingIdx] = {
+          ...drinks[existingIdx],
+          qty: drinks[existingIdx].qty + 1
+        };
+      } else {
+        drinks.push({
+          name: preset.name,
+          abv: preset.abv,
+          units: preset.units,
+          qty: 1,
+          added_at: new Date().toISOString()
+        });
+      }
+      return {
+        ...prev,
+        drinks
+      };
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingActivity) return;
+    try {
+      const totalUnits = editingActivity.drinks.reduce((acc, d) => acc + (d.units * d.qty), 0);
+      const updatedDrinks = editingActivity.drinks;
+      const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration);
+      
+      const updatedFields = {
+        title: editingActivity.title,
+        description: editingActivity.description,
+        feeling: editingActivity.feeling,
+        duration: parseInt(editingActivity.duration) || 120,
+        drinks: updatedDrinks,
+        total_units: parseFloat(totalUnits.toFixed(1)),
+        bac_level: parseFloat(bac.toFixed(2))
+      };
+      
+      await db.updateActivity(editingActivity.id, updatedFields);
+      setEditingActivity(null);
+      await loadFeed();
+      triggerLocalNotification("Modificato! ✏️", "Attività aggiornata con successo.");
+    } catch (err) {
+      console.error("Errore salvataggio modifica:", err);
+      alert("Errore nel salvataggio: " + err.message);
+    }
+  };
+
+  const handleDeleteActivity = async (actId) => {
+    if (!window.confirm("Sei sicuro di voler eliminare questa attività per sempre?")) return;
+    try {
+      await db.deleteActivity(actId);
+      setEditingActivity(null);
+      await loadFeed();
+      triggerLocalNotification("Eliminato! 🗑️", "Attività rimossa con successo.");
+    } catch (err) {
+      console.error("Errore eliminazione:", err);
+      alert("Errore durante l'eliminazione: " + err.message);
+    }
+  };
+
+  const handleNextSlide = (actId, maxIndex) => {
+    setFeedSlideIndices(prev => ({
+      ...prev,
+      [actId]: ((prev[actId] || 0) + 1) % maxIndex
+    }));
+  };
+
+  const handlePrevSlide = (actId, maxIndex) => {
+    setFeedSlideIndices(prev => ({
+      ...prev,
+      [actId]: (prev[actId] || 0) === 0 ? maxIndex - 1 : (prev[actId] || 0) - 1
+    }));
+  };
+
+  const renderCompanionsList = (act) => {
+    // Rileva compagni registrati geometricamente/temporaneamente
+    const regCompanions = getRegisteredCompanions(act);
+    const regIds = new Set(regCompanions.map(c => c.user_id));
+    
+    // Tag salvati in drank_with
+    const drankWith = act.drank_with || [];
+    const finalCompanions = [];
+    
+    regCompanions.forEach(c => {
+      finalCompanions.push({
+        id: c.user_id,
+        name: c.name,
+        isRegistered: true
+      });
+    });
+    
+    drankWith.forEach(nameStr => {
+      let usernameMatch = nameStr.match(/@([\w-]+)/);
+      let username = usernameMatch ? usernameMatch[1] : null;
+      let displayName = nameStr.replace(/\s*\(@?[\w-]+\)/g, '').trim();
+      
+      const matchedProfile = profilesList.find(p => {
+        if (username) {
+          return p.username.toLowerCase() === username.toLowerCase();
+        }
+        return p.display_name.toLowerCase() === displayName.toLowerCase() ||
+               p.username.toLowerCase() === displayName.toLowerCase();
+      });
+      
+      if (matchedProfile) {
+        if (!regIds.has(matchedProfile.id)) {
+          finalCompanions.push({
+            id: matchedProfile.id,
+            name: matchedProfile.display_name || matchedProfile.username,
+            isRegistered: true
+          });
+          regIds.add(matchedProfile.id);
+        }
+      } else {
+        finalCompanions.push({
+          id: null,
+          name: displayName,
+          isRegistered: false
+        });
+      }
+    });
+    
+    if (finalCompanions.length === 0) return null;
+    
+    return (
+      <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+        <span>🍻</span>
+        <strong style={{ color: '#FFF' }}>{act.profiles?.display_name || 'Atleta'}</strong>
+        <span>ha bevuto con</span>
+        {finalCompanions.map((c, i) => {
+          const isLast = i === finalCompanions.length - 1;
+          const isPenultimate = i === finalCompanions.length - 2;
+          const separator = isLast ? '' : isPenultimate ? ' e ' : ', ';
+          
+          return (
+            <span key={i}>
+              {c.isRegistered ? (
+                <Link href={`/u/${c.id}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>
+                  {c.name}
+                </Link>
+              ) : (
+                <strong style={{ color: 'var(--text-dark-primary)' }}>{c.name}</strong>
+              )}
+              {separator}
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   const handleCommentChange = (activityId, text) => {
@@ -532,9 +928,18 @@ export default function FeedPage() {
 
   if (selectedActivity) {
     totalU = parseFloat(selectedActivity.total_units || selectedActivity.drinks?.reduce((acc, d) => acc + ((d.units || 1.5) * d.qty), 0) || 0);
+
+    // Per sessioni storiche (non live) calcola il BAC al momento di fine sessione stimata,
+    // non adesso (che darebbe sempre 0 perché l'alcol è già smaltito da tempo).
+    const isLiveSession = selectedActivity.is_active &&
+      (Date.now() - new Date(selectedActivity.created_at).getTime()) < 6 * 60 * 60 * 1000;
+    const sessionEndTime = isLiveSession
+      ? undefined  // usa now (default)
+      : new Date(new Date(selectedActivity.created_at).getTime() + (selectedActivity.duration || 120) * 60 * 1000).toISOString();
+
     derivedBac = (selectedActivity.bac_level && parseFloat(selectedActivity.bac_level) > 0)
       ? parseFloat(selectedActivity.bac_level)
-      : db.calculateBAC(totalU, selectedActivity.duration || 120);
+      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime);
 
     if (selectedActivity.location && selectedActivity.location.name) {
       const locNameNormalized = selectedActivity.location.name.trim().toLowerCase();
@@ -570,16 +975,12 @@ export default function FeedPage() {
         .sort((a, b) => b.totalUnits - a.totalUnits)
         .slice(0, 3);
 
-      // Top BAC (Tasso Alcolico Record in una singola sessione)
+      // Top BAC (Tasso Alcolico Record in una singola sessione) — usa il BAC salvato, non ricalcolato
       topBacLeaderboard = [...barSessions]
-        .map(s => {
-          const tU = parseFloat(s.total_units || 0);
-          const bac = (s.bac_level && parseFloat(s.bac_level) > 0) ? parseFloat(s.bac_level) : db.calculateBAC(tU, s.duration || 120);
-          return {
-            name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
-            bac
-          };
-        })
+        .map(s => ({
+          name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
+          bac: (s.bac_level && parseFloat(s.bac_level) > 0) ? parseFloat(s.bac_level) : 0
+        }))
         .sort((a, b) => b.bac - a.bac)
         .slice(0, 3);
     }
@@ -593,20 +994,195 @@ export default function FeedPage() {
       {/* Colonna Sinistra: Feed delle Attività */}
       <div className="feed-list">
         {currentUser ? (
-          <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', border: '1px solid var(--border-dark)', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <div className="activity-avatar" style={{ width: '40px', height: '40px', fontSize: '16px' }}>
-                {currentUser.display_name ? currentUser.display_name.charAt(0) : 'U'}
+          activeSession ? (
+            <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #161822 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 94, 0, 0.25)', borderRadius: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
+                    LIVE 🔴
+                  </span>
+                  <span style={{ fontSize: '14px', color: '#FFF' }}>
+                    • presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong>
+                  </span>
+                  <button 
+                    onClick={() => router.push('/log?action=append')}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '10px', marginLeft: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                  >
+                    📍 Aggiungi Tappa
+                  </button>
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark-secondary)' }}>
+                  Tempo: {elapsedMinutes} min
+                </span>
               </div>
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: '700' }}>Pronto per il terzo tempo?</h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Traccia la sessione di oggi su Strabar</p>
+
+              {/* Statistiche Live */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-dark)', marginBottom: '15px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>Carico Alcolico</div>
+                  <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--secondary)', marginTop: '4px' }}>
+                    {activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0'} <span style={{ fontSize: '12px' }}>U.A.</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>BAC Stimato</div>
+                  <div style={{ fontSize: '24px', fontWeight: '800', color: (activeSession.bac_level || 0) > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '4px' }}>
+                    {activeSession.bac_level ? activeSession.bac_level.toFixed(2) : '0.00'} <span style={{ fontSize: '12px' }}>g/l</span>
+                  </div>
+                </div>
               </div>
+
+              {/* Elenco drink correnti */}
+              <div style={{ marginBottom: '15px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
+                  Drink in questa sessione ({activeSession.drinks?.length || 0}):
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
+                  {activeSession.drinks?.length > 0 ? (
+                    activeSession.drinks.map((d, i) => (
+                      <span key={i} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 8px' }}>
+                        <Beer size={10} /> {d.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Nessun drink registrato. Aggiungi il primo!</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Pulsantiera Quick Add */}
+              <div style={{ marginBottom: '15px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
+                  Registra un drink (1-Tap):
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {[
+                    { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
+                    { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
+                    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
+                    { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' },
+                    { name: 'Acqua Fresca', abv: 0, units: 0, label: '💧 Acqua' },
+                    { name: 'Coca Cola / Soda', abv: 0, units: 0, label: '🥤 Soda' }
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleAddDrinkToActiveSession(preset)}
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px' }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Gestione Compagni (drank_with) */}
+              <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
+                  Compagni di bevuta:
+                </span>
+                
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Nome o @username dell'amico..."
+                    style={{ height: '32px', fontSize: '12px', padding: '0 10px' }}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = e.target.value.trim();
+                        if (!val) return;
+                        const updatedDrankWith = [...(activeSession.drank_with || []), val];
+                        await db.updateActivity(activeSession.id, { drank_with: updatedDrankWith });
+                        setActiveSession(prev => ({ ...prev, drank_with: updatedDrankWith }));
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>[Invio per inserire]</span>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {activeSession.drank_with?.map((friend, idx) => (
+                    <span key={idx} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', padding: '3px 8px', borderRadius: '15px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {friend}
+                      <button
+                        onClick={async () => {
+                          const updated = activeSession.drank_with.filter((_, i) => i !== idx);
+                          await db.updateActivity(activeSession.id, { drank_with: updated });
+                          setActiveSession(prev => ({ ...prev, drank_with: updated }));
+                        }}
+                        style={{ color: 'var(--error)', cursor: 'pointer', border: 'none', background: 'none', fontWeight: 'bold' }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Toggle Form Termina */}
+              {!showCloseForm ? (
+                <button
+                  onClick={() => setShowCloseForm(true)}
+                  className="btn btn-primary"
+                  style={{ width: '100%', borderRadius: '20px', padding: '8px', fontSize: '14px', fontWeight: 'bold' }}
+                >
+                  Termina Allenamento 🏁
+                </button>
+              ) : (
+                <form onSubmit={handleCloseActiveSession} style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Stato d&apos;animo</label>
+                      <select name="feeling" className="form-control" style={{ height: '36px', fontSize: '13px', padding: '0 8px' }}>
+                        <option value="Sobrio">Sobrio</option>
+                        <option value="Allegro">Allegro</option>
+                        <option value="Brillo Felice">Brillo Felice</option>
+                        <option value="Intenditore">Intenditore</option>
+                        <option value="Molto Caldo">Molto Caldo 🔥</option>
+                        <option value="Pieno Raso">Pieno Raso 💀</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Note sulla sessione</label>
+                    <textarea name="description" className="form-control" placeholder="Com'è andata la serata? Racconta..." rows={2} style={{ fontSize: '13px', resize: 'none' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+                    <button type="button" onClick={() => setShowCloseForm(false)} className="btn btn-secondary" style={{ flex: 1, borderRadius: '20px', fontSize: '13px', padding: '6px' }}>
+                      Annulla
+                    </button>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 2, borderRadius: '20px', fontSize: '13px', padding: '6px', fontWeight: 'bold' }}>
+                      Salva e Chiudi
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
-            <Link href="/log" className="btn btn-primary" style={{ borderRadius: '20px', padding: '8px 16px', fontSize: '14px' }}>
-              <Plus size={16} /> Registra
-            </Link>
-          </div>
+          ) : (
+            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', border: '1px solid var(--border-dark)', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div className="activity-avatar" style={{ width: '40px', height: '40px', fontSize: '16px' }}>
+                  {currentUser.display_name ? currentUser.display_name.charAt(0) : 'U'}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: '700' }}>Pronto per il terzo tempo?</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Inizia un brindisi live tracciato in tempo reale</p>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push('/log')}
+                className="btn btn-primary"
+                style={{ borderRadius: '20px', padding: '8px 16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}
+              >
+                <Plus size={16} /> Inizia Live
+              </button>
+            </div>
+          )
         ) : (
           <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '10px' }}>🍻 Unisciti alla Community di Strabar!</h2>
@@ -626,8 +1202,23 @@ export default function FeedPage() {
         ) : (
           activities.map((act) => {
             const hasCheered = act.cheers?.includes(currentUser?.id);
+            const isReallyActive = act.is_active && (new Date().getTime() - new Date(act.created_at).getTime() < 6 * 60 * 60 * 1000);
             return (
-              <article key={act.id} className="card activity-card">
+              <article 
+                key={act.id} 
+                className="card activity-card"
+                style={{ cursor: 'pointer' }}
+                onClick={(e) => {
+                  if (
+                    e.target.tagName !== 'BUTTON' && 
+                    e.target.tagName !== 'A' && 
+                    !e.target.closest('button') && 
+                    !e.target.closest('a')
+                  ) {
+                    handleOpenActivity(act);
+                  }
+                }}
+              >
                 <div className="activity-header">
                   <div className="activity-user-info">
                     <Link href={`/u/${act.user_id}`} className="activity-avatar" style={{ flexShrink: 0 }}>
@@ -647,7 +1238,13 @@ export default function FeedPage() {
                       <div className="activity-meta">{formatDate(act.created_at)}</div>
                     </div>
                   </div>
-                  <div style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {isReallyActive && (
+                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 94, 0, 0.1)', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
+                        LIVE 🔴
+                      </span>
+                    )}
                     <span>Stato:</span>
                     <strong style={{ color: 'var(--primary)' }}>{act.feeling}</strong>
                   </div>
@@ -697,36 +1294,73 @@ export default function FeedPage() {
                    </div>
                  )}
 
-                 {act.media && act.media.length > 0 && (
-                   <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', overflowX: 'auto', paddingBottom: '4px' }}>
-                     {act.media.map((med, idx) => (
-                       <span key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', color: '#FFF', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                         {med.type === 'video' ? '🎥' : med.type === 'audio' ? '🎵' : '🖼️'} {med.name}
-                       </span>
-                     ))}
-                   </div>
-                 )}
+                 {(() => {
+                   const images = act.media?.filter(m => m.type === 'image') || [];
+                   const otherMedia = act.media?.filter(m => m.type !== 'image') || [];
+                   const activeSlideIdx = feedSlideIndices[act.id] || 0;
+                   if (images.length === 0 && otherMedia.length === 0) return null;
+                   
+                   return (
+                     <div style={{ marginBottom: '15px' }}>
+                       {images.length > 0 && (
+                         <div style={{ position: 'relative', width: '100%', height: '220px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: otherMedia.length > 0 ? '8px' : '0' }}>
+                           {/* Active image */}
+                           <div style={{
+                             width: '100%',
+                             height: '100%',
+                             backgroundImage: `url(${images[activeSlideIdx]?.url})`,
+                             backgroundSize: 'cover',
+                             backgroundPosition: 'center',
+                             transition: 'background-image 0.2s ease-in-out'
+                           }} />
+                           
+                           {/* Overlay index */}
+                           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)', padding: '12px 16px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
+                             <span style={{ fontSize: '13px', fontWeight: '600' }}>
+                               {`Ricordo ${activeSlideIdx + 1}`}
+                             </span>
+                             <span style={{ fontSize: '11px', fontWeight: '600', background: 'rgba(0,0,0,0.5)', padding: '2px 6px', borderRadius: '10px' }}>
+                               {activeSlideIdx + 1} / {images.length}
+                             </span>
+                           </div>
 
-                {(() => {
-                  const reg = getRegisteredCompanions(act);
-                  const regNames = new Set(reg.map((r) => r.name.toLowerCase()));
-                  const tagged = (act.drank_with || []).filter((n) => !regNames.has(n.toLowerCase()));
-                  if (reg.length === 0 && tagged.length === 0) return null;
-                  return (
-                    <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                      <span>🍻</span>
-                      <strong style={{ color: '#FFF' }}>{act.profiles?.display_name || 'Atleta'}</strong>
-                      <span>ha bevuto con</span>
-                      {reg.map((c, i) => (
-                        <span key={c.user_id}>
-                          <Link href={`/u/${c.user_id}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>{c.name}</Link>
-                          {(i < reg.length - 1 || tagged.length > 0) ? ',' : ''}
-                        </span>
-                      ))}
-                      {tagged.length > 0 && <strong style={{ color: 'var(--text-dark-primary)' }}>{tagged.join(', ')}</strong>}
-                    </div>
-                  );
-                })()}
+                           {/* Arrows */}
+                           {images.length > 1 && (
+                             <>
+                               <button
+                                 type="button"
+                                 onClick={() => handlePrevSlide(act.id, images.length)}
+                                 style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 3 }}
+                               >
+                                 ‹
+                               </button>
+                               <button
+                                 type="button"
+                                 onClick={() => handleNextSlide(act.id, images.length)}
+                                 style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 3 }}
+                               >
+                                 ›
+                               </button>
+                             </>
+                           )}
+                         </div>
+                       )}
+
+                       {/* Non-image files */}
+                       {otherMedia.length > 0 && (
+                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                           {otherMedia.map((med, idx) => (
+                             <span key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', color: '#FFF', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                               {med.type === 'video' ? '🎥' : med.type === 'audio' ? '🎵' : '📎'} {med.name}
+                             </span>
+                           ))}
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })()}
+
+                {renderCompanionsList(act)}
 
                 {/* Actions (Cheers, Commenta, Condividi) */}
                 <div className="activity-actions">
@@ -748,6 +1382,13 @@ export default function FeedPage() {
                     <span className="action-btn-label-long">Esporta Social</span>
                     <span className="action-btn-label-short" style={{ display: 'none' }}>Esporta</span>
                   </Link>
+
+                  {currentUser && act.user_id === currentUser.id && (
+                    <button onClick={() => handleEditActivity(act)} className="action-btn">
+                      <Edit size={18} />
+                      <span>Modifica</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Comments Section */}
@@ -1002,7 +1643,7 @@ export default function FeedPage() {
                   {/* Nome e contatore Overlay */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)', padding: '20px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
                     <span style={{ fontSize: '14px', fontWeight: '700' }}>
-                      {images[currentSlideIndex]?.name || `Immagine ${currentSlideIndex + 1}`}
+                      {`Immagine ${currentSlideIndex + 1}`}
                     </span>
                     <span style={{ fontSize: '12px', fontWeight: '600', background: 'rgba(0,0,0,0.5)', padding: '3px 8px', borderRadius: '20px' }}>
                       {currentSlideIndex + 1} / {images.length}
@@ -1070,9 +1711,17 @@ export default function FeedPage() {
 
             {/* TIMELINE CURVA BAC */}
             <div style={{ marginBottom: '25px', background: 'rgba(255, 94, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '15px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📈 Curva d&apos;Ebbrezza (Assorbimento & Smaltimento Widmark)
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '8px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📈 Curva d&apos;Ebbrezza (Assorbimento &amp; Smaltimento Widmark)
               </h3>
+              {/* Nota: curva della singola sessione */}
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(255,176,0,0.05)', border: '1px solid rgba(255,176,0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
+                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.4 }}>
+                  {selectedActivity?.is_active
+                    ? <><strong style={{ color: 'var(--primary)' }}>Sessione LIVE in corso.</strong> Il BAC è calcolato in tempo reale al momento attuale.</>                    : <><strong style={{ color: 'var(--secondary)' }}>Curva storica di questa singola sessione.</strong> Il BAC mostrato rappresenta il picco stimato al termine della sessione, non adesso. (L&apos;alcol è già smaltito.)</>}
+                </p>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', padding: '10px 0' }}>
                 <div style={{ position: 'absolute', top: '24px', left: '20px', right: '20px', height: '3px', background: 'linear-gradient(90deg, var(--success) 0%, var(--primary) 50%, var(--error) 100%)', zIndex: 1 }} />
                 
@@ -1106,7 +1755,7 @@ export default function FeedPage() {
             {selectedActivity.location && (
               <div style={{ marginBottom: '25px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  📍 Sede del Brindisi (Integrazione Mappe)
+                  📍 Sede del Brindisi (Mappe e Itinerario)
                 </h3>
                 <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
@@ -1125,19 +1774,19 @@ export default function FeedPage() {
                     </a>
                   </div>
                   
-                  {/* Iframe di anteprima statica di OpenStreetMap */}
-                  <div style={{ height: '180px', width: '100%', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-dark)', position: 'relative' }}>
-                    <iframe
-                      title="Mappa Locale"
-                      width="100%"
-                      height="100%"
-                      frameBorder="0"
-                      scrolling="no"
-                      marginHeight="0"
-                      marginWidth="0"
-                      src={`https://maps.google.com/maps?q=${selectedActivity.location.lat},${selectedActivity.location.lng}&z=16&output=embed&iwloc=near`}
-                      style={{ filter: 'invert(90%) hue-rotate(180deg) grayscale(30%)' }}
-                    ></iframe>
+                  {/* Mappa Leaflet Reale ed Interattiva del percorso */}
+                  <div style={{ height: '220px', width: '100%', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+                    {(() => {
+                      const waypoints = selectedActivity.location.sequence && Array.isArray(selectedActivity.location.sequence)
+                        ? selectedActivity.location.sequence
+                        : [{
+                            name: selectedActivity.location.name,
+                            lat: selectedActivity.location.lat,
+                            lng: selectedActivity.location.lng ?? selectedActivity.location.lon,
+                            note: 'Partenza'
+                          }];
+                      return <RouteMap waypoints={waypoints} height="100%" connectLine={true} />;
+                    })()}
                   </div>
 
                   {/* Classifiche Segmento Bar */}
@@ -1297,6 +1946,236 @@ export default function FeedPage() {
                 </Link>
               </div>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL MODIFICA ATTIVITA */}
+      {editingActivity && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1100, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setEditingActivity(null)}>
+          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 94, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            
+            {/* Header del Modal */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Edit size={18} color="var(--primary)" />
+                Modifica Sessione Alcolica
+              </h3>
+              <button className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setEditingActivity(null)}>×</button>
+            </div>
+
+            {/* Form Fields */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Titolo Attività</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={editingActivity.title}
+                  onChange={(e) => handleUpdateEditField('title', e.target.value)}
+                  style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Descrizione / Note</label>
+                <textarea
+                  className="form-control"
+                  value={editingActivity.description || ''}
+                  onChange={(e) => handleUpdateEditField('description', e.target.value)}
+                  rows={2}
+                  style={{ padding: '10px 12px', fontSize: '14px', resize: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Durata (minuti)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={editingActivity.duration}
+                    onChange={(e) => handleUpdateEditField('duration', parseInt(e.target.value) || 0)}
+                    style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Stato / Sforzo</label>
+                  <select
+                    className="form-control"
+                    value={editingActivity.feeling}
+                    onChange={(e) => handleUpdateEditField('feeling', e.target.value)}
+                    style={{ height: '40px', padding: '0 10px', fontSize: '14px' }}
+                  >
+                    <option value="Sobrio">Sobrio</option>
+                    <option value="Allegro">Allegro</option>
+                    <option value="Brillo Felice">Brillo Felice</option>
+                    <option value="Intenditore">Intenditore</option>
+                    <option value="Molto Caldo">Molto Caldo 🔥</option>
+                    <option value="Pieno Raso">Pieno Raso 💀</option>
+                    <option value="Postumi Assicurati">Postumi Assicurati 🤕</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Sezione Drinks */}
+            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', marginBottom: '20px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                Modifica Drinks Consumati ({editingActivity.drinks?.length || 0})
+              </span>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', marginBottom: '15px' }}>
+                {editingActivity.drinks?.length > 0 ? (
+                  editingActivity.drinks.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+                      <div>
+                        <strong style={{ fontSize: '13px' }}>{d.name}</strong>
+                        <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
+                          Gradazione: {d.abv}% | ~{(d.units * d.qty).toFixed(1)} U.A.
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button type="button" onClick={() => handleUpdateEditDrinkQty(i, -1)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          -
+                        </button>
+                        <strong style={{ fontSize: '14px', width: '15px', textAlign: 'center' }}>{d.qty}</strong>
+                        <button type="button" onClick={() => handleUpdateEditDrinkQty(i, 1)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          +
+                        </button>
+                        <button type="button" onClick={() => handleRemoveEditDrink(i)} style={{ color: 'var(--error)', marginLeft: '10px', cursor: 'pointer' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Nessun drink registrato in questa sessione.</span>
+                )}
+              </div>
+
+              {/* Quick Add Presets in Edit */}
+              <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                Aggiungi Drink Preset:
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {[
+                  { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
+                  { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
+                  { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
+                  { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' },
+                  { name: 'Acqua Fresca', abv: 0, units: 0, label: '💧 Acqua' }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAddTaskPresetToEdit(preset)}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '15px' }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-dark)', paddingTop: '15px', marginTop: '20px' }}>
+              <button
+                type="button"
+                onClick={() => handleDeleteActivity(editingActivity.id)}
+                className="btn btn-secondary"
+                style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', borderRadius: '20px', padding: '8px 16px' }}
+              >
+                <Trash2 size={14} /> Elimina
+              </button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingActivity(null)}
+                  className="btn btn-secondary"
+                  style={{ borderRadius: '20px', padding: '8px 16px', fontSize: '13px' }}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  className="btn btn-primary"
+                  style={{ borderRadius: '20px', padding: '8px 20px', fontSize: '13px', fontWeight: 'bold' }}
+                >
+                  Salva Modifiche
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BLOCCO REGISTRAZIONE COMPLETAMENTO NOME (GOOGLE OAUTH FORCED) */}
+      {showCompleteProfileModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(10px)' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '450px', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 94, 0, 0.3)', padding: '30px', borderRadius: '16px', background: '#0B0A09', position: 'relative' }}>
+            
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'inline-flex', background: 'rgba(255, 94, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
+                <Award size={40} />
+              </div>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '8px' }}>Completa il Profilo 🏅</h2>
+              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', lineHeight: '1.4' }}>
+                Ti sei registrato con Google! Per accedere alle classifiche e alle sfide degli Atleti da Bar, inserisci il tuo nome reale e scegli un username unico.
+              </p>
+            </div>
+
+            {profileError && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--error)', color: '#FF7D7D', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', marginBottom: '15px', fontWeight: '500' }}>
+                {profileError}
+              </div>
+            )}
+
+            <form onSubmit={handleCompleteProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nome Completo</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="E.g. Mario Rossi"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  required
+                  style={{ height: '40px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '10px' }}>
+                <label className="form-label" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Username Unico</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>@</span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="mario_rossi"
+                    value={customUsername}
+                    onChange={(e) => setCustomUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    required
+                    style={{ height: '40px', fontSize: '14px', paddingLeft: '28px' }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={savingProfile}
+                style={{ width: '100%', padding: '12px', borderRadius: '30px', fontSize: '15px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '10px' }}
+              >
+                {savingProfile ? 'Salvataggio in corso...' : 'Entra nel Terzo Tempo 🍻'}
+              </button>
+            </form>
 
           </div>
         </div>
