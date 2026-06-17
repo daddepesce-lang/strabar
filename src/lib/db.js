@@ -650,6 +650,25 @@ export const db = {
           .from('cheers')
           .insert({ session_id: activityId, user_id: user.id });
         if (insertError) throw insertError;
+        // Notifica il proprietario della sessione
+        try {
+          const { data: sess } = await supabase
+            .from('sessions')
+            .select('user_id, title')
+            .eq('id', activityId)
+            .maybeSingle();
+          if (sess && sess.user_id !== user.id) {
+            this.pushNotification(sess.user_id, {
+              type: 'cheers',
+              actor_id: user.id,
+              actor_name: user.display_name || user.username,
+              message: `${user.display_name || user.username} ha messo Cheers alla tua sessione "${sess.title}"`,
+              link: '/',
+            });
+          }
+        } catch (notifyErr) {
+          console.warn('Notifica cheers non inviata:', notifyErr.message || notifyErr);
+        }
         return true;
       }
     } else {
@@ -699,6 +718,25 @@ export const db = {
         .select()
         .single();
       if (error) throw error;
+      // Notifica il proprietario della sessione
+      try {
+        const { data: sess } = await supabase
+          .from('sessions')
+          .select('user_id, title')
+          .eq('id', activityId)
+          .maybeSingle();
+        if (sess && sess.user_id !== user.id) {
+          this.pushNotification(sess.user_id, {
+            type: 'comment',
+            actor_id: user.id,
+            actor_name: user.display_name || user.username,
+            message: `${user.display_name || user.username} ha commentato la tua sessione "${sess.title}"`,
+            link: '/',
+          });
+        }
+      } catch (notifyErr) {
+        console.warn('Notifica commento non inviata:', notifyErr.message || notifyErr);
+      }
       return data;
     } else {
       const activities = getStored('sb_activities');
@@ -1856,13 +1894,36 @@ export const db = {
   },
 
   // --- NOTIFICHE ---
+  // Su Supabase le notifiche vivono nella tabella `notifications` (cross-device):
+  // così quando qualcuno ti segue / mette Cheers / commenta, lo vedi davvero anche
+  // da un altro dispositivo. In assenza di Supabase si usa localStorage.
   getNotificationsRaw() {
     if (typeof window === 'undefined') return [];
     return JSON.parse(localStorage.getItem('sb_notifications') || '[]');
   },
 
-  pushNotification(recipientId, payload) {
-    if (typeof window === 'undefined' || !recipientId) return;
+  async pushNotification(recipientId, payload) {
+    if (!recipientId) return;
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('notifications').insert({
+          user_id: recipientId,
+          actor_id: payload.actor_id || null,
+          actor_name: payload.actor_name || null,
+          type: payload.type || 'info',
+          message: payload.message || '',
+          link: payload.link || null,
+        });
+        if (error) console.warn('Notifica non salvata su Supabase:', error.message);
+      } catch (err) {
+        console.warn('Errore invio notifica:', err.message || err);
+      }
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('notifications-change'));
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
     const notifs = this.getNotificationsRaw();
     notifs.push({
       id: 'ntf-' + Math.random().toString(36).substr(2, 9),
@@ -1878,6 +1939,21 @@ export const db = {
   async getNotifications() {
     const user = await this.getCurrentUser();
     if (!user) return [];
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) {
+        console.warn('Errore recupero notifiche:', error.message);
+        return [];
+      }
+      return data || [];
+    }
+
     return this.getNotificationsRaw()
       .filter((n) => n.user_id === user.id)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -1886,12 +1962,35 @@ export const db = {
   async getUnreadCount() {
     const user = await this.getCurrentUser();
     if (!user) return 0;
+
+    if (isSupabaseConfigured) {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+      if (error) return 0;
+      return count || 0;
+    }
+
     return this.getNotificationsRaw().filter((n) => n.user_id === user.id && !n.read).length;
   },
 
   async markNotificationsRead() {
     const user = await this.getCurrentUser();
     if (!user) return;
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+      if (error) console.warn('Errore aggiornamento notifiche:', error.message);
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('notifications-change'));
+      return;
+    }
+
     const notifs = this.getNotificationsRaw().map((n) =>
       n.user_id === user.id ? { ...n, read: true } : n
     );

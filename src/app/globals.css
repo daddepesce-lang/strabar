@@ -939,10 +939,20 @@ button, input, select, textarea {
   /* Leaderboard entries don't overflow */
   .leaderboard-entry { flex-wrap: wrap; gap: 6px; }
 
-  /* Feed action bar: tighter on phones */
-  .activity-actions { gap: 14px; font-size: 13px; }
+  /* Feed action bar: tighter on phones e va a capo se non entra */
+  .activity-actions { gap: 12px 16px; font-size: 13px; flex-wrap: wrap; }
+  .action-btn { min-height: 38px; }
   .action-btn-label-long { display: none; }
   .action-btn-label-short { display: inline; }
+
+  /* Tab segmentate e bottoni: target touch più comodi */
+  .seg-tab { padding: 12px 10px; font-size: 13px; min-height: 44px; }
+  .activity-title { font-size: 18px !important; }
+  .activity-stats { padding: 14px; gap: 10px; }
+
+  /* Header profilo: si impila e si centra su telefono */
+  .profile-header { flex-direction: column; text-align: center; align-items: center; }
+  .profile-header > div { justify-content: center; flex-wrap: wrap; }
 
   /* Fake map preview: ridotta su mobile */
   .landing-fake-map { height: 260px !important; }

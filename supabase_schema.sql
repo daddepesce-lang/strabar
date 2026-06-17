@@ -269,6 +269,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
     actor_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    actor_name TEXT,
     type TEXT NOT NULL,
     message TEXT NOT NULL,
     link TEXT,
@@ -301,6 +302,9 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS location JSONB DEFAULT NULL
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS drank_with JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL;
+
+-- MIGRAZIONE: nome dell'attore nelle notifiche (per chi ha creato la tabella prima)
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS actor_name TEXT;
 
 -- Ricarica la cache dello schema di PostgREST (Supabase) così le nuove colonne sono subito visibili
 NOTIFY pgrst, 'reload schema';

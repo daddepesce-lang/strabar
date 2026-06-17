@@ -197,7 +197,7 @@ export default function ProfilePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
       {/* Intestazione Profilo */}
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.05) 100%)' }}>
+      <div className="card profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.05) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div className="activity-avatar" style={{ width: '80px', height: '80px', fontSize: '32px', border: '3px solid var(--primary)' }}>
             {currentUser?.display_name ? currentUser.display_name.charAt(0) : 'U'}

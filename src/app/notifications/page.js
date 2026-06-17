@@ -14,6 +14,15 @@ const ICONS = {
   event_rsvp: Check,
 };
 
+// Colore accento per tipo di notifica
+const TYPE_COLOR = {
+  follow: '#3B82F6',
+  cheers: 'var(--primary)',
+  comment: '#10B981',
+  event_invite: 'var(--secondary)',
+  event_rsvp: '#10B981',
+};
+
 function timeAgo(ds) {
   const diff = Date.now() - new Date(ds).getTime();
   const mins = Math.floor(diff / 60000);
@@ -80,20 +89,39 @@ export default function NotificationsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {notifs.map((n) => {
             const Icon = ICONS[n.type] || Bell;
+            const color = TYPE_COLOR[n.type] || 'var(--primary)';
             return (
               <button
                 key={n.id}
                 onClick={() => n.link && router.push(n.link)}
                 className="card"
-                style={{ display: 'flex', alignItems: 'center', gap: '14px', textAlign: 'left', cursor: n.link ? 'pointer' : 'default', padding: '16px' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  textAlign: 'left',
+                  cursor: n.link ? 'pointer' : 'default',
+                  padding: '14px 16px',
+                  background: n.read ? 'var(--bg-card-dark)' : 'rgba(255,94,0,0.06)',
+                  borderColor: n.read ? 'var(--border-dark)' : 'rgba(255,94,0,0.35)',
+                }}
               >
-                <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(255,94,0,0.12)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icon size={20} />
+                {/* Avatar attore con badge tipo */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div className="activity-avatar" style={{ width: 46, height: 46, fontSize: 18 }}>
+                    {(n.actor_name || 'S').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg-card-dark)' }}>
+                    <Icon size={12} color="#fff" />
+                  </div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', color: '#FFF', lineHeight: 1.4 }}>{n.message}</div>
+                  <div style={{ fontSize: '14px', color: '#FFF', lineHeight: 1.4, overflowWrap: 'anywhere' }}>{n.message}</div>
                   <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{timeAgo(n.created_at)}</span>
                 </div>
+                {!n.read && (
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
+                )}
               </button>
             );
           })}
