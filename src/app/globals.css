@@ -55,12 +55,22 @@ img {
   max-width: 100%;
 }
 
-/* Evita overflow orizzontale da nomi/URL lunghi nelle card del feed e dei profili */
-.activity-author,
+/* Evita overflow orizzontale da titoli/descrizioni lunghe (spezza solo le parole lunghe) */
 .activity-title,
 .activity-meta {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
+
+/* L'autore non deve mai andare a capo lettera-per-lettera: tronca con i puntini */
+.activity-user-info { min-width: 0; }
+.activity-user-info > div { min-width: 0; }
+.activity-author {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.activity-author > a { overflow: hidden; text-overflow: ellipsis; }
 
 /* Global Reset & Base */
 * {
@@ -949,6 +959,10 @@ button, input, select, textarea {
   .seg-tab { padding: 12px 10px; font-size: 13px; min-height: 44px; }
   .activity-title { font-size: 18px !important; }
   .activity-stats { padding: 14px; gap: 10px; }
+
+  /* Header del post: l'autore prende lo spazio, lo "Stato" va a capo se serve */
+  .activity-header { flex-wrap: wrap; gap: 8px; }
+  .activity-user-info { flex: 1 1 200px; }
 
   /* Header profilo: si impila e si centra su telefono */
   .profile-header { flex-direction: column; text-align: center; align-items: center; }

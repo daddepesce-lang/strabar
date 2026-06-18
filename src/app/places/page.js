@@ -465,7 +465,7 @@ export default function ClassifichePage() {
               <Link href="/log" className="btn btn-primary">Registra una sessione</Link>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
               {sortedPlaces.map((place, i) => (
                 <button
                   key={place.key}

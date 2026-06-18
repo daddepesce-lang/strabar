@@ -1090,7 +1090,7 @@ out body;`;
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px' }}>
                 {selectedRoute?.name || 'Tour'} — Elenco Tappe
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))', gap: '10px' }}>
                 {currentActiveWaypoints.map((wp, idx) => (
                   <div key={idx} style={{
                     background: 'var(--bg-input-dark)',

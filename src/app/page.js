@@ -1117,26 +1117,28 @@ export default function FeedPage() {
         {currentUser ? (
           activeSession ? (
             <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #161822 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 94, 0, 0.25)', borderRadius: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
+                  <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
                     LIVE 🔴
                   </span>
-                  <span style={{ fontSize: '14px', color: '#FFF' }}>
-                    • presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong>
+                  <span style={{ fontSize: '14px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                    presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong>
                   </span>
-                  <button 
-                    onClick={() => router.push('/log?action=append')}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '10px', marginLeft: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-                  >
-                    📍 Aggiungi Tappa
-                  </button>
                 </div>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark-secondary)' }}>
-                  Tempo: {elapsedMinutes} min
+                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                  ⏱️ {elapsedMinutes} min
                 </span>
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <button
+                  onClick={() => router.push('/log?action=append')}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                >
+                  📍 Aggiungi Tappa / Cambia Bar
+                </button>
               </div>
 
               {/* Titolo e info modificabili della sessione live */}
@@ -1460,44 +1462,42 @@ export default function FeedPage() {
                   }
                 }}
               >
-                <div className="activity-header">
-                  <div className="activity-user-info">
-                    <Link href={`/u/${act.user_id}`} className="activity-avatar" style={{ flexShrink: 0 }}>
-                      {act.profiles?.display_name ? act.profiles.display_name.charAt(0) : 'U'}
-                    </Link>
-                    <div>
-                      <div className="activity-author">
-                        <Link href={`/u/${act.user_id}`} style={{ color: 'inherit' }}>
-                          {act.profiles?.display_name || 'Utente Strabar'}
-                        </Link>
-                        {act.profiles?.is_premium && (
-                          <span className="badge-premium" style={{ marginLeft: '8px', fontSize: '8px' }}>
-                            Premium
-                          </span>
-                        )}
-                      </div>
-                      <div className="activity-meta">{formatDate(act.created_at)}</div>
+                <div className="activity-header" style={{ gap: '12px' }}>
+                  <Link href={`/u/${act.user_id}`} className="activity-avatar" style={{ flexShrink: 0 }}>
+                    {act.profiles?.display_name ? act.profiles.display_name.charAt(0) : 'U'}
+                  </Link>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="activity-author">
+                      <Link href={`/u/${act.user_id}`} style={{ color: 'inherit' }}>
+                        {act.profiles?.display_name || 'Utente Strabar'}
+                      </Link>
+                      {act.profiles?.is_premium && (
+                        <span className="badge-premium" style={{ marginLeft: '8px', fontSize: '8px' }}>
+                          Premium
+                        </span>
+                      )}
                     </div>
+                    <div className="activity-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {formatDate(act.created_at)} · <strong style={{ color: 'var(--primary)' }}>{act.feeling}</strong>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+                    {isReallyActive && (
+                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 94, 0, 0.1)', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
+                        LIVE 🔴
+                      </span>
+                    )}
                     {currentUser && act.user_id !== currentUser.id && (
                       <button
                         onClick={() => handleToggleFollow(act.user_id)}
                         disabled={followBusy[act.user_id]}
                         className={`btn ${followingIds.includes(act.user_id) ? 'btn-secondary' : 'btn-primary'}`}
-                        style={{ marginLeft: '4px', padding: '4px 12px', fontSize: '12px', borderRadius: '16px', fontWeight: '700', flexShrink: 0 }}
+                        style={{ padding: '5px 12px', fontSize: '12px', borderRadius: '16px', fontWeight: '700', whiteSpace: 'nowrap' }}
                       >
-                        {followingIds.includes(act.user_id) ? 'Segui già ✓' : '+ Segui'}
+                        {followingIds.includes(act.user_id) ? 'Segui ✓' : '+ Segui'}
                       </button>
                     )}
-                  </div>
-                  <div style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {isReallyActive && (
-                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 94, 0, 0.1)', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
-                        LIVE 🔴
-                      </span>
-                    )}
-                    <span>Stato:</span>
-                    <strong style={{ color: 'var(--primary)' }}>{act.feeling}</strong>
                   </div>
                 </div>
 

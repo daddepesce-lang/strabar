@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Download, Share2, ArrowLeft, Beer, MessageCircle } from 'lucide-react';
+import { Download, Share2, ArrowLeft, Beer, MessageCircle, Send, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ShareActivityPage({ params }) {
@@ -16,6 +16,8 @@ export default function ShareActivityPage({ params }) {
   const [loading, setLoading] = useState(true);
   const canvasRef = useRef(null);
   const [sharingTheme, setSharingTheme] = useState('gradient');
+  const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const loadActivity = async () => {
@@ -47,6 +49,7 @@ export default function ShareActivityPage({ params }) {
     const images = activity.media?.filter(m => m.type === 'image') || [];
     const hasPhoto = images.length > 0;
     const usePhoto = sharingTheme === 'photo' && hasPhoto;
+    const photoUrl = (images[selectedPhotoIdx] || images[0])?.url;
 
     const drawStats = () => {
       // 1. Disegna lo sfondo
@@ -143,6 +146,17 @@ export default function ShareActivityPage({ params }) {
 
       // 3 Colonne per le Statistiche
       const colWidth = boxW / 3;
+      const maxValW = colWidth - 36; // margine interno per non sforare la cornice
+
+      // Imposta il font del valore riducendolo finché entra nella colonna
+      const setValueFont = (text, baseSize) => {
+        let s = baseSize;
+        do {
+          ctx.font = `800 ${s}px Outfit, -apple-system, sans-serif`;
+          if (ctx.measureText(text).width <= maxValW) break;
+          s -= 4;
+        } while (s > 26);
+      };
 
       // Stat 1: Drink Totali
       const totalDrinks = activity.drinks ? activity.drinks.reduce((acc, d) => acc + d.qty, 0) : 0;
@@ -151,7 +165,7 @@ export default function ShareActivityPage({ params }) {
       ctx.font = '600 24px Outfit, -apple-system, sans-serif';
       ctx.fillText('DRINK TOTALI', 80 + colWidth / 2, boxY + 80);
       ctx.fillStyle = '#FF5E00';
-      ctx.font = '800 96px Outfit, -apple-system, sans-serif';
+      setValueFont(totalDrinks.toString(), 96);
       ctx.fillText(totalDrinks.toString(), 80 + colWidth / 2, boxY + 200);
 
       // Stat 2: Tempo
@@ -162,16 +176,21 @@ export default function ShareActivityPage({ params }) {
       ctx.font = '600 24px Outfit, -apple-system, sans-serif';
       ctx.fillText('DURATA SFORZO', 80 + colWidth + colWidth / 2, boxY + 80);
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 70px Outfit, -apple-system, sans-serif';
+      setValueFont(timeStr, 70);
       ctx.fillText(timeStr, 80 + colWidth + colWidth / 2, boxY + 185);
 
-      // Stat 3: Unità Alcoliche
+      // Stat 3: Unità Alcoliche (numero grande + "U.A." piccolo sotto, così non sfora mai)
+      const col3Center = 80 + colWidth * 2 + colWidth / 2;
       ctx.fillStyle = '#9CA3AF';
       ctx.font = '600 24px Outfit, -apple-system, sans-serif';
-      ctx.fillText('UNITA ALCOLICHE', 80 + colWidth * 2 + colWidth / 2, boxY + 80);
+      ctx.fillText('UNITÀ ALCOLICHE', col3Center, boxY + 80);
       ctx.fillStyle = '#FFB000';
-      ctx.font = '800 80px Outfit, -apple-system, sans-serif';
-      ctx.fillText(`${activity.total_units} U.A.`, 80 + colWidth * 2 + colWidth / 2, boxY + 195);
+      const uaValue = `${activity.total_units}`;
+      setValueFont(uaValue, 80);
+      ctx.fillText(uaValue, col3Center, boxY + 190);
+      ctx.fillStyle = '#FFB000';
+      ctx.font = '700 30px Outfit, -apple-system, sans-serif';
+      ctx.fillText('U.A.', col3Center, boxY + 240);
 
       // Reset allineamento a sinistra
       ctx.textAlign = 'left';
@@ -235,11 +254,11 @@ export default function ShareActivityPage({ params }) {
         ctx.fillRect(0, 0, size, size);
         drawStats();
       };
-      img.src = images[0].url;
+      img.src = photoUrl;
     } else {
       drawStats();
     }
-  }, [activity, sharingTheme]);
+  }, [activity, sharingTheme, selectedPhotoIdx]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -281,6 +300,26 @@ export default function ShareActivityPage({ params }) {
   // Condivisione testuale diretta su WhatsApp (l'immagine va scaricata e allegata a mano)
   const handleWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareCaption())}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const shareUrl = () => (typeof window !== 'undefined' ? window.location.href : '');
+
+  const handleTelegram = () => {
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl())}&text=${encodeURIComponent(shareCaption())}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleTwitter = () => {
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareCaption())}&url=${encodeURIComponent(shareUrl())}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${shareCaption()}\n${shareUrl()}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert('Copia non riuscita. Copia manualmente il link dalla barra del browser.');
+    }
   };
 
   if (loading) {
@@ -338,14 +377,14 @@ export default function ShareActivityPage({ params }) {
           >
             🎨 Sfondo Gradiente
           </button>
-          <button 
+          <button
             type="button"
-            onClick={() => setSharingTheme('photo')} 
-            className="btn" 
-            style={{ 
-              flex: 1, 
-              borderRadius: '20px', 
-              fontSize: '13px', 
+            onClick={() => setSharingTheme('photo')}
+            className="btn"
+            style={{
+              flex: 1,
+              borderRadius: '20px',
+              fontSize: '13px',
               padding: '10px',
               fontWeight: 'bold',
               background: sharingTheme === 'photo' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
@@ -355,8 +394,34 @@ export default function ShareActivityPage({ params }) {
               transition: 'var(--transition)'
             }}
           >
-            📸 Stile Foto Overlay
+            📸 La tua foto
           </button>
+        </div>
+      )}
+
+      {/* Scelta della foto da usare come sfondo (stile Strava) */}
+      {sharingTheme === 'photo' && activity.media?.filter(m => m.type === 'image').length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
+            Scegli la foto di copertina
+          </span>
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {activity.media.filter(m => m.type === 'image').map((med, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setSelectedPhotoIdx(idx)}
+                style={{
+                  width: '64px', height: '64px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer', padding: 0,
+                  border: selectedPhotoIdx === idx ? '3px solid var(--primary)' : '2px solid var(--border-dark)',
+                  boxShadow: selectedPhotoIdx === idx ? '0 0 10px rgba(255,94,0,0.4)' : 'none',
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={med.url} alt={`foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -376,24 +441,47 @@ export default function ShareActivityPage({ params }) {
         >
           <Share2 size={18} /> Condividi (Instagram, WhatsApp…)
         </button>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
           <button
             onClick={handleWhatsApp}
             className="btn"
-            style={{ padding: '13px', borderRadius: '30px', fontSize: '15px', width: '100%', background: '#25D366', color: '#fff', fontWeight: 700 }}
+            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%', background: '#25D366', color: '#fff', fontWeight: 700 }}
           >
-            <MessageCircle size={18} /> WhatsApp
+            <MessageCircle size={17} /> WhatsApp
+          </button>
+          <button
+            onClick={handleTelegram}
+            className="btn"
+            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%', background: '#229ED9', color: '#fff', fontWeight: 700 }}
+          >
+            <Send size={16} /> Telegram
+          </button>
+          <button
+            onClick={handleTwitter}
+            className="btn"
+            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%', background: '#000', color: '#fff', fontWeight: 700, border: '1px solid var(--border-dark)' }}
+          >
+            𝕏 Post
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <button
+            onClick={handleCopyLink}
+            className="btn btn-secondary"
+            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%' }}
+          >
+            {copied ? <><Check size={17} /> Copiato!</> : <><Copy size={17} /> Copia link</>}
           </button>
           <button
             onClick={handleDownload}
             className="btn btn-secondary"
-            style={{ padding: '13px', borderRadius: '30px', fontSize: '15px', width: '100%' }}
+            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%' }}
           >
-            <Download size={18} /> Scarica
+            <Download size={17} /> Scarica
           </button>
         </div>
         <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '4px' }}>
-          Su telefono &quot;Condividi&quot; allega direttamente l&apos;immagine. Il pulsante WhatsApp condivide il testo: per la foto, scaricala e allegala.
+          Su telefono &quot;Condividi&quot; allega direttamente l&apos;immagine (con la foto scelta). Gli altri pulsanti condividono testo e link: per allegare l&apos;immagine, scaricala prima.
         </p>
       </div>
 

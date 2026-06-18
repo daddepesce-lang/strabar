@@ -1,6 +1,7 @@
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import PwaInstallBanner from "@/components/PwaInstallBanner";
 
 export const metadata = {
   title: "Strabar | Il Social Network degli Atleti da Bar",
@@ -41,6 +42,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <ServiceWorkerRegister />
+        <PwaInstallBanner />
         <div className="app-container">
           <Navbar />
           <main className="main-content">

@@ -179,20 +179,36 @@ export default function LogActivityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // Richiede la posizione GPS dell'utente (non bloccante: risolve null se negata)
+  // Richiede la posizione GPS. Risolve { coords } oppure { error } con un motivo preciso,
+  // così possiamo dire all'utente cosa fare (abilitare il permesso, usare HTTPS, ecc.).
   const requestUserLocation = () =>
     new Promise((resolve) => {
       if (typeof navigator === 'undefined' || !navigator.geolocation) {
-        resolve(null);
+        resolve({ error: 'Il tuo browser non supporta la geolocalizzazione.' });
+        return;
+      }
+      // Il GPS richiede una connessione sicura (HTTPS). In HTTP non parte nemmeno la richiesta.
+      if (typeof window !== 'undefined' && window.isSecureContext === false) {
+        resolve({ error: "Il GPS funziona solo su connessione sicura (https). Apri il sito in HTTPS." });
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (pos) => resolve({ coords: { lat: pos.coords.latitude, lng: pos.coords.longitude } }),
         (err) => {
-          console.warn('Geolocalizzazione non disponibile:', err.message || err);
-          resolve(null);
+          console.warn('Geolocalizzazione non disponibile:', err.code, err.message || err);
+          let error;
+          if (err.code === 1) {
+            error = 'Permesso GPS negato. Abilita la posizione per Strabar dalle impostazioni del browser e riprova.';
+          } else if (err.code === 2) {
+            error = 'Posizione non disponibile (segnale assente). Riprova o cerca il locale per nome.';
+          } else if (err.code === 3) {
+            error = 'Tempo scaduto nel rilevare la posizione. Tocca "Riprova GPS".';
+          } else {
+            error = 'Impossibile rilevare la posizione. Cerca il locale per nome.';
+          }
+          resolve({ error });
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
       );
     });
 
@@ -204,12 +220,11 @@ export default function LogActivityPage() {
     setSearchResults([]);
     setGeoError(null);
     setLoadingVenues(true);
-    const coords = await requestUserLocation();
+    const loc = await requestUserLocation();
+    const coords = loc.coords || null;
     setUserCoords(coords);
     if (!coords) {
-      setGeoError(
-        'Posizione GPS non disponibile (permesso negato o segnale assente). Cerca il tuo locale per nome qui sotto.'
-      );
+      setGeoError(loc.error || 'Posizione GPS non disponibile. Cerca il tuo locale per nome qui sotto.');
     }
     try {
       const { venues, radius, widened } = await db.getCombinedNearbyPlaces(coords?.lat, coords?.lng, 200);
@@ -448,21 +463,20 @@ export default function LogActivityPage() {
   }
 
   return (
-    <div style={{ maxWidth: '600px', margin: '40px auto', padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+    <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '22px' }}>
       <div style={{ textAlign: 'center' }}>
-        <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
           ⏱️ Registrazione in Tempo Reale
         </span>
-        <h1 style={{ fontSize: '32px', fontWeight: '900', color: '#FFF', marginTop: '15px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#FFF', marginTop: '14px' }}>
           Inizia un Brindisi Live 🍻
         </h1>
-        <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '10px', lineHeight: '1.6' }}>
-          Su Strabar non inseriamo più i dati a posteriori come le vecchie app. <br />
-          Tracciamo lo sforzo in tempo reale per monitorare il tasso alcolico (BAC) e l&apos;assorbimento fegato minuto per minuto!
+        <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '10px', lineHeight: '1.55' }}>
+          Tracciamo lo sforzo in tempo reale per monitorare il tasso alcolico (BAC) minuto per minuto.
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         
         {/* OPZIONE 1: Al locale */}
         <div 
@@ -487,7 +501,7 @@ export default function LogActivityPage() {
             e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
-          <div style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%' }}>
+          <div style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
             <MapPin size={28} />
           </div>
           <div style={{ flex: 1 }}>
@@ -525,7 +539,7 @@ export default function LogActivityPage() {
             }
           }}
         >
-          <div style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '16px', borderRadius: '50%' }}>
+          <div style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
             {startingSession ? (
               <Loader size={28} style={{ animation: 'spin 1s linear infinite' }} />
             ) : (
@@ -689,8 +703,18 @@ export default function LogActivityPage() {
             </div>
 
             {geoError && localeSearchQuery.trim().length < 2 && (
-              <div style={{ fontSize: '12px', color: 'var(--secondary)', background: 'rgba(255,176,0,0.08)', border: '1px solid rgba(255,176,0,0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', lineHeight: '1.4' }}>
-                ⚠️ {geoError}
+              <div style={{ fontSize: '12px', color: 'var(--secondary)', background: 'rgba(255,176,0,0.08)', border: '1px solid rgba(255,176,0,0.3)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', lineHeight: '1.4', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span>⚠️ {geoError}</span>
+                {!userCoords && (
+                  <button
+                    onClick={openVenueSelector}
+                    disabled={loadingVenues}
+                    className="btn btn-secondary"
+                    style={{ borderRadius: '16px', fontSize: '12px', padding: '7px 12px', fontWeight: 700, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--secondary)' }}
+                  >
+                    <MapPin size={13} /> Attiva / Riprova GPS
+                  </button>
+                )}
               </div>
             )}
 

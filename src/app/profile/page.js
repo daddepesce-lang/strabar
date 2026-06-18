@@ -282,7 +282,7 @@ export default function ProfilePage() {
       {activeTab === 'stats' ? (
         <>
           {/* Grid delle Statistiche (Performance Dashboard) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px' }}>
             <div className="card" style={{ textAlign: 'center' }}>
               <div style={{ color: 'var(--primary)', marginBottom: '10px' }}>
                 <Beer size={32} />
@@ -490,7 +490,7 @@ export default function ProfilePage() {
                     🎯 Nessun badge ancora. Registra la tua prima sessione per iniziare!
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 155px), 1fr))', gap: '10px', marginBottom: '16px' }}>
                     {earnedBadges.map(b => (
                       <div key={b.id} style={{ background: 'linear-gradient(135deg, rgba(255,176,0,0.10) 0%, rgba(22,24,34,1) 100%)', border: '1px solid rgba(255,176,0,0.4)', borderRadius: '10px', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', textAlign: 'center' }}>
                         <span style={{ fontSize: '26px' }}>{b.icon}</span>
@@ -713,7 +713,7 @@ export default function ProfilePage() {
             ) : searchResults.length === 0 ? (
               <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Nessun utente registrato trovato.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '15px' }}>
                 {searchResults.map((user) => {
                   const isFollowing = followingList.some(f => f.id === user.id);
                   return (
