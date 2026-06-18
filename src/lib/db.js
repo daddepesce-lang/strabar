@@ -1502,6 +1502,9 @@ export const db = {
         .join(', ');
     }
     const amenity = tags.amenity || raw.type || raw.category || '';
+    // Classe/tipo OSM (per distinguere un vero locale da un paese/via/regione).
+    const osmClass = raw.category || raw.class || (tags.amenity ? 'amenity' : tags.shop ? 'shop' : '');
+    const osmType = raw.type || tags.amenity || tags.shop || '';
 
     return {
       key: this.normalizePlaceKey(name) + '|' + lat.toFixed(4) + ',' + lng.toFixed(4),
@@ -1510,12 +1513,25 @@ export const db = {
       lat,
       lng,
       amenity,
+      osmClass,
+      osmType,
+      isVenue: this.isVenuePlace(osmClass, osmType),
       source: 'osm',
       avgRating: 0,
       reviewsCount: 0,
       uniqueDrinkers: 0,
       sessionsCount: 0,
     };
+  },
+
+  // Distingue un vero locale (bar/pub/ristorante/negozio…) da entità geografiche
+  // (paesi, città, vie, regioni) che NON devono essere selezionabili come "locale".
+  isVenuePlace(osmClass, osmType) {
+    const VENUE_CLASSES = new Set(['amenity', 'shop', 'leisure', 'tourism', 'craft', 'club', 'office']);
+    const NON_VENUE_AMENITIES = new Set(['parking', 'bench', 'toilets', 'fuel', 'townhall', 'place_of_worship', 'school', 'hospital']);
+    if (!VENUE_CLASSES.has(osmClass)) return false;
+    if (osmClass === 'amenity' && NON_VENUE_AMENITIES.has(osmType)) return false;
+    return true;
   },
 
   // Deduplica una lista di locali per nome+coordinate ravvicinate

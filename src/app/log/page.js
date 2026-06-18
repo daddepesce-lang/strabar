@@ -31,6 +31,7 @@ export default function LogActivityPage() {
   const [nearbyRadius, setNearbyRadius] = useState(200);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualPlace, setManualPlace] = useState({ name: '', address: '' });
+  const [manualGeocoding, setManualGeocoding] = useState(false);
 
   // Loader a tutto schermo durante l'effettivo avvio della sessione
   const [checkingGps, setCheckingGps] = useState(false);
@@ -263,14 +264,17 @@ export default function LogActivityPage() {
     setSearchingVenues(true);
     const handle = setTimeout(async () => {
       const res = await db.searchVenues(q, userCoords);
-      // Annota la distanza se abbiamo il GPS
-      const annotated = res.map((v) => ({
-        ...v,
-        distance:
-          userCoords && v.lat && v.lng
-            ? db.checkGeofencing(v.lat, v.lng, userCoords.lat, userCoords.lng, Infinity).distance
-            : null,
-      }));
+      // Tieni solo i veri locali: niente paesi, città, vie o regioni.
+      // (Un locale non trovato si aggiunge a mano qui sotto.)
+      const annotated = res
+        .filter((v) => v.isVenue)
+        .map((v) => ({
+          ...v,
+          distance:
+            userCoords && v.lat && v.lng
+              ? db.checkGeofencing(v.lat, v.lng, userCoords.lat, userCoords.lng, Infinity).distance
+              : null,
+        }));
       setSearchResults(annotated);
       setSearchingVenues(false);
     }, 450);
@@ -458,20 +462,42 @@ export default function LogActivityPage() {
   };
 
   // Avvia sessione da locale inserito manualmente.
-  // Allega la posizione GPS attuale: così il locale diventa geolocalizzato
-  // e comparirà tra i locali vicini anche per gli altri utenti.
-  const handleManualStart = () => {
+  // Il locale DEVE avere coordinate per finire sulla mappa ed essere trovato dagli altri:
+  // usiamo il GPS attuale se disponibile, altrimenti geolocalizziamo l'indirizzo (OpenStreetMap).
+  const handleManualStart = async () => {
     const name = manualPlace.name.trim();
+    const address = manualPlace.address.trim();
     if (!name) {
       alert('Inserisci almeno il nome del locale!');
       return;
     }
-    startSessionAtVenue({
-      name,
-      address: manualPlace.address.trim(),
-      lat: userCoords?.lat ?? null,
-      lng: userCoords?.lng ?? null,
-    });
+
+    let lat = userCoords?.lat ?? null;
+    let lng = userCoords?.lng ?? null;
+
+    if (lat == null || lng == null) {
+      if (!address) {
+        alert('Per mettere il locale sulla mappa serve la posizione.\n\nAttiva il GPS oppure inserisci un indirizzo (via e città) così possiamo localizzarlo.');
+        return;
+      }
+      setManualGeocoding(true);
+      try {
+        let results = await db.searchVenues(`${name} ${address}`.trim());
+        if (!results || results.length === 0) results = await db.searchVenues(address);
+        const hit = (results || [])[0];
+        if (hit && hit.lat && hit.lng) { lat = hit.lat; lng = hit.lng; }
+      } catch (err) {
+        console.warn('Geocoding indirizzo fallito:', err);
+      } finally {
+        setManualGeocoding(false);
+      }
+      if (lat == null || lng == null) {
+        alert('Non sono riuscito a trovare la posizione di questo indirizzo.\n\nControlla via e città, oppure avvicinati al locale e attiva il GPS.');
+        return;
+      }
+    }
+
+    startSessionAtVenue({ name, address, lat, lng });
   };
 
   // Lista visualizzata nel selettore: risultati di ricerca o locali vicini
@@ -837,7 +863,7 @@ export default function LogActivityPage() {
                   className="btn btn-secondary"
                   style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px' }}
                 >
-                  ✏️ Non trovi il locale? Inseriscilo a mano
+                  ✏️ Locale non in lista o non su OpenStreetMap? Aggiungilo
                 </button>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -852,22 +878,25 @@ export default function LogActivityPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Indirizzo / città (opzionale)"
+                    placeholder={userCoords ? 'Indirizzo / città (opzionale)' : 'Indirizzo: via e città *'}
                     value={manualPlace.address}
                     onChange={(e) => setManualPlace((p) => ({ ...p, address: e.target.value }))}
                     style={{ height: '38px', fontSize: '13px', padding: '0 12px' }}
                   />
-                  <span style={{ fontSize: '11px', color: userCoords ? 'var(--success)' : 'var(--text-dark-secondary)', lineHeight: '1.4' }}>
+                  <span style={{ fontSize: '11px', color: userCoords ? 'var(--success)' : 'var(--secondary)', lineHeight: '1.4' }}>
                     {userCoords
-                      ? '📍 Useremo la tua posizione attuale: il locale sarà visibile agli altri atleti nelle vicinanze.'
-                      : 'GPS non disponibile: il locale verrà salvato senza posizione precisa.'}
+                      ? '📍 Useremo la tua posizione attuale (anche se il locale non è su OpenStreetMap): finirà sulla mappa e sarà trovabile dagli altri atleti.'
+                      : '🛰️ GPS non disponibile: inserisci l\'indirizzo (via e città) — lo localizziamo sulla mappa così altri potranno trovarlo.'}
                   </span>
                   <button
                     onClick={handleManualStart}
+                    disabled={manualGeocoding}
                     className="btn btn-primary"
-                    style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px', fontWeight: 'bold' }}
+                    style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   >
-                    {isAppendingToSession ? 'Aggiungi questa tappa' : 'Avvia qui il brindisi 🍻'}
+                    {manualGeocoding
+                      ? (<><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Localizzo l&apos;indirizzo…</>)
+                      : (isAppendingToSession ? 'Aggiungi questa tappa' : 'Avvia qui il brindisi 🍻')}
                   </button>
                 </div>
               )}
