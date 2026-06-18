@@ -112,15 +112,11 @@ export default function FeedPage() {
       const user = await db.getCurrentUser();
       setCurrentUser(user);
 
-      // Tutte le query indipendenti partono IN PARALLELO (prima erano in sequenza:
-      // 6 round-trip uno dopo l'altro = somma delle latenze). Ora la latenza totale
-      // è ~quella della query più lenta.
-      const [acts, active, list, mine, top, following] = await Promise.all([
+      // PERCORSO CRITICO: solo ciò che serve a mostrare il feed e a chiudere la live
+      // in modo affidabile. Poche query leggere → reggono anche col DB sotto carico.
+      const [acts, active, following] = await Promise.all([
         typeof db.getActivities === 'function' ? db.getActivities({ limit: FEED_PAGE_SIZE }).catch(() => []) : Promise.resolve([]),
         user && typeof db.getActiveSession === 'function' ? db.getActiveSession(user.id).catch(() => null) : Promise.resolve(null),
-        user && typeof db.getAllProfiles === 'function' ? db.getAllProfiles().catch(() => []) : Promise.resolve([]),
-        user && typeof db.getUserActivities === 'function' ? db.getUserActivities(user.id).catch(() => []) : Promise.resolve([]),
-        user && typeof db.getTopDrinkers === 'function' ? db.getTopDrinkers(5).catch(() => []) : Promise.resolve([]),
         user && typeof db.getFollowing === 'function' ? db.getFollowing(user.id).catch(() => []) : Promise.resolve([]),
       ]);
 
@@ -129,22 +125,25 @@ export default function FeedPage() {
 
       if (user) {
         setActiveSession(active);
-        setProfilesList(list);
-        setMyActivities(mine);
-        setTopDrinkers(top);
         setFollowingIds((following || []).map((f) => f.id));
 
         // Controllo completezza profilo per Google Login
         const emailPrefix = user.email ? user.email.split('@')[0] : '';
-        const isGoogleDefault = user.app_metadata?.provider === 'google' || 
-                                user.identities?.some(id => id.provider === 'google') || 
+        const isGoogleDefault = user.app_metadata?.provider === 'google' ||
+                                user.identities?.some(id => id.provider === 'google') ||
                                 (user.id && user.id.startsWith('user-google-'));
-        
+
         if (isGoogleDefault && (user.display_name === emailPrefix || user.display_name === 'Gara Google Demo' || user.display_name === 'google_user' || !user.display_name)) {
           setShowCompleteProfileModal(true);
           setCustomName(user.display_name !== 'Gara Google Demo' && user.display_name !== 'google_user' ? user.display_name : '');
           setCustomUsername(user.username && user.username !== 'google_user' ? user.username : '');
         }
+
+        // SECONDARIO (non blocca il feed né la chiusura live): profili per i tag,
+        // statistiche personali e classifica. Caricati dopo, in modo indipendente.
+        if (typeof db.getAllProfiles === 'function') db.getAllProfiles().then(setProfilesList).catch(() => {});
+        if (typeof db.getUserActivities === 'function') db.getUserActivities(user.id).then(setMyActivities).catch(() => {});
+        if (typeof db.getTopDrinkers === 'function') db.getTopDrinkers(5).then(setTopDrinkers).catch(() => {});
       }
     } catch (err) {
       console.error("Errore nel caricamento del feed:", err);

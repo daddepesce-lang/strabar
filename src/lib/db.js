@@ -880,6 +880,10 @@ export const db = {
           `)
           .eq('user_id', userId)
           .eq('is_active', true)
+          // Robusto contro eventuali DUPLICATI (chiusure andate in timeout):
+          // prendi la più recente invece di .maybeSingle() che andrebbe in errore con >1 riga.
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
         data = dbData;
         dbError = error;
@@ -961,14 +965,36 @@ export const db = {
   },
 
   async closeSession(sessionId, finalData) {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('sb_active_session_id');
-    }
     const updatedData = {
       is_active: false,
       ...finalData
     };
-    return this.updateActivity(sessionId, updatedData);
+    // Persisti PRIMA su DB; rimuovi il flag locale solo se l'update riesce davvero.
+    // (Prima veniva rimosso subito: se l'UPDATE andava in timeout, la sessione
+    // restava is_active=true sul DB ma "scomparsa" localmente → ricompariva live.)
+    const result = await this.updateActivity(sessionId, updatedData);
+
+    // Spegni anche eventuali ALTRE sessioni attive dello stesso utente (duplicati da
+    // chiusure precedenti andate in timeout), così non resta nulla "live" per sbaglio.
+    if (isSupabaseConfigured) {
+      try {
+        const userId = result?.user_id;
+        if (userId) {
+          await supabase
+            .from('sessions')
+            .update({ is_active: false })
+            .eq('user_id', userId)
+            .eq('is_active', true);
+        }
+      } catch (err) {
+        console.warn('Pulizia sessioni attive duplicate fallita:', err.message || err);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sb_active_session_id');
+    }
+    return result;
   },
 
   checkGeofencing(placeLat, placeLng, userLat, userLng, maxDistance = 200) {
@@ -1323,9 +1349,46 @@ export const db = {
         console.warn('RPC get_top_drinkers non disponibile, fallback lato client:', err.message || err);
       }
     }
-    // Fallback (solo finché la RPC non è installata): aggrega su un numero LIMITATO
-    // di sessioni recenti per non scaricare l'intera tabella e saturare il DB.
-    const acts = await this.getActivities({ limit: 500 }).catch(() => []);
+    // Fallback LEGGERO (finché la RPC non è installata): legge solo user_id + total_units
+    // (niente join su profili/cheers/commenti), poi recupera i nomi dei soli top N.
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('user_id, total_units')
+          .order('created_at', { ascending: false })
+          .limit(1000);
+        if (error) throw error;
+        const byUser = {};
+        (data || []).forEach((a) => {
+          if (!a.user_id) return;
+          byUser[a.user_id] = (byUser[a.user_id] || 0) + parseFloat(a.total_units || 0);
+        });
+        const top = Object.entries(byUser)
+          .map(([uid, units]) => ({ user_id: uid, units: parseFloat(units.toFixed(1)) }))
+          .sort((a, b) => b.units - a.units)
+          .slice(0, limit);
+        if (top.length === 0) return [];
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, is_premium')
+          .in('id', top.map((t) => t.user_id));
+        const pmap = {};
+        (profs || []).forEach((p) => { pmap[p.id] = p; });
+        return top.map((t, i) => ({
+          rank: i + 1,
+          user_id: t.user_id,
+          name: pmap[t.user_id]?.display_name || pmap[t.user_id]?.username || 'Atleta Strabar',
+          units: t.units,
+          isPremium: !!pmap[t.user_id]?.is_premium,
+        }));
+      } catch (err) {
+        console.warn('Fallback classifica fallito:', err.message || err);
+        return [];
+      }
+    }
+    // LocalStorage
+    const acts = await this.getActivities().catch(() => []);
     const byUser = {};
     acts.forEach((a) => {
       const uid = a.user_id;
