@@ -29,7 +29,8 @@ export default function PrivacyPage() {
           <ul style={s.ul}>
             <li><strong>Dati account:</strong> email, username, nome visualizzato (e, se lo inserisci, il peso corporeo per stimare il BAC).</li>
             <li><strong>Contenuti che crei:</strong> sessioni/bevute, drink, note, foto caricate, tag di amici, commenti, &quot;cheers&quot;, recensioni, eventi.</li>
-            <li><strong>Posizione:</strong> la tua posizione GPS viene usata <strong>solo al momento</strong> in cui avvii un check-in geolocalizzato, per trovare i locali vicini. Non tracciamo la tua posizione in background.</li>
+            <li><strong>Posizione:</strong> la tua posizione GPS viene usata <strong>solo al momento</strong> in cui avvii un check-in geolocalizzato (per trovare i locali vicini) o usi il <strong>Radar Live</strong>. Non tracciamo la tua posizione in background.</li>
+            <li><strong>Condivisione posizione live (Radar):</strong> è <strong>opt-in</strong>. Solo se scegli &quot;Amici&quot; o &quot;Tutti&quot; quando avvii un brindisi, la posizione di quel locale/sessione diventa visibile (rispettivamente ai tuoi follower o a tutti gli utenti) finché la sessione è attiva. Di default (&quot;Nessuno&quot;) non sei visibile sulla mappa.</li>
             <li><strong>Dati tecnici minimi</strong> necessari al funzionamento (es. cookie di sessione per l&apos;autenticazione).</li>
           </ul>
         </section>

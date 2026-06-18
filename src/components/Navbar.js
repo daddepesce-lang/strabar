@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2,
+  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar,
 } from 'lucide-react';
 
 function timeAgo(dateString) {
@@ -24,6 +24,7 @@ export default function Navbar() {
   const [user, setUser] = useState(null);
   const [notifs, setNotifs] = useState([]);
   const [unread, setUnread] = useState(0);
+  const [liveCount, setLiveCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
 
@@ -61,6 +62,21 @@ export default function Navbar() {
       window.removeEventListener('notifications-change', handler);
       window.removeEventListener('auth-change', handler);
     };
+  }, [user?.id, pathname]);
+
+  // Conteggio "X live ora" per il badge sul radar
+  useEffect(() => {
+    if (!user) { setLiveCount(0); return; }
+    let cancelled = false;
+    const loadLive = async () => {
+      try {
+        const n = await db.getLiveCount(user.id);
+        if (!cancelled) setLiveCount(n);
+      } catch { /* noop */ }
+    };
+    loadLive();
+    const interval = setInterval(loadLive, 60000); // aggiorna ogni minuto
+    return () => { cancelled = true; clearInterval(interval); };
   }, [user?.id, pathname]);
 
   // Chiudi dropdown cliccando fuori
@@ -133,6 +149,14 @@ export default function Navbar() {
         </div>
 
         <div className="nav-actions">
+          {/* Radar live: sempre raggiungibile dalla barra in alto */}
+          {user && (
+            <Link href="/live" className={`action-btn ${isActive('/live') ? 'active' : ''}`} title="Radar Live — chi beve vicino a te" style={{ position: 'relative' }}>
+              <Radar size={20} />
+              {liveCount > 0 && <span className="notif-badge" style={{ background: 'var(--primary)' }}>{liveCount > 9 ? '9+' : liveCount}</span>}
+            </Link>
+          )}
+
           {/* Invita amici: sempre raggiungibile dalla barra in alto */}
           <Link href="/install" className={`action-btn ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
             <Share2 size={20} />

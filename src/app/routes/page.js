@@ -12,6 +12,7 @@ export default function RoutesPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [selectedRoute, setSelectedRoute] = useState(null);
+  const [activeWaypointIndex, setActiveWaypointIndex] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Creation state
@@ -202,6 +203,35 @@ export default function RoutesPage() {
     fetchRoute();
   }, [newRouteWaypoints, selectedRoute, isCreating, travelMode]);
 
+  // Icona tappa (rossa di default, oro+glow se è la tappa attiva)
+  const makeWaypointIcon = (L, idx, active) => {
+    const size = active ? 38 : 28;
+    const bg = active ? '#FFB000' : '#EF4444';
+    const ring = active ? '3px solid #fff' : '2px solid #fff';
+    const glow = active
+      ? '0 0 0 4px rgba(255,176,0,0.35), 0 2px 10px rgba(0,0,0,0.6)'
+      : '0 2px 8px rgba(0,0,0,0.5)';
+    return L.divIcon({
+      className: 'custom-numbered-marker',
+      html: `<div style="background:${bg};color:#fff;width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:${active ? 15 : 13}px;border:${ring};box-shadow:${glow};transition:all .2s;">${idx + 1}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  };
+
+  // Quando cambia la tappa attiva: evidenziala, centra la mappa e apri il popup
+  useEffect(() => {
+    if (activeWaypointIndex == null || !mapInstance.current || !leafletRef.current) return;
+    const marker = markersRef.current[activeWaypointIndex];
+    if (!marker) return;
+    markersRef.current.forEach((mk, i) =>
+      mk.setIcon(makeWaypointIcon(leafletRef.current, i, i === activeWaypointIndex))
+    );
+    mapInstance.current.flyTo(marker.getLatLng(), Math.max(mapInstance.current.getZoom(), 16), { duration: 0.6 });
+    marker.openPopup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWaypointIndex]);
+
   // Update map markers and polyline when waypoints change
   useEffect(() => {
     if (typeof window === 'undefined' || !mapInstance.current || !leafletRef.current) return;
@@ -224,29 +254,10 @@ export default function RoutesPage() {
     const coords = [];
 
     activeWaypoints.forEach((wp, idx) => {
-      const numberedIcon = L.divIcon({
-        className: 'custom-numbered-marker',
-        html: `<div style="
-          background: #EF4444;
-          color: white;
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 800;
-          font-size: 13px;
-          border: 2px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-        ">${idx + 1}</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-
-      const marker = L.marker([wp.lat, wp.lng], { icon: numberedIcon })
+      const marker = L.marker([wp.lat, wp.lng], { icon: makeWaypointIcon(L, idx, idx === activeWaypointIndex) })
         .addTo(mapInstance.current)
-        .bindPopup(`<strong>Stop ${idx + 1}: ${wp.name}</strong><br/>${wp.note || ''}`);
+        .bindPopup(`<strong>Tappa ${idx + 1}: ${wp.name}</strong>${wp.note ? `<br/>${wp.note}` : ''}`);
+      marker.on('click', () => setActiveWaypointIndex(idx));
 
       markersRef.current.push(marker);
       coords.push([wp.lat, wp.lng]);
@@ -490,6 +501,7 @@ out body;`;
   const handleSelectRoute = (route) => {
     setIsCreating(false);
     setSelectedRoute(route);
+    setActiveWaypointIndex(null);
     setDiscoveredBars([]);
   };
 
@@ -1092,62 +1104,107 @@ out body;`;
           {/* Selected Route Waypoints (when not creating) */}
           {!isCreating && currentActiveWaypoints.length > 0 && (
             <div className="card" style={{ marginTop: '16px', padding: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '10px' }}>
-                {selectedRoute?.name || 'Tour'} — Elenco Tappe
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))', gap: '10px' }}>
-                {currentActiveWaypoints.map((wp, idx) => (
-                  <div key={idx} style={{
-                    background: 'var(--bg-input-dark)',
-                    border: '1px solid var(--border-dark)',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    gap: '10px',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0, flex: 1 }}>
-                      <div style={{
-                        background: '#EF4444',
-                        color: 'white',
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '700' }}>
+                  {selectedRoute?.name || 'Tour'} — Tappe ({currentActiveWaypoints.length})
+                </h3>
+                {/* Step-through prev/next */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    onClick={() => setActiveWaypointIndex((i) => Math.max(0, (i == null ? 0 : i - 1)))}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '14px' }}
+                    title="Tappa precedente"
+                  >‹</button>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', minWidth: '54px', textAlign: 'center' }}>
+                    {activeWaypointIndex == null ? '—' : `${activeWaypointIndex + 1} / ${currentActiveWaypoints.length}`}
+                  </span>
+                  <button
+                    onClick={() => setActiveWaypointIndex((i) => Math.min(currentActiveWaypoints.length - 1, (i == null ? 0 : i + 1)))}
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '14px' }}
+                    title="Tappa successiva"
+                  >›</button>
+                </div>
+              </div>
+
+              {/* Naviga l'intero itinerario con Google Maps (indicazioni tra tutte le tappe) */}
+              {currentActiveWaypoints.length >= 2 && (
+                <a
+                  href={`https://www.google.com/maps/dir/${currentActiveWaypoints.map((w) => `${w.lat},${w.lng}`).join('/')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{ width: '100%', borderRadius: '20px', padding: '10px', fontSize: '13px', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <MapPin size={15} /> Naviga l&apos;itinerario (Google Maps)
+                </a>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {currentActiveWaypoints.map((wp, idx) => {
+                  const active = idx === activeWaypointIndex;
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setActiveWaypointIndex(idx)}
+                      style={{
+                        background: active ? 'rgba(255,176,0,0.1)' : 'var(--bg-input-dark)',
+                        border: active ? '1px solid var(--secondary)' : '1px solid var(--border-dark)',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
                         display: 'flex',
+                        gap: '10px',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: '800',
-                        fontSize: '11px',
-                        flexShrink: 0,
-                      }}>
-                        {idx + 1}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ display: 'block', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {wp.name}
-                        </strong>
-                        <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {wp.note}
-                        </span>
-                        {wp.units != null && (
-                          <span style={{ fontSize: '10px', color: 'var(--secondary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
-                            <Beer size={10} /> {parseFloat(wp.units).toFixed(1)} U.A.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(wp.name + ' ' + (selectedRoute?.name?.includes('Venezia') ? 'Venezia' : selectedRoute?.name?.includes('Roma') ? 'Roma' : selectedRoute?.name?.includes('Milano') ? 'Milano' : ''))}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Cerca su Google Maps"
-                      style={{ fontSize: '16px', flexShrink: 0, textDecoration: 'none' }}
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        transition: 'var(--transition)',
+                      }}
                     >
-                      🗺️
-                    </a>
-                  </div>
-                ))}
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0, flex: 1 }}>
+                        <div style={{
+                          background: active ? '#FFB000' : '#EF4444',
+                          color: 'white',
+                          width: active ? '26px' : '22px',
+                          height: active ? '26px' : '22px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: '800',
+                          fontSize: '11px',
+                          flexShrink: 0,
+                          transition: 'var(--transition)',
+                        }}>
+                          {idx + 1}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <strong style={{ display: 'block', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {wp.name}
+                          </strong>
+                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {wp.note}
+                          </span>
+                          {wp.units != null && (
+                            <span style={{ fontSize: '10px', color: 'var(--secondary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+                              <Beer size={10} /> {parseFloat(wp.units).toFixed(1)} U.A.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${wp.lat},${wp.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Naviga a questa tappa"
+                        style={{ fontSize: '16px', flexShrink: 0, textDecoration: 'none' }}
+                      >
+                        🧭
+                      </a>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

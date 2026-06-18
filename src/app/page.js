@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
+import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
@@ -43,6 +44,13 @@ export default function FeedPage() {
   const [friendResults, setFriendResults] = useState([]);
   const [searchingFriends, setSearchingFriends] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+
+  // Ricerca amici per il modale di modifica sessione
+  const [editFriendQuery, setEditFriendQuery] = useState('');
+  const [editFriendResults, setEditFriendResults] = useState([]);
+  const [editSearchingFriends, setEditSearchingFriends] = useState(false);
+  const [showAllLiveDrinks, setShowAllLiveDrinks] = useState(false);
+  const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
 
   // Stati social: filtro feed (amici/tutti) e gestione follow
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
@@ -487,6 +495,47 @@ export default function FeedPage() {
     }
   };
 
+  // Ricerca amici per il modale di MODIFICA sessione (debounced)
+  useEffect(() => {
+    if (!editingActivity) return;
+    const q = editFriendQuery.trim();
+    if (q.length < 1) {
+      setEditFriendResults([]);
+      setEditSearchingFriends(false);
+      return;
+    }
+    setEditSearchingFriends(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = typeof db.searchProfiles === 'function' ? await db.searchProfiles(q) : [];
+        const already = (editingActivity.drank_with || []).join(' ').toLowerCase();
+        const filtered = (res || []).filter(
+          (p) =>
+            p.id !== currentUser?.id &&
+            !already.includes('(@' + (p.username || '').toLowerCase() + ')')
+        );
+        setEditFriendResults(filtered);
+      } catch (err) {
+        console.error('Errore ricerca amici (modifica):', err);
+        setEditFriendResults([]);
+      } finally {
+        setEditSearchingFriends(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [editFriendQuery, editingActivity, currentUser]);
+
+  const addEditCompanion = (value) => {
+    if (!value) return;
+    setEditingActivity((prev) => (prev ? { ...prev, drank_with: [...(prev.drank_with || []), value] } : prev));
+    setEditFriendQuery('');
+    setEditFriendResults([]);
+  };
+
+  const removeEditCompanion = (idx) => {
+    setEditingActivity((prev) => (prev ? { ...prev, drank_with: (prev.drank_with || []).filter((_, i) => i !== idx) } : prev));
+  };
+
   // Carica una foto e la allega alla sessione live in corso
   const handleAddSessionPhoto = async (e) => {
     const file = e.target.files?.[0];
@@ -615,10 +664,11 @@ export default function FeedPage() {
         feeling: editingActivity.feeling,
         duration: parseInt(editingActivity.duration) || 120,
         drinks: updatedDrinks,
+        drank_with: editingActivity.drank_with || [],
         total_units: parseFloat(totalUnits.toFixed(1)),
         bac_level: parseFloat(bac.toFixed(2))
       };
-      
+
       await db.updateActivity(editingActivity.id, updatedFields);
       setEditingActivity(null);
       await loadFeed();
@@ -1014,18 +1064,16 @@ export default function FeedPage() {
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-                <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 Cantina Do Mori (Venezia)</span>
-                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Leggenda del Locale: <strong>@il_rossi</strong> (14 visite)</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-                <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 The French House (Londra)</span>
-                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Leggenda del Locale: <strong>@london_carl</strong> (8 visite)</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-                <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 Bar Albatross (Tokyo)</span>
-                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Leggenda del Locale: <strong>@sake_boss</strong> (11 visite)</span>
-              </div>
+              {[
+                'Fai check-in in un locale ad ogni sessione',
+                'Accumula visite e Unità Alcoliche in quel bar',
+                'Supera gli altri e diventa la Leggenda del Locale 👑',
+              ].map((t, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+                  <span style={{ background: 'var(--secondary)', color: '#000', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', flexShrink: 0 }}>{i + 1}</span>
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>{t}</span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1282,14 +1330,7 @@ export default function FeedPage() {
                   Registra un drink (1-Tap):
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {[
-                    { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
-                    { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
-                    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
-                    { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' },
-                    { name: 'Acqua Fresca', abv: 0, units: 0, label: '💧 Acqua' },
-                    { name: 'Coca Cola / Soda', abv: 0, units: 0, label: '🥤 Soda' }
-                  ].map((preset, idx) => (
+                  {QUICK_DRINKS.map((preset, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleAddDrinkToActiveSession(preset)}
@@ -1300,6 +1341,26 @@ export default function FeedPage() {
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => setShowAllLiveDrinks((v) => !v)}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginTop: '8px' }}
+                >
+                  {showAllLiveDrinks ? '▲ Nascondi altri drink' : '▾ Altri drink (cocktail, distillati, birre…)'}
+                </button>
+                {showAllLiveDrinks && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                    {EXTRA_DRINKS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleAddDrinkToActiveSession(preset)}
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)' }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Gestione Compagni (drank_with) con ricerca amici reale */}
@@ -1464,26 +1525,7 @@ export default function FeedPage() {
                 </form>
               )}
             </div>
-          ) : (
-            <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', border: '1px solid var(--border-dark)', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div className="activity-avatar" style={{ width: '40px', height: '40px', fontSize: '16px' }}>
-                  {currentUser.display_name ? currentUser.display_name.charAt(0) : 'U'}
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: '700' }}>Pronto per il terzo tempo?</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Inizia un brindisi live tracciato in tempo reale</p>
-                </div>
-              </div>
-              <button
-                onClick={() => router.push('/log')}
-                className="btn btn-primary"
-                style={{ borderRadius: '20px', padding: '8px 16px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}
-              >
-                <Plus size={16} /> Inizia Live
-              </button>
-            </div>
-          )
+          ) : null
         ) : (
           <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '10px' }}>🍻 Unisciti alla Community di Strabar!</h2>
@@ -2485,13 +2527,7 @@ export default function FeedPage() {
                 Aggiungi Drink Preset:
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {[
-                  { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
-                  { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
-                  { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
-                  { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' },
-                  { name: 'Acqua Fresca', abv: 0, units: 0, label: '💧 Acqua' }
-                ].map((preset, idx) => (
+                {QUICK_DRINKS.map((preset, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -2501,6 +2537,93 @@ export default function FeedPage() {
                   >
                     {preset.label}
                   </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllEditDrinks((v) => !v)}
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '11px', fontWeight: 700, marginTop: '8px' }}
+              >
+                {showAllEditDrinks ? '▲ Nascondi altri drink' : '▾ Altri drink'}
+              </button>
+              {showAllEditDrinks && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                  {EXTRA_DRINKS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleAddTaskPresetToEdit(preset)}
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '15px', border: '1px solid var(--border-dark)' }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tag compagni di bevuta */}
+            <div style={{ marginBottom: '20px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
+                Tagga i compagni di bevuta
+              </label>
+              <div style={{ position: 'relative', marginBottom: '10px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Cerca un amico per nome o @username..."
+                  value={editFriendQuery}
+                  onChange={(e) => setEditFriendQuery(e.target.value)}
+                  style={{ height: '36px', fontSize: '13px', padding: '0 10px 0 30px' }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = editFriendQuery.trim();
+                      if (val) addEditCompanion(val);
+                    }
+                  }}
+                />
+                {editSearchingFriends && (
+                  <Loader size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+                )}
+                {editFriendQuery.trim().length >= 1 && (
+                  <div style={{ position: 'absolute', top: '40px', left: 0, right: 0, background: 'var(--bg-card-dark, #161822)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
+                    {editFriendResults.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addEditCompanion(`${p.display_name || p.username} (@${p.username})`)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
+                      >
+                        <span className="activity-avatar" style={{ width: '26px', height: '26px', fontSize: '12px', flexShrink: 0 }}>
+                          {(p.display_name || p.username || 'U').charAt(0).toUpperCase()}
+                        </span>
+                        <span style={{ display: 'flex', flexDirection: 'column' }}>
+                          <strong style={{ fontSize: '12px' }}>{p.display_name || p.username}</strong>
+                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>
+                        </span>
+                      </button>
+                    ))}
+                    {editFriendResults.length === 0 && !editSearchingFriends && (
+                      <button
+                        type="button"
+                        onClick={() => addEditCompanion(editFriendQuery.trim())}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dark-secondary)', fontSize: '12px' }}
+                      >
+                        Tagga &quot;<strong style={{ color: '#FFF' }}>{editFriendQuery.trim()}</strong>&quot; come ospite ↵
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {(editingActivity.drank_with || []).map((friend, idx) => (
+                  <span key={idx} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', padding: '3px 8px', borderRadius: '15px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {friend}
+                    <button type="button" onClick={() => removeEditCompanion(idx)} style={{ color: 'var(--error)', cursor: 'pointer', border: 'none', background: 'none', fontWeight: 'bold' }}>×</button>
+                  </span>
                 ))}
               </div>
             </div>

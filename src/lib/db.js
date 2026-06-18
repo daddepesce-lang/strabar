@@ -10,171 +10,9 @@ export const supabase = isSupabaseConfigured
   : null;
 
 // --- MOCK DATABASE (localStorage based) ---
-const INITIAL_PROFILES = [
-  {
-    id: 'user-1',
-    username: 'il_rossi',
-    display_name: 'Marco Rossi',
-    avatar_url: '',
-    is_premium: true,
-    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'user-2',
-    username: 'fra_verdi',
-    display_name: 'Francesca Verdi',
-    avatar_url: '',
-    is_premium: false,
-    created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'user-3',
-    username: 'luca_b',
-    display_name: 'Luca Bianchi',
-    avatar_url: '',
-    is_premium: false,
-    created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-  }
-];
-
-const INITIAL_ACTIVITIES = [
-  {
-    id: 'act-1',
-    user_id: 'user-1',
-    title: 'Aperitivo Ignorante al Lido 🍹',
-    description: 'Spritz infiniti con vista mare. Abbiamo provato anche i cicchetti, ma il Campari ha preso il sopravvento.',
-    drinks: [
-      { name: 'Spritz Campari', qty: 4, abv: 11, units: 1.3 },
-      { name: 'Negroni', qty: 1, abv: 26, units: 2.5 }
-    ],
-    total_units: 7.7,
-    duration: 180, // 3 ore
-    drank_with: ['Luca Bianchi', 'Francesca Verdi'],
-    feeling: 'Brillo Felice',
-    location: { name: 'Chiosco Al Faro', address: 'Via Interna Faro, Lido di Venezia, VE, Italia', lat: 45.4265, lng: 12.3789 },
-    bac_level: 1.62,
-    media: [
-      { type: 'image', name: 'spritz_vista_mare.jpg', url: 'https://images.unsplash.com/photo-1574085733277-851d9d856a3a?w=400&q=80' }
-    ],
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 ore fa
-    cheers: ['user-2', 'user-3'],
-    comments: [
-      { id: 'c-1', user_id: 'user-2', user_name: 'Francesca Verdi', text: 'Che serata! La prossima volta paghi tu però 😂', created_at: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString() }
-    ]
-  },
-  {
-    id: 'act-2',
-    user_id: 'user-2',
-    title: 'Birre post-calcetto (terzo tempo vero) ⚽️🍻',
-    description: 'Il calcetto è solo una scusa per bere la birra gelata alla spina del bar del campo.',
-    drinks: [
-      { name: 'Birra Bionda Media', qty: 3, abv: 4.8, units: 1.6 }
-    ],
-    total_units: 4.8,
-    duration: 120,
-    drank_with: ['Marco Rossi'],
-    feeling: 'Assetato / Soddisfatto',
-    location: { name: 'Bar Sportivo', address: 'Campo Calcetto San Marco, Venezia, VE, Italia', lat: 45.4350, lng: 12.3320 },
-    bac_level: 1.01,
-    media: [],
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // ieri
-    cheers: ['user-1'],
-    comments: []
-  },
-  {
-    id: 'act-3',
-    user_id: 'user-3',
-    title: 'Degustazione Vini Rossi in Cantina 🍷',
-    description: 'Serata degustazione guidata. Ottimo Amarone e Barolo. Esperienza premium.',
-    drinks: [
-      { name: 'Calice Vino Rosso', qty: 5, abv: 14, units: 1.3 }
-    ],
-    total_units: 6.5,
-    duration: 240,
-    drank_with: [],
-    feeling: 'Inteditore',
-    location: { name: 'Cantina Do Mori', address: 'Sestiere San Polo 429, Rialto, Venezia, VE, Italia', lat: 45.4382, lng: 12.3353 },
-    bac_level: 1.37,
-    media: [
-      { type: 'image', name: 'bicchieri_cantina.jpg', url: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80' }
-    ],
-    created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    cheers: ['user-1', 'user-2'],
-    comments: [
-      { id: 'c-2', user_id: 'user-1', user_name: 'Marco Rossi', text: 'Spettacolo! Mi inviti la prossima volta?', created_at: new Date(Date.now() - 3.5 * 24 * 60 * 60 * 1000).toISOString() }
-    ]
-  }
-];
-
-const INITIAL_ROUTES = [
-  {
-    id: 'route-1',
-    user_id: 'user-1',
-    name: 'Giro dei Bacari Storico a Venezia 🛶',
-    description: 'Il classico tour veneziano che parte da Rialto e arriva a Cannaregio. 4 tappe fondamentali con cicchetti e spritz al select.',
-    waypoints: [
-      { name: 'Cantina Do Mori', lat: 45.4382, lng: 12.3353, note: 'Il più antico, imperdibile il francobollo con cicheto.' },
-      { name: 'All\'Arco', lat: 45.4384, lng: 12.3355, note: 'Famoso per i cicheti caldi.' },
-      { name: 'Osteria Al Mercà', lat: 45.4386, lng: 12.3360, note: 'Spritz al volo in piedi davanti al mercato.' },
-      { name: 'Cantina Aziende Agricole', lat: 45.4430, lng: 12.3300, note: 'Ottimo vino della casa e polpettine.' }
-    ],
-    is_premium: false,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'route-2',
-    user_id: 'user-1',
-    name: 'Tour delle Birrerie di Trastevere a Roma 🏛️🍻',
-    description: 'Passeggiata tra i vicoli storici di Trastevere alla ricerca delle migliori birre artigianali e dei cocktail bar più rinomati della capitale.',
-    waypoints: [
-      { name: 'Freni e Frizioni', lat: 41.8911, lng: 12.4705, note: 'Storico bar per aperitivi in un ex garage, famoso per i cocktail.' },
-      { name: 'Ma Che Siete Venuti a Fà', lat: 41.8902, lng: 12.4700, note: 'Il tempio indiscusso della birra artigianale a Roma.' },
-      { name: 'Birreria Trilussa', lat: 41.8906, lng: 12.4712, note: 'Ampia selezione di spine e ottimi stuzzichini romani.' }
-    ],
-    is_premium: false,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'route-3',
-    user_id: 'user-2',
-    name: 'Milano Navigli Mixology Run 🍸🇮🇹',
-    description: 'Il tour definitivo per gli amanti della mixology lungo i Navigli milanesi. Dai classici cocktail milanesi ai twist d\'avanguardia.',
-    waypoints: [
-      { name: 'Rita & Cocktails', lat: 45.4518, lng: 9.1732, note: 'Pioniere indiscusso dei cocktail bar di qualità sui Navigli.' },
-      { name: 'Mag Café', lat: 45.4526, lng: 9.1755, note: 'Atmosfera retrò chic e cocktail ricchi di inventiva.' },
-      { name: 'Backdoor 43', lat: 45.4523, lng: 9.1748, note: 'Il bar più piccolo del mondo: si entra uno alla volta solo su prenotazione!' },
-      { name: 'Pinch Spirits & Kitchen', lat: 45.4528, lng: 9.1762, note: 'Atmosfera anni \'30, ottimi distillati e cucina di livello.' }
-    ],
-    is_premium: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'route-4',
-    user_id: 'user-2',
-    name: 'London Soho Pub Crawl (Tradotto) 🇬🇧',
-    description: 'Un classico tour dei pub londinesi attraverso vicoli stretti e locali storici. Si parte con una pinta e si finisce a ritmo di blues.',
-    waypoints: [
-      { name: 'The French House', lat: 51.5133, lng: -0.1318, note: 'Leggendario pub di Soho che serve solo mezze pinte.' },
-      { name: 'The Dog and Duck', lat: 51.5138, lng: -0.1314, note: 'Un piccolo gioiello di epoca vittoriana con ottime ale.' },
-      { name: 'Ain\'t Nothin But Blues Bar', lat: 51.5140, lng: -0.1375, note: 'Blues dal vivo tutte le sere, ingresso gratuito e ottima birra.' }
-    ],
-    is_premium: false,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'route-5',
-    user_id: 'user-3',
-    name: 'Tokyo Golden Gai Izakaya Trail (Tradotto) 🇯🇵',
-    description: 'Un viaggio sensoriale tra i piccolissimi bar di Golden Gai a Shinjuku (6 posti ciascuno). Sake, shochu e yakitori tradizionali.',
-    waypoints: [
-      { name: 'Bar Albatross', lat: 35.6938, lng: 139.7036, note: 'Locale su tre piani piccolissimo con lampadari di cristallo e ottimi highball.' },
-      { name: 'Deathmatch in Hell', lat: 35.6941, lng: 139.7033, note: 'Bar a tema horror metal. Molto accogliente, prova l\'assenzio.' },
-      { name: 'Bar Araku', lat: 35.6935, lng: 139.7039, note: 'Ottimo per chi vuole assaggiare diverse varietà di sake.' }
-    ],
-    is_premium: true,
-    created_at: new Date().toISOString()
-  }
-];
+const INITIAL_PROFILES = [];
+const INITIAL_ACTIVITIES = [];
+const INITIAL_ROUTES = [];
 
 // Inizializza localStorage se non impostato
 const initMockDB = () => {
@@ -444,6 +282,26 @@ export const db = {
     } else {
       localStorage.removeItem('sb_current_user');
     }
+  },
+
+  // Invia l'email di reset password (Supabase invia il link tramite l'SMTP configurato, es. Resend)
+  async resetPassword(email) {
+    if (!isSupabaseConfigured) {
+      // In modalità mock non c'è invio reale
+      return { mock: true };
+    }
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/reset` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+    return true;
+  },
+
+  // Imposta una nuova password (dopo aver cliccato il link di recupero)
+  async updatePassword(newPassword) {
+    if (!isSupabaseConfigured) return { mock: true };
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return true;
   },
 
   // --- ACTIVITIES (BEVUTE) ---
@@ -1399,6 +1257,119 @@ export const db = {
   async getUserActivities(userId) {
     const all = await this.getActivities();
     return all.filter(a => a.user_id === userId);
+  },
+
+  // Suggerimenti "Potresti conoscere": amici-di-amici che non segui ancora,
+  // ordinati per numero di connessioni in comune. Se non ce ne sono, propone
+  // altri atleti che non segui.
+  async getSuggestedProfiles(userId, limit = 8) {
+    if (!userId) return [];
+    try {
+      const myFollowing = await this.getFollowing(userId);
+      const excluded = new Set(myFollowing.map((f) => f.id));
+      excluded.add(userId);
+
+      const counts = {};
+      await Promise.all(
+        myFollowing.map(async (f) => {
+          const theirs = await this.getFollowing(f.id).catch(() => []);
+          theirs.forEach((t) => {
+            if (excluded.has(t.id)) return;
+            if (!counts[t.id]) counts[t.id] = { profile: t, mutual: 0 };
+            counts[t.id].mutual += 1;
+          });
+        })
+      );
+
+      let list = Object.values(counts).sort((a, b) => b.mutual - a.mutual);
+
+      // Fallback: nessun amico-di-amico → altri atleti non ancora seguiti
+      if (list.length < limit) {
+        const all = await this.getAllProfiles().catch(() => []);
+        const already = new Set(list.map((x) => x.profile.id));
+        all.forEach((p) => {
+          if (!excluded.has(p.id) && !already.has(p.id)) {
+            list.push({ profile: p, mutual: 0 });
+          }
+        });
+      }
+
+      return list.slice(0, limit).map((x) => ({ ...x.profile, mutualCount: x.mutual }));
+    } catch (err) {
+      console.error('Errore suggerimenti profili:', err);
+      return [];
+    }
+  },
+
+  // --- RADAR LIVE: chi sta bevendo vicino a me adesso ---
+  // Mostra solo sessioni LIVE recenti (<6h) con condivisione posizione attiva
+  // (location.share = 'public' | 'friends'). Le 'friends' sono visibili solo a chi le segue.
+  async getLiveDrinkers(lat, lng, radiusM, viewerId) {
+    if (!lat || !lng) return [];
+    const acts = await this.getActivities().catch(() => []);
+    const now = Date.now();
+
+    let followingIds = new Set();
+    if (viewerId) {
+      try {
+        const following = await this.getFollowing(viewerId);
+        followingIds = new Set((following || []).map((f) => f.id));
+      } catch { /* noop */ }
+    }
+
+    const out = [];
+    acts.forEach((a) => {
+      if (!a.is_active) return;
+      if (now - new Date(a.created_at).getTime() > 6 * 60 * 60 * 1000) return;
+      if (viewerId && a.user_id === viewerId) return; // non mostrare me stesso
+      const loc = a.location;
+      if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
+      if (loc.share !== 'public' && loc.share !== 'friends') return;
+      if (loc.share === 'friends' && !followingIds.has(a.user_id)) return;
+
+      const distance = this.checkGeofencing(loc.lat, loc.lng, lat, lng, Infinity).distance;
+      if (distance > radiusM) return;
+
+      out.push({
+        id: a.id,
+        user_id: a.user_id,
+        name: a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar',
+        username: a.profiles?.username || 'atleta',
+        place: loc.name || 'Posizione condivisa',
+        lat: loc.lat,
+        lng: loc.lng,
+        share: loc.share,
+        distance,
+        drinks: (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0),
+        bac: parseFloat(a.bac_level || 0),
+        created_at: a.created_at,
+      });
+    });
+
+    return out.sort((x, y) => x.distance - y.distance);
+  },
+
+  // Conta le sessioni live (con condivisione) visibili all'utente, senza GPS.
+  // Usato per il badge "X live ora" nella navbar.
+  async getLiveCount(viewerId) {
+    const acts = await this.getActivities().catch(() => []);
+    const now = Date.now();
+    let followingIds = new Set();
+    if (viewerId) {
+      try {
+        const following = await this.getFollowing(viewerId);
+        followingIds = new Set((following || []).map((f) => f.id));
+      } catch { /* noop */ }
+    }
+    return acts.filter((a) => {
+      if (!a.is_active) return false;
+      if (now - new Date(a.created_at).getTime() > 6 * 60 * 60 * 1000) return false;
+      if (viewerId && a.user_id === viewerId) return false;
+      const loc = a.location;
+      if (!loc || (loc.share !== 'public' && loc.share !== 'friends')) return false;
+      if (loc.share === 'friends' && !followingIds.has(a.user_id)) return false;
+      return true;
+    }).length;
   },
 
   // Attività in cui l'utente è stato TAGGATO (drank_with contiene "@username"),

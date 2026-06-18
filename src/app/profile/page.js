@@ -21,6 +21,7 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('stats'); // 'stats' o 'friends'
   const [friendsSearchQuery, setFriendsSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
   const [followingList, setFollowingList] = useState([]);
   const [followersList, setFollowersList] = useState([]);
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
@@ -79,6 +80,10 @@ export default function ProfilePage() {
       const followers = await db.getFollowers(userId);
       setFollowingList(following);
       setFollowersList(followers);
+      if (typeof db.getSuggestedProfiles === 'function') {
+        const sugg = await db.getSuggestedProfiles(userId);
+        setSuggestions(sugg);
+      }
     } catch (err) {
       console.error("Errore nel caricamento dei dati social:", err);
     }
@@ -824,6 +829,47 @@ export default function ProfilePage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Potresti conoscere (amici di amici) */}
+            {!friendsSearchQuery.trim() && suggestions.length > 0 && (
+              <div style={{ marginTop: '24px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <UserPlus size={18} color="var(--primary)" /> Potresti conoscere
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>
+                  Atleti che non segui ancora, magari amici dei tuoi amici.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '12px' }}>
+                  {suggestions.map((user) => {
+                    const isFollowing = followingList.some((f) => f.id === user.id);
+                    return (
+                      <div key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                          <div className="activity-avatar" style={{ width: '40px', height: '40px', fontSize: '16px', flexShrink: 0 }}>
+                            {user.display_name?.charAt(0) || 'U'}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <Link href={`/u/${user.id}`} style={{ display: 'block', fontSize: '14px', color: '#FFF', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {user.display_name}
+                            </Link>
+                            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block' }}>
+                              {user.mutualCount > 0 ? `${user.mutualCount} ${user.mutualCount === 1 ? 'amico' : 'amici'} in comune` : `@${user.username}`}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleFollowToggle(user)}
+                          className={`btn ${isFollowing ? 'btn-secondary' : 'btn-primary'}`}
+                          style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          {isFollowing ? <><UserMinus size={12} /> Segui già</> : <><UserPlus size={12} /> Segui</>}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

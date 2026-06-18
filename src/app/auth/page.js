@@ -35,6 +35,24 @@ export default function AuthPage() {
     }
   }, [router]);
 
+  const handleForgotPassword = async () => {
+    setError('');
+    setInfo('');
+    if (!email) {
+      setError('Inserisci la tua email qui sopra, poi clicca di nuovo su "Password dimenticata?".');
+      return;
+    }
+    setLoading(true);
+    try {
+      await db.resetPassword(email);
+      setInfo('📧 Ti abbiamo inviato un\'email per reimpostare la password. Controlla la posta (anche lo spam).');
+    } catch (err) {
+      setError(err.message || 'Impossibile inviare l\'email di reset.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -49,6 +67,13 @@ export default function AuthPage() {
           throw new Error("Tutti i campi sono obbligatori per la registrazione!");
         }
         const result = await db.signup(email, password, displayName, username);
+
+        // Email di benvenuto (best-effort, via Resend) — non blocca la registrazione
+        fetch('/api/welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name: displayName }),
+        }).catch(() => {});
 
         // Se serve la conferma via email non c'è ancora una sessione: non reindirizzare.
         if (result && result.needsEmailConfirmation) {
@@ -172,6 +197,14 @@ export default function AuthPage() {
           <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px' }} disabled={loading}>
             {loading ? 'Attendi...' : isLogin ? 'Accedi' : 'Crea Account'}
           </button>
+
+          {isLogin && (
+            <div style={{ textAlign: 'center', marginTop: '14px' }}>
+              <button type="button" onClick={handleForgotPassword} disabled={loading} style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', background: 'none', border: 'none' }}>
+                Password dimenticata?
+              </button>
+            </div>
+          )}
         </form>
 
         <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: 'var(--text-dark-secondary)' }}>

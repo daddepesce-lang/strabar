@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera } from 'lucide-react';
 import { notify } from '@/lib/notify';
+import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 
 export default function LogActivityPage() {
   const router = useRouter();
@@ -34,10 +35,14 @@ export default function LogActivityPage() {
   // Loader a tutto schermo durante l'effettivo avvio della sessione
   const [checkingGps, setCheckingGps] = useState(false);
 
+  // Radar live: con chi condividere la propria posizione mentre si beve
+  const [liveShare, setLiveShare] = useState('none'); // 'none' | 'friends' | 'public'
+
   // Stati per registrazione a posteriori
   const [showRetroForm, setShowRetroForm] = useState(false);
   const [retroSaving, setRetroSaving] = useState(false);
   const [retroPhotoUploading, setRetroPhotoUploading] = useState(false);
+  const [showAllRetroDrinks, setShowAllRetroDrinks] = useState(false);
   const [retroForm, setRetroForm] = useState({
     title: '',
     date: new Date().toISOString().slice(0, 16), // datetime-local format
@@ -71,14 +76,7 @@ export default function LogActivityPage() {
   const handleRetroRemovePhoto = (idx) => {
     setRetroForm((p) => ({ ...p, media: p.media.filter((_, i) => i !== idx) }));
   };
-  const DRINK_PRESETS = [
-    { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
-    { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
-    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
-    { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' },
-    { name: 'Cocktail (Negroni/Mojito/Cosmopolitan)', abv: 15, units: 1.5, label: '🍸 Cocktail' },
-    { name: 'Acqua Fresca', abv: 0, units: 0, label: '💧 Acqua' },
-  ];
+  const DRINK_PRESETS = QUICK_DRINKS;
   const handleRetroAddDrink = (preset) => {
     setRetroForm(prev => {
       const existing = prev.drinks.findIndex(d => d.name === preset.name);
@@ -327,9 +325,21 @@ export default function LogActivityPage() {
     try {
       if (!db || typeof db.createActivity !== 'function') return;
 
+      // Se l'utente vuole comparire sul radar live, prendiamo la posizione GPS
+      let location = null;
+      if (liveShare !== 'none') {
+        const loc = await requestUserLocation();
+        if (loc.coords) {
+          location = { name: 'Sessione Libera', lat: loc.coords.lat, lng: loc.coords.lng, share: liveShare };
+        } else {
+          alert('Per farti trovare sul radar serve la posizione GPS: ' + (loc.error || 'non disponibile') + '\nLa sessione parte comunque, ma non sarai visibile sulla mappa.');
+        }
+      }
+
       await db.createActivity({
         title: 'Brindisi Live 🍻',
         drinks: [],
+        location,
         is_active: true,
         bac_level: 0,
         total_units: 0,
@@ -409,6 +419,7 @@ export default function LogActivityPage() {
             address: venue.address || '',
             lat: venue.lat ?? null,
             lng: venue.lng ?? null,
+            ...(liveShare !== 'none' && venue.lat && venue.lng ? { share: liveShare } : {}),
           },
           drinks: [],
           is_active: true,
@@ -478,8 +489,24 @@ export default function LogActivityPage() {
         </p>
       </div>
 
+      {/* Radar live: visibilità sulla mappa */}
+      <div className="card" style={{ padding: '16px', border: '1px solid var(--border-dark)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+          <MapPin size={16} color="var(--primary)" />
+          <strong style={{ fontSize: '14px' }}>Fatti trovare sul Radar Live 📡</strong>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '10px', lineHeight: 1.4 }}>
+          Chi può vederti sulla mappa mentre bevi? Useremo la tua posizione <strong>solo durante la sessione live</strong> e solo se scegli di condividerla.
+        </p>
+        <div className="seg-tabs">
+          <div className={`seg-tab ${liveShare === 'none' ? 'active' : ''}`} onClick={() => setLiveShare('none')}>🙈 Nessuno</div>
+          <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
+          <div className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>🌍 Tutti</div>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        
+
         {/* OPZIONE 1: Al locale */}
         <div 
           onClick={handleLocaleCheckInClick}
@@ -930,8 +957,8 @@ export default function LogActivityPage() {
                   Drink Consumati * ({retroForm.drinks.reduce((a, d) => a + d.qty, 0)} totali)
                 </label>
 
-                {/* Preset buttons */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                {/* Preset buttons (rapidi) */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                   {DRINK_PRESETS.map((preset, idx) => (
                     <button
                       key={idx}
@@ -944,6 +971,30 @@ export default function LogActivityPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* Catalogo esteso */}
+                <button
+                  type="button"
+                  onClick={() => setShowAllRetroDrinks((v) => !v)}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginBottom: '10px' }}
+                >
+                  {showAllRetroDrinks ? '▲ Nascondi altri drink' : '▾ Altri drink (cocktail, distillati, birre…)'}
+                </button>
+                {showAllRetroDrinks && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                    {EXTRA_DRINKS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleRetroAddDrink(preset)}
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px', border: '1px solid var(--border-dark)' }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Lista drink aggiunti */}
                 {retroForm.drinks.length > 0 ? (
