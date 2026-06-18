@@ -1500,11 +1500,14 @@ export default function FeedPage() {
                 className="card activity-card"
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => {
+                  // Non aprire il dettaglio se si interagisce con controlli (bottoni, link, form, sezione commenti)
                   if (
-                    e.target.tagName !== 'BUTTON' && 
-                    e.target.tagName !== 'A' && 
-                    !e.target.closest('button') && 
-                    !e.target.closest('a')
+                    !['BUTTON', 'A', 'INPUT', 'TEXTAREA', 'SELECT', 'LABEL', 'FORM'].includes(e.target.tagName) &&
+                    !e.target.closest('button') &&
+                    !e.target.closest('a') &&
+                    !e.target.closest('input') &&
+                    !e.target.closest('form') &&
+                    !e.target.closest('[data-no-open]')
                   ) {
                     handleOpenActivity(act);
                   }
@@ -1692,7 +1695,7 @@ export default function FeedPage() {
 
                 {/* Comments Section */}
                 {activeCommentsSection[act.id] && (
-                  <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-dark)' }}>
+                  <div data-no-open onClick={(e) => e.stopPropagation()} style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-dark)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '15px' }}>
                       {act.comments && act.comments.map((comment) => (
                         <div key={comment.id} style={{ display: 'flex', gap: '10px', fontSize: '14px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px' }}>
