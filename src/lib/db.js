@@ -1344,11 +1344,15 @@ export const db = {
     const acts = await this.getActiveSessionsLight().catch(() => []);
     const now = Date.now();
 
-    let followingIds = new Set();
+    // "Amici" = collegamento di follow in QUALSIASI direzione (io seguo te O tu segui me).
+    let connectedIds = new Set();
     if (viewerId) {
       try {
-        const following = await this.getFollowing(viewerId);
-        followingIds = new Set((following || []).map((f) => f.id));
+        const [following, followers] = await Promise.all([
+          this.getFollowing(viewerId).catch(() => []),
+          this.getFollowers(viewerId).catch(() => []),
+        ]);
+        connectedIds = new Set([...(following || []), ...(followers || [])].map((f) => f.id));
       } catch { /* noop */ }
     }
 
@@ -1360,7 +1364,7 @@ export const db = {
       const loc = a.location;
       if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
       if (loc.share !== 'public' && loc.share !== 'friends') return;
-      if (loc.share === 'friends' && !followingIds.has(a.user_id)) return;
+      if (loc.share === 'friends' && !connectedIds.has(a.user_id)) return;
 
       const distance = this.checkGeofencing(loc.lat, loc.lng, lat, lng, Infinity).distance;
       if (distance > radiusM) return;
@@ -1389,11 +1393,14 @@ export const db = {
   async getLiveCount(viewerId) {
     const acts = await this.getActiveSessionsLight().catch(() => []);
     const now = Date.now();
-    let followingIds = new Set();
+    let connectedIds = new Set();
     if (viewerId) {
       try {
-        const following = await this.getFollowing(viewerId);
-        followingIds = new Set((following || []).map((f) => f.id));
+        const [following, followers] = await Promise.all([
+          this.getFollowing(viewerId).catch(() => []),
+          this.getFollowers(viewerId).catch(() => []),
+        ]);
+        connectedIds = new Set([...(following || []), ...(followers || [])].map((f) => f.id));
       } catch { /* noop */ }
     }
     return acts.filter((a) => {
@@ -1402,7 +1409,7 @@ export const db = {
       if (viewerId && a.user_id === viewerId) return false;
       const loc = a.location;
       if (!loc || (loc.share !== 'public' && loc.share !== 'friends')) return false;
-      if (loc.share === 'friends' && !followingIds.has(a.user_id)) return false;
+      if (loc.share === 'friends' && !connectedIds.has(a.user_id)) return false;
       return true;
     }).length;
   },
