@@ -263,7 +263,7 @@ export default function ProfilePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
       {/* Intestazione Profilo */}
-      <div className="card profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.05) 100%)' }}>
+      <div className="card profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.05) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div className="activity-avatar" style={{ width: '80px', height: '80px', fontSize: '32px', border: '3px solid var(--primary)', overflow: 'hidden' }}>
             {currentUser?.avatar_url ? (
@@ -308,7 +308,7 @@ export default function ProfilePage() {
             ⚙️
           </Link>
           {/* Badge stato compatto */}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: '700', fontSize: '12px', background: 'rgba(255, 176, 0, 0.1)', padding: '8px 12px', borderRadius: '30px', border: '1px solid var(--secondary)', whiteSpace: 'nowrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: '700', fontSize: '12px', background: 'rgba(223, 255, 0, 0.1)', padding: '8px 12px', borderRadius: '30px', border: '1px solid var(--secondary)', whiteSpace: 'nowrap' }}>
             <Shield size={14} /> Beta gratis
           </span>
         </div>
@@ -317,7 +317,7 @@ export default function ProfilePage() {
       {/* Peso corporeo per BAC preciso */}
       <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-          <span style={{ background: 'rgba(255,94,0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
+          <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
           <div style={{ minWidth: 0 }}>
             <strong style={{ fontSize: '15px', display: 'block' }}>Peso corporeo</strong>
             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
@@ -350,9 +350,9 @@ export default function ProfilePage() {
       </div>
 
       {/* Invita amici su Strabar */}
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.08) 100%)' }}>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-          <span style={{ background: 'rgba(255,94,0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
+          <span style={{ background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
           <div style={{ minWidth: 0 }}>
             <strong style={{ fontSize: '15px', display: 'block' }}>Invita i tuoi amici</strong>
             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
@@ -368,7 +368,7 @@ export default function ProfilePage() {
         <button 
           onClick={() => setActiveTab('stats')} 
           style={{
-            background: activeTab === 'stats' ? 'rgba(255, 94, 0, 0.1)' : 'transparent',
+            background: activeTab === 'stats' ? 'rgba(255, 32, 0, 0.1)' : 'transparent',
             border: 'none',
             borderBottom: activeTab === 'stats' ? '2px solid var(--primary)' : 'none',
             color: activeTab === 'stats' ? '#FFF' : 'var(--text-dark-secondary)',
@@ -388,7 +388,7 @@ export default function ProfilePage() {
         <button 
           onClick={() => setActiveTab('friends')} 
           style={{
-            background: activeTab === 'friends' ? 'rgba(255, 94, 0, 0.1)' : 'transparent',
+            background: activeTab === 'friends' ? 'rgba(255, 32, 0, 0.1)' : 'transparent',
             border: 'none',
             borderBottom: activeTab === 'friends' ? '2px solid var(--primary)' : 'none',
             color: activeTab === 'friends' ? '#FFF' : 'var(--text-dark-secondary)',
@@ -489,10 +489,10 @@ export default function ProfilePage() {
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '20px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
                   <span>Meno alcol</span>
                   <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 176, 0, 0.2)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 94, 0, 0.4)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 94, 0, 0.7)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#E04D00' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(223, 255, 0, 0.2)' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 32, 0, 0.4)' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 32, 0, 0.7)' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#D81A00' }}></div>
                   <span>Più alcol</span>
                 </div>
               </div>
@@ -620,7 +620,7 @@ export default function ProfilePage() {
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 155px), 1fr))', gap: '10px', marginBottom: '16px' }}>
                     {earnedBadges.map(b => (
-                      <div key={b.id} style={{ background: 'linear-gradient(135deg, rgba(255,176,0,0.10) 0%, rgba(22,24,34,1) 100%)', border: '1px solid rgba(255,176,0,0.4)', borderRadius: '10px', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', textAlign: 'center' }}>
+                      <div key={b.id} style={{ background: 'linear-gradient(135deg, rgba(223, 255, 0,0.10) 0%, rgba(22,24,34,1) 100%)', border: '1px solid rgba(223, 255, 0,0.4)', borderRadius: '10px', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', textAlign: 'center' }}>
                         <span style={{ fontSize: '26px' }}>{b.icon}</span>
                         <strong style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: '800', lineHeight: 1.2 }}>{b.title}</strong>
                         <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', lineHeight: 1.3 }}>{b.desc}</span>
@@ -699,7 +699,7 @@ export default function ProfilePage() {
                   </h3>
 
                   {/* Nota esplicativa */}
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'rgba(255,176,0,0.06)', border: '1px solid rgba(255,176,0,0.18)', borderRadius: '8px', padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'rgba(223, 255, 0,0.06)', border: '1px solid rgba(223, 255, 0,0.18)', borderRadius: '8px', padding: '10px 12px' }}>
                     <span style={{ fontSize: '14px', flexShrink: 0 }}>ℹ️</span>
                     <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
                       <strong style={{ color: 'var(--secondary)' }}>Riepilogo cumulativo di tutte le sessioni.</strong>{' '}

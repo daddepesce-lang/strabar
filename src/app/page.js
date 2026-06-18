@@ -13,6 +13,18 @@ import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
+// Raggruppa i drink uguali sommando le quantità (per una visualizzazione compatta
+// anche su sessioni create prima del merge automatico).
+const groupDrinks = (drinks) => {
+  const map = {};
+  (drinks || []).forEach((d) => {
+    const key = `${(d.name || '').trim()}|${d.abv ?? ''}`;
+    if (!map[key]) map[key] = { ...d, qty: 0 };
+    map[key].qty += (d.qty || 1);
+  });
+  return Object.values(map);
+};
+
 // Tappe reali del Giro dei Bacari di Venezia (coordinate GPS reali)
 const VENICE_TOUR = [
   { name: 'Cantina Do Mori', lat: 45.4382, lng: 12.3353, note: 'Il più antico (1462). Imperdibile il francobollo.' },
@@ -406,7 +418,7 @@ export default function FeedPage() {
       );
       
       // Calcola il nuovo BAC stimato (peso reale dell'utente se impostato nel profilo)
-      const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration, undefined, currentUser?.weight);
+      const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration, undefined, currentUser?.weight, selectedActivity.full_stomach);
       
       const updatedFields = {
         drinks: updatedDrinks,
@@ -479,7 +491,7 @@ export default function FeedPage() {
       const duration = Math.max(1, Math.round((new Date().getTime() - startTimeMs) / (60 * 1000)));
       
       // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default; peso reale se impostato)
-      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight);
+      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach);
       
       const updatedFields = {
         drinks: updatedDrinks,
@@ -772,7 +784,7 @@ export default function FeedPage() {
     try {
       const totalUnits = editingActivity.drinks.reduce((acc, d) => acc + (d.units * d.qty), 0);
       const updatedDrinks = editingActivity.drinks;
-      const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration, undefined, currentUser?.weight);
+      const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration, undefined, currentUser?.weight, editingActivity.full_stomach);
       
       const updatedFields = {
         title: editingActivity.title,
@@ -1040,7 +1052,7 @@ export default function FeedPage() {
         {/* HERO SECTION */}
         <section className="r-grid-2-1" style={{ alignItems: 'center', minHeight: '80vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-            <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '14px', fontWeight: '700', width: 'fit-content', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            <span style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '14px', fontWeight: '700', width: 'fit-content', textTransform: 'uppercase', letterSpacing: '1px' }}>
               🎖️ Il Social Network degli Atleti da Bar
             </span>
             <h1 className="hero-title">
@@ -1061,7 +1073,7 @@ export default function FeedPage() {
           </div>
 
           {/* Grafica del telefono / mockup di performance */}
-          <div style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.9) 0%, rgba(255, 94, 0, 0.15) 100%)', border: '2px solid var(--primary)', borderRadius: '24px', padding: '30px', boxShadow: '0px 10px 40px rgba(255, 94, 0, 0.15)', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.9) 0%, rgba(255, 32, 0, 0.15) 100%)', border: '2px solid var(--primary)', borderRadius: '24px', padding: '30px', boxShadow: '0px 10px 40px rgba(255, 32, 0, 0.15)', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', background: 'var(--primary)', filter: 'blur(80px)', borderRadius: '50%', opacity: 0.4 }}></div>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1127,7 +1139,7 @@ export default function FeedPage() {
         {/* DEFAULT VENICE ITINERARY PREVIEW SECTION */}
         <section className="r-grid-1-2 landing-section-padded" style={{ borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
           <div>
-            <span style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <span style={{ background: 'rgba(223, 255, 0, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               🗺️ Itinerario di Esempio di Default
             </span>
             <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', marginTop: '15px', marginBottom: '15px' }}>
@@ -1179,7 +1191,7 @@ export default function FeedPage() {
 
         {/* SEZIONE CLASSIFICA / LEGGENDA DEL LOCALE */}
         <section className="r-grid-2" style={{ alignItems: 'center' }}>
-          <div style={{ background: 'linear-gradient(135deg, rgba(255, 176, 0, 0.05) 0%, rgba(22, 24, 34, 0.8) 100%)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '30px', boxShadow: 'var(--shadow)' }}>
+          <div style={{ background: 'linear-gradient(135deg, rgba(223, 255, 0, 0.05) 0%, rgba(22, 24, 34, 0.8) 100%)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '30px', boxShadow: 'var(--shadow)' }}>
             <div style={{ color: 'var(--secondary)', marginBottom: '15px' }}>
               <Trophy size={36} />
             </div>
@@ -1224,7 +1236,7 @@ export default function FeedPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '35px' }}>
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
-              <div style={{ color: 'var(--primary)', background: 'rgba(255, 94, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
+              <div style={{ color: 'var(--primary)', background: 'rgba(255, 32, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
                 <Beer size={28} />
               </div>
               <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Analizzatore del Carico (U.A.)</h3>
@@ -1234,7 +1246,7 @@ export default function FeedPage() {
             </div>
 
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
-              <div style={{ color: 'var(--secondary)', background: 'rgba(255, 176, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
+              <div style={{ color: 'var(--secondary)', background: 'rgba(223, 255, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
                 <Trophy size={28} />
               </div>
               <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Classifiche Club & Sfide</h3>
@@ -1256,7 +1268,7 @@ export default function FeedPage() {
         </section>
 
         {/* CTA CARD */}
-        <section className="card landing-cta-pad" style={{ background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+        <section className="card landing-cta-pad" style={{ background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
           <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', maxWidth: '600px' }}>
             Pronto per il prossimo record personale al tavolo?
           </h2>
@@ -1298,7 +1310,7 @@ export default function FeedPage() {
 
     derivedBac = (selectedActivity.bac_level && parseFloat(selectedActivity.bac_level) > 0)
       ? parseFloat(selectedActivity.bac_level)
-      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime, ownerWeight);
+      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime, ownerWeight, selectedActivity.full_stomach);
 
     if (selectedActivity.location && selectedActivity.location.name) {
       const locNameNormalized = selectedActivity.location.name.trim().toLowerCase();
@@ -1342,7 +1354,7 @@ export default function FeedPage() {
           if (bac === 0 && s.drinks && s.drinks.length > 0) {
             const isLive = s.is_active && (Date.now() - new Date(s.created_at).getTime()) < 5 * 60 * 60 * 1000;
             const endRef = isLive ? undefined : new Date(new Date(s.created_at).getTime() + (s.duration || 120) * 60 * 1000).toISOString();
-            bac = db.calculateCurrentBAC(s.drinks, s.created_at, s.duration || 120, endRef, s.profiles?.weight);
+            bac = db.calculateCurrentBAC(s.drinks, s.created_at, s.duration || 120, endRef, s.profiles?.weight, s.full_stomach);
           }
           return {
             name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
@@ -1354,7 +1366,7 @@ export default function FeedPage() {
     }
 
     // Timeline BAC reale basata sugli orari di aggiunta dei singoli drink (peso reale se disponibile)
-    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight);
+    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach);
   }
 
   // Visibilità live: una sessione PRIVATA non appare a nessuno finché è attiva
@@ -1383,7 +1395,7 @@ export default function FeedPage() {
       <div className="feed-list">
         {currentUser ? (
           activeSession ? (
-            <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #161822 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 94, 0, 0.25)', borderRadius: '16px' }}>
+            <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 32, 0, 0.25)', borderRadius: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
                   <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -1411,7 +1423,7 @@ export default function FeedPage() {
                 const target = tour.target || 2;
                 const pct = Math.min(100, (atThisStop / target) * 100);
                 return (
-                  <div style={{ marginBottom: '15px', background: 'rgba(255,176,0,0.06)', border: '1px solid rgba(255,176,0,0.25)', borderRadius: '10px', padding: '12px' }}>
+                  <div style={{ marginBottom: '15px', background: 'rgba(223, 255, 0,0.06)', border: '1px solid rgba(223, 255, 0,0.25)', borderRadius: '10px', padding: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
                       <strong style={{ fontSize: '13px', color: 'var(--secondary)' }}>🗺️ Tour: {tour.route_name}</strong>
                       <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Tappa {cur + 1}/{stops.length}</span>
@@ -1496,11 +1508,11 @@ export default function FeedPage() {
               {/* Elenco drink correnti */}
               <div style={{ marginBottom: '15px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
-                  Drink in questa sessione ({activeSession.drinks?.length || 0}):
+                  Drink in questa sessione ({(activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0)}):
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
                   {activeSession.drinks?.length > 0 ? (
-                    activeSession.drinks.map((d, i) => (
+                    groupDrinks(activeSession.drinks).map((d, i) => (
                       <span key={i} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 8px' }}>
                         <Beer size={10} /> {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}
                       </span>
@@ -1579,13 +1591,13 @@ export default function FeedPage() {
 
                   {/* Dropdown risultati */}
                   {friendQuery.trim().length >= 1 && (friendResults.length > 0 || (!searchingFriends)) && (
-                    <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--surface-dark, #161822)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
+                    <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--surface-dark, #17181B)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
                       {friendResults.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => addCompanion(`${p.display_name || p.username} (@${p.username})`)}
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,94,0,0.08)'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 32, 0,0.08)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                         >
                           <span className="activity-avatar" style={{ width: '26px', height: '26px', fontSize: '12px', flexShrink: 0 }}>
@@ -1724,7 +1736,7 @@ export default function FeedPage() {
             </div>
           ) : null
         ) : (
-          <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 94, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>
+          <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '10px' }}>🍻 Unisciti alla Community di Strabar!</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginBottom: '20px', maxWidth: '500px', margin: '0 auto 20px auto' }}>
               Registra le tue bevute, sfida i tuoi amici in classifica e pianifica i tuoi percorsi preferiti.
@@ -1810,7 +1822,7 @@ export default function FeedPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
                     {isReallyActive && (
-                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 94, 0, 0.1)', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
+                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 32, 0, 0.1)', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
                         LIVE 🔴
                       </span>
@@ -1856,9 +1868,9 @@ export default function FeedPage() {
                   </div>
                 </div>
 
-                {/* Lista Drink taggati */}
+                {/* Lista Drink taggati (raggruppati per quantità) */}
                 <div className="activity-drinks-detail">
-                  {act.drinks.map((drink, idx) => (
+                  {groupDrinks(act.drinks).map((drink, idx) => (
                     <span key={idx} className="drink-tag">
                       <Beer size={12} />
                       {drink.qty}x {drink.name} ({drink.abv}%)
@@ -2062,7 +2074,7 @@ export default function FeedPage() {
       {/* Colonna Destra: Sidebar Statistiche e Leaderboard */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Invita amici */}
-        <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.08) 100%)', textAlign: 'center' }}>
+        <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', textAlign: 'center' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '6px' }}>📲 Invita i tuoi amici</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.4 }}>
             Strabar è più divertente in compagnia: condividi l&apos;app e sfidatevi in classifica!
@@ -2120,7 +2132,7 @@ export default function FeedPage() {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {leaderboardData.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: item.name === currentUser?.display_name ? 'rgba(255, 94, 0, 0.08)' : 'rgba(255,255,255,0.01)', borderRadius: '8px', border: item.name === currentUser?.display_name ? '1px dashed var(--primary)' : '1px solid transparent' }}>
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: item.name === currentUser?.display_name ? 'rgba(255, 32, 0, 0.08)' : 'rgba(255,255,255,0.01)', borderRadius: '8px', border: item.name === currentUser?.display_name ? '1px dashed var(--primary)' : '1px solid transparent' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '14px', fontWeight: '800', width: '20px', color: idx === 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>
                     #{idx + 1}
@@ -2143,7 +2155,7 @@ export default function FeedPage() {
         </div>
 
         {/* Sfide & Premi Strabar */}
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 1) 0%, rgba(255, 94, 0, 0.05) 100%)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 1) 0%, rgba(255, 32, 0, 0.05) 100%)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
             <Trophy size={18} color="var(--secondary)" />
             Sfide & Premi Atleta 🏆
@@ -2235,7 +2247,7 @@ export default function FeedPage() {
       {/* MODAL DETTAGLI ATTIVITA */}
       {selectedActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedActivity(null)}>
-          <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 94, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+          <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 32, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
@@ -2309,7 +2321,7 @@ export default function FeedPage() {
             )}
 
             {/* Performance Stats */}
-            <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 94, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 94, 0, 0.15)' }}>
+            <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 32, 0, 0.15)' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Drink Totali</div>
                 <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
@@ -2337,12 +2349,12 @@ export default function FeedPage() {
             </div>
 
             {/* TIMELINE CURVA BAC */}
-            <div style={{ marginBottom: '25px', background: 'rgba(255, 94, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
+            <div style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '8px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 📈 Curva d&apos;Ebbrezza (Assorbimento &amp; Smaltimento Widmark)
               </h3>
               {/* Nota: curva della singola sessione */}
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(255,176,0,0.05)', border: '1px solid rgba(255,176,0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(223, 255, 0,0.05)', border: '1px solid rgba(223, 255, 0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
                 <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.4 }}>
                   {selectedActivity?.is_active && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000
@@ -2362,7 +2374,7 @@ export default function FeedPage() {
                       borderRadius: '50%', 
                       background: pt.val > 0.8 ? 'var(--error)' : pt.val > 0.5 ? 'var(--primary)' : 'var(--success)', 
                       border: '3px solid #000',
-                      boxShadow: '0 0 10px rgba(255,94,0,0.5)',
+                      boxShadow: '0 0 10px rgba(255, 32, 0,0.5)',
                       marginTop: '6px',
                       marginBottom: '6px'
                     }} />
@@ -2459,7 +2471,7 @@ export default function FeedPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,176,0,0.04)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,176,0,0.1)', marginTop: '12px', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(223, 255, 0,0.04)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(223, 255, 0,0.1)', marginTop: '12px', fontSize: '12px' }}>
                       <span>👑</span>
                       <div>
                         <strong>Leggenda del Locale:</strong> {localLegend.name} ({localLegend.count} {localLegend.count === 1 ? 'sessione' : 'sessioni'} registrate qui).
@@ -2499,7 +2511,7 @@ export default function FeedPage() {
             {/* Elenco completo e dettagliato delle consumazioni */}
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>Dettagli della Prestazione (Drinks)</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
-              {selectedActivity.drinks.map((drink, idx) => {
+              {groupDrinks(selectedActivity.drinks).map((drink, idx) => {
                 const calculatedUnits = (drink.units ? (drink.units * drink.qty) : (drink.qty * 1.5));
                 const drinkTime = drink.added_at 
                   ? new Date(drink.added_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
@@ -2527,7 +2539,7 @@ export default function FeedPage() {
 
             {/* Sezione Aggiungi Drink (Modifica Sessione) */}
             {currentUser && selectedActivity.user_id === currentUser.id && (
-              <div style={{ background: 'rgba(255, 94, 0, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
+              <div style={{ background: 'rgba(255, 32, 0, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Plus size={16} /> Aggiungi Drink in tempo reale
                 </h4>
@@ -2601,7 +2613,7 @@ export default function FeedPage() {
                 const shown = people.slice(0, 3);
                 const extra = people.length - shown.length;
                 return (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255,94,0,0.05)', border: '1px solid rgba(255,94,0,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255, 32, 0,0.05)', border: '1px solid rgba(255, 32, 0,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
                     <Beer size={15} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }} fill="var(--primary)" />
                     <span style={{ fontSize: '13px', color: 'var(--text-dark-primary)', lineHeight: 1.5 }}>
                       Hanno brindato:{' '}
@@ -2711,7 +2723,7 @@ export default function FeedPage() {
       {/* MODAL MODIFICA ATTIVITA */}
       {editingActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1100, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setEditingActivity(null)}>
-          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 94, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 32, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
@@ -2880,7 +2892,7 @@ export default function FeedPage() {
                   <Loader size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
                 )}
                 {editFriendQuery.trim().length >= 1 && (
-                  <div style={{ position: 'absolute', top: '40px', left: 0, right: 0, background: 'var(--bg-card-dark, #161822)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
+                  <div style={{ position: 'absolute', top: '40px', left: 0, right: 0, background: 'var(--bg-card-dark, #17181B)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
                     {editFriendResults.map((p) => (
                       <button
                         key={p.id}
@@ -2957,10 +2969,10 @@ export default function FeedPage() {
       {/* MODAL BLOCCO REGISTRAZIONE COMPLETAMENTO NOME (GOOGLE OAUTH FORCED) */}
       {showCompleteProfileModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(10px)' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '450px', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 94, 0, 0.3)', padding: '30px', borderRadius: '16px', background: '#0B0A09', position: 'relative' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '450px', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 32, 0, 0.3)', padding: '30px', borderRadius: '16px', background: '#0B0A09', position: 'relative' }}>
             
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <div style={{ display: 'inline-flex', background: 'rgba(255, 94, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
+              <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
                 <Award size={40} />
               </div>
               <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '8px' }}>Completa il Profilo 🏅</h2>

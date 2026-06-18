@@ -9,7 +9,7 @@ import RequireAuth from '@/components/RequireAuth';
 export default function SearchPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState(typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('q') || '') : '');
+  const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [followingIds, setFollowingIds] = useState([]);
@@ -36,6 +36,13 @@ export default function SearchPage() {
         setLoading(false);
       }
     })();
+  }, []);
+
+  // Prefill dalla query ?q (es. arrivando dalla tendina in navbar)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) setQuery(q);
   }, []);
 
   // Autofocus sull'input appena pronto

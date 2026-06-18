@@ -69,7 +69,7 @@ export default function ShareActivityPage({ params }) {
         ctx.fillRect(0, size - 450, size, 450);
 
         // Bordo neon leggero
-        ctx.strokeStyle = '#FF5E00';
+        ctx.strokeStyle = '#FF2000';
         ctx.lineWidth = 14;
         ctx.strokeRect(7, 7, size - 14, size - 14);
       } else {
@@ -77,37 +77,37 @@ export default function ShareActivityPage({ params }) {
         const gradient = ctx.createLinearGradient(0, 0, size, size);
         gradient.addColorStop(0, '#1E1B18'); // Grigio scuro caldo
         gradient.addColorStop(0.5, '#0B0A09'); // Quasi nero
-        gradient.addColorStop(1, '#FF5E00'); // Arancio neon Strabar
+        gradient.addColorStop(1, '#FF2000'); // Arancio neon Strabar
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, size, size);
 
         // Disegna Cerchi Decorativi sfumati
-        ctx.fillStyle = 'rgba(255, 94, 0, 0.08)';
+        ctx.fillStyle = 'rgba(255, 32, 0, 0.08)';
         ctx.beginPath();
         ctx.arc(size / 2, size / 2, 400, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = 'rgba(255, 176, 0, 0.05)';
+        ctx.fillStyle = 'rgba(223, 255, 0, 0.05)';
         ctx.beginPath();
         ctx.arc(size, 0, 300, 0, Math.PI * 2);
         ctx.fill();
 
         // Bordi Neon Orange
-        ctx.strokeStyle = '#FF5E00';
+        ctx.strokeStyle = '#FF2000';
         ctx.lineWidth = 20;
         ctx.strokeRect(10, 10, size - 20, size - 20);
       }
 
       // LOGO "STRABAR" in alto
-      ctx.fillStyle = '#FF5E00';
-      ctx.font = 'bold 50px Outfit, -apple-system, sans-serif';
+      ctx.fillStyle = '#FF2000';
+      ctx.font = 'bold 50px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('STRA', 80, 120);
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText('BAR', 215, 120);
 
       // Sottotitolo
       ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
-      ctx.font = '600 22px Outfit, -apple-system, sans-serif';
+      ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('LO SPORT DEL BRINDISI', 80, 160);
 
       // Icona emoji
@@ -116,18 +116,18 @@ export default function ShareActivityPage({ params }) {
 
       // Titolo Attività
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 64px Outfit, -apple-system, sans-serif';
+      ctx.font = '800 64px "DM Sans", -apple-system, sans-serif';
       const title = activity.title || 'Sessione Alcolica';
       ctx.fillText(title.length > 25 ? title.substring(0, 25) + '...' : title, 80, 280);
 
       // Nome Autore e data
       const author = activity.profiles?.display_name || 'Utente Strabar';
       const dateStr = new Date(activity.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
-      ctx.fillStyle = '#FFB000';
-      ctx.font = '600 32px Outfit, -apple-system, sans-serif';
+      ctx.fillStyle = '#DFFF00';
+      ctx.font = '600 32px "DM Sans", -apple-system, sans-serif';
       ctx.fillText(`Registrato da: ${author}`, 80, 340);
       ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
-      ctx.font = '400 24px Outfit, -apple-system, sans-serif';
+      ctx.font = '400 24px "DM Sans", -apple-system, sans-serif';
       ctx.fillText(dateStr, 80, 380);
 
       // Riquadro per le statistiche principali (Centro)
@@ -137,7 +137,7 @@ export default function ShareActivityPage({ params }) {
       
       // Sfondo riquadro glassmorphic
       ctx.fillStyle = usePhoto ? 'rgba(11, 10, 9, 0.65)' : 'rgba(22, 24, 34, 0.85)';
-      ctx.strokeStyle = 'rgba(255, 94, 0, 0.4)';
+      ctx.strokeStyle = 'rgba(255, 32, 0, 0.4)';
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.roundRect(80, boxY, boxW, boxH, 24);
@@ -152,7 +152,7 @@ export default function ShareActivityPage({ params }) {
       const setValueFont = (text, baseSize) => {
         let s = baseSize;
         do {
-          ctx.font = `800 ${s}px Outfit, -apple-system, sans-serif`;
+          ctx.font = `800 ${s}px "DM Sans", -apple-system, sans-serif`;
           if (ctx.measureText(text).width <= maxValW) break;
           s -= 4;
         } while (s > 26);
@@ -162,9 +162,9 @@ export default function ShareActivityPage({ params }) {
       const totalDrinks = activity.drinks ? activity.drinks.reduce((acc, d) => acc + d.qty, 0) : 0;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#9CA3AF';
-      ctx.font = '600 24px Outfit, -apple-system, sans-serif';
+      ctx.font = '600 24px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('DRINK TOTALI', 80 + colWidth / 2, boxY + 80);
-      ctx.fillStyle = '#FF5E00';
+      ctx.fillStyle = '#FF2000';
       setValueFont(totalDrinks.toString(), 96);
       ctx.fillText(totalDrinks.toString(), 80 + colWidth / 2, boxY + 200);
 
@@ -173,7 +173,7 @@ export default function ShareActivityPage({ params }) {
       const mins = activity.duration % 60;
       const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
       ctx.fillStyle = '#9CA3AF';
-      ctx.font = '600 24px Outfit, -apple-system, sans-serif';
+      ctx.font = '600 24px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('DURATA SFORZO', 80 + colWidth + colWidth / 2, boxY + 80);
       ctx.fillStyle = '#FFFFFF';
       setValueFont(timeStr, 70);
@@ -182,14 +182,14 @@ export default function ShareActivityPage({ params }) {
       // Stat 3: Unità Alcoliche (numero grande + "U.A." piccolo sotto, così non sfora mai)
       const col3Center = 80 + colWidth * 2 + colWidth / 2;
       ctx.fillStyle = '#9CA3AF';
-      ctx.font = '600 24px Outfit, -apple-system, sans-serif';
+      ctx.font = '600 24px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('UNITÀ ALCOLICHE', col3Center, boxY + 80);
-      ctx.fillStyle = '#FFB000';
+      ctx.fillStyle = '#DFFF00';
       const uaValue = `${activity.total_units}`;
       setValueFont(uaValue, 80);
       ctx.fillText(uaValue, col3Center, boxY + 190);
-      ctx.fillStyle = '#FFB000';
-      ctx.font = '700 30px Outfit, -apple-system, sans-serif';
+      ctx.fillStyle = '#DFFF00';
+      ctx.font = '700 30px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('U.A.', col3Center, boxY + 240);
 
       // Reset allineamento a sinistra
@@ -197,29 +197,41 @@ export default function ShareActivityPage({ params }) {
 
       // Lista Drink consumati in basso
       ctx.fillStyle = '#E5E7EB';
-      ctx.font = '600 28px Outfit, -apple-system, sans-serif';
+      ctx.font = '600 28px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('LISTA PRESTAZIONI:', 80, 850);
 
-      let drinkTags = activity.drinks ? activity.drinks.map(d => `${d.qty}x ${d.name}`).join('  •  ') : '';
+      // Raggruppa i drink uguali sommando le quantità
+      const groupedForTags = (() => {
+        const m = {};
+        (activity.drinks || []).forEach((d) => {
+          const k = `${(d.name || '').trim()}|${d.abv ?? ''}`;
+          if (!m[k]) m[k] = { name: d.name, qty: 0 };
+          m[k].qty += (d.qty || 1);
+        });
+        return Object.values(m);
+      })();
+      let drinkTags = groupedForTags.map((d) => `${d.qty}x ${d.name}`).join('  •  ');
       if (drinkTags.length > 55) drinkTags = drinkTags.substring(0, 52) + '...';
       
       ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
-      ctx.font = '400 26px Outfit, -apple-system, sans-serif';
+      ctx.font = '400 26px "DM Sans", -apple-system, sans-serif';
       ctx.fillText(drinkTags, 80, 900);
 
       // Livello Ebbrezza in basso a destra
       ctx.textAlign = 'right';
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 28px Outfit, -apple-system, sans-serif';
+      ctx.font = 'bold 28px "DM Sans", -apple-system, sans-serif';
       ctx.fillText(`Ebbrezza: ${activity.feeling}`, size - 80, 850);
       ctx.textAlign = 'left';
 
-      // Footer branding
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.font = '500 22px Outfit, -apple-system, sans-serif';
-      ctx.fillText('Scarica Strabar su strabar.app', 80, size - 70);
+      // Footer branding — URL reale di installazione
+      const installHost = (typeof window !== 'undefined' ? window.location.host : 'strabar-delta.vercel.app');
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
+      ctx.fillText(`📲 Installa: ${installHost}/install`, 80, size - 70);
 
       ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.fillText('#StraBarAthletes', size - 80, size - 70);
     };
 
@@ -249,7 +261,7 @@ export default function ShareActivityPage({ params }) {
         const gradient = ctx.createLinearGradient(0, 0, size, size);
         gradient.addColorStop(0, '#1E1B18');
         gradient.addColorStop(0.5, '#0B0A09');
-        gradient.addColorStop(1, '#FF5E00');
+        gradient.addColorStop(1, '#FF2000');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, size, size);
         drawStats();
@@ -273,7 +285,8 @@ export default function ShareActivityPage({ params }) {
 
   const shareCaption = () => {
     const drinks = activity.drinks.reduce((acc, d) => acc + d.qty, 0);
-    return `🍻 ${activity.title}\n${drinks} drink • ${activity.total_units} U.A. • Stato: ${activity.feeling}\n\nTraccia le tue bevute su Strabar!`;
+    const installUrl = typeof window !== 'undefined' ? `${window.location.origin}/install` : 'https://strabar-delta.vercel.app/install';
+    return `🍻 ${activity.title}\n${drinks} drink • ${activity.total_units} U.A. • Stato: ${activity.feeling}\n\nUnisciti a me su Strabar 👉 ${installUrl}`;
   };
 
   // Condivisione nativa con l'immagine (apre il foglio di sistema: WhatsApp, IG, ecc.)
@@ -414,7 +427,7 @@ export default function ShareActivityPage({ params }) {
                 style={{
                   width: '64px', height: '64px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer', padding: 0,
                   border: selectedPhotoIdx === idx ? '3px solid var(--primary)' : '2px solid var(--border-dark)',
-                  boxShadow: selectedPhotoIdx === idx ? '0 0 10px rgba(255,94,0,0.4)' : 'none',
+                  boxShadow: selectedPhotoIdx === idx ? '0 0 10px rgba(255, 32, 0,0.4)' : 'none',
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -486,7 +499,7 @@ export default function ShareActivityPage({ params }) {
       </div>
 
       {/* Riquadro Iscrizione / Partecipazione per Non-Utenti */}
-      <div className="card" style={{ marginTop: '30px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.08) 100%)', textAlign: 'center', padding: '24px', borderRadius: 'var(--radius)' }}>
+      <div className="card" style={{ marginTop: '30px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', textAlign: 'center', padding: '24px', borderRadius: 'var(--radius)' }}>
         <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#FFF' }}>
           🍻 Vuoi partecipare anche tu alle sfide di Strabar?
         </h3>

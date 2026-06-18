@@ -168,7 +168,7 @@ export default function EventsPage() {
                 <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#FFF' }}>{ev.title}</h3>
                 {ev.myResponse && (
                   <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', padding: '3px 8px', borderRadius: '20px', flexShrink: 0,
-                    background: ev.myResponse === 'going' ? 'rgba(16,185,129,0.15)' : ev.myResponse === 'maybe' ? 'rgba(255,176,0,0.15)' : 'rgba(239,68,68,0.15)',
+                    background: ev.myResponse === 'going' ? 'rgba(16,185,129,0.15)' : ev.myResponse === 'maybe' ? 'rgba(223, 255, 0,0.15)' : 'rgba(239,68,68,0.15)',
                     color: ev.myResponse === 'going' ? 'var(--success)' : ev.myResponse === 'maybe' ? 'var(--secondary)' : 'var(--error)' }}>
                     {RSVP_LABEL[ev.myResponse]}
                   </span>
@@ -265,7 +265,7 @@ export default function EventsPage() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px',
                           border: `1px solid ${sel ? 'var(--primary)' : 'var(--border-dark)'}`,
-                          background: sel ? 'rgba(255,94,0,0.12)' : 'var(--bg-input-dark)',
+                          background: sel ? 'rgba(255, 32, 0,0.12)' : 'var(--bg-input-dark)',
                           color: sel ? 'var(--primary)' : 'var(--text-dark-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
                         }}
                       >

@@ -38,6 +38,7 @@ export default function LogActivityPage() {
   // Visibilità della sessione live: chi la vede nel feed e sul radar mentre bevi.
   // 'private' = nascosta a tutti finché è live (riappare nel feed solo a chiusura).
   const [liveShare, setLiveShare] = useState('friends'); // 'private' | 'friends' | 'public'
+  const [fullStomach, setFullStomach] = useState(false); // stomaco pieno → BAC più preciso
 
   // Stati per registrazione a posteriori
   const [showRetroForm, setShowRetroForm] = useState(false);
@@ -115,7 +116,8 @@ export default function LogActivityPage() {
         createdAt,
         duration,
         new Date(new Date(retroForm.date).getTime() + duration * 60 * 1000).toISOString(),
-        currentUser?.weight
+        currentUser?.weight,
+        fullStomach
       );
       await db.createActivity({
         title: retroForm.title || `Sessione del ${new Date(retroForm.date).toLocaleDateString('it-IT')}`,
@@ -127,6 +129,7 @@ export default function LogActivityPage() {
         location: retroForm.location ? { name: retroForm.location } : null,
         bac_level: parseFloat(bac.toFixed(2)),
         media: retroForm.media && retroForm.media.length > 0 ? retroForm.media : null,
+        full_stomach: fullStomach,
         is_active: false,
         created_at: createdAt,  // data passata dall'utente per sessioni a posteriori
       });
@@ -344,6 +347,7 @@ export default function LogActivityPage() {
         title: 'Brindisi Live 🍻',
         drinks: [],
         location,
+        full_stomach: fullStomach,
         is_active: true,
         bac_level: 0,
         total_units: 0,
@@ -437,6 +441,7 @@ export default function LogActivityPage() {
             share: liveShare,
             ...(unverified ? { unverified: true } : {}),
           },
+          full_stomach: fullStomach,
           drinks: [],
           is_active: true,
           bac_level: 0,
@@ -494,7 +499,7 @@ export default function LogActivityPage() {
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '22px' }}>
       <div style={{ textAlign: 'center' }}>
-        <span style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <span style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
           ⏱️ Registrazione in Tempo Reale
         </span>
         <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#FFF', marginTop: '14px' }}>
@@ -523,6 +528,15 @@ export default function LogActivityPage() {
           <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
           <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>🔒 Privata</div>
         </div>
+
+        {/* Stomaco pieno/vuoto → BAC e curva più precisi */}
+        <div style={{ marginTop: '12px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>🍽️ Hai mangiato? Aiuta a stimare meglio il tasso alcolico:</span>
+          <div className="seg-tabs">
+            <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>Stomaco vuoto</div>
+            <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>🍝 Stomaco pieno</div>
+          </div>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -533,7 +547,7 @@ export default function LogActivityPage() {
           className="card" 
           style={{ 
             cursor: 'pointer', 
-            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 94, 0, 0.05) 100%)', 
+            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 32, 0, 0.05) 100%)', 
             border: '1px solid var(--border-dark)',
             display: 'flex',
             alignItems: 'center',
@@ -550,7 +564,7 @@ export default function LogActivityPage() {
             e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
-          <div style={{ background: 'rgba(255, 94, 0, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
+          <div style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
             <MapPin size={28} />
           </div>
           <div style={{ flex: 1 }}>
@@ -567,7 +581,7 @@ export default function LogActivityPage() {
           className="card" 
           style={{ 
             cursor: startingSession ? 'not-allowed' : 'pointer', 
-            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 176, 0, 0.05) 100%)', 
+            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(223, 255, 0, 0.05) 100%)', 
             border: '1px solid var(--border-dark)',
             display: 'flex',
             alignItems: 'center',
@@ -588,7 +602,7 @@ export default function LogActivityPage() {
             }
           }}
         >
-          <div style={{ background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
+          <div style={{ background: 'rgba(223, 255, 0, 0.1)', color: 'var(--secondary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
             {startingSession ? (
               <Loader size={28} style={{ animation: 'spin 1s linear infinite' }} />
             ) : (
@@ -641,7 +655,7 @@ export default function LogActivityPage() {
       {/* MODAL 1: Avviso Sessione Attiva */}
       {showActiveSessionWarning && activeSession && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 94, 0, 0.25)', padding: '24px', position: 'relative' }}>
+          <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 32, 0, 0.25)', padding: '24px', position: 'relative' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Sessione Live Attiva! 🚨</h2>
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
               Hai già un brindisi live attivo presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> (durata: {Math.max(1, Math.round((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000))} min).
@@ -752,7 +766,7 @@ export default function LogActivityPage() {
             </div>
 
             {geoError && localeSearchQuery.trim().length < 2 && (
-              <div style={{ fontSize: '12px', color: 'var(--secondary)', background: 'rgba(255,176,0,0.08)', border: '1px solid rgba(255,176,0,0.3)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', lineHeight: '1.4', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--secondary)', background: 'rgba(223, 255, 0,0.08)', border: '1px solid rgba(223, 255, 0,0.3)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', lineHeight: '1.4', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <span>⚠️ {geoError}</span>
                 {!userCoords && (
                   <button
@@ -786,7 +800,7 @@ export default function LogActivityPage() {
                     key={loc.key}
                     onClick={() => startSessionAtVenue(loc)}
                     style={{ padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-dark)', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'rgba(255,94,0,0.02)'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'rgba(255, 32, 0,0.02)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-dark)'; e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -968,6 +982,15 @@ export default function LogActivityPage() {
                     onChange={e => setRetroForm(p => ({ ...p, description: e.target.value }))}
                     style={{ height: '40px', padding: '0 12px', fontSize: '13px' }}
                   />
+                </div>
+              </div>
+
+              {/* Stomaco pieno/vuoto */}
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: '600' }}>🍽️ Stomaco</label>
+                <div className="seg-tabs">
+                  <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>Vuoto</div>
+                  <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>🍝 Pieno</div>
                 </div>
               </div>
 

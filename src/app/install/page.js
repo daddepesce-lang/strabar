@@ -50,7 +50,7 @@ export default function InstallPage() {
   return (
     <div style={{ maxWidth: '560px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px', textAlign: 'center' }}>
       <div>
-        <div style={{ display: 'inline-flex', background: 'rgba(255,94,0,0.12)', padding: '20px', borderRadius: '24px', color: 'var(--primary)', marginBottom: '16px' }}>
+        <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '20px', borderRadius: '24px', color: 'var(--primary)', marginBottom: '16px' }}>
           <Beer size={48} fill="var(--primary)" />
         </div>
         <h1 style={{ fontSize: '30px', fontWeight: 900 }}>Installa Strabar 🍻</h1>
@@ -67,7 +67,7 @@ export default function InstallPage() {
           { icon: Wifi, t: 'Funziona offline', d: 'Le pagine viste restano disponibili senza rete.' },
         ].map(({ icon: Icon, t, d }, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ background: 'rgba(255,94,0,0.1)', color: 'var(--primary)', width: 40, height: 40, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 40, height: 40, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Icon size={20} />
             </span>
             <div>

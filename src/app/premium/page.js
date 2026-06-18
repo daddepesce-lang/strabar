@@ -76,7 +76,7 @@ export default function PremiumPage() {
         {/* Colonna Sinistra: Benefici */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="card" style={{ display: 'flex', gap: '15px', padding: '20px' }}>
-            <div style={{ background: 'rgba(255, 94, 0, 0.1)', padding: '12px', borderRadius: '12px', height: 'fit-content', color: 'var(--primary)' }}>
+            <div style={{ background: 'rgba(255, 32, 0, 0.1)', padding: '12px', borderRadius: '12px', height: 'fit-content', color: 'var(--primary)' }}>
               <Map size={24} />
             </div>
             <div>
@@ -88,7 +88,7 @@ export default function PremiumPage() {
           </div>
 
           <div className="card" style={{ display: 'flex', gap: '15px', padding: '20px' }}>
-            <div style={{ background: 'rgba(255, 176, 0, 0.1)', padding: '12px', borderRadius: '12px', height: 'fit-content', color: 'var(--secondary)' }}>
+            <div style={{ background: 'rgba(223, 255, 0, 0.1)', padding: '12px', borderRadius: '12px', height: 'fit-content', color: 'var(--secondary)' }}>
               <BarChart3 size={24} />
             </div>
             <div>
@@ -145,7 +145,7 @@ export default function PremiumPage() {
 
           <div>
             {user?.is_premium ? (
-              <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255, 176, 0, 0.1)', color: 'var(--secondary)', fontWeight: '700', borderRadius: '20px', border: '1px solid var(--secondary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(223, 255, 0, 0.1)', color: 'var(--secondary)', fontWeight: '700', borderRadius: '20px', border: '1px solid var(--secondary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <span>Tutte le funzioni sbloccate! ⭐</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-dark-secondary)' }}>
                   Gratis per tutti durante la beta

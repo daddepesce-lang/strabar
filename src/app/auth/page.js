@@ -102,7 +102,7 @@ export default function AuthPage() {
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 150px)', padding: '20px' }}>
       <div className="card" style={{ width: '100%', maxWidth: '450px', border: '1px solid var(--border-dark)' }}>
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{ display: 'inline-flex', background: 'rgba(255, 94, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
+          <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
             <Beer size={40} fill="var(--primary)" />
           </div>
           <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>

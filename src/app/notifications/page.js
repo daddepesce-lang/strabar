@@ -102,8 +102,8 @@ export default function NotificationsPage() {
                   textAlign: 'left',
                   cursor: n.link ? 'pointer' : 'default',
                   padding: '14px 16px',
-                  background: n.read ? 'var(--bg-card-dark)' : 'rgba(255,94,0,0.06)',
-                  borderColor: n.read ? 'var(--border-dark)' : 'rgba(255,94,0,0.35)',
+                  background: n.read ? 'var(--bg-card-dark)' : 'rgba(255, 32, 0,0.06)',
+                  borderColor: n.read ? 'var(--border-dark)' : 'rgba(255, 32, 0,0.35)',
                 }}
               >
                 {/* Avatar attore con badge tipo */}

@@ -415,6 +415,7 @@ export const db = {
       location: activityData.location || null,
       bac_level: parseFloat(activityData.bac_level || 0),
       media: activityData.media || null,
+      full_stomach: activityData.full_stomach !== undefined ? activityData.full_stomach : null,
       is_active: activityData.is_active !== undefined ? activityData.is_active : false,
       // Usa created_at personalizzato per sessioni a posteriori, altrimenti adesso
       created_at: activityData.created_at || new Date().toISOString()
@@ -431,7 +432,7 @@ export const db = {
       // (es. errore "Could not find the 'bac_level' column" o column doesn't exist), riprova senza di esse.
       // Esegui comunque la MIGRAZIONE in supabase_schema.sql per non perdere questi dati.
       if (error && (error.code === 'PGRST204' || error.code === '42703' || /Could not find the '(\w+)' column|column .* does not exist/i.test(error.message || ''))) {
-        const { bac_level, media, location, drank_with, description, is_active, ...essential } = newActivity;
+        const { bac_level, media, location, drank_with, description, is_active, full_stomach, ...essential } = newActivity;
         console.warn('Colonne mancanti nello schema sessions, salvo i campi essenziali. Esegui la migrazione SQL.', error.message);
         ({ data, error } = await supabase
           .from('sessions')
@@ -1001,7 +1002,7 @@ export const db = {
     });
   },
 
-  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg) {
+  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg, fullStomach) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return [];
 
@@ -1009,6 +1010,8 @@ export const db = {
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = 0.68;
     const eliminationPerHour = 0.15 * w * r; // grammi smaltiti all'ora
+    // A stomaco pieno l'assorbimento è più lento e il picco più basso (~ -20%)
+    const stomachFactor = fullStomach ? 0.8 : 1.0;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = new Date(Math.min(...timestamps));
@@ -1034,7 +1037,7 @@ export const db = {
         const effectiveDtHours = Math.max(0, dtHours);
         const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
         const drinkUnits = (d.units || 1.3) * (d.qty || 1);
-        totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
+        totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction * stomachFactor;
       });
 
       const hoursSinceStart = (T.getTime() - startTime.getTime()) / (1000 * 60 * 60);
@@ -1053,13 +1056,14 @@ export const db = {
     return timepoints;
   },
 
-  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg) {
+  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return 0;
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = 0.68;
     const eliminationPerHour = 0.15 * w * r;
+    const stomachFactor = fullStomach ? 0.8 : 1.0;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = new Date(Math.min(...timestamps));
@@ -1078,7 +1082,7 @@ export const db = {
       const effectiveDtHours = Math.max(0, dtHours);
       const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
       const drinkUnits = (d.units || 1.3) * (d.qty || 1);
-      totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction;
+      totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction * stomachFactor;
     });
 
     const hoursSinceStart = (refMs - startTime.getTime()) / (1000 * 60 * 60);

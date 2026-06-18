@@ -209,10 +209,10 @@ export default function RoutesPage() {
   // Icona tappa (rossa di default, oro+glow se è la tappa attiva)
   const makeWaypointIcon = (L, idx, active) => {
     const size = active ? 38 : 28;
-    const bg = active ? '#FFB000' : '#EF4444';
+    const bg = active ? '#DFFF00' : '#EF4444';
     const ring = active ? '3px solid #fff' : '2px solid #fff';
     const glow = active
-      ? '0 0 0 4px rgba(255,176,0,0.35), 0 2px 10px rgba(0,0,0,0.6)'
+      ? '0 0 0 4px rgba(223, 255, 0,0.35), 0 2px 10px rgba(0,0,0,0.6)'
       : '0 2px 8px rgba(0,0,0,0.5)';
     return L.divIcon({
       className: 'custom-numbered-marker',
@@ -270,7 +270,7 @@ export default function RoutesPage() {
     if (routeCoordsState && routeCoordsState.length > 1) {
       mapInstance.current.invalidateSize(); // Corregge dimensioni grigie di Leaflet in React
       polylineRef.current = L.polyline(routeCoordsState, {
-        color: '#FF5E00',
+        color: '#FF2000',
         weight: 4,
         opacity: 0.85,
       }).addTo(mapInstance.current);
@@ -341,7 +341,7 @@ export default function RoutesPage() {
       const addBtn = document.createElement('button');
       addBtn.textContent = '+ Aggiungi al Percorso';
       addBtn.style.marginTop = '8px';
-      addBtn.style.background = '#FF5E00';
+      addBtn.style.background = '#FF2000';
       addBtn.style.color = 'white';
       addBtn.style.border = 'none';
       addBtn.style.padding = '6px 14px';
@@ -978,7 +978,7 @@ out body;`;
                           flexDirection: 'column',
                           alignItems: 'flex-start',
                           padding: '12px 14px',
-                          background: isSelected ? 'rgba(255, 94, 0, 0.08)' : 'var(--bg-input-dark)',
+                          background: isSelected ? 'rgba(255, 32, 0, 0.08)' : 'var(--bg-input-dark)',
                           borderColor: isSelected ? 'var(--primary)' : 'var(--border-dark)',
                           borderRadius: '10px',
                         }}
@@ -1029,7 +1029,7 @@ out body;`;
                   fontSize: '12px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  background: travelMode === 'foot' ? 'rgba(255, 94, 0, 0.15)' : 'var(--bg-input-dark)',
+                  background: travelMode === 'foot' ? 'rgba(255, 32, 0, 0.15)' : 'var(--bg-input-dark)',
                   border: travelMode === 'foot' ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
                   color: travelMode === 'foot' ? '#FFF' : 'var(--text-dark-secondary)',
                   display: 'flex',
@@ -1050,7 +1050,7 @@ out body;`;
                   fontSize: '12px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  background: travelMode === 'driving' ? 'rgba(255, 94, 0, 0.15)' : 'var(--bg-input-dark)',
+                  background: travelMode === 'driving' ? 'rgba(255, 32, 0, 0.15)' : 'var(--bg-input-dark)',
                   border: travelMode === 'driving' ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
                   color: travelMode === 'driving' ? '#FFF' : 'var(--text-dark-secondary)',
                   display: 'flex',
@@ -1210,7 +1210,7 @@ out body;`;
                       key={idx}
                       onClick={() => setActiveWaypointIndex(idx)}
                       style={{
-                        background: active ? 'rgba(255,176,0,0.1)' : 'var(--bg-input-dark)',
+                        background: active ? 'rgba(223, 255, 0,0.1)' : 'var(--bg-input-dark)',
                         border: active ? '1px solid var(--secondary)' : '1px solid var(--border-dark)',
                         padding: '10px 12px',
                         borderRadius: '8px',
@@ -1224,7 +1224,7 @@ out body;`;
                     >
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0, flex: 1 }}>
                         <div style={{
-                          background: active ? '#FFB000' : '#EF4444',
+                          background: active ? '#DFFF00' : '#EF4444',
                           color: 'white',
                           width: active ? '26px' : '22px',
                           height: active ? '26px' : '22px',
@@ -1293,7 +1293,7 @@ out body;`;
           color: #9ca3af !important;
         }
         .leaflet-popup-close-button:hover {
-          color: #ff5e00 !important;
+          color: #ff2000 !important;
         }
       `}</style>
     </div>

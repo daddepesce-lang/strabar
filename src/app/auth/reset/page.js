@@ -61,7 +61,7 @@ export default function ResetPasswordPage() {
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 200px)', padding: '20px' }}>
       <div className="card" style={{ width: '100%', maxWidth: '420px', border: '1px solid var(--border-dark)' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ display: 'inline-flex', background: 'rgba(255,94,0,0.1)', padding: '14px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '12px' }}>
+          <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.1)', padding: '14px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '12px' }}>
             <Lock size={32} />
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: 800 }}>Reimposta la password</h1>

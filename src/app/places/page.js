@@ -663,7 +663,7 @@ export default function ClassifichePage() {
               Per garantire l&apos;integrità delle classifiche locali, puoi avviare un brindisi solo se sei entro <strong>200 metri</strong> dal locale.
             </p>
 
-            <div style={{ background: 'rgba(255, 94, 0, 0.05)', border: '1px dashed rgba(255, 94, 0, 0.3)', padding: '12px', borderRadius: '8px', fontSize: '12px', color: 'var(--primary)' }}>
+            <div style={{ background: 'rgba(255, 32, 0, 0.05)', border: '1px dashed rgba(255, 32, 0, 0.3)', padding: '12px', borderRadius: '8px', fontSize: '12px', color: 'var(--primary)' }}>
               <strong>Sviluppatore o Tester?</strong> Puoi forzare l&apos;avvio per simulare e testare le funzionalità.
             </div>
 

@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react';
  *  - connectLine: se false mostra solo i marker senza la polilinea (default true)
  *  - markerColor: colore dei marker (default arancione primary)
  */
-export default function RouteMap({ waypoints = [], height = '420px', interactive = true, connectLine = true, markerColor = '#FF5E00', activeIndex = null, onSelect = null, center = null, radiusMeters = null }) {
+export default function RouteMap({ waypoints = [], height = '420px', interactive = true, connectLine = true, markerColor = '#FF2000', activeIndex = null, onSelect = null, center = null, radiusMeters = null }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null);
@@ -90,9 +90,9 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
   const makeIcon = (label, active) => {
     const L = leafletRef.current;
     const size = active ? 38 : 28;
-    const bg = active ? '#FFB000' : markerColor;
+    const bg = active ? '#DFFF00' : markerColor;
     const ring = active ? '3px solid #fff' : '2px solid #fff';
-    const glow = active ? '0 0 0 4px rgba(255,176,0,0.35), 0 2px 10px rgba(0,0,0,0.6)' : '0 2px 8px rgba(0,0,0,0.5)';
+    const glow = active ? '0 0 0 4px rgba(223, 255, 0,0.35), 0 2px 10px rgba(0,0,0,0.6)' : '0 2px 8px rgba(0,0,0,0.5)';
     return L.divIcon({
       className: 'custom-numbered-marker',
       html: `<div style="background:${bg};color:#fff;width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:${active ? 15 : 12}px;border:${ring};box-shadow:${glow};transition:all .2s;">${label}</div>`,

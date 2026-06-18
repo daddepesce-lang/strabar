@@ -129,7 +129,7 @@ export default function EventDetailPage({ params }) {
       </Link>
 
       {/* Intestazione evento */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.06) 100%)' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.06) 100%)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 800 }}>{event.title}</h1>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -192,7 +192,7 @@ export default function EventDetailPage({ params }) {
                   flex: '1 1 120px', borderRadius: '12px', padding: '12px',
                   border: `1px solid ${active ? color : 'var(--border-dark)'}`,
                   background: active ? color : 'var(--bg-input-dark)',
-                  color: active ? '#0B0C10' : 'var(--text-dark-primary)',
+                  color: active ? '#0D0D0D' : 'var(--text-dark-primary)',
                   fontWeight: 700,
                 }}
               >
@@ -251,7 +251,7 @@ export default function EventDetailPage({ params }) {
                       <button key={f.id} onClick={() => setToInvite((p) => sel ? p.filter((i) => i !== f.id) : [...p, f.id])}
                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px',
                           border: `1px solid ${sel ? 'var(--primary)' : 'var(--border-dark)'}`,
-                          background: sel ? 'rgba(255,94,0,0.12)' : 'var(--bg-input-dark)',
+                          background: sel ? 'rgba(255, 32, 0,0.12)' : 'var(--bg-input-dark)',
                           color: sel ? 'var(--primary)' : 'var(--text-dark-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                         {sel && <Check size={13} />}{f.display_name}
                       </button>

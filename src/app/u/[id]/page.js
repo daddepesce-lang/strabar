@@ -136,7 +136,7 @@ export default function AthleteProfilePage({ params }) {
       </Link>
 
       {/* Intestazione profilo amico */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.06) 100%)' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.06) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
           <div className="activity-avatar" style={{ width: '76px', height: '76px', fontSize: '30px', border: '3px solid var(--primary)', flexShrink: 0 }}>
             {profile.display_name ? profile.display_name.charAt(0) : 'U'}
@@ -220,7 +220,7 @@ export default function AthleteProfilePage({ params }) {
                   <h3 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.title}</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                     {act._tagged && (
-                      <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--secondary)', background: 'rgba(255,176,0,0.12)', padding: '3px 8px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--secondary)', background: 'rgba(223, 255, 0,0.12)', padding: '3px 8px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                         <Users size={11} /> Taggato
                       </span>
                     )}

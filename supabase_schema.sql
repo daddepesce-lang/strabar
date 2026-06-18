@@ -303,6 +303,7 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS location JSONB DEFAULT NULL
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS drank_with JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL;
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS full_stomach BOOLEAN DEFAULT NULL;
 
 -- MIGRAZIONE: nome dell'attore nelle notifiche (per chi ha creato la tabella prima)
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS actor_name TEXT;
