@@ -111,42 +111,28 @@ export default function FeedPage() {
       if (!db || typeof db.getCurrentUser !== 'function') return;
       const user = await db.getCurrentUser();
       setCurrentUser(user);
-      
-      // Feed PAGINATO: scarica solo la prima pagina invece di tutta la tabella.
-      const acts = typeof db.getActivities === 'function' ? await db.getActivities({ limit: FEED_PAGE_SIZE }) : [];
+
+      // Tutte le query indipendenti partono IN PARALLELO (prima erano in sequenza:
+      // 6 round-trip uno dopo l'altro = somma delle latenze). Ora la latenza totale
+      // è ~quella della query più lenta.
+      const [acts, active, list, mine, top, following] = await Promise.all([
+        typeof db.getActivities === 'function' ? db.getActivities({ limit: FEED_PAGE_SIZE }).catch(() => []) : Promise.resolve([]),
+        user && typeof db.getActiveSession === 'function' ? db.getActiveSession(user.id).catch(() => null) : Promise.resolve(null),
+        user && typeof db.getAllProfiles === 'function' ? db.getAllProfiles().catch(() => []) : Promise.resolve([]),
+        user && typeof db.getUserActivities === 'function' ? db.getUserActivities(user.id).catch(() => []) : Promise.resolve([]),
+        user && typeof db.getTopDrinkers === 'function' ? db.getTopDrinkers(5).catch(() => []) : Promise.resolve([]),
+        user && typeof db.getFollowing === 'function' ? db.getFollowing(user.id).catch(() => []) : Promise.resolve([]),
+      ]);
+
       setActivities(acts);
       setFeedHasMore(acts.length >= FEED_PAGE_SIZE);
 
       if (user) {
-        if (typeof db.getActiveSession === 'function') {
-          const active = await db.getActiveSession(user.id);
-          setActiveSession(active);
-        }
-        const list = typeof db.getAllProfiles === 'function' ? await db.getAllProfiles() : [];
+        setActiveSession(active);
         setProfilesList(list);
-
-        // Statistiche personali (sidebar) da una query dedicata sull'utente: non
-        // dipende più dalla pagina del feed.
-        if (typeof db.getUserActivities === 'function') {
-          try { setMyActivities(await db.getUserActivities(user.id)); }
-          catch (err) { console.error('Errore caricamento attività utente:', err); }
-        }
-
-        // Classifica globale top atleti (aggregata nel DB, con fallback)
-        if (typeof db.getTopDrinkers === 'function') {
-          try { setTopDrinkers(await db.getTopDrinkers(5)); }
-          catch (err) { console.error('Errore caricamento classifica:', err); }
-        }
-
-        // Chi seguo (per il filtro "Amici" e i bottoni Segui nel feed)
-        if (typeof db.getFollowing === 'function') {
-          try {
-            const following = await db.getFollowing(user.id);
-            setFollowingIds((following || []).map((f) => f.id));
-          } catch (err) {
-            console.error('Errore caricamento following:', err);
-          }
-        }
+        setMyActivities(mine);
+        setTopDrinkers(top);
+        setFollowingIds((following || []).map((f) => f.id));
 
         // Controllo completezza profilo per Google Login
         const emailPrefix = user.email ? user.email.split('@')[0] : '';

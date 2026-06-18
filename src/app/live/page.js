@@ -19,6 +19,7 @@ export default function LiveRadarPage() {
   const [all, setAll] = useState([]); // tutti i live trovati (entro raggio massimo)
   const [radius, setRadius] = useState(1000); // metri (slider)
   const [scanning, setScanning] = useState(false);
+  const [scanned, setScanned] = useState(false); // il radar parte solo su richiesta utente
 
   const requestLocation = () =>
     new Promise((resolve) => {
@@ -39,6 +40,7 @@ export default function LiveRadarPage() {
       // Prendiamo tutti i live entro un raggio ampio, poi filtriamo con lo slider lato client
       const list = await db.getLiveDrinkers(c.lat, c.lng, 50000, user?.id);
       setAll(list);
+      setScanned(true);
     } catch (err) {
       console.error('Errore radar live:', err);
     } finally {
@@ -46,26 +48,30 @@ export default function LiveRadarPage() {
     }
   };
 
+  // Avvia il radar SOLO su richiesta: chiede il GPS e poi scansiona.
+  const startScan = async () => {
+    setGeoError(null);
+    const c = await requestLocation();
+    setCoords(c);
+    if (!c) {
+      setGeoError('Posizione GPS non disponibile. Attiva la localizzazione per usare il radar.');
+      return;
+    }
+    await scan(currentUser, c);
+  };
+
+  // Al mount NON scansioniamo: carichiamo solo l'utente. Il radar parte col pulsante.
   useEffect(() => {
     (async () => {
       try {
         const user = await db.getCurrentUser();
         setCurrentUser(user);
-        if (!user) return;
-        const c = await requestLocation();
-        setCoords(c);
-        if (!c) {
-          setGeoError('Posizione GPS non disponibile. Attiva la localizzazione per usare il radar.');
-        } else {
-          await scan(user, c);
-        }
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -98,27 +104,42 @@ export default function LiveRadarPage() {
             Chi sta bevendo (live) vicino a te in questo momento.
           </p>
         </div>
-        <button
-          onClick={() => scan(currentUser, coords)}
-          disabled={scanning || !coords}
-          className="btn btn-secondary"
-          style={{ borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <RefreshCw size={15} style={scanning ? { animation: 'spin 1s linear infinite' } : undefined} /> Aggiorna
-        </button>
+        {scanned && (
+          <button
+            onClick={() => (coords ? scan(currentUser, coords) : startScan())}
+            disabled={scanning}
+            className="btn btn-secondary"
+            style={{ borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={15} style={scanning ? { animation: 'spin 1s linear infinite' } : undefined} /> Aggiorna
+          </button>
+        )}
       </div>
 
-      {geoError ? (
+      {!scanned && !geoError ? (
+        <div className="card" style={{ textAlign: 'center', padding: '36px 24px', color: 'var(--text-dark-secondary)' }}>
+          <Radar size={34} color="var(--primary)" style={{ marginBottom: '12px' }} />
+          <p style={{ marginBottom: '16px', lineHeight: 1.5 }}>
+            Il radar si avvia solo quando lo chiedi tu, per risparmiare batteria e dati.<br />
+            Premi qui sotto per cercare chi sta bevendo live vicino a te.
+          </p>
+          <button
+            onClick={startScan}
+            disabled={scanning}
+            className="btn btn-primary"
+            style={{ borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            {scanning ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Radar size={16} />}
+            {scanning ? 'Scansione in corso…' : '📡 Avvia il radar'}
+          </button>
+        </div>
+      ) : geoError ? (
         <div className="card" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dark-secondary)' }}>
           <MapPin size={28} color="var(--secondary)" style={{ marginBottom: '10px' }} />
           <p style={{ marginBottom: '14px' }}>{geoError}</p>
           <button
-            onClick={async () => {
-              setGeoError(null);
-              const c = await requestLocation();
-              setCoords(c);
-              if (c) scan(currentUser, c); else setGeoError('Ancora nessuna posizione. Controlla i permessi del browser.');
-            }}
+            onClick={startScan}
+            disabled={scanning}
             className="btn btn-primary"
             style={{ borderRadius: '20px' }}
           >

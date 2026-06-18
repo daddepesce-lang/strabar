@@ -65,19 +65,10 @@ export default function Navbar() {
     };
   }, [user?.id, pathname]);
 
-  // Conteggio "X live ora" per il badge sul radar
+  // Badge "X live ora": DISATTIVATO per ora. Il radar parte solo su richiesta
+  // dell'utente (dalla pagina Radar), così non genera carico DB in background.
   useEffect(() => {
-    if (!user) { setLiveCount(0); return; }
-    let cancelled = false;
-    const loadLive = async () => {
-      try {
-        const n = await db.getLiveCount(user.id);
-        if (!cancelled) setLiveCount(n);
-      } catch { /* noop */ }
-    };
-    loadLive();
-    const interval = setInterval(loadLive, 60000); // aggiorna ogni minuto
-    return () => { cancelled = true; clearInterval(interval); };
+    setLiveCount(0);
   }, [user?.id, pathname]);
 
   // Chiudi dropdown cliccando fuori

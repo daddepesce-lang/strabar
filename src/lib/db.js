@@ -1323,8 +1323,9 @@ export const db = {
         console.warn('RPC get_top_drinkers non disponibile, fallback lato client:', err.message || err);
       }
     }
-    // Fallback: aggrega dalle attività (scarica tutto — solo finché la RPC non è installata)
-    const acts = await this.getActivities().catch(() => []);
+    // Fallback (solo finché la RPC non è installata): aggrega su un numero LIMITATO
+    // di sessioni recenti per non scaricare l'intera tabella e saturare il DB.
+    const acts = await this.getActivities({ limit: 500 }).catch(() => []);
     const byUser = {};
     acts.forEach((a) => {
       const uid = a.user_id;
@@ -1460,28 +1461,29 @@ export const db = {
 
   // Conta le sessioni live (con condivisione) visibili all'utente, senza GPS.
   // Usato per il badge "X live ora" nella navbar.
-  async getLiveCount(viewerId) {
+  // Badge "X live ora": COUNT lato server (head: true → nessuna riga scaricata).
+  // Conteggio approssimato delle sessioni attive condivise nelle ultime 5h: per un
+  // badge va benissimo e regge tantissime sessioni live senza scaricarle tutte.
+  // (Il radar applica poi i filtri precisi di follow/posizione sui soli risultati vicini.)
+  async getLiveCount() {
+    if (isSupabaseConfigured) {
+      try {
+        const since = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+        const { count, error } = await supabase
+          .from('sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_active', true)
+          .gte('created_at', since);
+        if (error) throw error;
+        return count || 0;
+      } catch (err) {
+        console.warn('getLiveCount fallback:', err.message || err);
+        return 0;
+      }
+    }
     const acts = await this.getActiveSessionsLight().catch(() => []);
     const now = Date.now();
-    let connectedIds = new Set();
-    if (viewerId) {
-      try {
-        const [following, followers] = await Promise.all([
-          this.getFollowing(viewerId).catch(() => []),
-          this.getFollowers(viewerId).catch(() => []),
-        ]);
-        connectedIds = new Set([...(following || []), ...(followers || [])].map((f) => f.id));
-      } catch { /* noop */ }
-    }
-    return acts.filter((a) => {
-      if (!a.is_active) return false;
-      if (now - new Date(a.created_at).getTime() > 5 * 60 * 60 * 1000) return false;
-      if (viewerId && a.user_id === viewerId) return false;
-      const loc = a.location;
-      if (!loc || (loc.share !== 'public' && loc.share !== 'friends')) return false;
-      if (loc.share === 'friends' && !connectedIds.has(a.user_id)) return false;
-      return true;
-    }).length;
+    return acts.filter((a) => a.is_active && now - new Date(a.created_at).getTime() <= 5 * 60 * 60 * 1000).length;
   },
 
   // Attività in cui l'utente è stato TAGGATO (drank_with contiene "@username"),
