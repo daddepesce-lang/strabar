@@ -1161,12 +1161,21 @@ export default function FeedPage() {
         .sort((a, b) => b.totalUnits - a.totalUnits)
         .slice(0, 3);
 
-      // Top BAC (Tasso Alcolico Record in una singola sessione) — usa il BAC salvato, non ricalcolato
+      // Top BAC (Tasso Alcolico Record in una singola sessione).
+      // Se il BAC salvato è 0/mancante (es. sessioni vecchie), lo ricalcoliamo al volo.
       topBacLeaderboard = [...barSessions]
-        .map(s => ({
-          name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
-          bac: (s.bac_level && parseFloat(s.bac_level) > 0) ? parseFloat(s.bac_level) : 0
-        }))
+        .map(s => {
+          let bac = (s.bac_level && parseFloat(s.bac_level) > 0) ? parseFloat(s.bac_level) : 0;
+          if (bac === 0 && s.drinks && s.drinks.length > 0) {
+            const isLive = s.is_active && (Date.now() - new Date(s.created_at).getTime()) < 6 * 60 * 60 * 1000;
+            const endRef = isLive ? undefined : new Date(new Date(s.created_at).getTime() + (s.duration || 120) * 60 * 1000).toISOString();
+            bac = db.calculateCurrentBAC(s.drinks, s.created_at, s.duration || 120, endRef, s.profiles?.weight);
+          }
+          return {
+            name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
+            bac
+          };
+        })
         .sort((a, b) => b.bac - a.bac)
         .slice(0, 3);
     }
