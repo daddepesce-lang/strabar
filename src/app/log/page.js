@@ -109,12 +109,13 @@ export default function LogActivityPage() {
     setRetroSaving(true);
     try {
       const createdAt = new Date(retroForm.date).toISOString();
+      const duration = parseInt(retroForm.duration, 10) > 0 ? parseInt(retroForm.duration, 10) : 60;
       const totalUnits = retroForm.drinks.reduce((acc, d) => acc + d.units * d.qty, 0);
       const bac = db.calculateCurrentBAC(
         retroForm.drinks,
         createdAt,
-        retroForm.duration,
-        new Date(new Date(retroForm.date).getTime() + retroForm.duration * 60 * 1000).toISOString(),
+        duration,
+        new Date(new Date(retroForm.date).getTime() + duration * 60 * 1000).toISOString(),
         currentUser?.weight
       );
       await db.createActivity({
@@ -122,7 +123,7 @@ export default function LogActivityPage() {
         description: retroForm.description,
         drinks: retroForm.drinks,
         total_units: parseFloat(totalUnits.toFixed(1)),
-        duration: retroForm.duration,
+        duration: duration,
         feeling: retroForm.feeling,
         location: retroForm.location ? { name: retroForm.location } : null,
         bac_level: parseFloat(bac.toFixed(2)),
@@ -862,11 +863,22 @@ export default function LogActivityPage() {
                   <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Durata (min)</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     className="form-control"
                     min="1"
                     max="720"
+                    placeholder="60"
                     value={retroForm.duration}
-                    onChange={e => setRetroForm(p => ({ ...p, duration: parseInt(e.target.value) || 60 }))}
+                    onChange={e => {
+                      // Permetti il campo vuoto mentre si digita; accetta solo cifre
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setRetroForm(p => ({ ...p, duration: v }));
+                    }}
+                    onBlur={e => {
+                      // Alla perdita del focus, se vuoto o 0 reimposta a 60
+                      const n = parseInt(e.target.value, 10);
+                      setRetroForm(p => ({ ...p, duration: n > 0 ? n : 60 }));
+                    }}
                     style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
                   />
                 </div>
