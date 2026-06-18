@@ -4,6 +4,7 @@ import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 import Footer from "@/components/Footer";
 import AgeGate from "@/components/AgeGate";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
   title: "Strabar | Il Social Network degli Atleti da Bar",
@@ -53,6 +54,7 @@ export default function RootLayout({ children }) {
           </main>
           <Footer />
         </div>
+        <Analytics />
       </body>
     </html>
   );
