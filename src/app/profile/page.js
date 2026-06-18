@@ -62,6 +62,10 @@ export default function ProfilePage() {
         }
         setCurrentUser(user);
         setWeightInput(user.weight ? String(user.weight) : '');
+        // Apri direttamente la scheda "Amici" se richiesto dalla lente in navbar (?tab=friends)
+        if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'friends') {
+          setActiveTab('friends');
+        }
 
         const acts = await db.getActivities();
         // Filtra le attività dell'utente corrente

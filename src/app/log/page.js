@@ -193,23 +193,27 @@ export default function LogActivityPage() {
         resolve({ error: "Il GPS funziona solo su connessione sicura (https). Apri il sito in HTTPS." });
         return;
       }
+      const ok = (pos) => resolve({ coords: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+      const fail = (err) => {
+        console.warn('Geolocalizzazione non disponibile:', err.code, err.message || err);
+        let error;
+        if (err.code === 1) {
+          error = 'Permesso GPS negato. Abilita la posizione per Strabar dalle impostazioni del browser e riprova.';
+        } else if (err.code === 2) {
+          error = 'Posizione non disponibile. Su Mac/PC controlla che i Servizi di Localizzazione di sistema siano attivi per il browser; in alternativa cerca il locale per nome.';
+        } else if (err.code === 3) {
+          error = 'Tempo scaduto nel rilevare la posizione. Tocca "Riprova GPS".';
+        } else {
+          error = 'Impossibile rilevare la posizione. Cerca il locale per nome.';
+        }
+        resolve({ error });
+      };
+      // 1° tentativo: alta precisione (GPS). Se fallisce (tipico su desktop/Mac),
+      // 2° tentativo a bassa precisione (WiFi/IP), spesso risolve.
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ coords: { lat: pos.coords.latitude, lng: pos.coords.longitude } }),
-        (err) => {
-          console.warn('Geolocalizzazione non disponibile:', err.code, err.message || err);
-          let error;
-          if (err.code === 1) {
-            error = 'Permesso GPS negato. Abilita la posizione per Strabar dalle impostazioni del browser e riprova.';
-          } else if (err.code === 2) {
-            error = 'Posizione non disponibile (segnale assente). Riprova o cerca il locale per nome.';
-          } else if (err.code === 3) {
-            error = 'Tempo scaduto nel rilevare la posizione. Tocca "Riprova GPS".';
-          } else {
-            error = 'Impossibile rilevare la posizione. Cerca il locale per nome.';
-          }
-          resolve({ error });
-        },
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+        ok,
+        () => navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
       );
     });
 

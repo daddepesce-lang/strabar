@@ -52,6 +52,7 @@ export default function FeedPage() {
   const [showAllLiveDrinks, setShowAllLiveDrinks] = useState(false);
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
+  const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
 
   // Stati social: filtro feed (amici/tutti) e gestione follow
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
@@ -1944,6 +1945,41 @@ export default function FeedPage() {
 
                 {renderCompanionsList(act)}
 
+                {/* Chi ha messo Cheers (nel feed, senza aprire il dettaglio) */}
+                {act.cheers && act.cheers.length > 0 && (() => {
+                  const people = act.cheers.map((uid) => {
+                    const p = profilesList.find((pr) => pr.id === uid);
+                    return { id: uid, name: uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta') };
+                  });
+                  const shown = people.slice(0, 3);
+                  const extra = people.length - shown.length;
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '4px', flexWrap: 'wrap' }}>
+                      <Beer size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} fill="var(--primary)" />
+                      <span>
+                        Cheers di{' '}
+                        {shown.map((p, i) => (
+                          <span key={p.id}>
+                            <Link href={`/u/${p.id}`} style={{ color: '#FFF', fontWeight: 600 }}>{p.name}</Link>
+                            {i < shown.length - 1 ? ', ' : ''}
+                          </span>
+                        ))}
+                        {extra > 0 && (
+                          <>
+                            {' '}e{' '}
+                            <button
+                              onClick={() => { setCheersListActivity(act); setShowCheersList(true); }}
+                              style={{ color: 'var(--primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px' }}
+                            >
+                              altri {extra}
+                            </button>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 {/* Actions (Cheers, Commenta, Condividi) */}
                 <div className="activity-actions">
                   <button 
@@ -2579,7 +2615,7 @@ export default function FeedPage() {
                         <>
                           {' '}e{' '}
                           <button
-                            onClick={() => setShowCheersList(true)}
+                            onClick={() => { setCheersListActivity(selectedActivity); setShowCheersList(true); }}
                             style={{ color: 'var(--primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px' }}
                           >
                             altri {extra}
@@ -2637,17 +2673,17 @@ export default function FeedPage() {
       )}
 
       {/* MODAL LISTA COMPLETA CHEERS (stile Instagram) */}
-      {showCheersList && selectedActivity && (
+      {showCheersList && cheersListActivity && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(6px)' }} onClick={() => setShowCheersList(false)}>
           <div className="card" style={{ width: '100%', maxWidth: '420px', maxHeight: '70vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-dark)', padding: '0', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--border-dark)' }}>
               <strong style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Beer size={18} color="var(--primary)" fill="var(--primary)" /> Cheers ({selectedActivity.cheers.length})
+                <Beer size={18} color="var(--primary)" fill="var(--primary)" /> Cheers ({cheersListActivity.cheers.length})
               </strong>
               <button onClick={() => setShowCheersList(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }}>×</button>
             </div>
             <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-              {selectedActivity.cheers.map((uid) => {
+              {cheersListActivity.cheers.map((uid) => {
                 const p = profilesList.find((pr) => pr.id === uid);
                 const name = uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta Strabar');
                 return (

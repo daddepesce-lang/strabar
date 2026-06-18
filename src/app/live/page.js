@@ -23,10 +23,12 @@ export default function LiveRadarPage() {
   const requestLocation = () =>
     new Promise((resolve) => {
       if (typeof navigator === 'undefined' || !navigator.geolocation) { resolve(null); return; }
+      const ok = (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      // Alta precisione; se fallisce (es. Mac CoreLocation), ritenta a bassa precisione (WiFi/IP)
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => resolve(null),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        ok,
+        () => navigator.geolocation.getCurrentPosition(ok, () => resolve(null), { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
       );
     });
 
