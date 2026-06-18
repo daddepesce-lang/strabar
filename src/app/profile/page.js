@@ -265,8 +265,13 @@ export default function ProfilePage() {
       {/* Intestazione Profilo */}
       <div className="card profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.05) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div className="activity-avatar" style={{ width: '80px', height: '80px', fontSize: '32px', border: '3px solid var(--primary)' }}>
-            {currentUser?.display_name ? currentUser.display_name.charAt(0) : 'U'}
+          <div className="activity-avatar" style={{ width: '80px', height: '80px', fontSize: '32px', border: '3px solid var(--primary)', overflow: 'hidden' }}>
+            {currentUser?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={currentUser.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              currentUser?.display_name ? currentUser.display_name.charAt(0) : 'U'
+            )}
           </div>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -293,6 +298,15 @@ export default function ProfilePage() {
           >
             <Search size={18} />
           </button>
+          {/* Impostazioni profilo */}
+          <Link
+            href="/settings"
+            title="Impostazioni profilo"
+            className="btn btn-secondary"
+            style={{ borderRadius: '50%', width: '42px', height: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}
+          >
+            ⚙️
+          </Link>
           {/* Badge stato compatto */}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: '700', fontSize: '12px', background: 'rgba(255, 176, 0, 0.1)', padding: '8px 12px', borderRadius: '30px', border: '1px solid var(--secondary)', whiteSpace: 'nowrap' }}>
             <Shield size={14} /> Beta gratis

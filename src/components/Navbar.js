@@ -4,8 +4,9 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
+import NavSearch from '@/components/NavSearch';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar, Search,
+  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar,
 } from 'lucide-react';
 
 function timeAgo(dateString) {
@@ -162,12 +163,8 @@ export default function Navbar() {
         </div>
 
         <div className="nav-actions">
-          {/* Cerca atleti */}
-          {user && (
-            <Link href="/profile?tab=friends" className="action-btn" title="Cerca atleti">
-              <Search size={20} />
-            </Link>
-          )}
+          {/* Cerca atleti: tendina con anteprima + pagina /search */}
+          {user && <NavSearch />}
 
           {/* Invita amici: sempre raggiungibile dalla barra in alto */}
           <Link href="/install" className={`action-btn ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
