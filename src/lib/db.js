@@ -422,31 +422,38 @@ export const db = {
     };
 
     if (isSupabaseConfigured) {
-      let { data, error } = await supabase
-        .from('sessions')
-        .insert({ ...newActivity, user_id: user.id })
-        .select()
-        .single();
-
-      // Fallback: se lo schema del DB non ha ancora alcune colonne opzionali
-      // (es. errore "Could not find the 'bac_level' column" o column doesn't exist), riprova senza di esse.
+      // Inserisci la sessione. Se lo schema del DB non ha ancora una colonna opzionale,
+      // rimuoviamo SOLO la colonna mancante segnalata dall'errore e riproviamo.
+      // (Prima venivano azzerati tutti i campi opzionali insieme — incluso `location` —
+      // e questo faceva sparire i dati del Tour guidato dalla sessione live.)
       // Esegui comunque la MIGRAZIONE in supabase_schema.sql per non perdere questi dati.
-      if (error && (error.code === 'PGRST204' || error.code === '42703' || /Could not find the '(\w+)' column|column .* does not exist/i.test(error.message || ''))) {
-        const { bac_level, media, location, drank_with, description, is_active, full_stomach, ...essential } = newActivity;
-        console.warn('Colonne mancanti nello schema sessions, salvo i campi essenziali. Esegui la migrazione SQL.', error.message);
+      const insertRow = { ...newActivity, user_id: user.id };
+      let data = null;
+      let error = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
         ({ data, error } = await supabase
           .from('sessions')
-          .insert({ ...essential, user_id: user.id })
+          .insert(insertRow)
           .select()
           .single());
-        
-        // Se la creazione della sessione live è riuscita ma la colonna is_active non esiste nel DB,
-        // salviamo comunque l'ID in localStorage come fallback locale!
-        if (!error && data && newActivity.is_active) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('sb_active_session_id', data.id);
-          }
+        if (!error) break;
+
+        const isMissingColumn =
+          error.code === 'PGRST204' ||
+          error.code === '42703' ||
+          /Could not find the '\w+' column|column .* does not exist/i.test(error.message || '');
+        if (!isMissingColumn) break;
+
+        // Estrai il nome della colonna mancante dal messaggio d'errore
+        const m = (error.message || '').match(/'(\w+)'|column "?(\w+)"?/i);
+        const col = m ? (m[1] || m[2]) : null;
+        // Non rimuovere mai le colonne essenziali (sempre presenti nello schema base)
+        if (col && col in insertRow && !['title', 'user_id', 'created_at', 'drinks'].includes(col)) {
+          console.warn(`Colonna '${col}' mancante nello schema sessions: la rimuovo e riprovo. Esegui la migrazione SQL.`);
+          delete insertRow[col];
+          continue;
         }
+        break;
       }
 
       if (!error && data && newActivity.is_active) {
