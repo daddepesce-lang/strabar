@@ -1952,8 +1952,42 @@ export const db = {
     if (typeof window !== 'undefined') localStorage.setItem('sb_events', JSON.stringify(list));
   },
 
+  // Recupera i profili (id, username, display_name, avatar_url) per una lista di id.
+  async _profilesByIds(ids) {
+    const unique = [...new Set((ids || []).filter(Boolean))];
+    if (unique.length === 0) return {};
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', unique);
+    const map = {};
+    (data || []).forEach((p) => { map[p.id] = p; });
+    return map;
+  },
+
   async getEvents() {
     const user = await this.getCurrentUser();
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('events')
+        .select(`*, event_responses(user_id, status)`)
+        .order('date', { ascending: true });
+      if (error) throw error;
+      const hostMap = await this._profilesByIds((data || []).map((e) => e.host_id));
+      return (data || []).map((e) => {
+        const responses = e.event_responses || [];
+        const host = hostMap[e.host_id] || { display_name: 'Organizzatore', username: 'host' };
+        return {
+          ...e,
+          host,
+          host_name: host.display_name || host.username,
+          goingCount: responses.filter((r) => r.status === 'going').length,
+          myResponse: user ? (responses.find((r) => r.user_id === user.id)?.status || null) : null,
+          isInvited: user ? (e.host_id === user.id || (e.invited || []).includes(user.id)) : false,
+        };
+      });
+    }
+    // localStorage
     const events = this.getEventsRaw();
     const profiles = await this.getAllProfiles();
     return events
@@ -1968,6 +2002,32 @@ export const db = {
   },
 
   async getEvent(eventId) {
+    const user = await this.getCurrentUser();
+    if (isSupabaseConfigured) {
+      const { data: e, error } = await supabase
+        .from('events')
+        .select(`*, event_responses(user_id, status, created_at)`)
+        .eq('id', eventId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!e) return null;
+      const responses = e.event_responses || [];
+      const pmap = await this._profilesByIds([e.host_id, ...responses.map((r) => r.user_id)]);
+      const host = pmap[e.host_id] || { display_name: 'Organizzatore', username: 'host' };
+      return {
+        ...e,
+        host,
+        host_name: host.display_name || host.username,
+        goingCount: responses.filter((r) => r.status === 'going').length,
+        myResponse: user ? (responses.find((r) => r.user_id === user.id)?.status || null) : null,
+        isInvited: user ? (e.host_id === user.id || (e.invited || []).includes(user.id)) : false,
+        responses: responses.map((r) => ({
+          ...r,
+          profile: pmap[r.user_id] || { display_name: 'Atleta', username: 'utente' },
+        })),
+      };
+    }
+    // localStorage
     const events = await this.getEvents();
     const ev = events.find((e) => e.id === eventId);
     if (!ev) return null;
@@ -1982,6 +2042,39 @@ export const db = {
   async createEvent(data) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato per creare un evento!');
+    const invited = data.invited || [];
+
+    if (isSupabaseConfigured) {
+      const { data: created, error } = await supabase
+        .from('events')
+        .insert({
+          host_id: user.id,
+          title: data.title || 'Nuovo Evento',
+          description: data.description || '',
+          date: data.date,
+          location_name: data.location_name || '',
+          location: data.location || null,
+          route_id: data.route_id || null,
+          route_name: data.route_name || null,
+          invited,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      // L'host partecipa di default
+      await supabase.from('event_responses')
+        .upsert({ event_id: created.id, user_id: user.id, status: 'going' }, { onConflict: 'event_id,user_id' });
+      invited.forEach((uid) => this.pushNotification(uid, {
+        type: 'event_invite',
+        actor_id: user.id,
+        actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ti ha invitato a "${created.title}"`,
+        link: `/events/${created.id}`,
+      }));
+      return created;
+    }
+
+    // localStorage
     const events = this.getEventsRaw();
     const newEvent = {
       id: 'evt-' + Math.random().toString(36).substr(2, 9),
@@ -1991,32 +2084,44 @@ export const db = {
       description: data.description || '',
       date: data.date,
       location_name: data.location_name || '',
-      location: data.location || null, // { name, lat, lng } se scelto un locale/indirizzo reale
+      location: data.location || null,
       route_id: data.route_id || null,
       route_name: data.route_name || null,
-      invited: data.invited || [],
-      responses: [
-        { user_id: user.id, user_name: user.display_name || user.username, status: 'going', created_at: new Date().toISOString() },
-      ],
+      invited,
+      responses: [{ user_id: user.id, user_name: user.display_name || user.username, status: 'going', created_at: new Date().toISOString() }],
       created_at: new Date().toISOString(),
     };
     events.push(newEvent);
     this.setEventsRaw(events);
-    (data.invited || []).forEach((uid) => {
-      this.pushNotification(uid, {
-        type: 'event_invite',
-        actor_id: user.id,
-        actor_name: user.display_name || user.username,
-        message: `${user.display_name || user.username} ti ha invitato a "${newEvent.title}"`,
-        link: `/events/${newEvent.id}`,
-      });
-    });
+    invited.forEach((uid) => this.pushNotification(uid, {
+      type: 'event_invite', actor_id: user.id, actor_name: user.display_name || user.username,
+      message: `${user.display_name || user.username} ti ha invitato a "${newEvent.title}"`, link: `/events/${newEvent.id}`,
+    }));
     return newEvent;
   },
 
   async respondToEvent(eventId, status) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato per rispondere a un evento!');
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('event_responses')
+        .upsert({ event_id: eventId, user_id: user.id, status }, { onConflict: 'event_id,user_id' });
+      if (error) throw error;
+      // Notifica l'host (se non sono io)
+      const { data: ev } = await supabase.from('events').select('host_id, title').eq('id', eventId).maybeSingle();
+      if (ev && ev.host_id !== user.id) {
+        const label = status === 'going' ? 'Partecipo' : status === 'maybe' ? 'Forse' : 'Non posso';
+        this.pushNotification(ev.host_id, {
+          type: 'event_rsvp', actor_id: user.id, actor_name: user.display_name || user.username,
+          message: `${user.display_name || user.username} ha risposto "${label}" a "${ev.title}"`, link: `/events/${eventId}`,
+        });
+      }
+      return true;
+    }
+
+    // localStorage
     const events = this.getEventsRaw();
     const idx = events.findIndex((e) => e.id === eventId);
     if (idx === -1) throw new Error('Evento non trovato!');
@@ -2030,11 +2135,8 @@ export const db = {
     if (ev.host_id !== user.id) {
       const label = status === 'going' ? 'Partecipo' : status === 'maybe' ? 'Forse' : 'Non posso';
       this.pushNotification(ev.host_id, {
-        type: 'event_rsvp',
-        actor_id: user.id,
-        actor_name: user.display_name || user.username,
-        message: `${user.display_name || user.username} ha risposto "${label}" a "${ev.title}"`,
-        link: `/events/${ev.id}`,
+        type: 'event_rsvp', actor_id: user.id, actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ha risposto "${label}" a "${ev.title}"`, link: `/events/${ev.id}`,
       });
     }
     return ev;
@@ -2043,6 +2145,24 @@ export const db = {
   async inviteToEvent(eventId, userIds) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato!');
+
+    if (isSupabaseConfigured) {
+      const { data: ev, error: selErr } = await supabase.from('events').select('invited, title').eq('id', eventId).maybeSingle();
+      if (selErr) throw selErr;
+      if (!ev) throw new Error('Evento non trovato!');
+      const current = ev.invited || [];
+      const newInvites = (userIds || []).filter((uid) => !current.includes(uid));
+      if (newInvites.length === 0) return true;
+      const { error } = await supabase.from('events').update({ invited: [...current, ...newInvites] }).eq('id', eventId);
+      if (error) throw error;
+      newInvites.forEach((uid) => this.pushNotification(uid, {
+        type: 'event_invite', actor_id: user.id, actor_name: user.display_name || user.username,
+        message: `${user.display_name || user.username} ti ha invitato a "${ev.title}"`, link: `/events/${eventId}`,
+      }));
+      return true;
+    }
+
+    // localStorage
     const events = this.getEventsRaw();
     const idx = events.findIndex((e) => e.id === eventId);
     if (idx === -1) throw new Error('Evento non trovato!');
@@ -2051,28 +2171,33 @@ export const db = {
     ev.invited = [...(ev.invited || []), ...newInvites];
     events[idx] = ev;
     this.setEventsRaw(events);
-    newInvites.forEach((uid) => {
-      this.pushNotification(uid, {
-        type: 'event_invite',
-        actor_id: user.id,
-        actor_name: user.display_name || user.username,
-        message: `${user.display_name || user.username} ti ha invitato a "${ev.title}"`,
-        link: `/events/${ev.id}`,
-      });
-    });
+    newInvites.forEach((uid) => this.pushNotification(uid, {
+      type: 'event_invite', actor_id: user.id, actor_name: user.display_name || user.username,
+      message: `${user.display_name || user.username} ti ha invitato a "${ev.title}"`, link: `/events/${ev.id}`,
+    }));
     return ev;
   },
 
   async updateEvent(eventId, fields) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato!');
+    const allowed = ['title', 'description', 'date', 'location_name', 'location', 'route_id', 'route_name'];
+    const patch = {};
+    allowed.forEach((k) => { if (k in fields) patch[k] = fields[k]; });
+
+    if (isSupabaseConfigured) {
+      // La policy RLS consente l'UPDATE solo all'host.
+      const { data, error } = await supabase.from('events').update(patch).eq('id', eventId).select().maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Solo l'organizzatore può modificare l'evento.");
+      return data;
+    }
+
+    // localStorage
     const events = this.getEventsRaw();
     const idx = events.findIndex((e) => e.id === eventId);
     if (idx === -1) throw new Error('Evento non trovato!');
     if (events[idx].host_id !== user.id) throw new Error("Solo l'organizzatore può modificare l'evento.");
-    const allowed = ['title', 'description', 'date', 'location_name', 'location', 'route_id', 'route_name'];
-    const patch = {};
-    allowed.forEach((k) => { if (k in fields) patch[k] = fields[k]; });
     events[idx] = { ...events[idx], ...patch };
     this.setEventsRaw(events);
     return events[idx];
@@ -2081,6 +2206,12 @@ export const db = {
   async deleteEvent(eventId) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato!');
+    if (isSupabaseConfigured) {
+      // La policy RLS consente il DELETE solo all'host.
+      const { error } = await supabase.from('events').delete().eq('id', eventId);
+      if (error) throw error;
+      return true;
+    }
     const events = this.getEventsRaw().filter((e) => !(e.id === eventId && e.host_id === user.id));
     this.setEventsRaw(events);
     return true;

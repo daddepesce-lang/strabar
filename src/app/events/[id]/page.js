@@ -380,7 +380,7 @@ export default function EventDetailPage({ params }) {
             <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <UserPlus size={18} color="var(--primary)" /> Invitati ({(event.invited || []).length})
             </h3>
-            {currentUser && (
+            {isHost && (
               <button onClick={() => setShowInvite((s) => !s)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                 {showInvite ? 'Chiudi' : 'Invita amici'}
               </button>
