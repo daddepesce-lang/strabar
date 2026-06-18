@@ -626,36 +626,61 @@ export default function FeedPage() {
     }
   };
 
-  // Avanza alla tappa successiva di un Tour guidato e apre la navigazione
-  const handleAdvanceTourStop = async () => {
+  // Sposta la sessione-tour su una tappa (per indice), registra l'arrivo, salva e
+  // apre le indicazioni stradali. Usato sia per avanzare alla prossima tappa
+  // schedulata sia per le tappe extra non in programma.
+  const goToTourStop = async (stops, index) => {
     const tour = activeSession?.location?.tour;
     if (!tour) return;
-    const next = tour.current + 1;
-    if (next >= tour.stops.length) return;
-    const nextStop = tour.stops[next];
+    const stop = stops[index];
+    if (!stop) return;
     const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
     const newVisited = [
       ...(tour.visited || []),
-      { name: nextStop.name, lat: nextStop.lat, lng: nextStop.lng, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks },
+      { name: stop.name, lat: stop.lat ?? null, lng: stop.lng ?? null, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks },
     ];
     const newLocation = {
       ...activeSession.location,
-      name: nextStop.name,
-      lat: nextStop.lat,
-      lng: nextStop.lng,
-      tour: { ...tour, current: next, visited: newVisited },
+      name: stop.name,
+      // Se la tappa extra non ha coordinate, mantieni quelle precedenti così
+      // l'atleta resta comunque visibile nel radar live.
+      lat: stop.lat ?? activeSession.location?.lat ?? null,
+      lng: stop.lng ?? activeSession.location?.lng ?? null,
+      tour: { ...tour, stops, current: index, visited: newVisited },
     };
     setActiveSession((prev) => (prev ? { ...prev, location: newLocation } : prev));
     try {
       await db.updateActivity(activeSession.id, { location: newLocation });
-      if (nextStop.lat && nextStop.lng && typeof window !== 'undefined') {
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${nextStop.lat},${nextStop.lng}`, '_blank', 'noopener,noreferrer');
+      if (stop.lat && stop.lng && typeof window !== 'undefined') {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`, '_blank', 'noopener,noreferrer');
       }
-      triggerLocalNotification('Prossima tappa! 📍', `Dirigiti verso ${nextStop.name}`);
+      triggerLocalNotification('Prossima tappa! 📍', `Dirigiti verso ${stop.name}`);
     } catch (err) {
-      console.error('Errore avanzamento tappa:', err);
-      alert('Impossibile avanzare alla tappa successiva: ' + (err.message || err));
+      console.error('Errore cambio tappa:', err);
+      alert('Impossibile passare alla tappa: ' + (err.message || err));
     }
+  };
+
+  // Avanza alla tappa successiva schedulata e apre la navigazione
+  const handleAdvanceTourStop = async () => {
+    const tour = activeSession?.location?.tour;
+    if (!tour) return;
+    const next = (tour.current || 0) + 1;
+    if (next >= tour.stops.length) return;
+    await goToTourStop(tour.stops, next);
+  };
+
+  // Aggiunge una tappa NON in programma (es. un bar trovato per caso) subito
+  // dopo quella corrente, senza alterare la sequenza delle tappe schedulate.
+  const handleAddUnscheduledStop = async () => {
+    const tour = activeSession?.location?.tour;
+    if (!tour) return;
+    const name = (typeof window !== 'undefined' ? window.prompt('Tappa extra — nome del locale dove ti sei fermato:') : '') || '';
+    if (!name.trim()) return;
+    const cur = tour.current || 0;
+    const stops = [...tour.stops];
+    stops.splice(cur + 1, 0, { name: name.trim(), lat: null, lng: null, note: 'Tappa extra (non in programma)', unscheduled: true });
+    await goToTourStop(stops, cur + 1);
   };
 
   // Annulla (elimina) la sessione live in corso, con doppia conferma
@@ -1442,19 +1467,26 @@ export default function FeedPage() {
                       {atThisStop >= target && <div style={{ fontSize: '10px', color: 'var(--error)', marginTop: '4px' }}>Target raggiunto — valuta di passare alla prossima tappa 😉</div>}
                     </div>
 
+                    {/* Navigazione verso la tappa CORRENTE (sempre in primo piano: guida l'atleta) */}
+                    {curStop?.lat && curStop?.lng ? (
+                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', fontSize: '13px', padding: '9px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700, marginBottom: '8px' }}>
+                        🧭 Guidami a {curStop.name.length > 22 ? curStop.name.slice(0, 20) + '…' : curStop.name}
+                      </a>
+                    ) : (
+                      <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '8px' }}>📍 Tappa extra senza coordinate — registra qui i tuoi drink.</div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {curStop?.lat && curStop?.lng && (
-                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                          🧭 Naviga qui
-                        </a>
-                      )}
                       {nextStop ? (
-                        <button onClick={handleAdvanceTourStop} className="btn btn-primary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
-                          ➡️ Prossima: {nextStop.name.length > 18 ? nextStop.name.slice(0, 16) + '…' : nextStop.name}
+                        <button onClick={handleAdvanceTourStop} className="btn btn-primary" style={{ flex: 1, fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', fontWeight: 700 }}>
+                          ➡️ Prossima: {nextStop.name.length > 16 ? nextStop.name.slice(0, 14) + '…' : nextStop.name}
                         </button>
                       ) : (
-                        <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
+                        <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center', textAlign: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
                       )}
+                      <button onClick={handleAddUnscheduledStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }} title="Aggiungi una tappa non prevista nel percorso">
+                        ➕ Tappa extra
+                      </button>
                     </div>
                   </div>
                 );

@@ -546,6 +546,10 @@ out body;`;
         total_units: 0,
         duration: 1,
       });
+      // Apri subito le indicazioni stradali verso la PRIMA tappa (coerente con l'avanzamento alle tappe successive)
+      if (first.lat && first.lng && typeof window !== 'undefined') {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${first.lat},${first.lng}`, '_blank', 'noopener,noreferrer');
+      }
       router.push('/');
     } catch (err) {
       alert('Errore nell\'avvio del tour: ' + (err.message || err));
