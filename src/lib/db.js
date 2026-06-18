@@ -1122,17 +1122,19 @@ export const db = {
 
   getDrinksWithTimestamps(drinks, created_at, durationMinutes) {
     if (!drinks) return [];
-    const endTime = new Date(created_at || Date.now());
-    const startTime = new Date(endTime.getTime() - (durationMinutes || 120) * 60 * 1000);
-    
+    // created_at è l'INIZIO della sessione: i drink senza orario vengono
+    // distribuiti in AVANTI lungo la durata (da inizio a inizio+durata).
+    // Questo mantiene coerenza con il referenceTime = created_at + durata usato
+    // per le sessioni storiche, evitando di conteggiare lo smaltimento due volte.
+    const startTime = new Date(created_at || Date.now());
+    const durMs = (durationMinutes || 120) * 60 * 1000;
+
     return drinks.map((d, index) => {
       if (d.added_at) return { ...d };
-      
-      // Spazia i drink senza timestamp uniformemente
+
+      // Spazia i drink senza timestamp uniformemente lungo la durata
       const numDrinks = drinks.length;
-      const offsetMs = numDrinks > 1 
-        ? ((durationMinutes || 120) * 60 * 1000 * index) / (numDrinks - 1)
-        : 0;
+      const offsetMs = numDrinks > 1 ? (durMs * index) / (numDrinks - 1) : 0;
       return {
         ...d,
         qty: d.qty || 1,
