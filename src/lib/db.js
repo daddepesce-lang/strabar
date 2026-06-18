@@ -1315,9 +1315,33 @@ export const db = {
   // --- RADAR LIVE: chi sta bevendo vicino a me adesso ---
   // Mostra solo sessioni LIVE recenti (<6h) con condivisione posizione attiva
   // (location.share = 'public' | 'friends'). Le 'friends' sono visibili solo a chi le segue.
+  // Query LEGGERA delle sole sessioni live (ultime 5h): niente join su commenti/cheers,
+  // solo i campi che servono a radar e badge "live ora". Riduce di molto il carico DB
+  // rispetto a getActivities() (che scarica TUTTE le sessioni con tutti i join).
+  async getActiveSessionsLight() {
+    if (isSupabaseConfigured) {
+      const since = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+      try {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('id, user_id, location, created_at, bac_level, drinks, is_active, profiles(username, display_name)')
+          .eq('is_active', true)
+          .gte('created_at', since)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        // Fallback (es. colonna is_active mancante): ripiega sulla query completa.
+        console.warn('getActiveSessionsLight fallback a getActivities:', err.message || err);
+        return (await this.getActivities().catch(() => [])).filter((a) => a.is_active);
+      }
+    }
+    return (await this.getActivities()).filter((a) => a.is_active);
+  },
+
   async getLiveDrinkers(lat, lng, radiusM, viewerId) {
     if (!lat || !lng) return [];
-    const acts = await this.getActivities().catch(() => []);
+    const acts = await this.getActiveSessionsLight().catch(() => []);
     const now = Date.now();
 
     let followingIds = new Set();
@@ -1363,7 +1387,7 @@ export const db = {
   // Conta le sessioni live (con condivisione) visibili all'utente, senza GPS.
   // Usato per il badge "X live ora" nella navbar.
   async getLiveCount(viewerId) {
-    const acts = await this.getActivities().catch(() => []);
+    const acts = await this.getActiveSessionsLight().catch(() => []);
     const now = Date.now();
     let followingIds = new Set();
     if (viewerId) {

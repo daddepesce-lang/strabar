@@ -455,12 +455,7 @@ export default function FeedPage() {
         };
       });
 
-      if (preset.abv > 0) {
-        triggerLocalNotification("Drink Aggiunto! 🍺", `Hai aggiunto ${preset.name}. Il tuo BAC stimato è ora di ${newBac.toFixed(2)} g/l.`);
-      } else {
-        triggerLocalNotification("Idratazione! 💧", "Ottima scelta, bere acqua previene i postumi!");
-      }
-      
+      // Niente notifica per ogni singolo drink (troppo rumorosa).
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione:", err);
       alert("Impossibile aggiungere il drink: " + (err.message || err));
@@ -545,19 +540,61 @@ export default function FeedPage() {
 
       await db.updateActivity(activeSession.id, updatedFields);
 
-      // Ricarica feed e aggiorna stato locale
-      await loadFeed();
+      // Aggiorna lo stato locale SENZA ricaricare tutto il feed (più leggero e veloce
+      // quando ci sono più utenti collegati). Il feed completo si aggiorna agli eventi chiave.
+      setActiveSession((prev) => (prev ? { ...prev, ...updatedFields } : prev));
+      patchActivity(activeSession.id, (a) => ({ ...a, ...updatedFields }));
 
+      // Notifica SOLO gli eventi importanti (verifica tappa). Niente notifica per ogni
+      // singolo drink: era troppo rumorosa.
       if (verifyMessage) {
         triggerLocalNotification(locationUpdate ? 'Tappa verificata! ✅' : 'Drink registrato 🍺', verifyMessage);
-      } else if (preset.abv > 0) {
-        triggerLocalNotification("Drink Aggiunto! 🍺", `Hai aggiunto ${preset.name} alla sessione live. BAC stimato: ${newBac.toFixed(2)} g/l. Ricordati di alternare con dell'acqua! 💧`);
-      } else {
-        triggerLocalNotification("Ottima idratazione! 💧", `Hai aggiunto ${preset.name}. Bere acqua aiuta lo smaltimento!`);
       }
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione attiva:", err);
       alert("Impossibile aggiungere il drink: " + err.message);
+    }
+  };
+
+  // Rimuove un drink (1 unità) dalla sessione live in corso — per correggere un errore.
+  const handleRemoveDrinkFromActiveSession = async (drinkName) => {
+    if (!activeSession) return;
+    try {
+      const freshSession = typeof db.getActivity === 'function' ? await db.getActivity(activeSession.id) : null;
+      const base = freshSession || activeSession;
+      const drinks = [...(base.drinks || [])];
+      // Trova l'ultima riga con questo nome
+      const revIdx = [...drinks].reverse().findIndex((d) => d.name === drinkName);
+      if (revIdx === -1) return;
+      const idx = drinks.length - 1 - revIdx;
+      const row = { ...drinks[idx] };
+      if ((row.qty || 1) > 1) {
+        row.qty = row.qty - 1;
+        drinks[idx] = row;
+      } else {
+        drinks.splice(idx, 1);
+      }
+
+      const newTotalUnits = drinks.reduce((acc, d) => acc + ((d.units || 0) * (d.qty || 1)), 0);
+      let duration = base.duration || 1;
+      if (drinks.length > 0) {
+        const timestamps = drinks.map((d) => new Date(d.added_at || base.created_at).getTime());
+        const startTimeMs = Math.min(...timestamps);
+        duration = Math.max(1, Math.round((Date.now() - startTimeMs) / 60000));
+      }
+      const newBac = db.calculateCurrentBAC(drinks, base.created_at, duration, undefined, currentUser?.weight, base.full_stomach);
+      const updatedFields = {
+        drinks,
+        total_units: parseFloat(newTotalUnits.toFixed(1)),
+        duration,
+        bac_level: parseFloat(newBac.toFixed(2)),
+      };
+      await db.updateActivity(activeSession.id, updatedFields);
+      setActiveSession((prev) => (prev ? { ...prev, ...updatedFields } : prev));
+      patchActivity(activeSession.id, (a) => ({ ...a, ...updatedFields }));
+    } catch (err) {
+      console.error('Errore rimozione drink:', err);
+      alert('Impossibile rimuovere il drink: ' + (err.message || err));
     }
   };
 
@@ -1614,8 +1651,16 @@ export default function FeedPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
                   {activeSession.drinks?.length > 0 ? (
                     groupDrinks(activeSession.drinks).map((d, i) => (
-                      <span key={i} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 8px' }}>
+                      <span key={i} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 4px 3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         <Beer size={10} /> {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDrinkFromActiveSession(d.name)}
+                          title="Rimuovi un drink (correggi un errore)"
+                          style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 16, height: 16, cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                        >
+                          ×
+                        </button>
                       </span>
                     ))
                   ) : (
