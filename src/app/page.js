@@ -51,6 +51,7 @@ export default function FeedPage() {
   const [editSearchingFriends, setEditSearchingFriends] = useState(false);
   const [showAllLiveDrinks, setShowAllLiveDrinks] = useState(false);
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
+  const [showCheersList, setShowCheersList] = useState(false);
 
   // Stati social: filtro feed (amici/tutti) e gestione follow
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
@@ -127,28 +128,35 @@ export default function FeedPage() {
     ensureNotificationPermission();
   }, []);
 
-  // Apri il dettaglio sessione se si arriva da una notifica (/?activity=<id>)
+  // Apre il dettaglio di una sessione dato il suo id (usato dalle notifiche)
+  const openActivityById = async (actId) => {
+    if (!actId) return;
+    try {
+      const found = typeof db.getActivity === 'function' ? await db.getActivity(actId) : null;
+      if (found) {
+        setSelectedActivity(found);
+        setCurrentSlideIndex(0);
+        setActiveCommentsSection((prev) => ({ ...prev, [actId]: true }));
+      }
+    } catch (err) {
+      console.error('Errore apertura notifica:', err);
+    }
+  };
+
+  // 1) Da un'altra pagina: si arriva su /?activity=<id> → apri al mount.
+  // 2) Già sulla home: la navbar lancia l'evento 'strabar:open-activity'.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const actId = params.get('activity');
-    if (!actId) return;
-    (async () => {
-      try {
-        const found = typeof db.getActivity === 'function' ? await db.getActivity(actId) : null;
-        if (found) {
-          setSelectedActivity(found);
-          setCurrentSlideIndex(0);
-          // Se è un commento, apri già pronto a leggere/rispondere
-          setActiveCommentsSection((prev) => ({ ...prev, [actId]: true }));
-        }
-      } catch (err) {
-        console.error('Errore apertura notifica:', err);
-      } finally {
-        // Pulisci la query così un refresh non riapre il modale
-        window.history.replaceState({}, '', '/');
-      }
-    })();
+    if (actId) {
+      openActivityById(actId);
+      window.history.replaceState({}, '', '/');
+    }
+    const onOpen = (e) => openActivityById(e.detail);
+    window.addEventListener('strabar:open-activity', onOpen);
+    return () => window.removeEventListener('strabar:open-activity', onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Timer per la sessione attiva
@@ -560,6 +568,23 @@ export default function FeedPage() {
     }
   };
 
+  // Annulla (elimina) la sessione live in corso, con doppia conferma
+  const handleCancelActiveSession = async () => {
+    if (!activeSession) return;
+    if (!window.confirm('Vuoi annullare la sessione live in corso? Non verrà salvata nel tuo diario.')) return;
+    if (!window.confirm('Sei sicuro? La sessione e i drink registrati verranno eliminati definitivamente.')) return;
+    try {
+      await db.deleteActivity(activeSession.id);
+      setActiveSession(null);
+      setShowCloseForm(false);
+      triggerLocalNotification('Sessione annullata', 'La sessione live è stata eliminata.');
+      await loadFeed();
+    } catch (err) {
+      console.error('Errore annullamento sessione:', err);
+      alert('Impossibile annullare la sessione: ' + (err.message || err));
+    }
+  };
+
   const handleCloseActiveSession = async (e) => {
     e.preventDefault();
     if (!activeSession) return;
@@ -889,13 +914,22 @@ export default function FeedPage() {
     act.description?.includes('tour')
   ).length;
 
-  // Classifica mock (Leaderboard) basata su unità alcoliche
-  const leaderboardData = [
-    { name: 'Marco Rossi', units: 14.8, isPremium: true, rank: 1 },
-    { name: 'Luca Bianchi', units: 9.6, isPremium: false, rank: 2 },
-    { name: 'Francesca Verdi', units: 8.2, isPremium: false, rank: 3 },
-    { name: currentUser?.display_name || 'Tu', units: userActivities.reduce((acc, a) => acc + a.total_units, 0).toFixed(1), isPremium: currentUser?.is_premium || false, rank: 4 }
-  ].sort((a, b) => b.units - a.units);
+  // Classifica REALE (atleti veri) aggregata dalle sessioni del feed, per U.A. totali
+  const leaderboardData = (() => {
+    const byUser = {};
+    activities.forEach((a) => {
+      const uid = a.user_id;
+      if (!uid) return;
+      const name = a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar';
+      if (!byUser[uid]) byUser[uid] = { name, units: 0, isPremium: a.profiles?.is_premium || false };
+      byUser[uid].units += parseFloat(a.total_units || 0);
+    });
+    return Object.values(byUser)
+      .map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }))
+      .sort((a, b) => b.units - a.units)
+      .slice(0, 5)
+      .map((u, i) => ({ ...u, rank: i + 1 }));
+  })();
 
   if (loading) {
     return (
@@ -941,10 +975,10 @@ export default function FeedPage() {
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div className="activity-avatar" style={{ border: '2px solid var(--primary)', width: '38px', height: '38px', fontSize: '14px' }}>M</div>
+                <div className="activity-avatar" style={{ border: '2px solid var(--primary)', width: '38px', height: '38px', fontSize: '14px' }}>S</div>
                 <div>
-                  <h4 style={{ fontSize: '14px', fontWeight: '700' }}>Marco Rossi</h4>
-                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Oggi alle 19:42</span>
+                  <h4 style={{ fontSize: '14px', fontWeight: '700' }}>Atleta Strabar</h4>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Esempio di sessione</span>
                 </div>
               </div>
               <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
@@ -1232,13 +1266,25 @@ export default function FeedPage() {
     bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight);
   }
 
-  // Feed filtrato: "Amici" mostra le sessioni di chi seguo + le mie
-  const visibleActivities =
-    feedFilter === 'friends' && currentUser
-      ? activities.filter(
-          (a) => a.user_id === currentUser.id || followingIds.includes(a.user_id)
-        )
-      : activities;
+  // Visibilità live: una sessione PRIVATA non appare a nessuno finché è attiva
+  // (riappare nel feed solo a chiusura); 'friends' solo ai follower. Le mie le vedo sempre.
+  const isVisibleToMe = (a) => {
+    if (!a.is_active) return true; // sessioni chiuse: sempre nel feed
+    if (currentUser && a.user_id === currentUser.id) return true; // le mie
+    const share = a.location?.share;
+    if (share === 'private') return false;
+    if (share === 'friends') return followingIds.includes(a.user_id);
+    return true; // 'public' o sessioni storiche senza flag
+  };
+
+  // Feed filtrato: prima per visibilità, poi "Amici" mostra le sessioni di chi seguo + le mie
+  const visibleActivities = activities
+    .filter(isVisibleToMe)
+    .filter((a) =>
+      feedFilter === 'friends' && currentUser
+        ? a.user_id === currentUser.id || followingIds.includes(a.user_id)
+        : true
+    );
 
   return (
     <div className="dashboard-grid">
@@ -1488,13 +1534,23 @@ export default function FeedPage() {
 
               {/* Toggle Form Termina */}
               {!showCloseForm ? (
-                <button
-                  onClick={() => setShowCloseForm(true)}
-                  className="btn btn-primary"
-                  style={{ width: '100%', borderRadius: '20px', padding: '8px', fontSize: '14px', fontWeight: 'bold' }}
-                >
-                  Termina Allenamento 🏁
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setShowCloseForm(true)}
+                    className="btn btn-primary"
+                    style={{ flex: 1, borderRadius: '20px', padding: '8px', fontSize: '14px', fontWeight: 'bold' }}
+                  >
+                    Termina Allenamento 🏁
+                  </button>
+                  <button
+                    onClick={handleCancelActiveSession}
+                    className="btn btn-secondary"
+                    title="Annulla la sessione senza salvarla"
+                    style={{ borderRadius: '20px', padding: '8px 14px', fontSize: '13px', color: 'var(--error)', flexShrink: 0 }}
+                  >
+                    <Trash2 size={15} /> Annulla
+                  </button>
+                </div>
               ) : (
                 <form onSubmit={handleCloseActiveSession} style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -1670,8 +1726,13 @@ export default function FeedPage() {
                 </div>
 
                  {act.location && (
-                   <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
+                   <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
                      <span>📍 presso <strong>{act.location.name}</strong></span>
+                     {act.location.unverified && (
+                       <span title="Registrata lontano dal locale: non conta per le classifiche" style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '1px 7px', fontWeight: 600 }}>
+                         non verificata
+                       </span>
+                     )}
                    </div>
                  )}
 
@@ -2355,18 +2416,36 @@ export default function FeedPage() {
                 </span>
               </div>
 
-              {/* Chi ha messo Cheers */}
+              {/* Chi ha messo Cheers — primi 3 cliccabili + "altri" */}
               {selectedActivity.cheers && selectedActivity.cheers.length > 0 && (() => {
-                const names = selectedActivity.cheers.map((uid) => {
-                  if (uid === currentUser?.id) return 'Tu';
+                const people = selectedActivity.cheers.map((uid) => {
                   const p = profilesList.find((pr) => pr.id === uid);
-                  return p?.display_name || p?.username || 'Atleta';
+                  return { id: uid, name: uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta') };
                 });
+                const shown = people.slice(0, 3);
+                const extra = people.length - shown.length;
                 return (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255,94,0,0.05)', border: '1px solid rgba(255,94,0,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255,94,0,0.05)', border: '1px solid rgba(255,94,0,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
                     <Beer size={15} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }} fill="var(--primary)" />
-                    <span style={{ fontSize: '13px', color: 'var(--text-dark-primary)', lineHeight: 1.4 }}>
-                      Hanno brindato: <strong>{names.join(', ')}</strong>
+                    <span style={{ fontSize: '13px', color: 'var(--text-dark-primary)', lineHeight: 1.5 }}>
+                      Hanno brindato:{' '}
+                      {shown.map((p, i) => (
+                        <span key={p.id}>
+                          <Link href={`/u/${p.id}`} style={{ color: '#FFF', fontWeight: 700 }}>{p.name}</Link>
+                          {i < shown.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                      {extra > 0 && (
+                        <>
+                          {' '}e{' '}
+                          <button
+                            onClick={() => setShowCheersList(true)}
+                            style={{ color: 'var(--primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px' }}
+                          >
+                            altri {extra}
+                          </button>
+                        </>
+                      )}
                     </span>
                   </div>
                 );
@@ -2413,6 +2492,42 @@ export default function FeedPage() {
               )}
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODAL LISTA COMPLETA CHEERS (stile Instagram) */}
+      {showCheersList && selectedActivity && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(6px)' }} onClick={() => setShowCheersList(false)}>
+          <div className="card" style={{ width: '100%', maxWidth: '420px', maxHeight: '70vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-dark)', padding: '0', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--border-dark)' }}>
+              <strong style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Beer size={18} color="var(--primary)" fill="var(--primary)" /> Cheers ({selectedActivity.cheers.length})
+              </strong>
+              <button onClick={() => setShowCheersList(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              {selectedActivity.cheers.map((uid) => {
+                const p = profilesList.find((pr) => pr.id === uid);
+                const name = uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta Strabar');
+                return (
+                  <Link
+                    key={uid}
+                    href={`/u/${uid}`}
+                    onClick={() => { setShowCheersList(false); setSelectedActivity(null); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 18px', borderBottom: '1px solid var(--border-dark)', textDecoration: 'none' }}
+                  >
+                    <div className="activity-avatar" style={{ width: 40, height: 40, fontSize: 16, flexShrink: 0 }}>
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>{name}</strong>
+                      {p?.username && <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

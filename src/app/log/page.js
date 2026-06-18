@@ -35,8 +35,9 @@ export default function LogActivityPage() {
   // Loader a tutto schermo durante l'effettivo avvio della sessione
   const [checkingGps, setCheckingGps] = useState(false);
 
-  // Radar live: con chi condividere la propria posizione mentre si beve
-  const [liveShare, setLiveShare] = useState('none'); // 'none' | 'friends' | 'public'
+  // Visibilità della sessione live: chi la vede nel feed e sul radar mentre bevi.
+  // 'private' = nascosta a tutti finché è live (riappare nel feed solo a chiusura).
+  const [liveShare, setLiveShare] = useState('friends'); // 'private' | 'friends' | 'public'
 
   // Stati per registrazione a posteriori
   const [showRetroForm, setShowRetroForm] = useState(false);
@@ -325,14 +326,13 @@ export default function LogActivityPage() {
     try {
       if (!db || typeof db.createActivity !== 'function') return;
 
-      // Se l'utente vuole comparire sul radar live, prendiamo la posizione GPS
-      let location = null;
-      if (liveShare !== 'none') {
+      // Visibilità: salviamo sempre lo stato; per Tutti/Amici proviamo a prendere il GPS per il radar
+      const location = { name: 'Sessione Libera', share: liveShare };
+      if (liveShare !== 'private') {
         const loc = await requestUserLocation();
         if (loc.coords) {
-          location = { name: 'Sessione Libera', lat: loc.coords.lat, lng: loc.coords.lng, share: liveShare };
-        } else {
-          alert('Per farti trovare sul radar serve la posizione GPS: ' + (loc.error || 'non disponibile') + '\nLa sessione parte comunque, ma non sarai visibile sulla mappa.');
+          location.lat = loc.coords.lat;
+          location.lng = loc.coords.lng;
         }
       }
 
@@ -404,6 +404,17 @@ export default function LogActivityPage() {
   // Nessun blocco GPS rigido: l'utente ha scelto attivamente il locale dalla lista reale.
   const startSessionAtVenue = async (venue) => {
     if (!venue || !venue.name) return;
+    // Se il GPS dice che sei lontano (>300m), puoi registrare lo stesso ma la sessione
+    // NON conterà per le classifiche (del locale e degli atleti). Avvisiamo l'utente.
+    let unverified = false;
+    if (!isAppendingToSession && venue.distance != null && venue.distance > 300) {
+      const dist = venue.distance >= 1000 ? `${(venue.distance / 1000).toFixed(1)} km` : `${venue.distance} m`;
+      const ok = window.confirm(
+        `Sei a circa ${dist} da "${venue.name}".\n\nPuoi registrare comunque, ma la sessione verrà segnata come "non verificata" e NON conterà per le classifiche (del locale e degli atleti).\n\nProcedere?`
+      );
+      if (!ok) return;
+      unverified = true;
+    }
     setShowLocaleSelector(false);
     setCheckingGps(true);
     try {
@@ -419,7 +430,8 @@ export default function LogActivityPage() {
             address: venue.address || '',
             lat: venue.lat ?? null,
             lng: venue.lng ?? null,
-            ...(liveShare !== 'none' && venue.lat && venue.lng ? { share: liveShare } : {}),
+            share: liveShare,
+            ...(unverified ? { unverified: true } : {}),
           },
           drinks: [],
           is_active: true,
@@ -489,19 +501,23 @@ export default function LogActivityPage() {
         </p>
       </div>
 
-      {/* Radar live: visibilità sulla mappa */}
+      {/* Visibilità della sessione live (feed + radar) */}
       <div className="card" style={{ padding: '16px', border: '1px solid var(--border-dark)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
           <MapPin size={16} color="var(--primary)" />
-          <strong style={{ fontSize: '14px' }}>Fatti trovare sul Radar Live 📡</strong>
+          <strong style={{ fontSize: '14px' }}>Chi vede la tua sessione live? 👀</strong>
         </div>
         <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '10px', lineHeight: 1.4 }}>
-          Chi può vederti sulla mappa mentre bevi? Useremo la tua posizione <strong>solo durante la sessione live</strong> e solo se scegli di condividerla.
+          {liveShare === 'private'
+            ? '🔒 Privata: non appari né nel feed né sul radar mentre bevi. La sessione comparirà nel feed solo quando la chiudi.'
+            : liveShare === 'friends'
+            ? '👥 Solo i tuoi follower ti vedono nel feed e sul radar (usiamo la posizione solo durante la sessione).'
+            : '🌍 Tutti possono vederti nel feed e sul radar live (usiamo la posizione solo durante la sessione).'}
         </p>
         <div className="seg-tabs">
-          <div className={`seg-tab ${liveShare === 'none' ? 'active' : ''}`} onClick={() => setLiveShare('none')}>🙈 Nessuno</div>
-          <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
           <div className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>🌍 Tutti</div>
+          <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
+          <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>🔒 Privata</div>
         </div>
       </div>
 

@@ -1413,6 +1413,7 @@ export const db = {
     activities.forEach((act) => {
       const loc = act.location;
       if (!loc || !loc.name) return;
+      if (loc.unverified) return; // sessione fuori dal locale: non conta per le classifiche
       const key = this.normalizePlaceKey(loc.name);
       if (!map[key]) {
         map[key] = {
@@ -1659,7 +1660,7 @@ export const db = {
   async getPlaceLeaderboard(placeKey) {
     const activities = await this.getActivities();
     const sessions = activities.filter(
-      (a) => a.location && this.normalizePlaceKey(a.location.name) === placeKey
+      (a) => a.location && !a.location.unverified && this.normalizePlaceKey(a.location.name) === placeKey
     );
     const byUser = {};
     sessions.forEach((s) => {
@@ -1679,6 +1680,7 @@ export const db = {
     activities.forEach((a) => {
       const uid = a.user_id;
       if (!uid) return;
+      if (a.location?.unverified) return; // sessione non verificata: esclusa dalla classifica
       if (!byUser[uid]) {
         byUser[uid] = {
           user_id: uid,

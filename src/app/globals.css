@@ -905,15 +905,21 @@ button, input, select, textarea {
   }
   .mobile-nav a {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     color: var(--text-dark-secondary);
     position: relative;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding: 0 2px;
   }
   .mobile-nav a.active { color: var(--primary); }
   .mobile-nav a.active::before {

@@ -103,7 +103,19 @@ export default function Navbar() {
 
   const handleNotifClick = (n) => {
     setNotifOpen(false);
-    if (n.link) router.push(n.link);
+    if (!n.link) return;
+    const m = n.link.match(/activity=([^&]+)/);
+    if (m) {
+      const id = m[1];
+      if (pathname === '/') {
+        // Già sulla home: apri il modale senza ricaricare
+        window.dispatchEvent(new CustomEvent('strabar:open-activity', { detail: id }));
+      } else {
+        router.push(`/?activity=${id}`);
+      }
+    } else {
+      router.push(n.link);
+    }
   };
 
   const handleLogout = async () => {
@@ -118,6 +130,7 @@ export default function Navbar() {
     { href: '/routes', label: 'Percorsi', icon: Map },
     { href: '/places', label: 'Classifiche', icon: Trophy },
     { href: '/events', label: 'Eventi', icon: Calendar },
+    { href: '/live', label: 'Radar', icon: Radar },
     { href: '/log', label: 'Registra', icon: PlusCircle },
     { href: '/profile', label: 'Profilo', icon: User },
   ];
@@ -149,22 +162,9 @@ export default function Navbar() {
         </div>
 
         <div className="nav-actions">
-          {/* Radar live: sempre raggiungibile dalla barra in alto */}
-          {user && (
-            <Link href="/live" className={`action-btn ${isActive('/live') ? 'active' : ''}`} title="Radar Live — chi beve vicino a te" style={{ position: 'relative' }}>
-              <Radar size={20} />
-              {liveCount > 0 && <span className="notif-badge" style={{ background: 'var(--primary)' }}>{liveCount > 9 ? '9+' : liveCount}</span>}
-            </Link>
-          )}
-
           {/* Invita amici: sempre raggiungibile dalla barra in alto */}
           <Link href="/install" className={`action-btn ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
             <Share2 size={20} />
-          </Link>
-
-          {/* Eventi: raggiungibile dalla barra superiore su mobile */}
-          <Link href="/events" className={`action-btn nav-action-mobile ${isActive('/events') ? 'active' : ''}`} title="Eventi">
-            <Calendar size={20} />
           </Link>
 
           {user && (
@@ -244,23 +244,38 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Bottom navigation per mobile */}
+      {/* Bottom navigation per mobile (3 · FAB · 3, simmetrica) */}
       <nav className="mobile-nav">
         <Link href="/" className={isActive('/') ? 'active' : ''}>
           <Beer size={20} />
           Feed
         </Link>
-        <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
-          <Map size={20} />
-          Percorsi
+        <Link href="/places" className={isActive('/places') ? 'active' : ''}>
+          <Trophy size={20} />
+          Classifiche
         </Link>
+        {user && (
+          <Link href="/live" className={isActive('/live') ? 'active' : ''} style={{ position: 'relative' }}>
+            <Radar size={20} />
+            Radar
+            {liveCount > 0 && (
+              <span style={{ position: 'absolute', top: '2px', right: 'calc(50% - 22px)', minWidth: '15px', height: '15px', padding: '0 3px', background: 'var(--primary)', color: '#fff', borderRadius: '8px', fontSize: '9px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {liveCount > 9 ? '9+' : liveCount}
+              </span>
+            )}
+          </Link>
+        )}
         <Link href="/log" className={`mn-register ${isActive('/log') ? 'active' : ''}`}>
           <PlusCircle size={24} />
           Registra
         </Link>
-        <Link href="/places" className={isActive('/places') ? 'active' : ''}>
-          <Trophy size={20} />
-          Classifiche
+        <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
+          <Map size={20} />
+          Percorsi
+        </Link>
+        <Link href="/events" className={isActive('/events') ? 'active' : ''}>
+          <Calendar size={20} />
+          Eventi
         </Link>
         <Link href="/profile" className={isActive('/profile') ? 'active' : ''}>
           <User size={20} />
