@@ -6,8 +6,8 @@ export const metadata = {
 
 // NOTA: modello base conforme all'impostazione GDPR, da personalizzare.
 // NON è consulenza legale. Sostituisci i campi tra [parentesi].
-const CONTACT_EMAIL = '[la-tua-email@esempio.com]';
-const OWNER = '[Nome Cognome], persona fisica (progetto non commerciale)';
+const CONTACT_EMAIL = 'pesce.davide1995@gmail.com';
+const OWNER = 'Davide Pesce, persona fisica (progetto non commerciale)';
 const APP_NAME = 'Strabar';
 const LAST_UPDATE = '18 giugno 2026';
 
@@ -29,7 +29,8 @@ export default function PrivacyPage() {
           <ul style={s.ul}>
             <li><strong>Dati account:</strong> email, username, nome visualizzato (e, se lo inserisci, il peso corporeo per stimare il BAC).</li>
             <li><strong>Contenuti che crei:</strong> sessioni/bevute, drink, note, foto caricate, tag di amici, commenti, &quot;cheers&quot;, recensioni, eventi.</li>
-            <li><strong>Posizione:</strong> la tua posizione GPS viene usata <strong>solo al momento</strong> in cui avvii un check-in geolocalizzato (per trovare i locali vicini) o usi il <strong>Radar Live</strong>. Non tracciamo la tua posizione in background.</li>
+            <li><strong>Posizione:</strong> la tua posizione GPS viene usata <strong>solo al momento</strong> in cui avvii un check-in geolocalizzato (per trovare i locali vicini), usi il <strong>Radar Live</strong> o avanzi a una tappa di un <strong>Tour guidato</strong> (per verificare che tu sia effettivamente sul posto). Non tracciamo la tua posizione in background.</li>
+            <li><strong>Verifica posizione nelle tappe:</strong> quando avanzi da una tappa all&apos;altra di un itinerario, il GPS viene usato per confrontare la tua posizione con le coordinate della tappa. Se sei lontano (&gt;300 m) vieni avvisato e la tappa può essere segnata come &quot;non verificata&quot;, il che esclude quella registrazione dalle classifiche. La posizione rilevata non viene inviata a server esterni né salvata — serve solo al confronto locale.</li>
             <li><strong>Condivisione posizione live (Radar):</strong> è <strong>opt-in</strong>. Solo se scegli &quot;Amici&quot; o &quot;Tutti&quot; quando avvii un brindisi, la posizione di quel locale/sessione diventa visibile (rispettivamente ai tuoi follower o a tutti gli utenti) finché la sessione è attiva. Di default (&quot;Nessuno&quot;) non sei visibile sulla mappa.</li>
             <li><strong>Dati tecnici minimi</strong> necessari al funzionamento (es. cookie di sessione per l&apos;autenticazione).</li>
           </ul>
@@ -52,8 +53,11 @@ export default function PrivacyPage() {
           <h2 style={s.h2}>A chi comunichiamo i dati (responsabili)</h2>
           <ul style={s.ul}>
             <li><strong>Supabase</strong> (autenticazione, database, archiviazione foto) — fornitore dell&apos;infrastruttura.</li>
-            <li><strong>OpenStreetMap / Nominatim / Overpass</strong> — quando cerchi un locale, la query e le coordinate approssimative vengono inviate per ottenere i risultati.</li>
-            <li>Eventuale hosting (es. la piattaforma su cui è pubblicata l&apos;app).</li>
+            <li><strong>Vercel</strong> — hosting dell&apos;applicazione web.</li>
+            <li><strong>OpenStreetMap / Nominatim / Overpass API</strong> — quando cerchi un locale o carichi i bar su mappa, la query testuale e le coordinate approssimative vengono inviate ai loro server per ottenere i risultati.</li>
+            <li><strong>OSRM (Project OSRM)</strong> — per il calcolo del percorso stradale tra le tappe di un itinerario, le coordinate dei punti vengono inviate al server pubblico <em>router.project-osrm.org</em>.</li>
+            <li><strong>Google Maps</strong> — quando usi il pulsante &quot;Guidami&quot; o &quot;Naviga&quot;, l&apos;app apre l&apos;app di Google Maps nel tuo dispositivo trasmettendo le coordinate della destinazione. Si applicano le <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>norme sulla privacy di Google</a>.</li>
+            <li><strong>Resend</strong> — per l&apos;invio di email transazionali (es. reset password). Viene trasmesso solo l&apos;indirizzo email del destinatario.</li>
           </ul>
           <p>Non vendiamo i tuoi dati a terzi.</p>
         </section>

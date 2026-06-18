@@ -6,7 +6,7 @@ export const metadata = {
 
 // NOTA: questo è un modello base da personalizzare. NON è consulenza legale.
 // Sostituisci i campi tra [parentesi] con i tuoi dati prima della pubblicazione.
-const CONTACT_EMAIL = '[la-tua-email@esempio.com]';
+const CONTACT_EMAIL = 'pesce.davide1995@gmail.com';
 const APP_NAME = 'Strabar';
 const LAST_UPDATE = '18 giugno 2026';
 
