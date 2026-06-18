@@ -114,7 +114,8 @@ export default function LogActivityPage() {
         retroForm.drinks,
         createdAt,
         retroForm.duration,
-        new Date(new Date(retroForm.date).getTime() + retroForm.duration * 60 * 1000).toISOString()
+        new Date(new Date(retroForm.date).getTime() + retroForm.duration * 60 * 1000).toISOString(),
+        currentUser?.weight
       );
       await db.createActivity({
         title: retroForm.title || `Sessione del ${new Date(retroForm.date).toLocaleDateString('it-IT')}`,

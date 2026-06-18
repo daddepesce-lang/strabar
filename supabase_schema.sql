@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     display_name TEXT NOT NULL,
     avatar_url TEXT,
     is_premium BOOLEAN DEFAULT FALSE NOT NULL,
+    weight SMALLINT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -305,6 +306,9 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT T
 
 -- MIGRAZIONE: nome dell'attore nelle notifiche (per chi ha creato la tabella prima)
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS actor_name TEXT;
+
+-- MIGRAZIONE: peso corporeo nel profilo (per BAC/curva precisi)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS weight SMALLINT;
 
 -- Ricarica la cache dello schema di PostgREST (Supabase) così le nuove colonne sono subito visibili
 NOTIFY pgrst, 'reload schema';

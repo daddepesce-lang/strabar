@@ -132,17 +132,38 @@ export default function FeedPage() {
     return () => clearInterval(interval);
   }, [activeSession]);
 
+  // Applica una trasformazione a un'attività sia nel feed che nel modale aperto
+  const patchActivity = (activityId, updater) => {
+    setActivities((prev) => prev.map((a) => (a.id === activityId ? updater(a) : a)));
+    setSelectedActivity((prev) => (prev && prev.id === activityId ? updater(prev) : prev));
+  };
+
   const handleCheers = async (activityId) => {
     if (!currentUser) {
       router.push('/auth');
       return;
     }
+    // Aggiornamento ottimistico immediato (niente reload completo del feed)
+    const had = activities.find((a) => a.id === activityId)?.cheers?.includes(currentUser.id);
+    patchActivity(activityId, (a) => {
+      const cheers = a.cheers || [];
+      return {
+        ...a,
+        cheers: had ? cheers.filter((id) => id !== currentUser.id) : [...cheers, currentUser.id],
+      };
+    });
     try {
       await db.toggleCheers(activityId);
-      // Ricarica il feed
-      await loadFeed();
     } catch (err) {
       console.error(err);
+      // Rollback
+      patchActivity(activityId, (a) => {
+        const cheers = a.cheers || [];
+        return {
+          ...a,
+          cheers: had ? [...cheers, currentUser.id] : cheers.filter((id) => id !== currentUser.id),
+        };
+      });
     }
   };
 
@@ -226,20 +247,43 @@ export default function FeedPage() {
 
   const handleCommentSubmit = async (e, activityId) => {
     e.preventDefault();
-    const text = newCommentText[activityId];
-    if (!text || !text.trim()) return;
+    const text = (newCommentText[activityId] || '').trim();
+    if (!text) return;
 
     if (!currentUser) {
       router.push('/auth');
       return;
     }
 
+    // Commento ottimistico: appare subito, indipendentemente dal reload del feed
+    const tempId = 'temp-' + Date.now();
+    const optimistic = {
+      id: tempId,
+      user_id: currentUser.id,
+      user_name: currentUser.display_name || currentUser.username || 'Tu',
+      text,
+      created_at: new Date().toISOString(),
+    };
+    patchActivity(activityId, (a) => ({ ...a, comments: [...(a.comments || []), optimistic] }));
+    setNewCommentText(prev => ({ ...prev, [activityId]: '' }));
+
     try {
-      await db.addComment(activityId, text);
-      setNewCommentText(prev => ({ ...prev, [activityId]: '' }));
-      await loadFeed();
+      const saved = await db.addComment(activityId, text);
+      if (saved && saved.id) {
+        patchActivity(activityId, (a) => ({
+          ...a,
+          comments: (a.comments || []).map((c) => (c.id === tempId ? { ...c, id: saved.id } : c)),
+        }));
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Errore invio commento:', err);
+      // Rollback del commento ottimistico
+      patchActivity(activityId, (a) => ({
+        ...a,
+        comments: (a.comments || []).filter((c) => c.id !== tempId),
+      }));
+      setNewCommentText((prev) => ({ ...prev, [activityId]: text }));
+      alert('Impossibile inviare il commento: ' + (err.message || err));
     }
   };
 
@@ -282,8 +326,8 @@ export default function FeedPage() {
         Math.round((new Date().getTime() - startTimeMs) / (60 * 1000))
       );
       
-      // Calcola il nuovo BAC stimato
-      const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration);
+      // Calcola il nuovo BAC stimato (peso reale dell'utente se impostato nel profilo)
+      const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration, undefined, currentUser?.weight);
       
       const updatedFields = {
         drinks: updatedDrinks,
@@ -347,8 +391,8 @@ export default function FeedPage() {
       const startTimeMs = Math.min(...timestamps);
       const duration = Math.max(1, Math.round((new Date().getTime() - startTimeMs) / (60 * 1000)));
       
-      // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default)
-      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration);
+      // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default; peso reale se impostato)
+      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight);
       
       const updatedFields = {
         drinks: updatedDrinks,
@@ -538,7 +582,7 @@ export default function FeedPage() {
     try {
       const totalUnits = editingActivity.drinks.reduce((acc, d) => acc + (d.units * d.qty), 0);
       const updatedDrinks = editingActivity.drinks;
-      const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration);
+      const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration, undefined, currentUser?.weight);
       
       const updatedFields = {
         title: editingActivity.title,
@@ -1050,9 +1094,13 @@ export default function FeedPage() {
       ? undefined  // usa now (default)
       : new Date(new Date(selectedActivity.created_at).getTime() + (selectedActivity.duration || 120) * 60 * 1000).toISOString();
 
+    // Peso del proprietario della sessione (per BAC/curva precisi); fallback 70kg
+    const ownerWeight =
+      (selectedActivity.user_id === currentUser?.id ? currentUser?.weight : selectedActivity.profiles?.weight) || undefined;
+
     derivedBac = (selectedActivity.bac_level && parseFloat(selectedActivity.bac_level) > 0)
       ? parseFloat(selectedActivity.bac_level)
-      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime);
+      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime, ownerWeight);
 
     if (selectedActivity.location && selectedActivity.location.name) {
       const locNameNormalized = selectedActivity.location.name.trim().toLowerCase();
@@ -1098,8 +1146,8 @@ export default function FeedPage() {
         .slice(0, 3);
     }
 
-    // Timeline BAC reale basata sugli orari di aggiunta dei singoli drink
-    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120);
+    // Timeline BAC reale basata sugli orari di aggiunta dei singoli drink (peso reale se disponibile)
+    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight);
   }
 
   // Feed filtrato: "Amici" mostra le sessioni di chi seguo + le mie
@@ -2197,6 +2245,64 @@ export default function FeedPage() {
                   <Share2 size={14} /> Esporta
                 </Link>
               </div>
+            </div>
+
+            {/* Cheers & Commenti dentro il dettaglio */}
+            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '16px', marginTop: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '16px' }}>
+                <button
+                  onClick={() => handleCheers(selectedActivity.id)}
+                  className={`action-btn ${selectedActivity.cheers?.includes(currentUser?.id) ? 'active' : ''}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  <Beer size={18} fill={selectedActivity.cheers?.includes(currentUser?.id) ? 'var(--primary)' : 'none'} />
+                  <span>Cheers ({selectedActivity.cheers?.length || 0})</span>
+                </button>
+                <span className="action-btn" style={{ cursor: 'default' }}>
+                  <MessageSquare size={18} />
+                  <span>Commenti ({selectedActivity.comments?.length || 0})</span>
+                </span>
+              </div>
+
+              {selectedActivity.comments && selectedActivity.comments.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', maxHeight: '240px', overflowY: 'auto' }}>
+                  {selectedActivity.comments.map((comment) => (
+                    <div key={comment.id} style={{ display: 'flex', gap: '10px', fontSize: '14px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px' }}>
+                      <div className="activity-avatar" style={{ width: '28px', height: '28px', fontSize: '12px', flexShrink: 0 }}>
+                        {comment.user_name ? comment.user_name.charAt(0) : 'U'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
+                          <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{comment.user_name}</strong>
+                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{formatDate(comment.created_at)}</span>
+                        </div>
+                        <p style={{ color: 'var(--text-dark-primary)', overflowWrap: 'anywhere' }}>{comment.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {currentUser ? (
+                <form onSubmit={(e) => handleCommentSubmit(e, selectedActivity.id)} style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Scrivi un commento..."
+                    value={newCommentText[selectedActivity.id] || ''}
+                    onChange={(e) => handleCommentChange(selectedActivity.id, e.target.value)}
+                    style={{ height: '40px', padding: '10px 15px', borderRadius: '20px', fontSize: '14px' }}
+                    required
+                  />
+                  <button type="submit" className="btn btn-primary" style={{ padding: '0 20px', borderRadius: '20px', fontSize: '14px' }}>
+                    Invia
+                  </button>
+                </form>
+              ) : (
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center' }}>
+                  <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: '600' }}>Accedi</Link> per commentare.
+                </p>
+              )}
             </div>
 
           </div>

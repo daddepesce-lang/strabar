@@ -459,9 +459,9 @@ export const db = {
         .from('sessions')
         .select(`
           *,
-          profiles(username, display_name, avatar_url),
+          profiles(username, display_name, avatar_url, weight),
           cheers(user_id),
-          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url))
+          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
         `)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -504,9 +504,9 @@ export const db = {
         .from('sessions')
         .select(`
           *,
-          profiles(username, display_name, avatar_url),
+          profiles(username, display_name, avatar_url, weight),
           cheers(user_id),
-          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url))
+          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
         `)
         .eq('id', activityId)
         .maybeSingle();
@@ -1008,9 +1008,9 @@ export const db = {
           .from('sessions')
           .select(`
             *,
-            profiles(username, display_name, avatar_url),
+            profiles(username, display_name, avatar_url, weight),
             cheers(user_id),
-            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url))
+            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
           `)
           .eq('user_id', userId)
           .eq('is_active', true)
@@ -1147,9 +1147,14 @@ export const db = {
     });
   },
 
-  calculateBACTimeline(drinks, created_at, durationMinutes) {
+  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return [];
+
+    // Peso reale dell'utente se disponibile, altrimenti 70kg di default (Widmark)
+    const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
+    const r = 0.68;
+    const eliminationPerHour = 0.15 * w * r; // grammi smaltiti all'ora
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = new Date(Math.min(...timestamps));
@@ -1179,10 +1184,10 @@ export const db = {
       });
 
       const hoursSinceStart = (T.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-      const totalEliminatedGrams = 7.14 * hoursSinceStart; // 0.15 g/l * 70kg * 0.68 r = 7.14g all'ora
-      
+      const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
+
       const netGramsInBlood = Math.max(0, totalAbsorbedGrams - totalEliminatedGrams);
-      const bac = netGramsInBlood / (70 * 0.68); // peso 70 kg, r = 0.68
+      const bac = netGramsInBlood / (w * r);
 
       timepoints.push({
         time: T,
@@ -1194,9 +1199,13 @@ export const db = {
     return timepoints;
   },
 
-  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime) {
+  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return 0;
+
+    const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
+    const r = 0.68;
+    const eliminationPerHour = 0.15 * w * r;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = new Date(Math.min(...timestamps));
@@ -1219,11 +1228,11 @@ export const db = {
     });
 
     const hoursSinceStart = (refMs - startTime.getTime()) / (1000 * 60 * 60);
-    const totalEliminatedGrams = 7.14 * hoursSinceStart;
-    
+    const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
+
     const netGramsInBlood = Math.max(0, totalAbsorbedGrams - totalEliminatedGrams);
-    const bac = netGramsInBlood / (70 * 0.68);
-    
+    const bac = netGramsInBlood / (w * r);
+
     return parseFloat(bac.toFixed(2));
   },
 

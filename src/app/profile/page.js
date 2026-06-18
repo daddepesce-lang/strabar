@@ -24,6 +24,30 @@ export default function ProfilePage() {
   const [followersList, setFollowersList] = useState([]);
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
 
+  // Peso corporeo (per BAC e curva d'ebbrezza precisi)
+  const [weightInput, setWeightInput] = useState('');
+  const [savingWeight, setSavingWeight] = useState(false);
+  const [weightSaved, setWeightSaved] = useState(false);
+
+  const handleSaveWeight = async () => {
+    const w = parseInt(weightInput, 10);
+    if (!w || w < 30 || w > 250) {
+      alert('Inserisci un peso valido (tra 30 e 250 kg).');
+      return;
+    }
+    setSavingWeight(true);
+    try {
+      await db.updateProfile(currentUser.id, { weight: w });
+      setCurrentUser((prev) => ({ ...prev, weight: w }));
+      setWeightSaved(true);
+      setTimeout(() => setWeightSaved(false), 2000);
+    } catch (err) {
+      alert('Errore nel salvataggio del peso: ' + (err.message || err));
+    } finally {
+      setSavingWeight(false);
+    }
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -33,7 +57,8 @@ export default function ProfilePage() {
           return;
         }
         setCurrentUser(user);
-        
+        setWeightInput(user.weight ? String(user.weight) : '');
+
         const acts = await db.getActivities();
         // Filtra le attività dell'utente corrente
         const userActs = acts.filter(a => a.user_id === user.id);
@@ -232,6 +257,41 @@ export default function ProfilePage() {
               Passa a Strabar Premium
             </Link>
           )}
+        </div>
+      </div>
+
+      {/* Peso corporeo per BAC preciso */}
+      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <span style={{ background: 'rgba(255,94,0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
+          <div style={{ minWidth: 0 }}>
+            <strong style={{ fontSize: '15px', display: 'block' }}>Peso corporeo</strong>
+            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+              Rende il calcolo del tasso alcolico (BAC) e la curva d&apos;ebbrezza più precisi. Se non impostato usiamo 70&nbsp;kg.
+            </span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="30"
+            max="250"
+            value={weightInput}
+            onChange={(e) => setWeightInput(e.target.value)}
+            placeholder="70"
+            className="form-control"
+            style={{ width: '90px', height: '42px', textAlign: 'center', fontSize: '15px' }}
+          />
+          <span style={{ fontSize: '14px', color: 'var(--text-dark-secondary)' }}>kg</span>
+          <button
+            onClick={handleSaveWeight}
+            disabled={savingWeight}
+            className="btn btn-primary"
+            style={{ borderRadius: '20px', padding: '10px 16px', fontSize: '14px', fontWeight: 700 }}
+          >
+            {weightSaved ? '✓ Salvato' : savingWeight ? '...' : 'Salva'}
+          </button>
         </div>
       </div>
 
