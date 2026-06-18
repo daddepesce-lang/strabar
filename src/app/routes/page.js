@@ -7,6 +7,19 @@ import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2 } 
 import Link from 'next/link';
 import RequireAuth from '@/components/RequireAuth';
 
+// Richiede la posizione GPS corrente (alta precisione, con fallback a bassa precisione).
+// Risolve null se il GPS non è disponibile o l'utente nega il permesso.
+const requestPosition = () =>
+  new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { resolve(null); return; }
+    const ok = (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    navigator.geolocation.getCurrentPosition(
+      ok,
+      () => navigator.geolocation.getCurrentPosition(ok, () => resolve(null), { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
+    );
+  });
+
 export default function RoutesPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
@@ -523,6 +536,31 @@ out body;`;
       }
       const stops = stopsRaw.map((w) => ({ name: w.name, lat: w.lat, lng: w.lng ?? w.lon, note: w.note || '' }));
       const first = stops[0];
+
+      // Verifica GPS sulla PRIMA tappa: come nelle sessioni normali, conta per le
+      // classifiche solo se sei davvero sul posto. Altrimenti avvisa e segna "non verificata".
+      let unverified = false;
+      if (first.lat && first.lng) {
+        const pos = await requestPosition();
+        if (!pos) {
+          const ok = window.confirm(
+            `Impossibile rilevare la posizione GPS.\n\nPuoi avviare il tour comunque, ma la prima tappa "${first.name}" NON conterà per le classifiche (leggenda del locale e atleti).\n\nProcedere?`
+          );
+          if (!ok) { setStartingTour(false); return; }
+          unverified = true;
+        } else {
+          const { distance } = db.checkGeofencing(first.lat, first.lng, pos.lat, pos.lng, Infinity);
+          if (distance > 300) {
+            const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+            const ok = window.confirm(
+              `Sei a circa ${dist} da "${first.name}".\n\nPuoi avviare il tour comunque, ma questa tappa verrà segnata come "non verificata" e NON conterà per le classifiche.\n\nProcedere?`
+            );
+            if (!ok) { setStartingTour(false); return; }
+            unverified = true;
+          }
+        }
+      }
+
       await db.createActivity({
         title: `Tour: ${selectedRoute.name}`,
         location: {
@@ -531,13 +569,14 @@ out body;`;
           lat: first.lat,
           lng: first.lng,
           share: tourVisibility,
+          ...(unverified ? { unverified: true } : {}),
           tour: {
             route_id: selectedRoute.id,
             route_name: selectedRoute.name,
             target: tourTarget,
             current: 0,
             stops,
-            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0 }],
+            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0, unverified }],
           },
         },
         drinks: [],

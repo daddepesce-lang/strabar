@@ -25,6 +25,19 @@ const groupDrinks = (drinks) => {
   return Object.values(map);
 };
 
+// Richiede la posizione GPS corrente (alta precisione, con fallback a bassa precisione).
+// Risolve null se il GPS non è disponibile o l'utente nega il permesso.
+const getCurrentPosition = () =>
+  new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { resolve(null); return; }
+    const ok = (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    navigator.geolocation.getCurrentPosition(
+      ok,
+      () => navigator.geolocation.getCurrentPosition(ok, () => resolve(null), { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
+    );
+  });
+
 // Tappe reali del Giro dei Bacari di Venezia (coordinate GPS reali)
 const VENICE_TOUR = [
   { name: 'Cantina Do Mori', lat: 45.4382, lng: 12.3353, note: 'Il più antico (1462). Imperdibile il francobollo.' },
@@ -634,10 +647,39 @@ export default function FeedPage() {
     if (!tour) return;
     const stop = stops[index];
     if (!stop) return;
+
+    // Verifica GPS: come nelle sessioni normali, una tappa conta per le classifiche
+    // (leggenda del locale e atleti) SOLO se sei davvero sul posto. Altrimenti avvisa
+    // e segna la tappa come "non verificata".
+    let unverified = false;
+    if (stop.lat && stop.lng) {
+      const pos = await getCurrentPosition();
+      if (!pos) {
+        const ok = window.confirm(
+          `Impossibile rilevare la posizione GPS.\n\nPuoi registrare comunque a "${stop.name}", ma questa tappa NON conterà per le classifiche (leggenda del locale e atleti).\n\nProcedere?`
+        );
+        if (!ok) return;
+        unverified = true;
+      } else {
+        const { distance } = db.checkGeofencing(stop.lat, stop.lng, pos.lat, pos.lng, Infinity);
+        if (distance > 300) {
+          const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+          const ok = window.confirm(
+            `Sei a circa ${dist} da "${stop.name}".\n\nPuoi registrare comunque, ma questa tappa verrà segnata come "non verificata" e NON conterà per le classifiche.\n\nProcedere?`
+          );
+          if (!ok) return;
+          unverified = true;
+        }
+      }
+    } else {
+      // Tappa extra senza coordinate: non verificabile via GPS → non conta per le classifiche.
+      unverified = true;
+    }
+
     const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
     const newVisited = [
       ...(tour.visited || []),
-      { name: stop.name, lat: stop.lat ?? null, lng: stop.lng ?? null, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks },
+      { name: stop.name, lat: stop.lat ?? null, lng: stop.lng ?? null, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks, unverified },
     ];
     const newLocation = {
       ...activeSession.location,
@@ -646,6 +688,8 @@ export default function FeedPage() {
       // l'atleta resta comunque visibile nel radar live.
       lat: stop.lat ?? activeSession.location?.lat ?? null,
       lng: stop.lng ?? activeSession.location?.lng ?? null,
+      // Il flag governa se la sessione conta per le classifiche del locale corrente.
+      ...(unverified ? { unverified: true } : { unverified: false }),
       tour: { ...tour, stops, current: index, visited: newVisited },
     };
     setActiveSession((prev) => (prev ? { ...prev, location: newLocation } : prev));
@@ -654,7 +698,10 @@ export default function FeedPage() {
       if (stop.lat && stop.lng && typeof window !== 'undefined') {
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`, '_blank', 'noopener,noreferrer');
       }
-      triggerLocalNotification('Prossima tappa! 📍', `Dirigiti verso ${stop.name}`);
+      triggerLocalNotification(
+        unverified ? 'Tappa registrata (non verificata) 📍' : 'Sei arrivato! 📍✅',
+        unverified ? `${stop.name} — non conterà per le classifiche.` : `${stop.name} verificato. Buona bevuta!`
+      );
     } catch (err) {
       console.error('Errore cambio tappa:', err);
       alert('Impossibile passare alla tappa: ' + (err.message || err));
@@ -1488,6 +1535,20 @@ export default function FeedPage() {
                         ➕ Tappa extra
                       </button>
                     </div>
+
+                    {/* Mappa del percorso con la tappa corrente evidenziata */}
+                    {(() => {
+                      const mapWaypoints = stops
+                        .map((s, i) => ({ name: s.name, lat: s.lat, lng: s.lng, label: i + 1 }))
+                        .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
+                      if (mapWaypoints.length === 0) return null;
+                      const activeIdx = mapWaypoints.findIndex((s) => s.label === cur + 1);
+                      return (
+                        <div style={{ marginTop: '12px' }} data-no-open>
+                          <RouteMap waypoints={mapWaypoints} activeIndex={activeIdx >= 0 ? activeIdx : null} height="220px" />
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })() : (
@@ -1920,6 +1981,38 @@ export default function FeedPage() {
                      )}
                    </div>
                  )}
+
+                 {/* Avanzamento del Tour visibile ai follower */}
+                 {act.location?.tour && (() => {
+                   const t = act.location.tour;
+                   const stops = t.stops || [];
+                   const cur = t.current || 0;
+                   const total = stops.length || 1;
+                   const pct = Math.min(100, ((cur + 1) / total) * 100);
+                   const path = (t.visited || []).map((s) => s.name);
+                   return (
+                     <div data-no-open style={{ marginBottom: '12px', background: 'rgba(223, 255, 0,0.05)', border: '1px solid rgba(223, 255, 0,0.2)', borderRadius: '10px', padding: '10px 12px', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '6px', flexWrap: 'wrap' }}>
+                         <strong style={{ fontSize: '12px', color: 'var(--secondary)' }}>🗺️ Tour: {t.route_name}</strong>
+                         <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>
+                           {isReallyActive ? `Tappa ${cur + 1}/${total}` : `${path.length}/${total} tappe`}
+                         </span>
+                       </div>
+                       <div style={{ height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: path.length ? '6px' : 0 }}>
+                         <div style={{ width: `${pct}%`, height: '100%', background: 'var(--secondary)', transition: 'width 0.3s' }} />
+                       </div>
+                       {path.length > 0 && (
+                         <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', lineHeight: 1.4 }}>
+                           {path.map((name, i) => (
+                             <span key={i} style={i === cur && isReallyActive ? { color: 'var(--secondary)', fontWeight: 700 } : undefined}>
+                               {name}{i < path.length - 1 ? ' ➔ ' : ''}
+                             </span>
+                           ))}
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })()}
 
                  {(() => {
                    const images = act.media?.filter(m => m.type === 'image') || [];
