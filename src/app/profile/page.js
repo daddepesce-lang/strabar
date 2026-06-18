@@ -247,10 +247,10 @@ export default function ProfilePage() {
           {currentUser?.is_premium ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--secondary)', fontWeight: '700', fontSize: '14px', background: 'rgba(255, 176, 0, 0.1)', padding: '8px 14px', borderRadius: '30px', border: '1px solid var(--secondary)' }}>
-                <Shield size={16} /> Stato: PRO (Offerta Lancio)
+                <Shield size={16} /> Tutte le funzioni sbloccate
               </div>
               <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600' }}>
-                ⏳ {currentUser.premium_remaining_days !== undefined ? currentUser.premium_remaining_days : 90} giorni gratuiti rimanenti
+                🎉 Gratis per tutti durante la beta
               </span>
             </div>
           ) : (
@@ -596,7 +596,7 @@ export default function ProfilePage() {
             );
           })()}
 
-          {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & LEADERBOARD SEGMENTI BAR) */}
+          {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & CLASSIFICHE BAR) */}
           <div className="r-grid-2-1" style={{ marginTop: '10px' }}>
             
             {/* Curva Alcolica BAC Settimanale — DATI REALI */}
@@ -718,10 +718,10 @@ export default function ProfilePage() {
               );
             })()}
 
-            {/* Classifiche Segmenti Bar */}
+            {/* Classifiche Bar */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🏆 I tuoi Segmenti (Classifica Bar)
+                🏆 Le tue Classifiche Bar
                 {(!currentUser?.is_premium) && (
                   <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
                 )}
@@ -734,7 +734,7 @@ export default function ProfilePage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                   <div>
                     <strong style={{ fontSize: '13px', color: '#FFF' }}>Cantina Do Mori (VE)</strong>
-                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Segmento: Ombra di Rosso</span>
+                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Specialità: Ombra di Rosso</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--secondary)' }}>Posizione: #4</span>
@@ -745,7 +745,7 @@ export default function ProfilePage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                   <div>
                     <strong style={{ fontSize: '13px', color: '#FFF' }}>Osteria Al Mercà (VE)</strong>
-                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Segmento: Spritz Select Sprint</span>
+                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Specialità: Spritz Select Sprint</span>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--secondary)' }}>Posizione: #22</span>

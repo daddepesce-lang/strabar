@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import RequireAuth from '@/components/RequireAuth';
 
 export default function RoutesPage() {
   const router = useRouter();
@@ -578,6 +579,10 @@ out body;`;
         </div>
       </div>
     );
+  }
+
+  if (!currentUser) {
+    return <RequireAuth feature="i percorsi" />;
   }
 
   // --- RENDER ---

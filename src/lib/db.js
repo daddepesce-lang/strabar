@@ -309,16 +309,13 @@ export const db = {
       };
       
       const createdAt = profileData.created_at || user.created_at || new Date().toISOString();
-      const createdDate = new Date(createdAt);
-      const now = new Date();
-      const diffDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
-      const remainingDays = Math.max(0, 90 - diffDays);
-      
-      return { 
-        ...user, 
-        ...profileData, 
-        is_premium: remainingDays > 0,
-        premium_remaining_days: remainingDays,
+
+      // Durante la beta tutte le funzioni sono gratuite per tutti: niente scadenza.
+      return {
+        ...user,
+        ...profileData,
+        is_premium: true,
+        premium_remaining_days: null,
         created_at: createdAt
       };
     } else {
@@ -332,15 +329,12 @@ export const db = {
       if (!profile) profile = user;
       
       const createdAt = profile.created_at || new Date().toISOString();
-      const createdDate = new Date(createdAt);
-      const now = new Date();
-      const diffDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
-      const remainingDays = Math.max(0, 90 - diffDays);
-      
+
+      // Durante la beta tutte le funzioni sono gratuite per tutti: niente scadenza.
       return {
         ...profile,
-        is_premium: remainingDays > 0,
-        premium_remaining_days: remainingDays,
+        is_premium: true,
+        premium_remaining_days: null,
         created_at: createdAt
       };
     }
@@ -663,7 +657,7 @@ export const db = {
               actor_id: user.id,
               actor_name: user.display_name || user.username,
               message: `${user.display_name || user.username} ha messo Cheers alla tua sessione "${sess.title}"`,
-              link: '/',
+              link: `/?activity=${activityId}`,
             });
           }
         } catch (notifyErr) {
@@ -696,7 +690,7 @@ export const db = {
           actor_id: user.id,
           actor_name: user.display_name || user.username,
           message: `${user.display_name || user.username} ha messo Cheers alla tua sessione "${activity.title}"`,
-          link: '/',
+          link: `/?activity=${activityId}`,
         });
       }
       return liked;
@@ -731,7 +725,7 @@ export const db = {
             actor_id: user.id,
             actor_name: user.display_name || user.username,
             message: `${user.display_name || user.username} ha commentato la tua sessione "${sess.title}"`,
-            link: '/',
+            link: `/?activity=${activityId}`,
           });
         }
       } catch (notifyErr) {
@@ -763,7 +757,7 @@ export const db = {
           actor_id: user.id,
           actor_name: user.display_name || user.username,
           message: `${user.display_name || user.username} ha commentato la tua sessione "${activity.title}"`,
-          link: '/',
+          link: `/?activity=${activityId}`,
         });
       }
       return newComment;

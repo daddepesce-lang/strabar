@@ -119,6 +119,30 @@ export default function FeedPage() {
     ensureNotificationPermission();
   }, []);
 
+  // Apri il dettaglio sessione se si arriva da una notifica (/?activity=<id>)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const actId = params.get('activity');
+    if (!actId) return;
+    (async () => {
+      try {
+        const found = typeof db.getActivity === 'function' ? await db.getActivity(actId) : null;
+        if (found) {
+          setSelectedActivity(found);
+          setCurrentSlideIndex(0);
+          // Se è un commento, apri già pronto a leggere/rispondere
+          setActiveCommentsSection((prev) => ({ ...prev, [actId]: true }));
+        }
+      } catch (err) {
+        console.error('Errore apertura notifica:', err);
+      } finally {
+        // Pulisci la query così un refresh non riapre il modale
+        window.history.replaceState({}, '', '/');
+      }
+    })();
+  }, []);
+
   // Timer per la sessione attiva
   useEffect(() => {
     if (!activeSession) return;
@@ -735,7 +759,7 @@ export default function FeedPage() {
   };
 
   // Rileva gli atleti REGISTRATI che hanno bevuto nello stesso locale a orario simile
-  // (come gli allenamenti di gruppo su Strava → "X ha bevuto con Y").
+  // 
   const COMPANION_WINDOW_MS = 3 * 60 * 60 * 1000; // 3 ore
   const getRegisteredCompanions = (act) => {
     if (!act.location?.name) return [];
@@ -833,7 +857,7 @@ export default function FeedPage() {
     );
   }
 
-  // SCHERMATA D'IMPATTO IN STILE STRAVA LANDING SE L'UTENTE NON E LOGGATO
+  // SCHERMATA D'IMPATTO SE L'UTENTE NON E LOGGATO
   if (!currentUser) {
     return (
       <div className="landing-section-gap" style={{ display: 'flex', flexDirection: 'column', gap: '90px', marginTop: '-30px', paddingBottom: '90px' }}>
@@ -978,29 +1002,29 @@ export default function FeedPage() {
           </div>
         </section>
 
-        {/* LOCAL LEGEND / LEADERBOARD INFO SECTION */}
+        {/* SEZIONE CLASSIFICA / LEGGENDA DEL LOCALE */}
         <section className="r-grid-2" style={{ alignItems: 'center' }}>
           <div style={{ background: 'linear-gradient(135deg, rgba(255, 176, 0, 0.05) 0%, rgba(22, 24, 34, 0.8) 100%)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '30px', boxShadow: 'var(--shadow)' }}>
             <div style={{ color: 'var(--secondary)', marginBottom: '15px' }}>
               <Trophy size={36} />
             </div>
-            <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Leaderboard: Diventa &quot;Local Legend&quot; 👑</h3>
+            <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Classifica: Diventa la &quot;Leggenda del Locale&quot; 👑</h3>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', lineHeight: '1.5', marginBottom: '20px' }}>
-              Su Strabar, ogni locale o bar reale ha la sua classifica e la sua leggenda locale (proprio come i segmenti sportivi). Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
+              Su Strabar, ogni locale o bar reale ha la sua classifica e la sua leggenda del locale. Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                 <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 Cantina Do Mori (Venezia)</span>
-                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Local Legend: <strong>@il_rossi</strong> (14 visite)</span>
+                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Leggenda del Locale: <strong>@il_rossi</strong> (14 visite)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                 <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 The French House (Londra)</span>
-                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Local Legend: <strong>@london_carl</strong> (8 visite)</span>
+                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Leggenda del Locale: <strong>@london_carl</strong> (8 visite)</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                 <span style={{ fontSize: '14px', fontWeight: '700' }}>🏆 Bar Albatross (Tokyo)</span>
-                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Local Legend: <strong>@sake_boss</strong> (11 visite)</span>
+                <span style={{ fontSize: '13px', color: 'var(--secondary)' }}>Leggenda del Locale: <strong>@sake_boss</strong> (11 visite)</span>
               </div>
             </div>
           </div>
@@ -1111,7 +1135,7 @@ export default function FeedPage() {
         act.location.name.trim().toLowerCase() === locNameNormalized
       );
 
-      // Calcola Local Legend (visite)
+      // Calcola Leggenda del Locale (visite)
       const userVisits = {};
       barSessions.forEach(s => {
         const uId = s.user_id;
@@ -1797,7 +1821,7 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Widget Leaderboard (Segmenti di Strava) */}
+        {/* Widget Classifica */}
         <div className="card">
           <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Trophy size={18} color="var(--secondary)" />
@@ -1920,7 +1944,7 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* MODAL DETTAGLI ATTIVITA (STRAVA WORKOUT STYLE) */}
+      {/* MODAL DETTAGLI ATTIVITA */}
       {selectedActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedActivity(null)}>
           <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 94, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
@@ -1996,7 +2020,7 @@ export default function FeedPage() {
               </p>
             )}
 
-            {/* Performance Stats (Griglia Strava-style) */}
+            {/* Performance Stats */}
             <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 94, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 94, 0, 0.15)' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Drink Totali</div>
@@ -2105,10 +2129,10 @@ export default function FeedPage() {
                     })()}
                   </div>
 
-                  {/* Classifiche Segmento Bar */}
+                  {/* Classifiche del Locale */}
                   <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
                     <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      🏆 Classifiche Segmento Bar (Top Atleti)
+                      🏆 Classifica del Locale (Top Atleti)
                     </h4>
                     
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -2150,7 +2174,7 @@ export default function FeedPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,176,0,0.04)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,176,0,0.1)', marginTop: '12px', fontSize: '12px' }}>
                       <span>👑</span>
                       <div>
-                        <strong>Local Legend di questo bar:</strong> {localLegend.name} ({localLegend.count} {localLegend.count === 1 ? 'allenamento' : 'allenamenti'} registrati qui).
+                        <strong>Leggenda del Locale:</strong> {localLegend.name} ({localLegend.count} {localLegend.count === 1 ? 'sessione' : 'sessioni'} registrate qui).
                       </div>
                     </div>
                   </div>
@@ -2279,6 +2303,23 @@ export default function FeedPage() {
                   <span>Commenti ({selectedActivity.comments?.length || 0})</span>
                 </span>
               </div>
+
+              {/* Chi ha messo Cheers */}
+              {selectedActivity.cheers && selectedActivity.cheers.length > 0 && (() => {
+                const names = selectedActivity.cheers.map((uid) => {
+                  if (uid === currentUser?.id) return 'Tu';
+                  const p = profilesList.find((pr) => pr.id === uid);
+                  return p?.display_name || p?.username || 'Atleta';
+                });
+                return (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255,94,0,0.05)', border: '1px solid rgba(255,94,0,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px' }}>
+                    <Beer size={15} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }} fill="var(--primary)" />
+                    <span style={{ fontSize: '13px', color: 'var(--text-dark-primary)', lineHeight: 1.4 }}>
+                      Hanno brindato: <strong>{names.join(', ')}</strong>
+                    </span>
+                  </div>
+                );
+              })()}
 
               {selectedActivity.comments && selectedActivity.comments.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', maxHeight: '240px', overflowY: 'auto' }}>

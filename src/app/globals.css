@@ -846,11 +846,11 @@ button, input, select, textarea {
   .nav-action-mobile { display: inline-flex; }
 
   .main-content {
-    /* notch in alto + spazio per la bottom-nav (con home indicator) in basso */
+    /* notch in alto; lo spazio per la bottom-nav è gestito dal Footer */
     padding-top: calc(64px + env(safe-area-inset-top, 0px));
     padding-left: max(14px, env(safe-area-inset-left, 0px));
     padding-right: max(14px, env(safe-area-inset-right, 0px));
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 24px;
   }
 
   .card { padding: 16px; }

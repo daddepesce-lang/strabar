@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import {
   MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award,
 } from 'lucide-react';
+import RequireAuth from '@/components/RequireAuth';
 
 const PLACE_SORTS = [
   { key: 'sessions', label: 'Più registrazioni', icon: Beer },
@@ -334,6 +335,10 @@ export default function ClassifichePage() {
     return `${u.units} U.A.`;
   };
 
+  if (!loading && !currentUser) {
+    return <RequireAuth feature="le classifiche" />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header */}
@@ -342,7 +347,7 @@ export default function ClassifichePage() {
           <Trophy size={30} color="var(--secondary)" /> Classifiche 🏆
         </h1>
         <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-          Gli atleti e i locali in cima a Strabar. Scala la classifica registrando sessioni e diventa la Leggenda Locale.
+          Gli atleti e i locali in cima a Strabar. Scala la classifica registrando sessioni e diventa la Leggenda del Locale.
         </p>
       </div>
 
@@ -510,7 +515,7 @@ export default function ClassifichePage() {
 
                   {place.localLegend && place.localLegend.count > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--secondary)' }}>
-                      <Crown size={14} /> Leggenda Locale: <strong>{place.localLegend.name}</strong> ({place.localLegend.count} visite)
+                      <Crown size={14} /> Leggenda del Locale: <strong>{place.localLegend.name}</strong> ({place.localLegend.count} visite)
                     </div>
                   )}
                 </button>

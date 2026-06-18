@@ -399,7 +399,7 @@ export default function ShareActivityPage({ params }) {
         </div>
       )}
 
-      {/* Scelta della foto da usare come sfondo (stile Strava) */}
+      {/* Scelta della foto da usare come sfondo della card */}
       {sharingTheme === 'photo' && activity.media?.filter(m => m.type === 'image').length > 0 && (
         <div style={{ marginBottom: '20px' }}>
           <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '8px' }}>

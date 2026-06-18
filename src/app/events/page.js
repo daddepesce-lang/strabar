@@ -8,6 +8,7 @@ import {
   Calendar, Plus, MapPin, Users, Clock, X, Check,
   CalendarPlus, Route as RouteIcon, Crown,
 } from 'lucide-react';
+import RequireAuth from '@/components/RequireAuth';
 
 function formatEventDate(ds) {
   if (!ds) return 'Data da definire';
@@ -108,6 +109,10 @@ export default function EventsPage() {
     if (!currentUser) { router.push('/auth'); return; }
     setShowForm(true);
   };
+
+  if (!loading && !currentUser) {
+    return <RequireAuth feature="gli eventi" />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
