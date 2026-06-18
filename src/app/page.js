@@ -48,8 +48,13 @@ const VENICE_TOUR = [
 
 export default function FeedPage() {
   const router = useRouter();
+  const FEED_PAGE_SIZE = 30;
   const [currentUser, setCurrentUser] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [feedHasMore, setFeedHasMore] = useState(false);
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
+  const [myActivities, setMyActivities] = useState([]); // sessioni dell'utente (statistiche personali)
+  const [topDrinkers, setTopDrinkers] = useState([]); // classifica globale top atleti
   const [loading, setLoading] = useState(true);
   const [newCommentText, setNewCommentText] = useState({});
   const [activeCommentsSection, setActiveCommentsSection] = useState({});
@@ -107,8 +112,10 @@ export default function FeedPage() {
       const user = await db.getCurrentUser();
       setCurrentUser(user);
       
-      const acts = typeof db.getActivities === 'function' ? await db.getActivities() : [];
+      // Feed PAGINATO: scarica solo la prima pagina invece di tutta la tabella.
+      const acts = typeof db.getActivities === 'function' ? await db.getActivities({ limit: FEED_PAGE_SIZE }) : [];
       setActivities(acts);
+      setFeedHasMore(acts.length >= FEED_PAGE_SIZE);
 
       if (user) {
         if (typeof db.getActiveSession === 'function') {
@@ -117,6 +124,19 @@ export default function FeedPage() {
         }
         const list = typeof db.getAllProfiles === 'function' ? await db.getAllProfiles() : [];
         setProfilesList(list);
+
+        // Statistiche personali (sidebar) da una query dedicata sull'utente: non
+        // dipende più dalla pagina del feed.
+        if (typeof db.getUserActivities === 'function') {
+          try { setMyActivities(await db.getUserActivities(user.id)); }
+          catch (err) { console.error('Errore caricamento attività utente:', err); }
+        }
+
+        // Classifica globale top atleti (aggregata nel DB, con fallback)
+        if (typeof db.getTopDrinkers === 'function') {
+          try { setTopDrinkers(await db.getTopDrinkers(5)); }
+          catch (err) { console.error('Errore caricamento classifica:', err); }
+        }
 
         // Chi seguo (per il filtro "Amici" e i bottoni Segui nel feed)
         if (typeof db.getFollowing === 'function') {
@@ -144,6 +164,24 @@ export default function FeedPage() {
       console.error("Errore nel caricamento del feed:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Carica la pagina successiva del feed (append), senza ricaricare tutto.
+  const loadMoreFeed = async () => {
+    if (feedLoadingMore || !feedHasMore) return;
+    setFeedLoadingMore(true);
+    try {
+      const next = await db.getActivities({ limit: FEED_PAGE_SIZE, offset: activities.length });
+      setActivities((prev) => {
+        const seen = new Set(prev.map((a) => a.id));
+        return [...prev, ...next.filter((a) => !seen.has(a.id))];
+      });
+      setFeedHasMore(next.length >= FEED_PAGE_SIZE);
+    } catch (err) {
+      console.error('Errore caricamento altre attività:', err);
+    } finally {
+      setFeedLoadingMore(false);
     }
   };
 
@@ -1071,8 +1109,10 @@ export default function FeedPage() {
     return Array.from(seen.values());
   };
 
-  // Calcola statistiche per la sidebar dell'utente loggato
-  const userActivities = activities.filter(a => a.user_id === currentUser?.id);
+  // Calcola statistiche per la sidebar dell'utente loggato.
+  // Usa myActivities (query dedicata, tutte le sessioni dell'utente) così le statistiche
+  // restano corrette anche con il feed paginato.
+  const userActivities = myActivities;
   const totalDrinksCount = userActivities.reduce((acc, act) => {
     return acc + act.drinks.reduce((dAcc, d) => dAcc + d.qty, 0);
   }, 0);
@@ -1130,21 +1170,8 @@ export default function FeedPage() {
   ).length;
 
   // Classifica REALE (atleti veri) aggregata dalle sessioni del feed, per U.A. totali
-  const leaderboardData = (() => {
-    const byUser = {};
-    activities.forEach((a) => {
-      const uid = a.user_id;
-      if (!uid) return;
-      const name = a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar';
-      if (!byUser[uid]) byUser[uid] = { name, units: 0, isPremium: a.profiles?.is_premium || false };
-      byUser[uid].units += parseFloat(a.total_units || 0);
-    });
-    return Object.values(byUser)
-      .map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }))
-      .sort((a, b) => b.units - a.units)
-      .slice(0, 5)
-      .map((u, i) => ({ ...u, rank: i + 1 }));
-  })();
+  // Classifica globale: calcolata dal DB (getTopDrinkers), non dal feed paginato.
+  const leaderboardData = topDrinkers;
 
   if (loading) {
     return (
@@ -2246,6 +2273,19 @@ export default function FeedPage() {
               </article>
             );
           })
+        )}
+
+        {/* Paginazione feed: carica altre attività su richiesta */}
+        {feedHasMore && visibleActivities.length > 0 && (
+          <button
+            onClick={loadMoreFeed}
+            disabled={feedLoadingMore}
+            className="btn btn-secondary"
+            style={{ width: '100%', borderRadius: '14px', padding: '12px', marginTop: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          >
+            {feedLoadingMore ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+            {feedLoadingMore ? 'Carico…' : 'Carica altre attività'}
+          </button>
         )}
       </div>
 

@@ -305,9 +305,12 @@ export const db = {
   },
 
   // --- ACTIVITIES (BEVUTE) ---
-  async getActivities() {
+  // Feed: supporta la PAGINAZIONE. Senza argomenti scarica tutto (retro-compatibile
+  // per aggregazioni come classifiche/luoghi); con { limit } scarica solo una pagina,
+  // così il feed non legge più l'intera tabella ad ogni apertura.
+  async getActivities({ limit, offset = 0 } = {}) {
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('sessions')
         .select(`
           *,
@@ -316,8 +319,10 @@ export const db = {
           comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
         `)
         .order('created_at', { ascending: false });
+      if (limit != null) query = query.range(offset, offset + limit - 1);
+      const { data, error } = await query;
       if (error) throw error;
-      
+
       return data.map(act => ({
         ...act,
         cheers: act.cheers ? act.cheers.map(c => c.user_id) : [],
@@ -346,7 +351,8 @@ export const db = {
       });
       
       // Ordina per data decrescente
-      return populated.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const sorted = populated.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return limit != null ? sorted.slice(offset, offset + limit) : sorted;
     }
   },
 
@@ -1264,10 +1270,74 @@ export const db = {
     }
   },
 
-  // Ritorna le attività di un singolo utente (per la pagina profilo amico)
+  // Ritorna le attività di un singolo utente. Filtra lato DB (indice su user_id):
+  // non scarica più l'intera tabella per poi filtrare in JS.
   async getUserActivities(userId) {
+    if (!userId) return [];
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          profiles(username, display_name, avatar_url, weight),
+          cheers(user_id),
+          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map(act => ({
+        ...act,
+        cheers: act.cheers ? act.cheers.map(c => c.user_id) : [],
+        comments: act.comments ? act.comments.map(c => ({
+          id: c.id,
+          user_id: c.user_id,
+          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+          text: c.text,
+          created_at: c.created_at,
+        })) : [],
+      }));
+    }
     const all = await this.getActivities();
     return all.filter(a => a.user_id === userId);
+  },
+
+  // Classifica globale "top atleti per U.A.". Usa una funzione SQL (RPC) che aggrega
+  // nel database; se la RPC non è ancora installata (vedi supabase_scale.sql) ricade
+  // sul calcolo lato client. Con tante sessioni la RPC evita di scaricare tutto.
+  async getTopDrinkers(limit = 5) {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.rpc('get_top_drinkers', { lim: limit });
+        if (error) throw error;
+        if (Array.isArray(data)) {
+          return data.map((r, i) => ({
+            rank: i + 1,
+            user_id: r.user_id,
+            name: r.display_name || r.username || 'Atleta Strabar',
+            units: parseFloat(Number(r.total_units || 0).toFixed(1)),
+            isPremium: !!r.is_premium,
+          }));
+        }
+      } catch (err) {
+        console.warn('RPC get_top_drinkers non disponibile, fallback lato client:', err.message || err);
+      }
+    }
+    // Fallback: aggrega dalle attività (scarica tutto — solo finché la RPC non è installata)
+    const acts = await this.getActivities().catch(() => []);
+    const byUser = {};
+    acts.forEach((a) => {
+      const uid = a.user_id;
+      if (!uid) return;
+      const name = a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar';
+      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, units: 0, isPremium: a.profiles?.is_premium || false };
+      byUser[uid].units += parseFloat(a.total_units || 0);
+    });
+    return Object.values(byUser)
+      .map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }))
+      .sort((a, b) => b.units - a.units)
+      .slice(0, limit)
+      .map((u, i) => ({ ...u, rank: i + 1 }));
   },
 
   // Suggerimenti "Potresti conoscere": amici-di-amici che non segui ancora,

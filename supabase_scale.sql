@@ -36,3 +36,33 @@ CREATE INDEX IF NOT EXISTS idx_place_reviews_key ON public.place_reviews (place_
 CREATE INDEX IF NOT EXISTS idx_event_responses_event ON public.event_responses (event_id);
 
 ANALYZE public.sessions;
+
+-- ============================================================
+-- RPC: classifica globale top atleti per U.A. (aggrega nel DB)
+-- Evita di scaricare tutte le sessioni sul client per la sidebar.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.get_top_drinkers(lim integer DEFAULT 5)
+RETURNS TABLE (
+  user_id uuid,
+  username text,
+  display_name text,
+  is_premium boolean,
+  total_units numeric
+)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    s.user_id,
+    p.username,
+    p.display_name,
+    p.is_premium,
+    COALESCE(SUM(s.total_units), 0)::numeric AS total_units
+  FROM public.sessions s
+  JOIN public.profiles p ON p.id = s.user_id
+  GROUP BY s.user_id, p.username, p.display_name, p.is_premium
+  ORDER BY total_units DESC
+  LIMIT GREATEST(lim, 1);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_top_drinkers(integer) TO anon, authenticated;
