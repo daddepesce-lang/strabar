@@ -1969,8 +1969,9 @@ export default function FeedPage() {
               <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(255,176,0,0.05)', border: '1px solid rgba(255,176,0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
                 <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.4 }}>
-                  {selectedActivity?.is_active
-                    ? <><strong style={{ color: 'var(--primary)' }}>Sessione LIVE in corso.</strong> Il BAC è calcolato in tempo reale al momento attuale.</>                    : <><strong style={{ color: 'var(--secondary)' }}>Curva storica di questa singola sessione.</strong> Il BAC mostrato rappresenta il picco stimato al termine della sessione, non adesso. (L&apos;alcol è già smaltito.)</>}
+                  {selectedActivity?.is_active && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 6 * 60 * 60 * 1000
+                    ? <><strong style={{ color: 'var(--primary)' }}>Sessione LIVE in corso.</strong> Il BAC è calcolato in tempo reale al momento attuale.</>
+                    : <><strong style={{ color: 'var(--secondary)' }}>Curva storica di questa singola sessione.</strong> Il BAC mostrato rappresenta il picco stimato al termine della sessione, non adesso. (L&apos;alcol è già smaltito.)</>}
                 </p>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', padding: '10px 0' }}>

@@ -853,19 +853,21 @@ button, input, select, textarea {
   .custom-drink-grid { grid-template-columns: 1fr 1fr; }
   .custom-drink-grid > button { grid-column: 1 / -1; }
 
-  /* Bottom navigation bar */
+  /* Bottom navigation bar.
+     L'altezza include l'area sicura (home indicator) così le icone restano
+     a 66px e NON si schiacciano quando l'app è installata come PWA. */
   .mobile-nav {
     display: flex;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 64px;
+    height: calc(66px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: rgba(16, 18, 26, 0.96);
     backdrop-filter: blur(14px);
     border-top: 1px solid var(--border-dark);
     z-index: 1000;
-    padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .mobile-nav a {
     flex: 1;
