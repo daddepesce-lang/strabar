@@ -629,6 +629,13 @@ button, input, select, textarea {
   to { transform: rotate(360deg); }
 }
 
+/* Filtro feed Amici/Tutti: più compatto */
+.feed-filter-tabs .seg-tab {
+  min-height: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
 .badge-premium {
   display: inline-flex;
   align-items: center;

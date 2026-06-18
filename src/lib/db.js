@@ -896,13 +896,13 @@ export const db = {
 
       if (!data) return null;
 
-      // Auto-expire se è più vecchia di 6 ore
+      // Auto-expire se è più vecchia di 5 ore
       const createdTime = new Date(data.created_at).getTime();
       const elapsedHours = (Date.now() - createdTime) / (1000 * 60 * 60);
-      if (elapsedHours > 6) {
+      if (elapsedHours > 5) {
         await this.closeSession(data.id, {
           feeling: data.feeling || 'Sobrio',
-          description: data.description || 'Chiusa automaticamente dal sistema dopo 6 ore.',
+          description: data.description || 'Chiusa automaticamente dal sistema dopo 5 ore.',
           duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
         });
         return null;
@@ -925,13 +925,13 @@ export const db = {
       const found = activities.find(a => a.user_id === userId && a.is_active === true);
       if (!found) return null;
 
-      // Auto-expire se è più vecchia di 6 ore
+      // Auto-expire se è più vecchia di 5 ore
       const createdTime = new Date(found.created_at).getTime();
       const elapsedHours = (Date.now() - createdTime) / (1000 * 60 * 60);
-      if (elapsedHours > 6) {
+      if (elapsedHours > 5) {
         await this.closeSession(found.id, {
           feeling: found.feeling || 'Sobrio',
-          description: found.description || 'Chiusa automaticamente dal sistema dopo 6 ore.',
+          description: found.description || 'Chiusa automaticamente dal sistema dopo 5 ore.',
           duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
         });
         return null;
@@ -1320,7 +1320,7 @@ export const db = {
     const out = [];
     acts.forEach((a) => {
       if (!a.is_active) return;
-      if (now - new Date(a.created_at).getTime() > 6 * 60 * 60 * 1000) return;
+      if (now - new Date(a.created_at).getTime() > 5 * 60 * 60 * 1000) return;
       if (viewerId && a.user_id === viewerId) return; // non mostrare me stesso
       const loc = a.location;
       if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
@@ -1363,7 +1363,7 @@ export const db = {
     }
     return acts.filter((a) => {
       if (!a.is_active) return false;
-      if (now - new Date(a.created_at).getTime() > 6 * 60 * 60 * 1000) return false;
+      if (now - new Date(a.created_at).getTime() > 5 * 60 * 60 * 1000) return false;
       if (viewerId && a.user_id === viewerId) return false;
       const loc = a.location;
       if (!loc || (loc.share !== 'public' && loc.share !== 'friends')) return false;

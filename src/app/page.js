@@ -162,15 +162,44 @@ export default function FeedPage() {
   // Timer per la sessione attiva
   useEffect(() => {
     if (!activeSession) return;
-    const interval = setInterval(() => {
-      const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
-      setElapsedMinutes(Math.max(1, Math.round(diffMs / (60 * 1000))));
-    }, 15000); // aggiorna ogni 15s
 
-    const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
-    setElapsedMinutes(Math.max(1, Math.round(diffMs / (60 * 1000))));
+    const tick = () => {
+      const diffMs = new Date().getTime() - new Date(activeSession.created_at).getTime();
+      const mins = Math.max(1, Math.round(diffMs / (60 * 1000)));
+      setElapsedMinutes(mins);
+
+      // A 4 ore: avviso (una volta sola) che si chiuderà tra ~1 ora
+      if (mins >= 240 && mins < 300) {
+        const key = 'sb_live_warned_' + activeSession.id;
+        try {
+          if (!localStorage.getItem(key)) {
+            localStorage.setItem(key, '1');
+            triggerLocalNotification('La sessione live si sta per chiudere ⏳', 'Sei ancora in giro? Se non la chiudi tu, verrà chiusa automaticamente tra circa 1 ora.');
+          }
+        } catch { /* noop */ }
+      }
+
+      // A 5 ore: chiusura automatica
+      if (mins >= 300) {
+        db.closeSession(activeSession.id, {
+          feeling: activeSession.feeling || 'Sobrio',
+          description: activeSession.description || 'Chiusa automaticamente dopo 5 ore.',
+          duration: mins,
+        })
+          .then(() => {
+            triggerLocalNotification('Sessione chiusa automaticamente 🏁', 'La tua sessione live è stata chiusa dopo 5 ore.');
+            setActiveSession(null);
+            loadFeed();
+          })
+          .catch((err) => console.error('Errore chiusura automatica:', err));
+      }
+    };
+
+    const interval = setInterval(tick, 15000); // aggiorna ogni 15s
+    tick();
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSession]);
 
   // Applica una trasformazione a un'attività sia nel feed che nel modale aperto
@@ -353,8 +382,16 @@ export default function FeedPage() {
         baseActivity.created_at,
         baseActivity.duration || 120
       );
-      
-      const updatedDrinks = [...existingDrinks, newDrink];
+
+      // Se lo stesso drink è già presente, incrementa la quantità invece di aggiungere una riga
+      const dupIdx = existingDrinks.findIndex((d) => d.name === newDrink.name);
+      let updatedDrinks;
+      if (dupIdx >= 0) {
+        updatedDrinks = [...existingDrinks];
+        updatedDrinks[dupIdx] = { ...updatedDrinks[dupIdx], qty: (updatedDrinks[dupIdx].qty || 1) + 1 };
+      } else {
+        updatedDrinks = [...existingDrinks, newDrink];
+      }
       
       // Nuova somma delle unità
       const newTotalUnits = updatedDrinks.reduce((acc, d) => acc + (d.units * (d.qty || 1)), 0);
@@ -423,8 +460,16 @@ export default function FeedPage() {
         ? await db.getActivity(activeSession.id)
         : null;
       const currentDrinks = (freshSession || activeSession).drinks || [];
-      
-      const updatedDrinks = [...currentDrinks, newDrink];
+
+      // Stesso drink già presente → +1 quantità invece di una nuova riga
+      const dupIdx = currentDrinks.findIndex((d) => d.name === newDrink.name);
+      let updatedDrinks;
+      if (dupIdx >= 0) {
+        updatedDrinks = [...currentDrinks];
+        updatedDrinks[dupIdx] = { ...updatedDrinks[dupIdx], qty: (updatedDrinks[dupIdx].qty || 1) + 1 };
+      } else {
+        updatedDrinks = [...currentDrinks, newDrink];
+      }
       const newTotalUnits = updatedDrinks.reduce((acc, d) => acc + ((d.units || 0) * (d.qty || 1)), 0);
       
       // Calcola la durata: differenza tra primo drink e ora corrente
@@ -568,6 +613,38 @@ export default function FeedPage() {
     }
   };
 
+  // Avanza alla tappa successiva di un Tour guidato e apre la navigazione
+  const handleAdvanceTourStop = async () => {
+    const tour = activeSession?.location?.tour;
+    if (!tour) return;
+    const next = tour.current + 1;
+    if (next >= tour.stops.length) return;
+    const nextStop = tour.stops[next];
+    const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
+    const newVisited = [
+      ...(tour.visited || []),
+      { name: nextStop.name, lat: nextStop.lat, lng: nextStop.lng, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks },
+    ];
+    const newLocation = {
+      ...activeSession.location,
+      name: nextStop.name,
+      lat: nextStop.lat,
+      lng: nextStop.lng,
+      tour: { ...tour, current: next, visited: newVisited },
+    };
+    setActiveSession((prev) => (prev ? { ...prev, location: newLocation } : prev));
+    try {
+      await db.updateActivity(activeSession.id, { location: newLocation });
+      if (nextStop.lat && nextStop.lng && typeof window !== 'undefined') {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${nextStop.lat},${nextStop.lng}`, '_blank', 'noopener,noreferrer');
+      }
+      triggerLocalNotification('Prossima tappa! 📍', `Dirigiti verso ${nextStop.name}`);
+    } catch (err) {
+      console.error('Errore avanzamento tappa:', err);
+      alert('Impossibile avanzare alla tappa successiva: ' + (err.message || err));
+    }
+  };
+
   // Annulla (elimina) la sessione live in corso, con doppia conferma
   const handleCancelActiveSession = async () => {
     if (!activeSession) return;
@@ -590,18 +667,31 @@ export default function FeedPage() {
     if (!activeSession) return;
 
     const feeling = e.target.feeling.value || 'Brillo Felice';
-    const description = e.target.description.value || '';
-    
+    let description = e.target.description.value || '';
+
+    // Recap automatico per i Tour guidati
+    const tour = activeSession.location?.tour;
+    if (tour) {
+      const visited = tour.visited || [];
+      const recap = `🗺️ Tour "${tour.route_name}" completato: ${visited.length}/${tour.stops.length} tappe — ${visited.map((s) => s.name).join(' ➔ ')}.`;
+      description = description ? `${recap}\n${description}` : recap;
+    }
+
     const finalData = {
       is_active: false,
       feeling,
       description,
       duration: elapsedMinutes
     };
-    
+
     try {
       await db.closeSession(activeSession.id, finalData);
-      triggerLocalNotification("Sessione Chiusa! 🏁", `Allenamento completato! Hai totalizzato ${activeSession.total_units} U.A. e un BAC di ${activeSession.bac_level} g/l.`);
+      if (tour) {
+        const visited = (tour.visited || []).length;
+        triggerLocalNotification('Tour completato! 🏁🗺️', `${visited}/${tour.stops.length} tappe · ${activeSession.total_units} U.A. · BAC ${activeSession.bac_level} g/l. Complimenti!`);
+      } else {
+        triggerLocalNotification("Sessione Chiusa! 🏁", `Allenamento completato! Hai totalizzato ${activeSession.total_units} U.A. e un BAC di ${activeSession.bac_level} g/l.`);
+      }
       setActiveSession(null);
       await loadFeed();
     } catch (err) {
@@ -1196,7 +1286,7 @@ export default function FeedPage() {
     // Per sessioni storiche (non live) calcola il BAC al momento di fine sessione stimata,
     // non adesso (che darebbe sempre 0 perché l'alcol è già smaltito da tempo).
     const isLiveSession = selectedActivity.is_active &&
-      (Date.now() - new Date(selectedActivity.created_at).getTime()) < 6 * 60 * 60 * 1000;
+      (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000;
     const sessionEndTime = isLiveSession
       ? undefined  // usa now (default)
       : new Date(new Date(selectedActivity.created_at).getTime() + (selectedActivity.duration || 120) * 60 * 1000).toISOString();
@@ -1249,7 +1339,7 @@ export default function FeedPage() {
         .map(s => {
           let bac = (s.bac_level && parseFloat(s.bac_level) > 0) ? parseFloat(s.bac_level) : 0;
           if (bac === 0 && s.drinks && s.drinks.length > 0) {
-            const isLive = s.is_active && (Date.now() - new Date(s.created_at).getTime()) < 6 * 60 * 60 * 1000;
+            const isLive = s.is_active && (Date.now() - new Date(s.created_at).getTime()) < 5 * 60 * 60 * 1000;
             const endRef = isLive ? undefined : new Date(new Date(s.created_at).getTime() + (s.duration || 120) * 60 * 1000).toISOString();
             bac = db.calculateCurrentBAC(s.drinks, s.created_at, s.duration || 120, endRef, s.profiles?.weight);
           }
@@ -1307,15 +1397,65 @@ export default function FeedPage() {
                   ⏱️ {elapsedMinutes} min
                 </span>
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <button
-                  onClick={() => router.push('/log?action=append')}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                >
-                  📍 Aggiungi Tappa / Cambia Bar
-                </button>
-              </div>
+              {/* Pannello TOUR guidato (se la sessione è una modalità percorso) */}
+              {activeSession.location?.tour ? (() => {
+                const tour = activeSession.location.tour;
+                const stops = tour.stops || [];
+                const cur = tour.current || 0;
+                const curStop = stops[cur];
+                const nextStop = stops[cur + 1];
+                const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
+                const drinksAtStart = tour.visited?.[cur]?.drinksAtStart || 0;
+                const atThisStop = Math.max(0, totalDrinks - drinksAtStart);
+                const target = tour.target || 2;
+                const pct = Math.min(100, (atThisStop / target) * 100);
+                return (
+                  <div style={{ marginBottom: '15px', background: 'rgba(255,176,0,0.06)', border: '1px solid rgba(255,176,0,0.25)', borderRadius: '10px', padding: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                      <strong style={{ fontSize: '13px', color: 'var(--secondary)' }}>🗺️ Tour: {tour.route_name}</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Tappa {cur + 1}/{stops.length}</span>
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '8px' }}>📍 {curStop?.name}</div>
+
+                    {/* Budget drink a questa tappa */}
+                    <div style={{ marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '4px' }}>
+                        <span>Drink a questa tappa</span>
+                        <strong style={{ color: atThisStop >= target ? 'var(--error)' : 'var(--secondary)' }}>{atThisStop} / {target}</strong>
+                      </div>
+                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: atThisStop >= target ? 'var(--error)' : 'var(--secondary)', transition: 'width 0.3s' }} />
+                      </div>
+                      {atThisStop >= target && <div style={{ fontSize: '10px', color: 'var(--error)', marginTop: '4px' }}>Target raggiunto — valuta di passare alla prossima tappa 😉</div>}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {curStop?.lat && curStop?.lng && (
+                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          🧭 Naviga qui
+                        </a>
+                      )}
+                      {nextStop ? (
+                        <button onClick={handleAdvanceTourStop} className="btn btn-primary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
+                          ➡️ Prossima: {nextStop.name.length > 18 ? nextStop.name.slice(0, 16) + '…' : nextStop.name}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div style={{ marginBottom: '15px' }}>
+                  <button
+                    onClick={() => router.push('/log?action=append')}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                  >
+                    📍 Aggiungi Tappa / Cambia Bar
+                  </button>
+                </div>
+              )}
 
               {/* Titolo e info modificabili della sessione live */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '15px' }}>
@@ -1361,7 +1501,7 @@ export default function FeedPage() {
                   {activeSession.drinks?.length > 0 ? (
                     activeSession.drinks.map((d, i) => (
                       <span key={i} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 8px' }}>
-                        <Beer size={10} /> {d.name}
+                        <Beer size={10} /> {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}
                       </span>
                     ))
                   ) : (
@@ -1596,7 +1736,7 @@ export default function FeedPage() {
 
         {/* Filtro feed: Amici / Tutti */}
         {currentUser && activities.length > 0 && (
-          <div className="seg-tabs" style={{ marginBottom: '6px' }}>
+          <div className="seg-tabs feed-filter-tabs" style={{ marginTop: '20px', marginBottom: '12px', maxWidth: '280px' }}>
             <div
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
@@ -1628,7 +1768,7 @@ export default function FeedPage() {
         ) : (
           visibleActivities.map((act) => {
             const hasCheered = act.cheers?.includes(currentUser?.id);
-            const isReallyActive = act.is_active && (new Date().getTime() - new Date(act.created_at).getTime() < 6 * 60 * 60 * 1000);
+            const isReallyActive = act.is_active && (new Date().getTime() - new Date(act.created_at).getTime() < 5 * 60 * 60 * 1000);
             return (
               <article 
                 key={act.id} 
@@ -2169,7 +2309,7 @@ export default function FeedPage() {
               <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(255,176,0,0.05)', border: '1px solid rgba(255,176,0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
                 <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.4 }}>
-                  {selectedActivity?.is_active && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 6 * 60 * 60 * 1000
+                  {selectedActivity?.is_active && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000
                     ? <><strong style={{ color: 'var(--primary)' }}>Sessione LIVE in corso.</strong> Il BAC è calcolato in tempo reale al momento attuale.</>
                     : <><strong style={{ color: 'var(--secondary)' }}>Curva storica di questa singola sessione.</strong> Il BAC mostrato rappresenta il picco stimato al termine della sessione, non adesso. (L&apos;alcol è già smaltito.)</>}
                 </p>

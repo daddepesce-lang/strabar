@@ -13,6 +13,9 @@ export default function RoutesPage() {
   const [routes, setRoutes] = useState([]);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [activeWaypointIndex, setActiveWaypointIndex] = useState(null);
+  const [tourTarget, setTourTarget] = useState(2); // drink-target per tappa
+  const [tourVisibility, setTourVisibility] = useState('friends'); // private | friends | public
+  const [startingTour, setStartingTour] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Creation state
@@ -503,6 +506,51 @@ out body;`;
     setSelectedRoute(route);
     setActiveWaypointIndex(null);
     setDiscoveredBars([]);
+  };
+
+  // Avvia un Tour guidato: crea una sessione live "modalità percorso" sulla prima tappa
+  const handleStartTour = async () => {
+    if (!currentUser) { alert('Accedi per avviare un tour.'); return; }
+    const stopsRaw = selectedRoute?.waypoints || [];
+    if (stopsRaw.length === 0) { alert('Questo percorso non ha tappe.'); return; }
+    setStartingTour(true);
+    try {
+      const active = await db.getActiveSession(currentUser.id);
+      if (active) {
+        alert('Hai già una sessione live attiva. Chiudila prima di avviare un tour.');
+        setStartingTour(false);
+        return;
+      }
+      const stops = stopsRaw.map((w) => ({ name: w.name, lat: w.lat, lng: w.lng ?? w.lon, note: w.note || '' }));
+      const first = stops[0];
+      await db.createActivity({
+        title: `Tour: ${selectedRoute.name}`,
+        location: {
+          name: first.name,
+          address: '',
+          lat: first.lat,
+          lng: first.lng,
+          share: tourVisibility,
+          tour: {
+            route_id: selectedRoute.id,
+            route_name: selectedRoute.name,
+            target: tourTarget,
+            current: 0,
+            stops,
+            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0 }],
+          },
+        },
+        drinks: [],
+        is_active: true,
+        bac_level: 0,
+        total_units: 0,
+        duration: 1,
+      });
+      router.push('/');
+    } catch (err) {
+      alert('Errore nell\'avvio del tour: ' + (err.message || err));
+      setStartingTour(false);
+    }
   };
 
   const handleStartCreation = () => {
@@ -1045,15 +1093,28 @@ out body;`;
             {/* Azioni sul percorso selezionato */}
             {!isCreating && selectedRoute && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px', borderTop: '1px solid var(--border-dark)', paddingTop: '16px' }}>
+                {/* Impostazioni Tour: target drink/tappa + privacy */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>🎯 Target drink/tappa:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button type="button" onClick={() => setTourTarget((t) => Math.max(1, t - 1))} className="btn btn-secondary" style={{ width: 28, height: 28, borderRadius: '50%', padding: 0 }}>−</button>
+                    <strong style={{ minWidth: 16, textAlign: 'center' }}>{tourTarget}</strong>
+                    <button type="button" onClick={() => setTourTarget((t) => Math.min(10, t + 1))} className="btn btn-secondary" style={{ width: 28, height: 28, borderRadius: '50%', padding: 0 }}>+</button>
+                  </div>
+                </div>
+                <div className="seg-tabs feed-filter-tabs">
+                  <div className={`seg-tab ${tourVisibility === 'public' ? 'active' : ''}`} onClick={() => setTourVisibility('public')}>🌍 Tutti</div>
+                  <div className={`seg-tab ${tourVisibility === 'friends' ? 'active' : ''}`} onClick={() => setTourVisibility('friends')}>👥 Amici</div>
+                  <div className={`seg-tab ${tourVisibility === 'private' ? 'active' : ''}`} onClick={() => setTourVisibility('private')}>🔒 Privata</div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    router.push(`/log?routeId=${selectedRoute.id}`);
-                  }}
+                  onClick={handleStartTour}
+                  disabled={startingTour}
                   className="btn btn-primary"
-                  style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '700' }}
+                  style={{ width: '100%', borderRadius: '20px', padding: '12px 14px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '700' }}
                 >
-                  <Beer size={16} /> Avvia Sessione & Navigazione 🍻
+                  {startingTour ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <>🗺️ Avvia Tour Guidato</>}
                 </button>
                 <button
                   type="button"

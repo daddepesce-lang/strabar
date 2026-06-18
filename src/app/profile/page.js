@@ -26,6 +26,8 @@ export default function ProfilePage() {
   const [followersList, setFollowersList] = useState([]);
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
 
+  const [barRankings, setBarRankings] = useState([]);
+
   // Peso corporeo (per BAC e curva d'ebbrezza precisi)
   const [weightInput, setWeightInput] = useState('');
   const [savingWeight, setSavingWeight] = useState(false);
@@ -129,6 +131,35 @@ export default function ProfilePage() {
       setSearchResults([]);
     }
   }, [currentUser, activeTab]);
+
+  // Classifiche bar REALI: per ogni locale verificato in cui ho bevuto, calcola la mia posizione
+  useEffect(() => {
+    if (!currentUser || activities.length === 0) { setBarRankings([]); return; }
+    let cancelled = false;
+    (async () => {
+      const keys = [...new Set(
+        activities
+          .filter((a) => a.location?.name && !a.location?.unverified)
+          .map((a) => ({ key: db.normalizePlaceKey(a.location.name), name: a.location.name }))
+          .map((o) => JSON.stringify(o))
+      )].map((s) => JSON.parse(s));
+
+      const results = [];
+      for (const { key, name } of keys) {
+        try {
+          const lb = await db.getPlaceLeaderboard(key);
+          const sorted = [...lb].sort((a, b) => b.units - a.units || b.visits - a.visits);
+          const idx = sorted.findIndex((u) => u.user_id === currentUser.id);
+          if (idx >= 0) {
+            results.push({ name, rank: idx + 1, total: sorted.length, units: sorted[idx].units, visits: sorted[idx].visits });
+          }
+        } catch { /* noop */ }
+      }
+      results.sort((a, b) => a.rank - b.rank);
+      if (!cancelled) setBarRankings(results.slice(0, 6));
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser, activities]);
 
   // Calcola statistiche storiche
   const totalDrinksCount = activities.reduce((acc, act) => {
@@ -248,21 +279,20 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div>
-          {currentUser?.is_premium ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--secondary)', fontWeight: '700', fontSize: '14px', background: 'rgba(255, 176, 0, 0.1)', padding: '8px 14px', borderRadius: '30px', border: '1px solid var(--secondary)' }}>
-                <Shield size={16} /> Tutte le funzioni sbloccate
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: '600' }}>
-                🎉 Gratis per tutti durante la beta
-              </span>
-            </div>
-          ) : (
-            <Link href="/premium" className="btn btn-premium">
-              Passa a Strabar Premium
-            </Link>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Lente: cerca altri atleti */}
+          <button
+            onClick={() => setActiveTab('friends')}
+            title="Cerca atleti"
+            className="btn btn-secondary"
+            style={{ borderRadius: '50%', width: '42px', height: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            <Search size={18} />
+          </button>
+          {/* Badge stato compatto */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: '700', fontSize: '12px', background: 'rgba(255, 176, 0, 0.1)', padding: '8px 12px', borderRadius: '30px', border: '1px solid var(--secondary)', whiteSpace: 'nowrap' }}>
+            <Shield size={14} /> Beta gratis
+          </span>
         </div>
       </div>
 
@@ -636,7 +666,9 @@ export default function ProfilePage() {
                   : 0;
                 weekDays.push({ label: dayLabel, val: peakBac, sessionsCount: daySessions.length });
               }
-              const maxBac = Math.max(...weekDays.map(d => d.val), 1.0);
+              // Scala con headroom (+25%) così le barre non toccano mai il bordo superiore
+              const peakBac = Math.max(...weekDays.map(d => d.val), 1.0);
+              const maxBac = peakBac * 1.25;
               const hasSomeData = weekDays.some(d => d.val > 0);
 
               return (
@@ -736,27 +768,24 @@ export default function ProfilePage() {
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-                  <div>
-                    <strong style={{ fontSize: '13px', color: '#FFF' }}>Cantina Do Mori (VE)</strong>
-                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Specialità: Ombra di Rosso</span>
+                {barRankings.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-dark-secondary)', fontSize: '13px', border: '1px dashed var(--border-dark)', borderRadius: '8px' }}>
+                    Non hai ancora classifiche nei locali. Fai check-in in un bar reale durante un brindisi per entrare in classifica! 🍻
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--secondary)' }}>Posizione: #4</span>
-                    <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>su 148 atleti</span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
-                  <div>
-                    <strong style={{ fontSize: '13px', color: '#FFF' }}>Osteria Al Mercà (VE)</strong>
-                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>Specialità: Spritz Select Sprint</span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--secondary)' }}>Posizione: #22</span>
-                    <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>su 340 atleti</span>
-                  </div>
-                </div>
+                ) : (
+                  barRankings.map((b, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.name}</strong>
+                        <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{b.units.toFixed(1)} U.A. · {b.visits} {b.visits === 1 ? 'visita' : 'visite'}</span>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '10px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '800', color: b.rank === 1 ? 'var(--secondary)' : 'var(--primary)' }}>{b.rank === 1 ? '👑 #1' : `#${b.rank}`}</span>
+                        <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>su {b.total} {b.total === 1 ? 'atleta' : 'atleti'}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
