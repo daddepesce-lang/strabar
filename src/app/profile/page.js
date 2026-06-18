@@ -67,9 +67,11 @@ export default function ProfilePage() {
           setActiveTab('friends');
         }
 
-        const acts = await db.getActivities();
-        // Filtra le attività dell'utente corrente
-        const userActs = acts.filter(a => a.user_id === user.id);
+        // Solo le sessioni dell'utente (query mirata su user_id, senza scaricare
+        // tutta la tabella né i `media` base64): molto più veloce.
+        const userActs = typeof db.getUserActivities === 'function'
+          ? await db.getUserActivities(user.id)
+          : (await db.getActivities()).filter(a => a.user_id === user.id);
         setActivities(userActs);
       } catch (err) {
         console.error("Errore nel caricamento del profilo:", err);

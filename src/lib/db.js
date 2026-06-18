@@ -310,10 +310,15 @@ export const db = {
   // così il feed non legge più l'intera tabella ad ogni apertura.
   async getActivities({ limit, offset = 0 } = {}) {
     if (isSupabaseConfigured) {
+      // IMPORTANTE: NON selezioniamo la colonna `media` nel feed/lista. Le foto possono
+      // essere salvate come base64 (megabyte) quando lo Storage non è disponibile, e
+      // `select *` le scaricava tutte ad ogni apertura del feed → caricamento eterno.
+      // Le foto si caricano solo aprendo il singolo post (getActivity).
+      const SESSION_LIST_COLS = 'id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, created_at';
       let query = supabase
         .from('sessions')
         .select(`
-          *,
+          ${SESSION_LIST_COLS},
           profiles(username, display_name, avatar_url, weight),
           cheers(user_id),
           comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
@@ -1301,10 +1306,11 @@ export const db = {
   async getUserActivities(userId) {
     if (!userId) return [];
     if (isSupabaseConfigured) {
+      // Senza `media` (vedi nota in getActivities): le statistiche/profilo non ne hanno bisogno.
       const { data, error } = await supabase
         .from('sessions')
         .select(`
-          *,
+          id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, created_at,
           profiles(username, display_name, avatar_url, weight),
           cheers(user_id),
           comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))

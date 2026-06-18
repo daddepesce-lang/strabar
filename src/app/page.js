@@ -96,9 +96,17 @@ export default function FeedPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState('');
 
-  const handleOpenActivity = (act) => {
+  const handleOpenActivity = async (act) => {
+    // Mostra subito i dati già in lista, poi carica la versione completa con le FOTO
+    // (la lista del feed non scarica `media` per restare leggera).
     setSelectedActivity(act);
     setCurrentSlideIndex(0);
+    try {
+      if (typeof db.getActivity === 'function') {
+        const full = await db.getActivity(act.id);
+        if (full) setSelectedActivity((prev) => (prev && prev.id === act.id ? { ...prev, ...full } : prev));
+      }
+    } catch { /* noop */ }
   };
 
   const triggerLocalNotification = (title, body) => {
