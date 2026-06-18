@@ -1803,6 +1803,7 @@ export const db = {
       description: data.description || '',
       date: data.date,
       location_name: data.location_name || '',
+      location: data.location || null, // { name, lat, lng } se scelto un locale/indirizzo reale
       route_id: data.route_id || null,
       route_name: data.route_name || null,
       invited: data.invited || [],
@@ -1872,6 +1873,21 @@ export const db = {
       });
     });
     return ev;
+  },
+
+  async updateEvent(eventId, fields) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Devi essere loggato!');
+    const events = this.getEventsRaw();
+    const idx = events.findIndex((e) => e.id === eventId);
+    if (idx === -1) throw new Error('Evento non trovato!');
+    if (events[idx].host_id !== user.id) throw new Error("Solo l'organizzatore può modificare l'evento.");
+    const allowed = ['title', 'description', 'date', 'location_name', 'location', 'route_id', 'route_name'];
+    const patch = {};
+    allowed.forEach((k) => { if (k in fields) patch[k] = fields[k]; });
+    events[idx] = { ...events[idx], ...patch };
+    this.setEventsRaw(events);
+    return events[idx];
   },
 
   async deleteEvent(eventId) {

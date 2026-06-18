@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
   Calendar, Plus, MapPin, Users, Clock, X, Check,
-  CalendarPlus, Route as RouteIcon, Crown,
+  CalendarPlus, Route as RouteIcon, Crown, Loader,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 
@@ -37,6 +37,12 @@ export default function EventsPage() {
   const [routeId, setRouteId] = useState('');
   const [invited, setInvited] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  // Selettore luogo: cerca locali/indirizzi reali (OSM) oppure usa testo libero.
+  const [locQuery, setLocQuery] = useState('');
+  const [locResults, setLocResults] = useState([]);
+  const [locSearching, setLocSearching] = useState(false);
+  const [selectedLoc, setSelectedLoc] = useState(null); // { name, lat, lng } se reale; null se testo libero
 
   const load = async () => {
     try {
@@ -75,21 +81,61 @@ export default function EventsPage() {
     setInvited((prev) => (prev.includes(uid) ? prev.filter((i) => i !== uid) : [...prev, uid]));
   };
 
+  // Ricerca luoghi (locali, vie, indirizzi) su OpenStreetMap mentre l'utente scrive.
+  useEffect(() => {
+    const q = locQuery.trim();
+    // Se il testo coincide col luogo già selezionato, non ricercare di nuovo.
+    if (q.length < 2 || (selectedLoc && selectedLoc.name === q)) {
+      setLocResults([]); setLocSearching(false);
+      return;
+    }
+    setLocSearching(true);
+    const h = setTimeout(async () => {
+      try {
+        const res = await db.searchVenues(q);
+        setLocResults((res || []).slice(0, 8));
+      } catch {
+        setLocResults([]);
+      } finally {
+        setLocSearching(false);
+      }
+    }, 450);
+    return () => clearTimeout(h);
+  }, [locQuery, selectedLoc]);
+
+  const pickLocation = (v) => {
+    setSelectedLoc({ name: v.name, lat: v.lat, lng: v.lng });
+    setLocationName(v.name);
+    setLocQuery(v.name);
+    setLocResults([]);
+  };
+
+  const useFreeTextLocation = () => {
+    const t = locQuery.trim();
+    if (!t) return;
+    setSelectedLoc(null); // testo libero, senza coordinate
+    setLocationName(t);
+    setLocResults([]);
+  };
+
   const handleCreate = async () => {
     if (!title.trim()) { alert('Dai un titolo al tuo evento!'); return; }
     if (!date) { alert('Scegli una data e un orario!'); return; }
     setSaving(true);
     try {
       const selectedRoute = routes.find((r) => r.id === routeId);
+      const finalLocName = (selectedLoc?.name || locationName || locQuery).trim();
       const ev = await db.createEvent({
         title, description: desc, date,
-        location_name: locationName,
+        location_name: finalLocName,
+        location: selectedLoc && selectedLoc.lat != null ? selectedLoc : null,
         route_id: routeId || null,
         route_name: selectedRoute?.name || null,
         invited,
       });
       setShowForm(false);
       setTitle(''); setDesc(''); setDate(''); setLocationName(''); setRouteId(''); setInvited([]);
+      setLocQuery(''); setLocResults([]); setSelectedLoc(null);
       router.push(`/events/${ev.id}`);
     } catch (err) {
       alert(err.message || 'Errore');
@@ -227,9 +273,54 @@ export default function EventsPage() {
                 <label className="form-label">Data e ora</label>
                 <input type="datetime-local" className="form-control" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ position: 'relative' }}>
                 <label className="form-label">Luogo di ritrovo</label>
-                <input className="form-control" placeholder="es. Rialto, Venezia" value={locationName} onChange={(e) => setLocationName(e.target.value)} />
+                <input
+                  className="form-control"
+                  placeholder="Cerca un locale, una via o scrivi libero…"
+                  value={locQuery}
+                  onChange={(e) => { setLocQuery(e.target.value); setSelectedLoc(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); useFreeTextLocation(); } }}
+                />
+                {/* Conferma selezione corrente */}
+                {locationName && (
+                  <div style={{ fontSize: '11px', marginTop: '4px', color: 'var(--text-dark-secondary)' }}>
+                    Luogo scelto: <strong style={{ color: 'var(--primary)' }}>{locationName}</strong>
+                    {selectedLoc?.lat != null ? ' 📍 (posizione reale)' : ' ✍️ (testo libero)'}
+                  </div>
+                )}
+                {/* Risultati ricerca */}
+                {(locSearching || locResults.length > 0 || locQuery.trim().length >= 2) && (locQuery.trim() !== locationName || locResults.length > 0) && (
+                  <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                    {locSearching && (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco luoghi…
+                      </div>
+                    )}
+                    {locResults.map((v, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => pickLocation(v)}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}
+                      >
+                        <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600 }}>
+                          <MapPin size={11} style={{ marginRight: '4px', color: 'var(--primary)' }} />{v.name}
+                        </span>
+                        {v.address && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.address}</span>}
+                      </button>
+                    ))}
+                    {!locSearching && locQuery.trim().length >= 2 && (
+                      <button
+                        type="button"
+                        onClick={useFreeTextLocation}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-dark-secondary)' }}
+                      >
+                        ✍️ Usa &quot;<strong style={{ color: 'var(--primary)' }}>{locQuery.trim()}</strong>&quot; come testo libero
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

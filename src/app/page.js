@@ -485,7 +485,36 @@ export default function FeedPage() {
       const freshSession = typeof db.getActivity === 'function'
         ? await db.getActivity(activeSession.id)
         : null;
-      const currentDrinks = (freshSession || activeSession).drinks || [];
+      const base = freshSession || activeSession;
+      const currentDrinks = base.drinks || [];
+
+      // VERIFICA POSIZIONE (solo Tour): quando registri un drink alcolico, controlla
+      // che tu sia davvero alla tappa corrente. Solo allora la tappa conta per le
+      // classifiche (leggenda del locale e atleti). Niente gate all'avvio del tour.
+      let locationUpdate = null;
+      let verifyMessage = null;
+      const tour = base.location?.tour;
+      if (tour && preset.abv > 0) {
+        const cur = tour.current || 0;
+        const curStop = (tour.stops || [])[cur];
+        const alreadyVerified = tour.visited?.[cur]?.verified;
+        if (!alreadyVerified && curStop?.lat && curStop?.lng) {
+          const pos = await getCurrentPosition();
+          if (pos) {
+            const { distance } = db.checkGeofencing(curStop.lat, curStop.lng, pos.lat, pos.lng, Infinity);
+            if (distance <= 300) {
+              const newVisited = (tour.visited || []).map((v, i) => (i === cur ? { ...v, verified: true } : v));
+              locationUpdate = { ...base.location, unverified: false, tour: { ...tour, visited: newVisited } };
+              verifyMessage = `✅ Sei a ${curStop.name}: tappa verificata, conta per le classifiche!`;
+            } else {
+              const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+              verifyMessage = `📍 Sei a ~${dist} da ${curStop.name}: drink registrato, ma la tappa non conta per le classifiche finché non ti avvicini.`;
+            }
+          } else {
+            verifyMessage = `📍 GPS non disponibile: la tappa non conta per le classifiche finché non verifichi la posizione sul posto.`;
+          }
+        }
+      }
 
       // Stesso drink già presente → +1 quantità invece di una nuova riga
       const dupIdx = currentDrinks.findIndex((d) => d.name === newDrink.name);
@@ -510,15 +539,18 @@ export default function FeedPage() {
         drinks: updatedDrinks,
         total_units: parseFloat(newTotalUnits.toFixed(1)),
         duration: duration,
-        bac_level: parseFloat(newBac.toFixed(2))
+        bac_level: parseFloat(newBac.toFixed(2)),
+        ...(locationUpdate ? { location: locationUpdate } : {})
       };
-      
+
       await db.updateActivity(activeSession.id, updatedFields);
-      
+
       // Ricarica feed e aggiorna stato locale
       await loadFeed();
-      
-      if (preset.abv > 0) {
+
+      if (verifyMessage) {
+        triggerLocalNotification(locationUpdate ? 'Tappa verificata! ✅' : 'Drink registrato 🍺', verifyMessage);
+      } else if (preset.abv > 0) {
         triggerLocalNotification("Drink Aggiunto! 🍺", `Hai aggiunto ${preset.name} alla sessione live. BAC stimato: ${newBac.toFixed(2)} g/l. Ricordati di alternare con dell'acqua! 💧`);
       } else {
         triggerLocalNotification("Ottima idratazione! 💧", `Hai aggiunto ${preset.name}. Bere acqua aiuta lo smaltimento!`);
@@ -648,38 +680,13 @@ export default function FeedPage() {
     const stop = stops[index];
     if (!stop) return;
 
-    // Verifica GPS: come nelle sessioni normali, una tappa conta per le classifiche
-    // (leggenda del locale e atleti) SOLO se sei davvero sul posto. Altrimenti avvisa
-    // e segna la tappa come "non verificata".
-    let unverified = false;
-    if (stop.lat && stop.lng) {
-      const pos = await getCurrentPosition();
-      if (!pos) {
-        const ok = window.confirm(
-          `Impossibile rilevare la posizione GPS.\n\nPuoi registrare comunque a "${stop.name}", ma questa tappa NON conterà per le classifiche (leggenda del locale e atleti).\n\nProcedere?`
-        );
-        if (!ok) return;
-        unverified = true;
-      } else {
-        const { distance } = db.checkGeofencing(stop.lat, stop.lng, pos.lat, pos.lng, Infinity);
-        if (distance > 300) {
-          const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-          const ok = window.confirm(
-            `Sei a circa ${dist} da "${stop.name}".\n\nPuoi registrare comunque, ma questa tappa verrà segnata come "non verificata" e NON conterà per le classifiche.\n\nProcedere?`
-          );
-          if (!ok) return;
-          unverified = true;
-        }
-      }
-    } else {
-      // Tappa extra senza coordinate: non verificabile via GPS → non conta per le classifiche.
-      unverified = true;
-    }
-
+    // Nessuna verifica GPS qui: avanzi alla tappa per ricevere le indicazioni e
+    // raggiungerla. La verifica della posizione avviene quando registri un drink
+    // sul posto. La nuova tappa nasce quindi "non verificata".
     const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
     const newVisited = [
       ...(tour.visited || []),
-      { name: stop.name, lat: stop.lat ?? null, lng: stop.lng ?? null, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks, unverified },
+      { name: stop.name, lat: stop.lat ?? null, lng: stop.lng ?? null, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks, verified: false },
     ];
     const newLocation = {
       ...activeSession.location,
@@ -688,8 +695,7 @@ export default function FeedPage() {
       // l'atleta resta comunque visibile nel radar live.
       lat: stop.lat ?? activeSession.location?.lat ?? null,
       lng: stop.lng ?? activeSession.location?.lng ?? null,
-      // Il flag governa se la sessione conta per le classifiche del locale corrente.
-      ...(unverified ? { unverified: true } : { unverified: false }),
+      unverified: true, // verrà confermata registrando un drink sul posto
       tour: { ...tour, stops, current: index, visited: newVisited },
     };
     setActiveSession((prev) => (prev ? { ...prev, location: newLocation } : prev));
@@ -698,10 +704,7 @@ export default function FeedPage() {
       if (stop.lat && stop.lng && typeof window !== 'undefined') {
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`, '_blank', 'noopener,noreferrer');
       }
-      triggerLocalNotification(
-        unverified ? 'Tappa registrata (non verificata) 📍' : 'Sei arrivato! 📍✅',
-        unverified ? `${stop.name} — non conterà per le classifiche.` : `${stop.name} verificato. Buona bevuta!`
-      );
+      triggerLocalNotification('Prossima tappa! 📍', `Dirigiti verso ${stop.name}. Registra un drink quando sei sul posto per validarla.`);
     } catch (err) {
       console.error('Errore cambio tappa:', err);
       alert('Impossibile passare alla tappa: ' + (err.message || err));
@@ -1500,7 +1503,12 @@ export default function FeedPage() {
                       <strong style={{ fontSize: '13px', color: 'var(--secondary)' }}>🗺️ Tour: {tour.route_name}</strong>
                       <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Tappa {cur + 1}/{stops.length}</span>
                     </div>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '8px' }}>📍 {curStop?.name}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>📍 {curStop?.name}</div>
+                    <div style={{ fontSize: '11px', marginBottom: '8px', fontWeight: 700, color: activeSession.location?.unverified ? 'var(--text-dark-secondary)' : 'var(--success)' }}>
+                      {activeSession.location?.unverified
+                        ? '○ Tappa non ancora verificata — registra un drink qui sul posto per validarla'
+                        : '✅ Tappa verificata — conta per le classifiche'}
+                    </div>
 
                     {/* Budget drink a questa tappa */}
                     <div style={{ marginBottom: '10px' }}>

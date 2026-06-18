@@ -7,7 +7,9 @@ import { db } from '@/lib/db';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
   Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
+  Edit3, Loader, Beer,
 } from 'lucide-react';
+import { notify } from '@/lib/notify';
 
 function formatEventDate(ds) {
   if (!ds) return 'Data da definire';
@@ -29,10 +31,22 @@ export default function EventDetailPage({ params }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [event, setEvent] = useState(null);
   const [following, setFollowing] = useState([]);
+  const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [toInvite, setToInvite] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [startingSession, setStartingSession] = useState(false);
+
+  // Modifica evento (solo organizzatore)
+  const [showEdit, setShowEdit] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [edit, setEdit] = useState({ title: '', description: '', date: '', routeId: '' });
+  const [locQuery, setLocQuery] = useState('');
+  const [locResults, setLocResults] = useState([]);
+  const [locSearching, setLocSearching] = useState(false);
+  const [selectedLoc, setSelectedLoc] = useState(null); // { name, lat, lng } se reale; null = testo libero
+  const [editLocName, setEditLocName] = useState('');
 
   const load = async () => {
     try {
@@ -40,7 +54,11 @@ export default function EventDetailPage({ params }) {
       setCurrentUser(user);
       const ev = await db.getEvent(id);
       setEvent(ev);
-      if (user) setFollowing(await db.getFollowing(user.id));
+      if (user) {
+        const [fol, rts] = await Promise.all([db.getFollowing(user.id), db.getRoutes()]);
+        setFollowing(fol);
+        setRoutes(rts);
+      }
     } catch (err) {
       console.error('Errore caricamento evento:', err);
     } finally {
@@ -52,6 +70,115 @@ export default function EventDetailPage({ params }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Ricerca luoghi (locali, vie, indirizzi) durante la modifica
+  useEffect(() => {
+    const q = locQuery.trim();
+    if (!showEdit || q.length < 2 || (selectedLoc && selectedLoc.name === q) || q === editLocName) {
+      setLocResults([]); setLocSearching(false);
+      return;
+    }
+    setLocSearching(true);
+    const h = setTimeout(async () => {
+      try { setLocResults((await db.searchVenues(q) || []).slice(0, 8)); }
+      catch { setLocResults([]); }
+      finally { setLocSearching(false); }
+    }, 450);
+    return () => clearTimeout(h);
+  }, [locQuery, selectedLoc, showEdit, editLocName]);
+
+  const openEdit = () => {
+    setEdit({
+      title: event.title || '',
+      description: event.description || '',
+      date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
+      routeId: event.route_id || '',
+    });
+    setEditLocName(event.location_name || '');
+    setLocQuery(event.location_name || '');
+    setSelectedLoc(event.location && event.location.lat != null ? event.location : null);
+    setLocResults([]);
+    setShowEdit(true);
+  };
+
+  const pickLocation = (v) => {
+    setSelectedLoc({ name: v.name, lat: v.lat, lng: v.lng });
+    setEditLocName(v.name);
+    setLocQuery(v.name);
+    setLocResults([]);
+  };
+  const useFreeTextLocation = () => {
+    const t = locQuery.trim();
+    if (!t) return;
+    setSelectedLoc(null);
+    setEditLocName(t);
+    setLocResults([]);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!edit.title.trim()) { alert('Il titolo non può essere vuoto.'); return; }
+    if (!edit.date) { alert('Scegli data e ora.'); return; }
+    setSavingEdit(true);
+    try {
+      const selectedRoute = routes.find((r) => r.id === edit.routeId);
+      const finalLocName = (selectedLoc?.name || editLocName || locQuery).trim();
+      await db.updateEvent(id, {
+        title: edit.title.trim(),
+        description: edit.description,
+        date: new Date(edit.date).toISOString(),
+        location_name: finalLocName,
+        location: selectedLoc && selectedLoc.lat != null ? selectedLoc : null,
+        route_id: edit.routeId || null,
+        route_name: selectedRoute?.name || null,
+      });
+      setShowEdit(false);
+      await load();
+    } catch (err) {
+      alert(err.message || 'Errore nel salvataggio');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Avvia una sessione live pre-compilata con luogo dell'evento e amici pre-taggati
+  const handleStartEventSession = async () => {
+    if (!currentUser) { router.push('/auth'); return; }
+    setStartingSession(true);
+    try {
+      const active = await db.getActiveSession(currentUser.id);
+      if (active) {
+        alert('Hai già una sessione live attiva. Chiudila prima di iniziarne una nuova.');
+        setStartingSession(false);
+        return;
+      }
+      // Compagni = chi partecipa ("going"), escluso me, pre-taggati come "Nome (@username)"
+      const companions = (event.responses || [])
+        .filter((r) => r.status === 'going' && r.user_id !== currentUser.id)
+        .map((r) => {
+          const dn = r.profile?.display_name || r.user_name || 'Atleta';
+          const un = r.profile?.username;
+          return un ? `${dn} (@${un})` : dn;
+        });
+      const loc = event.location && event.location.lat != null
+        ? { name: event.location.name, lat: event.location.lat, lng: event.location.lng, share: 'friends' }
+        : (event.location_name ? { name: event.location_name, share: 'friends' } : null);
+      await db.createActivity({
+        title: `Brindisi · ${event.title}`,
+        location: loc,
+        drank_with: companions,
+        drinks: [],
+        is_active: true,
+        bac_level: 0,
+        total_units: 0,
+        duration: 1,
+      });
+      notify('Brindisi avviato! 🔴', `Sessione all'evento "${event.title}"${companions.length ? ` con ${companions.length} amici pre-taggati` : ''}.`);
+      router.push('/');
+    } catch (err) {
+      alert('Errore nell\'avvio della sessione: ' + (err.message || err));
+      setStartingSession(false);
+    }
+  };
 
   const respond = async (status) => {
     if (!currentUser) { router.push('/auth'); return; }
@@ -140,6 +267,11 @@ export default function EventDetailPage({ params }) {
               <Share2 size={15} /> {copied ? 'Link copiato!' : 'Condividi'}
             </button>
             {isHost && (
+              <button onClick={openEdit} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px' }}>
+                <Edit3 size={15} /> Modifica
+              </button>
+            )}
+            {isHost && (
               <button onClick={handleDelete} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px', color: 'var(--error)' }}>
                 <Trash2 size={15} /> Elimina
               </button>
@@ -201,6 +333,24 @@ export default function EventDetailPage({ params }) {
             );
           })}
         </div>
+
+        {/* Avvia una sessione live pre-compilata per questo evento */}
+        {currentUser && (isHost || event.isInvited || event.myResponse) && (
+          <button
+            onClick={handleStartEventSession}
+            disabled={startingSession}
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '14px', borderRadius: '14px', padding: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          >
+            {startingSession ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Beer size={16} />}
+            Registra brindisi all&apos;evento
+          </button>
+        )}
+        {currentUser && (isHost || event.isInvited || event.myResponse) && (
+          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '6px' }}>
+            Avvia una sessione live già con il luogo dell&apos;evento e i partecipanti pre-taggati.
+          </p>
+        )}
       </div>
 
       {/* Partecipanti */}
@@ -274,6 +424,92 @@ export default function EventDetailPage({ params }) {
           )}
         </div>
       </div>
+
+      {/* MODALE MODIFICA EVENTO (solo organizzatore) */}
+      {showEdit && (
+        <div
+          onClick={() => setShowEdit(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1200, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '20px', overflowY: 'auto' }}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '560px', border: '2px solid var(--primary)', marginTop: '30px', marginBottom: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Edit3 size={20} color="var(--primary)" /> Modifica Evento
+              </h2>
+              <button onClick={() => setShowEdit(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '34px', height: '34px' }}><X size={16} /></button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Titolo</label>
+              <input className="form-control" value={edit.title} onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))} />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Data e ora</label>
+                <input type="datetime-local" className="form-control" value={edit.date} onChange={(e) => setEdit((p) => ({ ...p, date: e.target.value }))} />
+              </div>
+              <div className="form-group" style={{ position: 'relative' }}>
+                <label className="form-label">Luogo di ritrovo</label>
+                <input
+                  className="form-control"
+                  placeholder="Cerca un locale, una via o scrivi libero…"
+                  value={locQuery}
+                  onChange={(e) => { setLocQuery(e.target.value); setSelectedLoc(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); useFreeTextLocation(); } }}
+                />
+                {editLocName && (
+                  <div style={{ fontSize: '11px', marginTop: '4px', color: 'var(--text-dark-secondary)' }}>
+                    Luogo: <strong style={{ color: 'var(--primary)' }}>{editLocName}</strong>
+                    {selectedLoc?.lat != null ? ' 📍 (reale)' : ' ✍️ (libero)'}
+                  </div>
+                )}
+                {(locSearching || locResults.length > 0) && (
+                  <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                    {locSearching && (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco luoghi…
+                      </div>
+                    )}
+                    {locResults.map((v, i) => (
+                      <button key={i} type="button" onClick={() => pickLocation(v)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}>
+                        <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600 }}>
+                          <MapPin size={11} style={{ marginRight: '4px', color: 'var(--primary)' }} />{v.name}
+                        </span>
+                        {v.address && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.address}</span>}
+                      </button>
+                    ))}
+                    {!locSearching && locQuery.trim().length >= 2 && (
+                      <button type="button" onClick={useFreeTextLocation} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+                        ✍️ Usa &quot;<strong style={{ color: 'var(--primary)' }}>{locQuery.trim()}</strong>&quot; come testo libero
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Itinerario collegato (opzionale)</label>
+              <select className="form-control" value={edit.routeId} onChange={(e) => setEdit((p) => ({ ...p, routeId: e.target.value }))}>
+                <option value="">Nessun itinerario</option>
+                {routes.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Descrizione</label>
+              <textarea className="form-control" rows={2} value={edit.description} onChange={(e) => setEdit((p) => ({ ...p, description: e.target.value }))} style={{ resize: 'vertical' }} />
+            </div>
+
+            <button onClick={handleSaveEdit} disabled={savingEdit} className="btn btn-primary" style={{ width: '100%', marginTop: '6px' }}>
+              {savingEdit ? 'Salvo...' : 'Salva modifiche'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
