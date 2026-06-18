@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { notify, ensureNotificationPermission } from '@/lib/notify';
+import ShareAppButton from '@/components/ShareAppButton';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
@@ -1483,9 +1484,12 @@ export default function FeedPage() {
         {visibleActivities.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
             {feedFilter === 'friends' ? (
-              <p style={{ color: 'var(--text-dark-secondary)' }}>
-                Nessuna sessione dai tuoi amici. Segui altri atleti o passa a <strong style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setFeedFilter('all')}>🌍 Tutti</strong>.
-              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+                <p style={{ color: 'var(--text-dark-secondary)' }}>
+                  Nessuna sessione dai tuoi amici. Invitali su Strabar, oppure passa a <strong style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setFeedFilter('all')}>🌍 Tutti</strong>.
+                </p>
+                <ShareAppButton style={{ borderRadius: '24px', padding: '11px 22px' }} label="Invita amici su Strabar" />
+              </div>
             ) : (
               <p style={{ color: 'var(--text-dark-secondary)' }}>Nessuna attività registrata. Sii il primo a brindare! 🥂</p>
             )}
@@ -1745,6 +1749,15 @@ export default function FeedPage() {
 
       {/* Colonna Destra: Sidebar Statistiche e Leaderboard */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Invita amici */}
+        <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.08) 100%)', textAlign: 'center' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '6px' }}>📲 Invita i tuoi amici</h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.4 }}>
+            Strabar è più divertente in compagnia: condividi l&apos;app e sfidatevi in classifica!
+          </p>
+          <ShareAppButton style={{ width: '100%', borderRadius: '24px', padding: '12px' }} label="Condividi Strabar" />
+        </div>
+
         {/* Widget Profilo Rapido */}
         {currentUser && (
           <div className="card">

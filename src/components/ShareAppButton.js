@@ -1,0 +1,51 @@
+'use client';
+
+import { useState } from 'react';
+import { Share2, Check, Copy } from 'lucide-react';
+
+// Pulsante riutilizzabile per invitare amici su Strabar.
+// Usa il foglio di condivisione nativo del telefono (WhatsApp, Instagram, SMS…)
+// e ricade su "copia link" sul desktop. Il link punta a /install.
+export default function ShareAppButton({ style, className, label = 'Invita amici', compact = false }) {
+  const [copied, setCopied] = useState(false);
+
+  const getUrl = () => (typeof window !== 'undefined' ? `${window.location.origin}/install` : '/install');
+  const text =
+    'Unisciti a me su Strabar 🍻 — il social network degli atleti da bar! Traccia le tue bevute, taggami e sfidami in classifica:';
+
+  const handleShare = async () => {
+    const url = getUrl();
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Strabar 🍻', text, url });
+        return;
+      }
+    } catch {
+      // condivisione annullata: non fare nulla
+      return;
+    }
+    // Fallback desktop: copia negli appunti
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert(`Condividi questo link: ${url}`);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleShare}
+      className={className || 'btn btn-primary'}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, ...style }}
+    >
+      {copied ? <Check size={compact ? 15 : 18} /> : navigatorHasShare() ? <Share2 size={compact ? 15 : 18} /> : <Copy size={compact ? 15 : 18} />}
+      {copied ? 'Link copiato!' : label}
+    </button>
+  );
+}
+
+function navigatorHasShare() {
+  return typeof navigator !== 'undefined' && !!navigator.share;
+}

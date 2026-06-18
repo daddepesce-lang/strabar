@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Beer, Download, Share, Plus, Check, Wifi, Bell } from 'lucide-react';
+import ShareAppButton from '@/components/ShareAppButton';
 
 function isStandalone() {
   if (typeof window === 'undefined') return false;
@@ -115,6 +116,13 @@ export default function InstallPage() {
           )}
         </div>
       )}
+
+      <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '18px' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>
+          Conosci qualcuno a cui piacerebbe? Mandagli il link! 🍻
+        </p>
+        <ShareAppButton style={{ width: '100%', borderRadius: '24px', padding: '12px' }} label="Condividi Strabar" className="btn btn-secondary" />
+      </div>
 
       <Link href="/" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '4px' }}>
         ← Torna a Strabar

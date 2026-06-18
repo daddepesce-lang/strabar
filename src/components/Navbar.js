@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell,
+  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2,
 } from 'lucide-react';
 
 function timeAgo(dateString) {
@@ -133,6 +133,11 @@ export default function Navbar() {
         </div>
 
         <div className="nav-actions">
+          {/* Invita amici: sempre raggiungibile dalla barra in alto */}
+          <Link href="/install" className={`action-btn ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
+            <Share2 size={20} />
+          </Link>
+
           {/* Eventi: raggiungibile dalla barra superiore su mobile */}
           <Link href="/events" className={`action-btn nav-action-mobile ${isActive('/events') ? 'active' : ''}`} title="Eventi">
             <Calendar size={20} />

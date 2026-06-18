@@ -6,6 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { Calendar, User, Beer, Award, Heart, Shield, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
+import ShareAppButton from '@/components/ShareAppButton';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
@@ -293,6 +294,20 @@ export default function ProfilePage() {
             {weightSaved ? '✓ Salvato' : savingWeight ? '...' : 'Salva'}
           </button>
         </div>
+      </div>
+
+      {/* Invita amici su Strabar */}
+      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,94,0,0.08) 100%)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <span style={{ background: 'rgba(255,94,0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
+          <div style={{ minWidth: 0 }}>
+            <strong style={{ fontSize: '15px', display: 'block' }}>Invita i tuoi amici</strong>
+            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+              Più siete, più è divertente: sfidatevi in classifica e taggatevi nelle sessioni!
+            </span>
+          </div>
+        </div>
+        <ShareAppButton style={{ borderRadius: '20px', padding: '10px 18px', fontSize: '14px', flexShrink: 0 }} />
       </div>
 
       {/* Menu di Navigazione Tab */}
