@@ -2226,6 +2226,40 @@ export const db = {
     return JSON.parse(localStorage.getItem('sb_notifications') || '[]');
   },
 
+  // Registra la PUSH subscription del dispositivo corrente, così l'utente riceve
+  // le notifiche anche ad app chiusa (Web Push). Da chiamare dopo aver concesso il permesso.
+  async registerPushSubscription() {
+    try {
+      if (typeof window === 'undefined' || !isSupabaseConfigured) return;
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapid) { console.warn('Push disattivato: manca NEXT_PUBLIC_VAPID_PUBLIC_KEY'); return; }
+      const user = await this.getCurrentUser();
+      if (!user) return;
+
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const toUint8 = (b64) => {
+          const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+          const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+          const raw = atob(base64);
+          const arr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          return arr;
+        };
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toUint8(vapid) });
+      }
+      await supabase.from('push_subscriptions').upsert(
+        { user_id: user.id, endpoint: sub.endpoint, subscription: sub.toJSON() },
+        { onConflict: 'endpoint' }
+      );
+    } catch (err) {
+      console.warn('registerPushSubscription fallita:', err.message || err);
+    }
+  },
+
   async pushNotification(recipientId, payload) {
     if (!recipientId) return;
 
@@ -2243,6 +2277,17 @@ export const db = {
       } catch (err) {
         console.warn('Errore invio notifica:', err.message || err);
       }
+      // Invia anche il PUSH (notifica ad app chiusa) — best effort, non blocca il flusso.
+      try {
+        supabase.functions.invoke('send-push', {
+          body: {
+            user_ids: [recipientId],
+            title: 'Strabar 🍻',
+            body: payload.message || '',
+            url: payload.link || '/',
+          },
+        }).catch(() => {});
+      } catch { /* funzione non deployata: ignora */ }
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('notifications-change'));
       return;
     }

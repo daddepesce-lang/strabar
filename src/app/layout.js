@@ -26,7 +26,8 @@ export const metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5,
+  maximumScale: 1,
+  userScalable: false, // niente pinch-zoom: si comporta come un'app nativa
   viewportFit: "cover",
   themeColor: "#0D0D0D",
 };

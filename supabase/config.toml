@@ -1,0 +1,5 @@
+# Configurazione minima per la CLI Supabase (necessaria per `supabase link` / `functions deploy`).
+project_id = "strabar"
+
+[functions.send-push]
+verify_jwt = true

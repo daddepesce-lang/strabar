@@ -181,8 +181,13 @@ export default function FeedPage() {
   useEffect(() => {
     loadFeed();
 
-    // Richiedi permessi notifiche PWA
-    ensureNotificationPermission();
+    // Richiedi permessi notifiche PWA e, se concessi, registra la push subscription
+    // (così le notifiche arrivano anche ad app chiusa).
+    ensureNotificationPermission().then((perm) => {
+      if (perm === 'granted' && typeof db.registerPushSubscription === 'function') {
+        db.registerPushSubscription();
+      }
+    });
   }, []);
 
   // Apre il dettaglio di una sessione dato il suo id (usato dalle notifiche)
@@ -2646,9 +2651,9 @@ export default function FeedPage() {
                       🏆 Classifica del Locale (Top Atleti)
                     </h4>
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       {/* Top Carico Alcolico */}
-                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)' }}>
+                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)', minWidth: 0 }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
                           🏋️‍♂️ Record Carico (Max U.A.)
                         </div>
@@ -2656,16 +2661,16 @@ export default function FeedPage() {
                           <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Nessun record</div>
                         ) : (
                           topUnitsLeaderboard.map((item, index) => (
-                            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', borderBottom: index < topUnitsLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
-                              <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '120px' }}>#{index+1} {item.name}</span>
-                              <strong style={{ color: 'var(--secondary)' }}>{item.totalUnits.toFixed(1)} U.A.</strong>
+                            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '6px', fontSize: '12px', padding: '4px 0', borderBottom: index < topUnitsLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
+                              <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flex: 1, minWidth: 0 }}>#{index+1} {item.name}</span>
+                              <strong style={{ color: 'var(--secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.totalUnits.toFixed(1)} U.A.</strong>
                             </div>
                           ))
                         )}
                       </div>
-                      
+
                       {/* Top BAC */}
-                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)' }}>
+                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)', minWidth: 0 }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
                           ⚡ Record BAC (Picco g/l)
                         </div>
@@ -2673,9 +2678,9 @@ export default function FeedPage() {
                           <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Nessun record</div>
                         ) : (
                           topBacLeaderboard.map((item, index) => (
-                            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', borderBottom: index < topBacLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
-                              <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '120px' }}>#{index+1} {item.name}</span>
-                              <strong style={{ color: 'var(--error)' }}>{item.bac.toFixed(2)} g/l</strong>
+                            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '6px', fontSize: '12px', padding: '4px 0', borderBottom: index < topBacLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
+                              <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flex: 1, minWidth: 0 }}>#{index+1} {item.name}</span>
+                              <strong style={{ color: 'var(--error)', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.bac.toFixed(2)} g/l</strong>
                             </div>
                           ))
                         )}
