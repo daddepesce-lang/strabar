@@ -96,12 +96,9 @@ export const db = {
       return publicUrlData.publicUrl;
     } catch (err) {
       console.error("Errore di caricamento su Supabase Storage:", err);
-      // Se fallisce per qualsiasi motivo, facciamo fallback sul Base64
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
+      // NIENTE fallback base64: salvare immagini come base64 nel DB lo appesantiva
+      // e rallentava tutto. Meglio fallire con un messaggio chiaro.
+      throw new Error("Caricamento immagine non riuscito. Verifica che il bucket 'media' esista e riprova.");
     }
   },
 
@@ -2257,6 +2254,32 @@ export const db = {
       );
     } catch (err) {
       console.warn('registerPushSubscription fallita:', err.message || err);
+    }
+  },
+
+  // Stato attuale: il dispositivo è iscritto alle push?
+  async isPushSubscribed() {
+    try {
+      if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      return !!sub;
+    } catch { return false; }
+  },
+
+  // Disattiva le push su questo dispositivo (annulla la subscription + rimuove dal DB).
+  async unregisterPushSubscription() {
+    try {
+      if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const endpoint = sub.endpoint;
+        await sub.unsubscribe().catch(() => {});
+        if (isSupabaseConfigured) await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+      }
+    } catch (err) {
+      console.warn('unregisterPushSubscription fallita:', err.message || err);
     }
   },
 

@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
+import Avatar from '@/components/Avatar';
 import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
@@ -1973,8 +1974,8 @@ export default function FeedPage() {
                 }}
               >
                 <div className="activity-header" style={{ gap: '12px' }}>
-                  <Link href={`/u/${act.user_id}`} className="activity-avatar" style={{ flexShrink: 0 }}>
-                    {act.profiles?.display_name ? act.profiles.display_name.charAt(0) : 'U'}
+                  <Link href={`/u/${act.user_id}`} style={{ flexShrink: 0 }}>
+                    <Avatar src={act.profiles?.avatar_url} name={act.profiles?.display_name || act.profiles?.username} size={44} />
                   </Link>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="activity-author">

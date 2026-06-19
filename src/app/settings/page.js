@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { User, AtSign, Camera, Lock, Loader, Check } from 'lucide-react';
+import { User, AtSign, Camera, Lock, Loader, Check, Bell } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
+import { ensureNotificationPermission } from '@/lib/notify';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -25,6 +26,41 @@ export default function SettingsPage() {
   const [savingPwd, setSavingPwd] = useState(false);
   const [pwdMsg, setPwdMsg] = useState('');
   const [pwdErr, setPwdErr] = useState('');
+
+  // Notifiche push (per utente, per dispositivo)
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState('');
+
+  useEffect(() => {
+    if (typeof db.isPushSubscribed === 'function') db.isPushSubscribed().then(setPushOn);
+  }, []);
+
+  const togglePush = async () => {
+    setPushBusy(true);
+    setPushMsg('');
+    try {
+      if (pushOn) {
+        await db.unregisterPushSubscription();
+        setPushOn(false);
+        setPushMsg('Notifiche disattivate su questo dispositivo.');
+      } else {
+        const perm = await ensureNotificationPermission();
+        if (perm !== 'granted') {
+          setPushMsg('Permesso negato dal browser. Abilita le notifiche per Strabar nelle impostazioni del dispositivo.');
+          return;
+        }
+        await db.registerPushSubscription();
+        const ok = await db.isPushSubscribed();
+        setPushOn(ok);
+        setPushMsg(ok ? 'Notifiche attivate! 🔔' : 'Non è stato possibile attivare le notifiche su questo dispositivo.');
+      }
+    } catch (err) {
+      setPushMsg('Errore: ' + (err.message || err));
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -176,6 +212,30 @@ export default function SettingsPage() {
           {savingPwd ? 'Aggiornamento...' : 'Aggiorna password'}
         </button>
       </form>
+
+      {/* Notifiche push */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Bell size={16} color="var(--primary)" /> Notifiche push
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+          Ricevi un avviso (anche ad app chiusa) quando qualcuno ti segue, mette un cheers, commenta o ti invita a un evento.
+          Su iPhone funziona solo con l&apos;app installata nella schermata Home.
+        </p>
+        {pushMsg && (
+          <div style={{ fontSize: '13px', color: pushOn ? '#6EE7B7' : 'var(--text-dark-secondary)' }}>{pushMsg}</div>
+        )}
+        <button
+          type="button"
+          onClick={togglePush}
+          disabled={pushBusy}
+          className={`btn ${pushOn ? 'btn-secondary' : 'btn-primary'}`}
+          style={{ borderRadius: '24px', padding: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+        >
+          {pushBusy ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Bell size={15} />}
+          {pushOn ? 'Disattiva notifiche su questo dispositivo' : 'Attiva notifiche su questo dispositivo'}
+        </button>
+      </div>
     </div>
   );
 }

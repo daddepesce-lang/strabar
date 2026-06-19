@@ -14,13 +14,13 @@ export default function manifest() {
     categories: ['social', 'lifestyle', 'food'],
     icons: [
       {
-        src: '/logo.svg',
+        src: '/icon.svg',
         sizes: 'any',
         type: 'image/svg+xml',
         purpose: 'any',
       },
       {
-        src: '/logo.svg',
+        src: '/icon-maskable.svg',
         sizes: 'any',
         type: 'image/svg+xml',
         purpose: 'maskable',

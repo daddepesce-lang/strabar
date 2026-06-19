@@ -133,8 +133,13 @@ export default function Navbar() {
     <>
       <nav className="navbar">
         <Link href="/" className="nav-brand" aria-label="Strabar — home">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="nav-logo-mark" src="/logo.svg" alt="Strabar" width={36} height={36} style={{ borderRadius: '10px', objectFit: 'cover' }} />
+          <svg className="nav-logo-mark" viewBox="0 0 512 512" aria-hidden="true">
+            <rect width="512" height="512" rx="120" fill="#FF2000" />
+            <g fill="none" stroke="#0D0D0D" strokeWidth="72" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M368 182 C368 130 306 120 256 142 C194 169 194 232 268 254" />
+              <path d="M144 330 C144 382 206 392 256 370 C318 343 318 280 244 258" />
+            </g>
+          </svg>
           stra<span>bar</span>
         </Link>
 
