@@ -58,6 +58,15 @@ img {
   max-width: 100%;
 }
 
+/* Titoli in Bebas Neue (font display). Bebas ha solo il peso 400: lo forziamo
+   per evitare il "finto grassetto" sui titoli con fontWeight inline alto.
+   Il corpo del testo resta in DM Sans per leggibilità. */
+h1, h2, .activity-title, .nav-user-name {
+  font-family: var(--font-display);
+  font-weight: 400 !important;
+  letter-spacing: 0.5px;
+}
+
 /* Evita overflow orizzontale da titoli/descrizioni lunghe (spezza solo le parole lunghe) */
 .activity-title,
 .activity-meta {
