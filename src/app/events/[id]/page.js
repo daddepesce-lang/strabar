@@ -9,7 +9,6 @@ import {
   Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
   Edit3, Loader, Beer,
 } from 'lucide-react';
-import { notify } from '@/lib/notify';
 
 function formatEventDate(ds) {
   if (!ds) return 'Data da definire';
@@ -25,6 +24,18 @@ function toLocalInput(iso) {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 16);
 }
+
+// Posizione GPS corrente (null se non disponibile).
+const getPosition = () =>
+  new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { resolve(null); return; }
+    const ok = (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude });
+    navigator.geolocation.getCurrentPosition(
+      ok,
+      () => navigator.geolocation.getCurrentPosition(ok, () => resolve(null), { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
+    );
+  });
 
 const RSVP = [
   { key: 'going', label: 'Partecipo', icon: Check, color: 'var(--success)' },
@@ -45,6 +56,7 @@ export default function EventDetailPage({ params }) {
   const [toInvite, setToInvite] = useState([]);
   const [copied, setCopied] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
+  const [eventShare, setEventShare] = useState('friends'); // privacy della sessione avviata dall'evento
 
   // Modifica evento (solo organizzatore)
   const [showEdit, setShowEdit] = useState(false);
@@ -167,9 +179,27 @@ export default function EventDetailPage({ params }) {
           const un = r.profile?.username;
           return un ? `${dn} (@${un})` : dn;
         });
-      const loc = event.location && event.location.lat != null
-        ? { name: event.location.name, lat: event.location.lat, lng: event.location.lng, share: 'friends' }
-        : (event.location_name ? { name: event.location_name, share: 'friends' } : null);
+      // Verifica GPS rispetto al luogo dell'evento (se ha coordinate): se sei lontano,
+      // avvisa e segna "non verificata" (non conta per le classifiche del locale).
+      const hasCoords = event.location && event.location.lat != null;
+      let unverified = false;
+      if (hasCoords) {
+        const pos = await getPosition();
+        if (!pos) {
+          if (!window.confirm('GPS non disponibile: la sessione non conterà per le classifiche del locale. Procedere?')) { setStartingSession(false); return; }
+          unverified = true;
+        } else {
+          const { distance } = db.checkGeofencing(event.location.lat, event.location.lng, pos.lat, pos.lng, Infinity);
+          if (distance > 300) {
+            const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+            if (!window.confirm(`Sei a circa ${d} dal luogo dell'evento.\nLa sessione verrà segnata "non verificata". Procedere?`)) { setStartingSession(false); return; }
+            unverified = true;
+          }
+        }
+      }
+      const loc = hasCoords
+        ? { name: event.location.name, lat: event.location.lat, lng: event.location.lng, share: eventShare, ...(unverified ? { unverified: true } : {}) }
+        : (event.location_name ? { name: event.location_name, share: eventShare } : null);
       await db.createActivity({
         title: `Brindisi · ${event.title}`,
         location: loc,
@@ -180,7 +210,6 @@ export default function EventDetailPage({ params }) {
         total_units: 0,
         duration: 1,
       });
-      notify('Brindisi avviato! 🔴', `Sessione all'evento "${event.title}"${companions.length ? ` con ${companions.length} amici pre-taggati` : ''}.`);
       router.push('/');
     } catch (err) {
       alert('Errore nell\'avvio della sessione: ' + (err.message || err));
@@ -344,15 +373,25 @@ export default function EventDetailPage({ params }) {
 
         {/* Avvia una sessione live pre-compilata per questo evento */}
         {currentUser && (isHost || event.isInvited || event.myResponse) && (
-          <button
-            onClick={handleStartEventSession}
-            disabled={startingSession}
-            className="btn btn-primary"
-            style={{ width: '100%', marginTop: '14px', borderRadius: '14px', padding: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-          >
-            {startingSession ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Beer size={16} />}
-            Registra brindisi all&apos;evento
-          </button>
+          <>
+            <div style={{ marginTop: '14px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>Chi vede la tua sessione?</span>
+              <div className="seg-tabs">
+                <div className={`seg-tab ${eventShare === 'public' ? 'active' : ''}`} onClick={() => setEventShare('public')}>🌍 Tutti</div>
+                <div className={`seg-tab ${eventShare === 'friends' ? 'active' : ''}`} onClick={() => setEventShare('friends')}>👥 Amici</div>
+                <div className={`seg-tab ${eventShare === 'private' ? 'active' : ''}`} onClick={() => setEventShare('private')}>🔒 Nessuno</div>
+              </div>
+            </div>
+            <button
+              onClick={handleStartEventSession}
+              disabled={startingSession}
+              className="btn btn-primary"
+              style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              {startingSession ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Beer size={16} />}
+              Registra brindisi all&apos;evento
+            </button>
+          </>
         )}
         {currentUser && (isHost || event.isInvited || event.myResponse) && (
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '6px' }}>

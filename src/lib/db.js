@@ -1043,13 +1043,20 @@ export const db = {
     });
   },
 
-  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg, fullStomach) {
+  // Coefficiente di distribuzione di Widmark in base al sesso (uomo ~0.68, donna ~0.55).
+  _widmarkR(sex) {
+    const s = (sex || '').toString().toLowerCase();
+    if (s === 'f' || s === 'female' || s === 'donna') return 0.55;
+    return 0.68; // uomo / non specificato
+  },
+
+  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg, fullStomach, sex) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return [];
 
     // Peso reale dell'utente se disponibile, altrimenti 70kg di default (Widmark)
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
-    const r = 0.68;
+    const r = this._widmarkR(sex);
     const eliminationPerHour = 0.15 * w * r; // grammi smaltiti all'ora
     // A stomaco pieno l'assorbimento è più lento e il picco più basso (~ -20%)
     const stomachFactor = fullStomach ? 0.8 : 1.0;
@@ -1097,12 +1104,12 @@ export const db = {
     return timepoints;
   },
 
-  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach) {
+  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach, sex) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return 0;
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
-    const r = 0.68;
+    const r = this._widmarkR(sex);
     const eliminationPerHour = 0.15 * w * r;
     const stomachFactor = fullStomach ? 0.8 : 1.0;
 
@@ -1826,35 +1833,29 @@ export const db = {
 
     const community = withDistance(await this.getPlaces().catch(() => []), 'community');
 
-    // Cerca i locali reali entro il raggio richiesto; se nessuno, allarga progressivamente.
-    let osm = await this.getNearbyVenues(lat, lng, radius);
-    let usedRadius = radius;
-    let widened = false;
-    const widenSteps = [500, 1000];
-    for (const r of widenSteps) {
-      if (osm.length > 0) break;
-      osm = await this.getNearbyVenues(lat, lng, r);
-      usedRadius = r;
-      widened = true;
-    }
+    // Cerca SEMPRE i locali reali da OpenStreetMap fino a 1 km (così mostriamo anche i bar
+    // dove non è ancora stata fatta nessuna sessione, non solo quelli community).
+    const SHOW_RADIUS = Math.max(radius, 1000);
+    const osm = await this.getNearbyVenues(lat, lng, SHOW_RADIUS);
 
-    // Includi i locali community che cadono entro il raggio effettivamente usato.
-    const nearbyCommunity = community.filter(
-      (p) => p.distance != null && p.distance <= usedRadius
-    );
+    // Unione community + OSM entro il raggio di visualizzazione, ordinata per distanza.
+    const merged = this._dedupeVenues([
+      ...community.filter((p) => p.distance != null && p.distance <= SHOW_RADIUS),
+      ...osm,
+    ])
+      .filter((v) => v.distance == null || v.distance <= SHOW_RADIUS)
+      .sort((a, b) => {
+        if (a.distance != null && b.distance != null) return a.distance - b.distance;
+        if (a.distance != null) return -1;
+        if (b.distance != null) return 1;
+        return (b.sessionsCount || 0) - (a.sessionsCount || 0);
+      });
 
-    const merged = this._dedupeVenues([...nearbyCommunity, ...osm]).filter(
-      (v) => v.distance == null || v.distance <= usedRadius
-    );
+    // "widened" = nessun locale entro il raggio originale (es. 200 m): il più vicino è oltre.
+    const nearest = merged.find((v) => v.distance != null);
+    const widened = !!nearest && nearest.distance > radius;
 
-    merged.sort((a, b) => {
-      if (a.distance != null && b.distance != null) return a.distance - b.distance;
-      if (a.distance != null) return -1;
-      if (b.distance != null) return 1;
-      return (b.sessionsCount || 0) - (a.sessionsCount || 0);
-    });
-
-    return { venues: merged, radius: usedRadius, widened };
+    return { venues: merged, radius, widened };
   },
 
   // Classifica atleti per un singolo locale (visite + unità alcoliche)

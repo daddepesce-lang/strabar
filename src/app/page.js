@@ -88,6 +88,7 @@ export default function FeedPage() {
   // Stati social: filtro feed (amici/tutti) e gestione follow
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
   const [followingIds, setFollowingIds] = useState([]);
+  const [followerIds, setFollowerIds] = useState([]); // chi segue ME (per "Amici" bidirezionale)
   const [followBusy, setFollowBusy] = useState({});
 
   // Stati per il completamento profilo Google obbligatorio
@@ -123,10 +124,11 @@ export default function FeedPage() {
 
       // PERCORSO CRITICO: solo ciò che serve a mostrare il feed e a chiudere la live
       // in modo affidabile. Poche query leggere → reggono anche col DB sotto carico.
-      const [acts, active, following] = await Promise.all([
+      const [acts, active, following, followers] = await Promise.all([
         typeof db.getActivities === 'function' ? db.getActivities({ limit: FEED_PAGE_SIZE }).catch(() => []) : Promise.resolve([]),
         user && typeof db.getActiveSession === 'function' ? db.getActiveSession(user.id).catch(() => null) : Promise.resolve(null),
         user && typeof db.getFollowing === 'function' ? db.getFollowing(user.id).catch(() => []) : Promise.resolve([]),
+        user && typeof db.getFollowers === 'function' ? db.getFollowers(user.id).catch(() => []) : Promise.resolve([]),
       ]);
 
       setActivities(acts);
@@ -135,6 +137,7 @@ export default function FeedPage() {
       if (user) {
         setActiveSession(active);
         setFollowingIds((following || []).map((f) => f.id));
+        setFollowerIds((followers || []).map((f) => f.id));
 
         // Controllo completezza profilo per Google Login
         const emailPrefix = user.email ? user.email.split('@')[0] : '';
@@ -376,7 +379,6 @@ export default function FeedPage() {
       const updatedUser = await db.getCurrentUser();
       setCurrentUser(updatedUser);
       setShowCompleteProfileModal(false);
-      triggerLocalNotification("Profilo Aggiornato! 🏅", `Benvenuto su Strabar, ${name}!`);
       await loadFeed();
     } catch (err) {
       setProfileError(err.message || "Impossibile aggiornare il profilo.");
@@ -482,7 +484,7 @@ export default function FeedPage() {
       );
       
       // Calcola il nuovo BAC stimato (peso reale dell'utente se impostato nel profilo)
-      const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration, undefined, currentUser?.weight, selectedActivity.full_stomach);
+      const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration, undefined, currentUser?.weight, selectedActivity.full_stomach, currentUser?.sex);
       
       const updatedFields = {
         drinks: updatedDrinks,
@@ -517,7 +519,7 @@ export default function FeedPage() {
   const handleToggleFullStomach = async (value) => {
     if (!activeSession || !!activeSession.full_stomach === !!value) return;
     const duration = activeSession.duration || 1;
-    const newBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, duration, undefined, currentUser?.weight, value);
+    const newBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, duration, undefined, currentUser?.weight, value, currentUser?.sex);
     const updated = { full_stomach: value, bac_level: parseFloat(newBac.toFixed(2)) };
     setActiveSession((prev) => (prev ? { ...prev, ...updated } : prev));
     try {
@@ -593,7 +595,7 @@ export default function FeedPage() {
       const duration = Math.max(1, Math.round((new Date().getTime() - startTimeMs) / (60 * 1000)));
       
       // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default; peso reale se impostato)
-      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach);
+      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex);
       
       const updatedFields = {
         drinks: updatedDrinks,
@@ -647,7 +649,7 @@ export default function FeedPage() {
         const startTimeMs = Math.min(...timestamps);
         duration = Math.max(1, Math.round((Date.now() - startTimeMs) / 60000));
       }
-      const newBac = db.calculateCurrentBAC(drinks, base.created_at, duration, undefined, currentUser?.weight, base.full_stomach);
+      const newBac = db.calculateCurrentBAC(drinks, base.created_at, duration, undefined, currentUser?.weight, base.full_stomach, currentUser?.sex);
       const updatedFields = {
         drinks,
         total_units: parseFloat(newTotalUnits.toFixed(1)),
@@ -803,7 +805,6 @@ export default function FeedPage() {
     try {
       await db.updateActivity(activeSession.id, { location: newLocation });
       // Nessuna apertura automatica di Maps: usa il pulsante "🧭 Guidami a ..." nel pannello.
-      triggerLocalNotification('Prossima tappa! 📍', `Dirigiti verso ${stop.name}. Registra un drink quando sei sul posto per validarla.`);
     } catch (err) {
       console.error('Errore cambio tappa:', err);
       alert('Impossibile passare alla tappa: ' + (err.message || err));
@@ -872,12 +873,7 @@ export default function FeedPage() {
 
     try {
       await db.closeSession(activeSession.id, finalData);
-      if (tour) {
-        const visited = (tour.visited || []).length;
-        triggerLocalNotification('Tour completato! 🏁🗺️', `${visited}/${tour.stops.length} tappe · ${activeSession.total_units} U.A. · BAC ${activeSession.bac_level} g/l. Complimenti!`);
-      } else {
-        triggerLocalNotification("Sessione Chiusa! 🏁", `Allenamento completato! Hai totalizzato ${activeSession.total_units} U.A. e un BAC di ${activeSession.bac_level} g/l.`);
-      }
+      // Niente notifica all'utente per la propria chiusura sessione (azione volontaria).
       setActiveSession(null);
       await loadFeed();
     } catch (err) {
@@ -957,7 +953,7 @@ export default function FeedPage() {
     try {
       const totalUnits = editingActivity.drinks.reduce((acc, d) => acc + (d.units * d.qty), 0);
       const updatedDrinks = editingActivity.drinks;
-      const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration, undefined, currentUser?.weight, editingActivity.full_stomach);
+      const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration, undefined, currentUser?.weight, editingActivity.full_stomach, currentUser?.sex);
       
       const updatedFields = {
         title: editingActivity.title,
@@ -967,7 +963,9 @@ export default function FeedPage() {
         drinks: updatedDrinks,
         drank_with: editingActivity.drank_with || [],
         total_units: parseFloat(totalUnits.toFixed(1)),
-        bac_level: parseFloat(bac.toFixed(2))
+        bac_level: parseFloat(bac.toFixed(2)),
+        // Privacy modificabile: salva la visibilità scelta nella location.
+        ...(editingActivity.location ? { location: editingActivity.location } : {})
       };
 
       await db.updateActivity(editingActivity.id, updatedFields);
@@ -1461,13 +1459,15 @@ export default function FeedPage() {
       ? undefined  // usa now (default)
       : new Date(new Date(selectedActivity.created_at).getTime() + (selectedActivity.duration || 120) * 60 * 1000).toISOString();
 
-    // Peso del proprietario della sessione (per BAC/curva precisi); fallback 70kg
+    // Peso e sesso del proprietario della sessione (per BAC/curva precisi); fallback 70kg
     const ownerWeight =
       (selectedActivity.user_id === currentUser?.id ? currentUser?.weight : selectedActivity.profiles?.weight) || undefined;
+    const ownerSex =
+      (selectedActivity.user_id === currentUser?.id ? currentUser?.sex : selectedActivity.profiles?.sex) || undefined;
 
     derivedBac = (selectedActivity.bac_level && parseFloat(selectedActivity.bac_level) > 0)
       ? parseFloat(selectedActivity.bac_level)
-      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime, ownerWeight, selectedActivity.full_stomach);
+      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime, ownerWeight, selectedActivity.full_stomach, ownerSex);
 
     // La "Classifica del Locale" ha senso solo per locali REALI (con coordinate e verificati):
     // le sessioni libere/non verificate non sono locali → niente classifica/legenda.
@@ -1517,7 +1517,7 @@ export default function FeedPage() {
           if (bac === 0 && s.drinks && s.drinks.length > 0) {
             const isLive = s.is_active && (Date.now() - new Date(s.created_at).getTime()) < 5 * 60 * 60 * 1000;
             const endRef = isLive ? undefined : new Date(new Date(s.created_at).getTime() + (s.duration || 120) * 60 * 1000).toISOString();
-            bac = db.calculateCurrentBAC(s.drinks, s.created_at, s.duration || 120, endRef, s.profiles?.weight, s.full_stomach);
+            bac = db.calculateCurrentBAC(s.drinks, s.created_at, s.duration || 120, endRef, s.profiles?.weight, s.full_stomach, s.profiles?.sex);
           }
           return {
             name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
@@ -1529,7 +1529,7 @@ export default function FeedPage() {
     }
 
     // Timeline BAC reale basata sugli orari di aggiunta dei singoli drink (peso reale se disponibile)
-    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach);
+    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex);
   }
 
   // Visibilità live: una sessione PRIVATA non appare a nessuno finché è attiva
@@ -1539,7 +1539,8 @@ export default function FeedPage() {
     if (currentUser && a.user_id === currentUser.id) return true; // le mie
     const share = a.location?.share;
     if (share === 'private') return false;
-    if (share === 'friends') return followingIds.includes(a.user_id);
+    // "Amici" = collegamento di follow in QUALSIASI direzione (io seguo lui O lui segue me).
+    if (share === 'friends') return followingIds.includes(a.user_id) || followerIds.includes(a.user_id);
     return true; // 'public' o sessioni storiche senza flag
   };
 
@@ -1702,6 +1703,27 @@ export default function FeedPage() {
                   <button type="button" onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>🍝 Pieno</button>
                 </div>
               </div>
+
+              {/* Curva BAC per orario (in tempo reale), tiene conto degli orari dei drink */}
+              {(() => {
+                const tl = db.calculateBACTimeline(activeSession.drinks || [], activeSession.created_at, activeSession.duration || elapsedMinutes || 1, currentUser?.weight, activeSession.full_stomach, currentUser?.sex);
+                if (!tl || tl.length === 0) return null;
+                return (
+                  <div style={{ marginBottom: '15px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>📈 Curva BAC (g/l)</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', padding: '6px 0' }}>
+                      <div style={{ position: 'absolute', top: '18px', left: '12px', right: '12px', height: '3px', background: 'linear-gradient(90deg, var(--success) 0%, var(--primary) 50%, var(--error) 100%)', zIndex: 1 }} />
+                      {tl.map((pt, idx) => (
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, flex: 1 }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{pt.label}</span>
+                          <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: pt.val > 0.8 ? 'var(--error)' : pt.val > 0.5 ? 'var(--primary)' : 'var(--success)', border: '2px solid #000', margin: '5px 0' }} />
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: pt.val > 0.5 ? 'var(--primary)' : '#FFF' }}>{pt.val.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Elenco drink correnti */}
               <div style={{ marginBottom: '15px' }}>
@@ -3094,6 +3116,26 @@ export default function FeedPage() {
                     <option value="Pieno Raso">Pieno Raso 💀</option>
                     <option value="Postumi Assicurati">Postumi Assicurati 🤕</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Privacy della sessione (chi la vede) */}
+              <div style={{ marginTop: '14px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: '600' }}>Chi la vede</label>
+                <div className="seg-tabs">
+                  {[
+                    { k: 'public', l: '🌍 Tutti' },
+                    { k: 'friends', l: '👥 Amici' },
+                    { k: 'private', l: '🔒 Nessuno' },
+                  ].map(({ k, l }) => (
+                    <div
+                      key={k}
+                      className={`seg-tab ${(editingActivity.location?.share || 'friends') === k ? 'active' : ''}`}
+                      onClick={() => setEditingActivity((prev) => ({ ...prev, location: { ...(prev.location || { name: prev.location?.name || 'Sessione Libera' }), share: k } }))}
+                    >
+                      {l}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

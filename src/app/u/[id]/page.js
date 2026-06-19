@@ -17,7 +17,6 @@ export default function AthleteProfilePage({ params }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [activities, setActivities] = useState([]);
-  const [taggedActivities, setTaggedActivities] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -45,10 +44,6 @@ export default function AthleteProfilePage({ params }) {
       setActivities(acts);
       setFollowing(fol);
       setFollowers(fers);
-      // Attività in cui questo atleta è stato taggato da altri
-      if (prof?.username) {
-        setTaggedActivities(await db.getTaggedActivities(prof.username, id));
-      }
 
       if (me) {
         const followingMe = await db.getFollowing(me.id);
@@ -111,13 +106,21 @@ export default function AthleteProfilePage({ params }) {
     );
   }
 
-  // Lista combinata: sessioni create + sessioni in cui è taggato (marcate)
-  const combinedActivities = [
-    ...activities.map((a) => ({ ...a, _tagged: false })),
-    ...taggedActivities.map((a) => ({ ...a, _tagged: true })),
-  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  // SOLO le sessioni create da questo atleta (non quelle in cui è taggato),
+  // e filtrate per PRIVACY: pubbliche sempre; "amici" solo se c'è un collegamento di
+  // follow (io seguo lui o lui segue me); private mai (qui è sempre un altro utente).
+  const theyFollowMe = !!(currentUser && followers.some((f) => f.id === currentUser.id));
+  const canSeeFriends = isFollowing || theyFollowMe;
+  const combinedActivities = activities
+    .filter((a) => {
+      const s = a.location?.share;
+      if (s === 'private') return false;
+      if (s === 'friends') return canSeeFriends;
+      return true; // pubbliche o storiche senza flag
+    })
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  // Statistiche (includono sia le sessioni create sia quelle in cui è stato taggato)
+  // Statistiche: solo sessioni proprie e visibili
   const totalDrinks = combinedActivities.reduce((acc, a) => acc + (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0), 0);
   const totalUnits = combinedActivities.reduce((acc, a) => acc + parseFloat(a.total_units || 0), 0);
   const totalMinutes = combinedActivities.reduce((acc, a) => acc + (a.duration || 0), 0);
@@ -214,26 +217,13 @@ export default function AthleteProfilePage({ params }) {
         ) : (
           <div className="feed-list">
             {combinedActivities.map((act) => (
-              <article key={`${act._tagged ? 'tag' : 'own'}-${act.id}`} className="card activity-card">
+              <article key={act.id} className="card activity-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                   <h3 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.title}</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    {act._tagged && (
-                      <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--secondary)', background: 'rgba(223, 255, 0,0.12)', padding: '3px 8px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                        <Users size={11} /> Taggato
-                      </span>
-                    )}
                     <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{formatDate(act.created_at)}</span>
                   </div>
                 </div>
-                {act._tagged && (
-                  <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>
-                    Sessione di{' '}
-                    <Link href={`/u/${act.user_id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                      {act.profiles?.display_name || 'un atleta'}
-                    </Link>
-                  </p>
-                )}
                 {act.description && (
                   <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginBottom: '12px' }}>{act.description}</p>
                 )}

@@ -117,7 +117,8 @@ export default function LogActivityPage() {
         duration,
         new Date(new Date(retroForm.date).getTime() + duration * 60 * 1000).toISOString(),
         currentUser?.weight,
-        fullStomach
+        fullStomach,
+        currentUser?.sex
       );
       await db.createActivity({
         title: retroForm.title || `Sessione del ${new Date(retroForm.date).toLocaleDateString('it-IT')}`,
@@ -235,15 +236,14 @@ export default function LogActivityPage() {
       setGeoError(loc.error || 'Posizione GPS non disponibile. Cerca il tuo locale per nome qui sotto.');
     }
     try {
-      const { venues, radius, widened } = await db.getCombinedNearbyPlaces(coords?.lat, coords?.lng, 200);
+      const { venues, widened } = await db.getCombinedNearbyPlaces(coords?.lat, coords?.lng, 200);
       setNearbyVenues(venues);
-      setNearbyRadius(radius);
-      if (coords && widened) {
-        setGeoError(
-          `Nessun locale entro 200m. Ti mostro quelli entro ${radius >= 1000 ? (radius / 1000) + ' km' : radius + ' m'}.`
-        );
-      } else if (coords && venues.length === 0) {
+      setNearbyRadius(200);
+      if (coords && venues.length === 0) {
         setGeoError('Nessun locale rilevato nelle vicinanze. Cercalo per nome o inseriscilo a mano.');
+      } else if (coords && widened) {
+        // Nessuno entro 200 m (raggio che "vale" per le classifiche): mostriamo i più vicini fino a 1 km.
+        setGeoError('Nessun locale entro 200 m: ecco i più vicini (oltre i 200 m la sessione non conta per le classifiche).');
       }
     } catch (err) {
       console.error('Errore caricamento locali vicini:', err);

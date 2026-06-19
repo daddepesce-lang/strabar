@@ -31,8 +31,21 @@ export default function ProfilePage() {
 
   // Peso corporeo (per BAC e curva d'ebbrezza precisi)
   const [weightInput, setWeightInput] = useState('');
+  const [savingSex, setSavingSex] = useState(false);
   const [savingWeight, setSavingWeight] = useState(false);
   const [weightSaved, setWeightSaved] = useState(false);
+
+  const handleSaveSex = async (sex) => {
+    setSavingSex(true);
+    try {
+      await db.updateProfile(currentUser.id, { sex });
+      setCurrentUser((prev) => ({ ...prev, sex }));
+    } catch (err) {
+      console.error('Errore salvataggio sesso:', err);
+    } finally {
+      setSavingSex(false);
+    }
+  };
 
   const handleSaveWeight = async () => {
     const w = parseInt(weightInput, 10);
@@ -342,6 +355,23 @@ export default function ProfilePage() {
           >
             {weightSaved ? '✓ Salvato' : savingWeight ? '...' : 'Salva'}
           </button>
+        </div>
+      </div>
+
+      {/* Sesso per BAC/curva precisi (coefficiente di Widmark) */}
+      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+          <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚧️</span>
+          <div style={{ minWidth: 0 }}>
+            <strong style={{ fontSize: '15px', display: 'block' }}>Sesso biologico</strong>
+            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+              Migliora la stima del BAC e della curva (la distribuzione dell&apos;alcol nel corpo differisce). Opzionale.
+            </span>
+          </div>
+        </div>
+        <div className="seg-tabs" style={{ flexShrink: 0, width: 'auto', opacity: savingSex ? 0.6 : 1 }}>
+          <div className={`seg-tab ${currentUser?.sex === 'm' ? 'active' : ''}`} onClick={() => handleSaveSex('m')}>♂ Uomo</div>
+          <div className={`seg-tab ${currentUser?.sex === 'f' ? 'active' : ''}`} onClick={() => handleSaveSex('f')}>♀ Donna</div>
         </div>
       </div>
 
