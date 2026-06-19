@@ -338,7 +338,8 @@ export default function LogActivityPage() {
       if (!db || typeof db.createActivity !== 'function') return;
 
       // Visibilità: salviamo sempre lo stato; per Tutti/Amici proviamo a prendere il GPS per il radar
-      const location = { name: 'Sessione Libera', share: liveShare };
+      // freeform: sessione senza locale reale → esclusa da locali/classifiche dei locali.
+      const location = { name: 'Sessione Libera', share: liveShare, freeform: true };
       if (liveShare !== 'private') {
         const loc = await requestUserLocation();
         if (loc.coords) {

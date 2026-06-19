@@ -775,9 +775,7 @@ export default function FeedPage() {
     setActiveSession((prev) => (prev ? { ...prev, location: newLocation } : prev));
     try {
       await db.updateActivity(activeSession.id, { location: newLocation });
-      if (stop.lat && stop.lng && typeof window !== 'undefined') {
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`, '_blank', 'noopener,noreferrer');
-      }
+      // Nessuna apertura automatica di Maps: usa il pulsante "🧭 Guidami a ..." nel pannello.
       triggerLocalNotification('Prossima tappa! 📍', `Dirigiti verso ${stop.name}. Registra un drink quando sei sul posto per validarla.`);
     } catch (err) {
       console.error('Errore cambio tappa:', err);

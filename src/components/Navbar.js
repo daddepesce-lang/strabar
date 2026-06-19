@@ -23,6 +23,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [logoOk, setLogoOk] = useState(true); // mostra /logo.png se presente, altrimenti fallback inline
   const [notifs, setNotifs] = useState([]);
   const [unread, setUnread] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
@@ -133,14 +134,29 @@ export default function Navbar() {
     <>
       <nav className="navbar">
         <Link href="/" className="nav-brand" aria-label="Strabar — home">
-          <svg className="nav-logo-mark" viewBox="0 0 512 512" aria-hidden="true">
-            <rect width="512" height="512" rx="120" fill="#FF2000" />
-            <g fill="none" stroke="#0D0D0D" strokeWidth="72" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M368 182 C368 130 306 120 256 142 C194 169 194 232 268 254" />
-              <path d="M144 330 C144 382 206 392 256 370 C318 343 318 280 244 258" />
-            </g>
-          </svg>
-          stra<span>bar</span>
+          {logoOk ? (
+            // Logo ufficiale (wordmark). Salva il file in public/logo.png.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/logo.png"
+              alt="Strabar"
+              className="nav-logo-img"
+              style={{ height: '30px', width: 'auto', display: 'block' }}
+              onError={() => setLogoOk(false)}
+            />
+          ) : (
+            // Fallback pulito finché il file non c'è: mark rosso + testo.
+            <>
+              <svg className="nav-logo-mark" viewBox="0 0 512 512" aria-hidden="true">
+                <rect width="512" height="512" rx="120" fill="#FF2000" />
+                <g fill="none" stroke="#0D0D0D" strokeWidth="72" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M368 182 C368 130 306 120 256 142 C194 169 194 232 268 254" />
+                  <path d="M144 330 C144 382 206 392 256 370 C318 343 318 280 244 258" />
+                </g>
+              </svg>
+              stra<span>bar</span>
+            </>
+          )}
         </Link>
 
         <div className="nav-links">
@@ -245,7 +261,8 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Bottom navigation per mobile (3 · FAB · 3, simmetrica) */}
+      {/* Bottom navigation per mobile — nascosta se non loggato o su accesso/installazione */}
+      {user && !pathname.startsWith('/auth') && !pathname.startsWith('/install') && (
       <nav className="mobile-nav">
         <Link href="/" className={isActive('/') ? 'active' : ''}>
           <Beer size={20} />
@@ -283,6 +300,7 @@ export default function Navbar() {
           Profilo
         </Link>
       </nav>
+      )}
     </>
   );
 }

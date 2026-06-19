@@ -1594,6 +1594,11 @@ export const db = {
       const loc = act.location;
       if (!loc || !loc.name) return;
       if (loc.unverified) return; // sessione fuori dal locale: non conta per le classifiche
+      // Un "luogo" reale ha coordinate. Le sessioni LIBERE (es. festa a casa, name
+      // "Sessione Libera") non hanno lat/lng → escluse: non sono locali e non devono
+      // comparire tra i locali/classifiche.
+      if (typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
+      if (loc.freeform) return;
       const key = this.normalizePlaceKey(loc.name);
       if (!map[key]) {
         map[key] = {
