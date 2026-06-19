@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import Avatar from '@/components/Avatar';
 import {
   Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus, Users,
   ArrowLeft, CalendarPlus, MapPin, Sparkles,
@@ -138,9 +139,7 @@ export default function AthleteProfilePage({ params }) {
       {/* Intestazione profilo amico */}
       <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.06) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-          <div className="activity-avatar" style={{ width: '76px', height: '76px', fontSize: '30px', border: '3px solid var(--primary)', flexShrink: 0 }}>
-            {profile.display_name ? profile.display_name.charAt(0) : 'U'}
-          </div>
+          <Avatar src={profile.avatar_url} name={profile.display_name || profile.username} size={76} style={{ border: '3px solid var(--primary)' }} />
           <div style={{ flex: 1, minWidth: '180px' }}>
             <h1 style={{ fontSize: '26px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {profile.display_name}

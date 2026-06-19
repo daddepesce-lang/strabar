@@ -33,13 +33,15 @@ export default function SettingsPage() {
   const [pushMsg, setPushMsg] = useState('');
 
   // Quali tipi di notifica ricevere (default: tutte attive)
+  // Di default notifichiamo SOLO mi piace e commenti (da altri verso di te).
+  // follow ed eventi restano spenti finché l'utente non li attiva qui.
   const NOTIF_TYPES = [
+    { key: 'cheers', label: 'Mi piace (Cheers) ai tuoi brindisi' },
+    { key: 'comment', label: 'Commenti ai tuoi brindisi' },
     { key: 'follow', label: 'Nuovi follower' },
-    { key: 'cheers', label: 'Cheers ai miei brindisi' },
-    { key: 'comment', label: 'Commenti' },
     { key: 'events', label: 'Eventi e inviti' },
   ];
-  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true });
+  const [notifPrefs, setNotifPrefs] = useState({ follow: false, cheers: true, comment: true, events: false });
 
   useEffect(() => {
     if (typeof db.isPushSubscribed === 'function') db.isPushSubscribed().then(setPushOn);

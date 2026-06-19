@@ -2311,12 +2311,16 @@ export const db = {
   async pushNotification(recipientId, payload) {
     if (!recipientId) return;
 
-    // Rispetta le preferenze del destinatario: se ha disattivato questo tipo, non inviare nulla.
+    // Preferenze notifiche. DEFAULT: solo "mi piace" (cheers) e commenti da altri verso di te.
+    // follow ed eventi sono OFF di default (l'utente può attivarli dalle Impostazioni).
+    const NOTIF_DEFAULTS = { follow: false, cheers: true, comment: true, events: false };
     const category = { cheers: 'cheers', comment: 'comment', follow: 'follow', event_invite: 'events', event_rsvp: 'events' }[payload.type] || null;
     if (category && isSupabaseConfigured) {
       try {
         const { data: prof } = await supabase.from('profiles').select('notif_prefs').eq('id', recipientId).maybeSingle();
-        if (prof?.notif_prefs && prof.notif_prefs[category] === false) return; // tipo disattivato
+        const prefs = prof?.notif_prefs || {};
+        const enabled = prefs[category] !== undefined ? prefs[category] : NOTIF_DEFAULTS[category];
+        if (!enabled) return; // tipo disattivato (o off di default) → non notificare
       } catch { /* in caso di errore invia comunque */ }
     }
 

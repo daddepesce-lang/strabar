@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { Calendar, User, Beer, Award, Heart, Shield, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
+import Avatar from '@/components/Avatar';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
@@ -267,14 +268,7 @@ export default function ProfilePage() {
       {/* Intestazione Profilo */}
       <div className="card profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.05) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div className="activity-avatar" style={{ width: '80px', height: '80px', fontSize: '32px', border: '3px solid var(--primary)', overflow: 'hidden' }}>
-            {currentUser?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={currentUser.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              currentUser?.display_name ? currentUser.display_name.charAt(0) : 'U'
-            )}
-          </div>
+          <Avatar src={currentUser?.avatar_url} name={currentUser?.display_name || currentUser?.username} size={80} style={{ border: '3px solid var(--primary)' }} />
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
               {currentUser?.display_name}

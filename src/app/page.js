@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -49,7 +49,7 @@ const VENICE_TOUR = [
 
 export default function FeedPage() {
   const router = useRouter();
-  const FEED_PAGE_SIZE = 30;
+  const FEED_PAGE_SIZE = 10;
   const [currentUser, setCurrentUser] = useState(null);
   const [activities, setActivities] = useState([]);
   const [feedHasMore, setFeedHasMore] = useState(false);
@@ -178,6 +178,20 @@ export default function FeedPage() {
       setFeedLoadingMore(false);
     }
   };
+
+  // Scroll infinito: carica altre attività quando il sentinel entra in vista.
+  const loadMoreRef = useRef(null);
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !feedHasMore) return;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreFeed(); },
+      { rootMargin: '400px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedHasMore, feedLoadingMore, activities.length]);
 
   useEffect(() => {
     loadFeed();
@@ -1097,8 +1111,19 @@ export default function FeedPage() {
     }
   };
 
+  // Una sessione è "live" se attiva e iniziata da meno di 5 ore.
+  const isLiveAct = (a) => !!a?.is_active && (Date.now() - new Date(a.created_at).getTime() < 5 * 60 * 60 * 1000);
+  // Tempo sforzo = dall'apertura della live a ORA (se live) oppure la durata registrata
+  // alla chiusura (apertura → chiusura). In minuti.
+  const effortMinutes = (a) => {
+    if (!a) return 0;
+    if (isLiveAct(a)) return Math.max(1, Math.round((Date.now() - new Date(a.created_at).getTime()) / 60000));
+    return a.duration || 0;
+  };
+  const fmtEffort = (a) => { const m = effortMinutes(a); return `${Math.floor(m / 60)}h ${m % 60}m`; };
+
   // Rileva gli atleti REGISTRATI che hanno bevuto nello stesso locale a orario simile
-  // 
+  //
   const COMPANION_WINDOW_MS = 3 * 60 * 60 * 1000; // 3 ore
   const getRegisteredCompanions = (act) => {
     if (!act.location?.name) return [];
@@ -2050,7 +2075,7 @@ export default function FeedPage() {
                   <div className="stat-box">
                     <span className="stat-label">Tempo a Tavola</span>
                     <span className="stat-value">
-                      {Math.floor(act.duration / 60)}h {act.duration % 60}m
+                      {fmtEffort(act)}
                     </span>
                   </div>
                   <div className="stat-box">
@@ -2295,17 +2320,17 @@ export default function FeedPage() {
           })
         )}
 
-        {/* Paginazione feed: carica altre attività su richiesta */}
+        {/* Scroll infinito: il sentinel carica automaticamente altre attività */}
         {feedHasMore && visibleActivities.length > 0 && (
-          <button
-            onClick={loadMoreFeed}
-            disabled={feedLoadingMore}
-            className="btn btn-secondary"
-            style={{ width: '100%', borderRadius: '14px', padding: '12px', marginTop: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-          >
-            {feedLoadingMore ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-            {feedLoadingMore ? 'Carico…' : 'Carica altre attività'}
-          </button>
+          <div ref={loadMoreRef} style={{ display: 'flex', justifyContent: 'center', padding: '14px' }}>
+            {feedLoadingMore ? (
+              <Loader size={20} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+            ) : (
+              <button onClick={loadMoreFeed} className="btn btn-secondary" style={{ borderRadius: '14px', padding: '8px 16px', fontSize: '13px' }}>
+                Carica altre
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -2490,11 +2515,16 @@ export default function FeedPage() {
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div className="activity-avatar" style={{ width: '45px', height: '45px', fontSize: '18px', border: '2px solid var(--primary)' }}>
-                  {selectedActivity.profiles?.display_name ? selectedActivity.profiles.display_name.charAt(0) : 'U'}
-                </div>
+                <Avatar src={selectedActivity.profiles?.avatar_url} name={selectedActivity.profiles?.display_name || selectedActivity.profiles?.username} size={45} style={{ border: '2px solid var(--primary)' }} />
                 <div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>{selectedActivity.profiles?.display_name || 'Atleta Strabar'}</h4>
+                  <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {selectedActivity.profiles?.display_name || 'Atleta Strabar'}
+                    {isLiveAct(selectedActivity) && (
+                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 32, 0, 0.1)', padding: '2px 7px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
+                      </span>
+                    )}
+                  </h4>
                   <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{formatDate(selectedActivity.created_at)}</span>
                 </div>
               </div>
@@ -2569,7 +2599,7 @@ export default function FeedPage() {
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Tempo Sforzo</div>
                 <div style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginTop: '8px' }}>
-                  {Math.floor(selectedActivity.duration / 60)}h {selectedActivity.duration % 60}m
+                  {fmtEffort(selectedActivity)}
                 </div>
               </div>
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
