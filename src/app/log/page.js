@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera } from 'lucide-react';
-import { notify } from '@/lib/notify';
 import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 
 export default function LogActivityPage() {
@@ -360,7 +359,6 @@ export default function LogActivityPage() {
       });
 
       // Notifica PWA
-      notify("Brindisi Live Avviato! 🔴", "Registra i tuoi drink uno alla volta per monitorare il tasso alcolico in tempo reale!");
 
       router.push('/');
     } catch (err) {
@@ -434,7 +432,6 @@ export default function LogActivityPage() {
       if (isAppendingToSession) {
         if (!activeSession) throw new Error('Nessuna sessione attiva da aggiornare.');
         await db.updateActivity(activeSession.id, buildAppendFields(activeSession, venue));
-        notify('Tappa Aggiunta! 📍', `Sei arrivato a ${venue.name}. Sessione aggiornata!`);
       } else {
         await db.createActivity({
           title: `Brindisi live presso ${venue.name} 🍻`,
@@ -453,7 +450,6 @@ export default function LogActivityPage() {
           total_units: 0,
           duration: 1,
         });
-        notify('Brindisi Live Avviato! 🔴', `Registra i tuoi drink presso ${venue.name} per monitorare il BAC in tempo reale!`);
       }
       router.push('/');
     } catch (err) {

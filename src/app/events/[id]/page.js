@@ -18,6 +18,14 @@ function formatEventDate(ds) {
   return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// ISO (UTC) → stringa per <input type="datetime-local"> in ORA LOCALE (no shift di fuso).
+function toLocalInput(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
 const RSVP = [
   { key: 'going', label: 'Partecipo', icon: Check, color: 'var(--success)' },
   { key: 'maybe', label: 'Forse', icon: HelpCircle, color: 'var(--secondary)' },
@@ -91,7 +99,7 @@ export default function EventDetailPage({ params }) {
     setEdit({
       title: event.title || '',
       description: event.description || '',
-      date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
+      date: event.date ? toLocalInput(event.date) : '',
       routeId: event.route_id || '',
     });
     setEditLocName(event.location_name || '');

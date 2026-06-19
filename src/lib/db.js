@@ -1077,7 +1077,7 @@ export const db = {
         // Se dtHours è leggermente negativo (drift temporale), lo trattiamo come 0 (assorbimento istantaneo al 50%)
         const effectiveDtHours = Math.max(0, dtHours);
         const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
-        const drinkUnits = (d.units || 1.3) * (d.qty || 1);
+        const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
         totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction * stomachFactor;
       });
 
@@ -1122,7 +1122,7 @@ export const db = {
       // Se dtHours è leggermente negativo (drift temporale), lo trattiamo come 0 (assorbimento istantaneo al 50%)
       const effectiveDtHours = Math.max(0, dtHours);
       const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
-      const drinkUnits = (d.units || 1.3) * (d.qty || 1);
+      const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
       totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction * stomachFactor;
     });
 
@@ -2045,6 +2045,9 @@ export const db = {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato per creare un evento!');
     const invited = data.invited || [];
+    // Normalizza la data in ISO (UTC). L'input datetime-local è ora locale: convertendolo
+    // qui, la visualizzazione (toLocale...) torna corretta e coerente con la modifica.
+    if (data.date) { const d = new Date(data.date); if (!isNaN(d)) data = { ...data, date: d.toISOString() }; }
 
     if (isSupabaseConfigured) {
       const { data: created, error } = await supabase

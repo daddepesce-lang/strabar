@@ -935,7 +935,7 @@ button, input, select, textarea {
     background: rgba(16, 18, 26, 0.96);
     backdrop-filter: blur(14px);
     border-top: 1px solid var(--border-dark);
-    z-index: 1000;
+    z-index: 1200; /* sopra i controlli +/- di Leaflet (z-index 1000) */
   }
   .mobile-nav a {
     flex: 1;

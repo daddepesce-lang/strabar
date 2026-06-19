@@ -82,7 +82,7 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
     const marker = markersRef.current[activeIndex];
     if (!marker) return;
     updateMarkerIcons();
-    map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 16), { duration: 0.6 });
+    map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 15), { duration: 0.6 });
     marker.openPopup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
@@ -180,7 +180,7 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
     } else if (coords.length > 1) {
       map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
     } else if (coords.length === 1) {
-      map.setView(coords[0], 16);
+      map.setView(coords[0], 14);
     }
   };
 

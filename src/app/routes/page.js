@@ -513,6 +513,9 @@ out body;`;
     if (!currentUser) { alert('Accedi per avviare un tour.'); return; }
     const stopsRaw = selectedRoute?.waypoints || [];
     if (stopsRaw.length === 0) { alert('Questo percorso non ha tappe.'); return; }
+    // Conferma esplicita della privacy scelta (🌍/👥/🔒) prima di avviare il tour.
+    const privacyLabels = { public: '🌍 Tutti', friends: '👥 Solo amici', private: '🔒 Privata' };
+    if (!window.confirm(`Avvio "${selectedRoute.name}"\nVisibilità della live: ${privacyLabels[tourVisibility] || tourVisibility}.\n\nProcedere? (puoi cambiarla qui sopra prima di avviare)`)) return;
     setStartingTour(true);
     try {
       const active = await db.getActiveSession(currentUser.id);

@@ -764,7 +764,6 @@ export default function FeedPage() {
       const newMedia = [...(activeSession.media || []), { type: 'image', name: file.name, url }];
       setActiveSession((prev) => (prev ? { ...prev, media: newMedia } : prev));
       await db.updateActivity(activeSession.id, { media: newMedia });
-      triggerLocalNotification("Foto aggiunta! 📸", "La tua foto è stata allegata alla sessione live.");
     } catch (err) {
       console.error("Errore upload foto:", err);
       alert("Errore nel caricamento della foto: " + (err.message || err));
@@ -842,7 +841,6 @@ export default function FeedPage() {
       await db.deleteActivity(activeSession.id);
       setActiveSession(null);
       setShowCloseForm(false);
-      triggerLocalNotification('Sessione annullata', 'La sessione live è stata eliminata.');
       await loadFeed();
     } catch (err) {
       console.error('Errore annullamento sessione:', err);
@@ -975,7 +973,6 @@ export default function FeedPage() {
       await db.updateActivity(editingActivity.id, updatedFields);
       setEditingActivity(null);
       await loadFeed();
-      triggerLocalNotification("Modificato! ✏️", "Attività aggiornata con successo.");
     } catch (err) {
       console.error("Errore salvataggio modifica:", err);
       alert("Errore nel salvataggio: " + err.message);
@@ -988,7 +985,6 @@ export default function FeedPage() {
       await db.deleteActivity(actId);
       setEditingActivity(null);
       await loadFeed();
-      triggerLocalNotification("Eliminato! 🗑️", "Attività rimossa con successo.");
     } catch (err) {
       console.error("Errore eliminazione:", err);
       alert("Errore durante l'eliminazione: " + err.message);
@@ -1010,22 +1006,13 @@ export default function FeedPage() {
   };
 
   const renderCompanionsList = (act) => {
-    // Rileva compagni registrati geometricamente/temporaneamente
-    const regCompanions = getRegisteredCompanions(act);
-    const regIds = new Set(regCompanions.map(c => c.user_id));
-    
-    // Tag salvati in drank_with
+    // "Ha bevuto con" SOLO le persone taggate esplicitamente (drank_with).
+    // Niente più rilevamento automatico per vicinanza/orario: dava falsi "insieme".
+    const regIds = new Set();
+
     const drankWith = act.drank_with || [];
     const finalCompanions = [];
-    
-    regCompanions.forEach(c => {
-      finalCompanions.push({
-        id: c.user_id,
-        name: c.name,
-        isRegistered: true
-      });
-    });
-    
+
     drankWith.forEach(nameStr => {
       let usernameMatch = nameStr.match(/@([\w-]+)/);
       let username = usernameMatch ? usernameMatch[1] : null;
@@ -1122,27 +1109,22 @@ export default function FeedPage() {
   };
   const fmtEffort = (a) => { const m = effortMinutes(a); return `${Math.floor(m / 60)}h ${m % 60}m`; };
 
-  // Rileva gli atleti REGISTRATI che hanno bevuto nello stesso locale a orario simile
-  //
-  const COMPANION_WINDOW_MS = 3 * 60 * 60 * 1000; // 3 ore
-  const getRegisteredCompanions = (act) => {
-    if (!act.location?.name) return [];
-    const locKey = act.location.name.trim().toLowerCase();
-    const t = new Date(act.created_at).getTime();
-    const seen = new Map();
-    activities.forEach((other) => {
-      if (other.id === act.id || other.user_id === act.user_id) return;
-      if (!other.location?.name) return;
-      if (other.location.name.trim().toLowerCase() !== locKey) return;
-      if (Math.abs(new Date(other.created_at).getTime() - t) > COMPANION_WINDOW_MS) return;
-      if (!seen.has(other.user_id)) {
-        seen.set(other.user_id, {
-          user_id: other.user_id,
-          name: other.profiles?.display_name || other.profiles?.username || 'Atleta',
-        });
-      }
+  // Per i Tour: raggruppa i drink per tappa, in base alle finestre temporali di arrivo
+  // ad ogni tappa (visited[i].arrived_at → visited[i+1].arrived_at). Ritorna null se non è un tour.
+  const tourDrinksByStop = (act) => {
+    const tour = act?.location?.tour;
+    if (!tour || !Array.isArray(tour.visited) || tour.visited.length === 0) return null;
+    const visited = tour.visited;
+    const drinks = (act.drinks || []).filter((d) => d.added_at);
+    return visited.map((v, i) => {
+      const start = new Date(v.arrived_at || act.created_at).getTime();
+      const end = i + 1 < visited.length ? new Date(visited[i + 1].arrived_at).getTime() : Infinity;
+      const stopDrinks = drinks.filter((d) => {
+        const t = new Date(d.added_at).getTime();
+        return t >= start && t < end;
+      });
+      return { name: v.name, verified: !!v.verified, drinks: groupDrinks(stopDrinks) };
     });
-    return Array.from(seen.values());
   };
 
   // Calcola statistiche per la sidebar dell'utente loggato.
@@ -1487,11 +1469,17 @@ export default function FeedPage() {
       ? parseFloat(selectedActivity.bac_level)
       : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime, ownerWeight, selectedActivity.full_stomach);
 
-    if (selectedActivity.location && selectedActivity.location.name) {
-      const locNameNormalized = selectedActivity.location.name.trim().toLowerCase();
-      barSessions = activities.filter(act => 
-        act.location && 
-        act.location.name && 
+    // La "Classifica del Locale" ha senso solo per locali REALI (con coordinate e verificati):
+    // le sessioni libere/non verificate non sono locali → niente classifica/legenda.
+    const loc = selectedActivity.location;
+    const isRealVenue = loc && loc.name && !loc.freeform && typeof loc.lat === 'number' && typeof loc.lng === 'number';
+    if (isRealVenue) {
+      const locNameNormalized = loc.name.trim().toLowerCase();
+      barSessions = activities.filter(act =>
+        act.location &&
+        act.location.name &&
+        !act.location.freeform &&
+        !act.location.unverified &&
         act.location.name.trim().toLowerCase() === locNameNormalized
       );
 
@@ -1706,12 +1694,12 @@ export default function FeedPage() {
                 </div>
               </div>
 
-              {/* Stomaco pieno/vuoto: incide sulla stima del BAC, modificabile durante la live */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>🍽️ Hai mangiato? Migliora la stima del BAC.</span>
-                <div className="seg-tabs" style={{ width: 'auto' }}>
-                  <div className={`seg-tab ${!activeSession.full_stomach ? 'active' : ''}`} onClick={() => handleToggleFullStomach(false)}>Stomaco vuoto</div>
-                  <div className={`seg-tab ${activeSession.full_stomach ? 'active' : ''}`} onClick={() => handleToggleFullStomach(true)}>🍝 Pieno</div>
+              {/* Stomaco pieno/vuoto (compatto): incide sulla stima del BAC */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>🍽️ Stomaco</span>
+                <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '2px' }}>
+                  <button type="button" onClick={() => handleToggleFullStomach(false)} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, background: !activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: !activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>Vuoto</button>
+                  <button type="button" onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>🍝 Pieno</button>
                 </div>
               </div>
 
@@ -2079,9 +2067,15 @@ export default function FeedPage() {
                     </span>
                   </div>
                   <div className="stat-box">
+                    <span className="stat-label">Carico (U.A.)</span>
+                    <span className="stat-value highlight">
+                      {act.total_units} U.A.
+                    </span>
+                  </div>
+                  <div className="stat-box">
                     <span className="stat-label">Tasso Alcolico Est.</span>
                     <span className="stat-value">
-                      {act.total_units} U.A.
+                      {(act.bac_level || 0).toFixed(2)} g/l
                     </span>
                   </div>
                 </div>
@@ -2685,19 +2679,64 @@ export default function FeedPage() {
                   {/* Mappa Leaflet Reale ed Interattiva del percorso */}
                   <div style={{ height: '220px', width: '100%', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
                     {(() => {
-                      const waypoints = selectedActivity.location.sequence && Array.isArray(selectedActivity.location.sequence)
-                        ? selectedActivity.location.sequence
-                        : [{
-                            name: selectedActivity.location.name,
-                            lat: selectedActivity.location.lat,
-                            lng: selectedActivity.location.lng ?? selectedActivity.location.lon,
-                            note: 'Partenza'
-                          }];
-                      return <RouteMap waypoints={waypoints} height="100%" connectLine={true} />;
+                      const tour = selectedActivity.location.tour;
+                      let waypoints, activeIndex = null;
+                      if (tour && Array.isArray(tour.stops)) {
+                        // Tour: mostra tutte le tappe con coordinate, evidenziando quella corrente.
+                        const stopsWithCoords = tour.stops
+                          .map((s, i) => ({ name: s.name, lat: s.lat, lng: s.lng ?? s.lon, label: i + 1, note: i === (tour.current || 0) ? 'Qui ora 📍' : '' }))
+                          .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
+                        waypoints = stopsWithCoords;
+                        activeIndex = stopsWithCoords.findIndex((s) => s.label === (tour.current || 0) + 1);
+                      } else {
+                        waypoints = selectedActivity.location.sequence && Array.isArray(selectedActivity.location.sequence)
+                          ? selectedActivity.location.sequence
+                          : [{
+                              name: selectedActivity.location.name,
+                              lat: selectedActivity.location.lat,
+                              lng: selectedActivity.location.lng ?? selectedActivity.location.lon,
+                              note: 'Partenza'
+                            }];
+                      }
+                      return <RouteMap waypoints={waypoints} activeIndex={activeIndex >= 0 ? activeIndex : null} height="100%" connectLine={true} />;
                     })()}
                   </div>
 
-                  {/* Classifiche del Locale */}
+                  {/* TOUR: drink divisi per tappa/locale */}
+                  {(() => {
+                    const perStop = tourDrinksByStop(selectedActivity);
+                    if (!perStop) return null;
+                    return (
+                      <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
+                        <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          🗺️ Cosa ha bevuto, tappa per tappa
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {perStop.map((s, i) => (
+                            <div key={i} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px 12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                <span style={{ background: '#EF4444', color: '#fff', width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
+                                <strong style={{ fontSize: '13px', color: '#FFF' }}>{s.name}</strong>
+                                {!s.verified && <span style={{ fontSize: '9px', color: 'var(--text-dark-secondary)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '1px 6px' }}>non verificata</span>}
+                              </div>
+                              {s.drinks.length === 0 ? (
+                                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun drink registrato qui</span>
+                              ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                  {s.drinks.map((d, k) => (
+                                    <span key={k} className="drink-tag"><Beer size={12} /> {d.qty}x {d.name}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Classifiche del Locale — solo per locali reali (no sessioni libere) */}
+                  {!selectedActivity.location.freeform && typeof selectedActivity.location.lat === 'number' && (
                   <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
                     <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       🏆 Classifica del Locale (Top Atleti)
@@ -2746,6 +2785,7 @@ export default function FeedPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
             )}
