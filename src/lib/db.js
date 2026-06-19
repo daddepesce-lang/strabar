@@ -2228,45 +2228,64 @@ export const db = {
     return JSON.parse(localStorage.getItem('sb_notifications') || '[]');
   },
 
-  // Registra la PUSH subscription del dispositivo corrente, così l'utente riceve
-  // le notifiche anche ad app chiusa (Web Push). Da chiamare dopo aver concesso il permesso.
-  async registerPushSubscription() {
-    try {
-      if (typeof window === 'undefined' || !isSupabaseConfigured) return;
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-      if (!('Notification' in window) || Notification.permission !== 'granted') return;
-      const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapid) { console.warn('Push disattivato: manca NEXT_PUBLIC_VAPID_PUBLIC_KEY'); return; }
-      const user = await this.getCurrentUser();
-      if (!user) return;
-
-      const reg = await navigator.serviceWorker.ready;
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        const toUint8 = (b64) => {
-          const padding = '='.repeat((4 - (b64.length % 4)) % 4);
-          const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
-          const raw = atob(base64);
-          const arr = new Uint8Array(raw.length);
-          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-          return arr;
-        };
-        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toUint8(vapid) });
-      }
-      await supabase.from('push_subscriptions').upsert(
-        { user_id: user.id, endpoint: sub.endpoint, subscription: sub.toJSON() },
-        { onConflict: 'endpoint' }
-      );
-    } catch (err) {
-      console.warn('registerPushSubscription fallita:', err.message || err);
+  // Ottiene il service worker registrato e ATTIVO, registrandolo se manca.
+  // Importante: non usa solo navigator.serviceWorker.ready (che resta appeso per sempre
+  // se nessun SW è registrato, es. in dev) → race con timeout così l'UI non gira a vuoto.
+  async _swReady() {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+      throw new Error('Service worker non supportato su questo browser');
     }
+    let reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) reg = await navigator.serviceWorker.register('/sw.js');
+    if (!reg.active) {
+      await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Service worker non pronto (timeout)')), 10000)),
+      ]);
+      reg = (await navigator.serviceWorker.getRegistration()) || reg;
+    }
+    return reg;
   },
 
-  // Stato attuale: il dispositivo è iscritto alle push?
+  // Registra la PUSH subscription del dispositivo corrente, così l'utente riceve
+  // le notifiche anche ad app chiusa (Web Push). Da chiamare dopo aver concesso il permesso.
+  // Ritorna true se l'iscrizione è andata a buon fine.
+  async registerPushSubscription() {
+    if (typeof window === 'undefined' || !isSupabaseConfigured) return false;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+    const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapid) { console.warn('Push disattivato: manca NEXT_PUBLIC_VAPID_PUBLIC_KEY'); return false; }
+    const user = await this.getCurrentUser();
+    if (!user) return false;
+
+    const reg = await this._swReady();
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const toUint8 = (b64) => {
+        const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+        const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+      };
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toUint8(vapid) });
+    }
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      { user_id: user.id, endpoint: sub.endpoint, subscription: sub.toJSON() },
+      { onConflict: 'endpoint' }
+    );
+    if (error) throw error;
+    return true;
+  },
+
+  // Stato attuale: il dispositivo è iscritto alle push? (usa getRegistration: non si blocca)
   async isPushSubscribed() {
     try {
       if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return false;
       const sub = await reg.pushManager.getSubscription();
       return !!sub;
     } catch { return false; }
@@ -2276,7 +2295,8 @@ export const db = {
   async unregisterPushSubscription() {
     try {
       if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
         const endpoint = sub.endpoint;
@@ -2290,6 +2310,15 @@ export const db = {
 
   async pushNotification(recipientId, payload) {
     if (!recipientId) return;
+
+    // Rispetta le preferenze del destinatario: se ha disattivato questo tipo, non inviare nulla.
+    const category = { cheers: 'cheers', comment: 'comment', follow: 'follow', event_invite: 'events', event_rsvp: 'events' }[payload.type] || null;
+    if (category && isSupabaseConfigured) {
+      try {
+        const { data: prof } = await supabase.from('profiles').select('notif_prefs').eq('id', recipientId).maybeSingle();
+        if (prof?.notif_prefs && prof.notif_prefs[category] === false) return; // tipo disattivato
+      } catch { /* in caso di errore invia comunque */ }
+    }
 
     if (isSupabaseConfigured) {
       try {

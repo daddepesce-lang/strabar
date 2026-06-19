@@ -499,6 +499,20 @@ export default function FeedPage() {
     }
   };
 
+  // Cambia stomaco pieno/vuoto durante la live e ricalcola subito il BAC.
+  const handleToggleFullStomach = async (value) => {
+    if (!activeSession || !!activeSession.full_stomach === !!value) return;
+    const duration = activeSession.duration || 1;
+    const newBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, duration, undefined, currentUser?.weight, value);
+    const updated = { full_stomach: value, bac_level: parseFloat(newBac.toFixed(2)) };
+    setActiveSession((prev) => (prev ? { ...prev, ...updated } : prev));
+    try {
+      await db.updateActivity(activeSession.id, updated);
+    } catch (err) {
+      console.error('Errore aggiornamento stomaco:', err);
+    }
+  };
+
   const handleAddDrinkToActiveSession = async (preset) => {
     if (!activeSession) return;
     
@@ -1664,6 +1678,15 @@ export default function FeedPage() {
                   <div style={{ fontSize: '24px', fontWeight: '800', color: (activeSession.bac_level || 0) > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '4px' }}>
                     {activeSession.bac_level ? activeSession.bac_level.toFixed(2) : '0.00'} <span style={{ fontSize: '12px' }}>g/l</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Stomaco pieno/vuoto: incide sulla stima del BAC, modificabile durante la live */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>🍽️ Hai mangiato? Migliora la stima del BAC.</span>
+                <div className="seg-tabs" style={{ width: 'auto' }}>
+                  <div className={`seg-tab ${!activeSession.full_stomach ? 'active' : ''}`} onClick={() => handleToggleFullStomach(false)}>Stomaco vuoto</div>
+                  <div className={`seg-tab ${activeSession.full_stomach ? 'active' : ''}`} onClick={() => handleToggleFullStomach(true)}>🍝 Pieno</div>
                 </div>
               </div>
 

@@ -32,9 +32,24 @@ export default function SettingsPage() {
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState('');
 
+  // Quali tipi di notifica ricevere (default: tutte attive)
+  const NOTIF_TYPES = [
+    { key: 'follow', label: 'Nuovi follower' },
+    { key: 'cheers', label: 'Cheers ai miei brindisi' },
+    { key: 'comment', label: 'Commenti' },
+    { key: 'events', label: 'Eventi e inviti' },
+  ];
+  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true });
+
   useEffect(() => {
     if (typeof db.isPushSubscribed === 'function') db.isPushSubscribed().then(setPushOn);
   }, []);
+
+  const toggleNotifPref = async (key) => {
+    const next = { ...notifPrefs, [key]: !notifPrefs[key] };
+    setNotifPrefs(next);
+    try { await db.updateProfile(currentUser.id, { notif_prefs: next }); } catch (err) { console.error(err); }
+  };
 
   const togglePush = async () => {
     setPushBusy(true);
@@ -71,6 +86,7 @@ export default function SettingsPage() {
         setDisplayName(user.display_name || '');
         setUsername(user.username || '');
         setAvatarUrl(user.avatar_url || '');
+        if (user.notif_prefs) setNotifPrefs((p) => ({ ...p, ...user.notif_prefs }));
       } catch (err) {
         console.error(err);
       } finally {
@@ -235,6 +251,39 @@ export default function SettingsPage() {
           {pushBusy ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Bell size={15} />}
           {pushOn ? 'Disattiva notifiche su questo dispositivo' : 'Attiva notifiche su questo dispositivo'}
         </button>
+
+        {/* Quali notifiche ricevere */}
+        <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px', marginTop: '4px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Quali notifiche ricevere</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {NOTIF_TYPES.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleNotifPref(key)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                  background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px',
+                  padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
+                }}
+              >
+                <span>{label}</span>
+                <span style={{
+                  width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
+                  background: notifPrefs[key] ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
+                }}>
+                  <span style={{
+                    position: 'absolute', top: 2, left: notifPrefs[key] ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
+                    background: '#fff', transition: 'left .2s',
+                  }} />
+                </span>
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '8px', marginBottom: 0 }}>
+            Vale sia per le notifiche push sia per la campanella nell&apos;app.
+          </p>
+        </div>
       </div>
     </div>
   );

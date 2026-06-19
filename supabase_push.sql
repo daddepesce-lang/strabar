@@ -33,4 +33,8 @@ CREATE POLICY "push: cancello le mie" ON public.push_subscriptions
 
 CREATE INDEX IF NOT EXISTS idx_push_subs_user ON public.push_subscriptions (user_id);
 
+-- Preferenze notifiche per utente (quali tipi ricevere). NULL = tutte attive.
+-- Chiavi: follow, cheers, comment, events.
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notif_prefs JSONB DEFAULT NULL;
+
 NOTIFY pgrst, 'reload schema';
