@@ -64,6 +64,7 @@ export default function FeedPage() {
 
   // Nuovi stati per il paradigma Live Session e Slideshow Feed
   const [activeSession, setActiveSession] = useState(null);
+  const [showLivePanel, setShowLivePanel] = useState(false); // pannello live a comparsa (non nel feed)
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [feedSlideIndices, setFeedSlideIndices] = useState({}); // { [actId]: index }
   const [profilesList, setProfilesList] = useState([]);
@@ -235,7 +236,19 @@ export default function FeedPage() {
     }
     const onOpen = (e) => openActivityById(e.detail);
     window.addEventListener('strabar:open-activity', onOpen);
-    return () => window.removeEventListener('strabar:open-activity', onOpen);
+
+    // Apertura pannello live: da ?live=1 (navbar su altra pagina) o evento (navbar su home).
+    if (params.get('live') === '1') {
+      setShowLivePanel(true);
+      window.history.replaceState({}, '', '/');
+    }
+    const onOpenLive = () => setShowLivePanel(true);
+    window.addEventListener('strabar:open-live', onOpenLive);
+
+    return () => {
+      window.removeEventListener('strabar:open-activity', onOpen);
+      window.removeEventListener('strabar:open-live', onOpenLive);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -269,6 +282,8 @@ export default function FeedPage() {
           .then(() => {
             triggerLocalNotification('Sessione chiusa automaticamente 🏁', 'La tua sessione live è stata chiusa dopo 5 ore.');
             setActiveSession(null);
+            setShowLivePanel(false);
+            if (typeof window !== 'undefined') window.dispatchEvent(new Event('strabar:live-changed'));
             loadFeed();
           })
           .catch((err) => console.error('Errore chiusura automatica:', err));
@@ -841,7 +856,9 @@ export default function FeedPage() {
     try {
       await db.deleteActivity(activeSession.id);
       setActiveSession(null);
+      setShowLivePanel(false);
       setShowCloseForm(false);
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('strabar:live-changed'));
       await loadFeed();
     } catch (err) {
       console.error('Errore annullamento sessione:', err);
@@ -875,6 +892,8 @@ export default function FeedPage() {
       await db.closeSession(activeSession.id, finalData);
       // Niente notifica all'utente per la propria chiusura sessione (azione volontaria).
       setActiveSession(null);
+      setShowLivePanel(false);
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('strabar:live-changed'));
       await loadFeed();
     } catch (err) {
       console.error("Errore nella chiusura della sessione:", err);
@@ -1535,6 +1554,8 @@ export default function FeedPage() {
   // Visibilità live: una sessione PRIVATA non appare a nessuno finché è attiva
   // (riappare nel feed solo a chiusura); 'friends' solo ai follower. Le mie le vedo sempre.
   const isVisibleToMe = (a) => {
+    // La mia sessione live attiva è rappresentata dal banner/pannello, non nel feed.
+    if (activeSession && a.id === activeSession.id) return false;
     if (!a.is_active) return true; // sessioni chiuse: sempre nel feed
     if (currentUser && a.user_id === currentUser.id) return true; // le mie
     const share = a.location?.share;
@@ -1559,6 +1580,24 @@ export default function FeedPage() {
       <div className="feed-list">
         {currentUser ? (
           activeSession ? (
+            <>
+              {/* Banner compatto: la diretta non occupa più il feed. Tocca per gestirla. */}
+              <button type="button" onClick={() => setShowLivePanel(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', borderRadius: '14px', padding: '12px 14px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 16px rgba(255,32,0,0.2)' }}>
+                <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
+                </span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: '13px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Sei in diretta · <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> · ⏱️ {elapsedMinutes} min
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>Gestisci ›</span>
+              </button>
+
+              {showLivePanel && (
+              <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '16px', overflowY: 'auto' }}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginTop: '12px', marginBottom: '40px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                <button onClick={() => setShowLivePanel(false)} className="btn btn-secondary" style={{ borderRadius: '50%', width: 36, height: 36, padding: 0, fontSize: 18 }}>×</button>
+              </div>
             <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 32, 0, 0.25)', borderRadius: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
@@ -1962,6 +2001,10 @@ export default function FeedPage() {
                 </form>
               )}
             </div>
+              </div>
+              </div>
+              )}
+            </>
           ) : null
         ) : (
           <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>

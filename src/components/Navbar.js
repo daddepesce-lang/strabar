@@ -27,6 +27,7 @@ export default function Navbar() {
   const [notifs, setNotifs] = useState([]);
   const [unread, setUnread] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
+  const [myLive, setMyLive] = useState(false); // l'utente corrente ha una sessione live attiva?
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
 
@@ -71,6 +72,25 @@ export default function Navbar() {
   useEffect(() => {
     setLiveCount(0);
   }, [user?.id, pathname]);
+
+  // La MIA sessione live attiva (per l'indicatore animato nel menu/logo).
+  useEffect(() => {
+    if (!user) { setMyLive(false); return; }
+    let cancelled = false;
+    const check = () => {
+      if (typeof db.getActiveSession !== 'function') return;
+      db.getActiveSession(user.id).then((s) => { if (!cancelled) setMyLive(!!s); }).catch(() => {});
+    };
+    check();
+    const onChange = () => check();
+    window.addEventListener('strabar:live-changed', onChange);
+    return () => { cancelled = true; window.removeEventListener('strabar:live-changed', onChange); };
+  }, [user?.id, pathname]);
+
+  const openMyLive = () => {
+    if (pathname === '/') window.dispatchEvent(new Event('strabar:open-live'));
+    else router.push('/?live=1');
+  };
 
   // Chiudi dropdown cliccando fuori
   useEffect(() => {
@@ -158,6 +178,19 @@ export default function Navbar() {
             </>
           )}
         </Link>
+
+        {/* Indicatore LIVE animato: appare se TU hai una diretta in corso. Apre il pannello live. */}
+        {myLive && (
+          <button
+            type="button"
+            onClick={openMyLive}
+            aria-label="Apri la tua diretta"
+            className="pulse"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '8px', padding: '4px 10px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255,32,0,0.12)', color: 'var(--primary)', fontWeight: 800, fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE
+          </button>
+        )}
 
         <div className="nav-links">
           {navItems.map(({ href, label, icon: Icon }) => {
