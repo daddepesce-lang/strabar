@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <!-- Full-bleed red background per la safe zone delle icone maskable -->
-  <rect width="512" height="512" fill="#FF2000"/>
-  <!-- Monogramma "S" interlock dentro la safe zone (~78%) -->
-  <g transform="translate(256 256) scale(0.78) translate(-256 -256)" fill="none" stroke="#0D0D0D" stroke-width="72" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M368 182 C368 130 306 120 256 142 C194 169 194 232 268 254"/>
-    <path d="M144 330 C144 382 206 392 256 370 C318 343 318 280 244 258"/>
-  </g>
-</svg>

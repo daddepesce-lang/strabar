@@ -21,8 +21,8 @@ export async function notify(title, body, options = {}) {
 
   const payload = {
     body,
-    icon: '/icon.svg',
-    badge: '/icon.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     vibrate: [80, 40, 80],
     ...options,
   };

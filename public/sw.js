@@ -2,7 +2,7 @@
 // Strategia: network-first per le navigazioni (così i dati restano freschi),
 // cache-first per gli asset statici, con fallback offline.
 const CACHE = 'strabar-v1';
-const OFFLINE_ASSETS = ['/', '/icon.svg', '/manifest.webmanifest'];
+const OFFLINE_ASSETS = ['/', '/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -31,8 +31,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/icon.svg',
-      badge: '/icon.svg',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       data: { url: data.url || '/' },
       vibrate: [80, 40, 80],
     })

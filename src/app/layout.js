@@ -18,11 +18,10 @@ export const metadata = {
   },
   formatDetection: { telephone: false },
   icons: {
-    // Icona app (salva i PNG quadrati in public/). L'SVG resta come fallback.
+    // Favicon + icona app: salva i PNG quadrati in public/ (icon-192/512, apple-touch-icon).
     icon: [
-      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
       { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
