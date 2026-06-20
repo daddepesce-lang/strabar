@@ -1137,11 +1137,22 @@ export default function FeedPage() {
   // Tasso alcolemico mostrato nel feed = BAC di PICCO della sessione (deterministico),
   // usando peso/sesso del proprietario. Niente più snapshot volatili che davano valori
   // diversi a parità di drink/durata.
+  // Residuo alcolico (grammi) ancora in circolo da sessioni precedenti dello stesso
+  // utente chiuse nelle ultime 4h. Best-effort sulle attività caricate nel feed.
+  const priorResidualFor = (a) => {
+    if (!a) return 0;
+    const ownerWeight = (a.user_id === currentUser?.id ? currentUser?.weight : a.profiles?.weight) || undefined;
+    const ownerSex = (a.user_id === currentUser?.id ? currentUser?.sex : a.profiles?.sex) || undefined;
+    const pool = (a.user_id === currentUser?.id ? myActivities : activities) || [];
+    const others = pool.filter((x) => x.user_id === a.user_id && x.id !== a.id);
+    return db.residualGramsAtTime(others, a.created_at, ownerWeight, ownerSex);
+  };
+
   const displayBac = (a) => {
     if (!a || !a.drinks || a.drinks.length === 0) return 0;
     const ownerWeight = (a.user_id === currentUser?.id ? currentUser?.weight : a.profiles?.weight) || undefined;
     const ownerSex = (a.user_id === currentUser?.id ? currentUser?.sex : a.profiles?.sex) || undefined;
-    return db.calculatePeakBAC(a.drinks, a.created_at, a.duration || effortMinutes(a) || 120, ownerWeight, a.full_stomach, ownerSex);
+    return db.calculatePeakBAC(a.drinks, a.created_at, a.duration || effortMinutes(a) || 120, ownerWeight, a.full_stomach, ownerSex, priorResidualFor(a));
   };
 
   // Per i Tour: raggruppa i drink per tappa, in base alle finestre temporali di arrivo
@@ -1495,8 +1506,11 @@ export default function FeedPage() {
     const ownerSex =
       (selectedActivity.user_id === currentUser?.id ? currentUser?.sex : selectedActivity.profiles?.sex) || undefined;
 
+    // Residuo da sessioni precedenti dello stesso utente (tasso pregresso), anche per lo storico
+    const selResidual = priorResidualFor(selectedActivity);
+
     // BAC di picco deterministico (coerente con la card del feed e la classifica)
-    derivedBac = db.calculatePeakBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex);
+    derivedBac = db.calculatePeakBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual);
 
     // La "Classifica del Locale" ha senso solo per locali REALI (con coordinate e verificati):
     // le sessioni libere/non verificate non sono locali → niente classifica/legenda.
@@ -1544,7 +1558,7 @@ export default function FeedPage() {
     }
 
     // Timeline BAC reale basata sugli orari di aggiunta dei singoli drink (peso reale se disponibile)
-    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex);
+    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual);
   }
 
   // Visibilità live: una sessione PRIVATA non appare a nessuno finché è attiva
