@@ -1606,12 +1606,10 @@ export default function FeedPage() {
 
               {showLivePanel && (
               <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '16px', overflowY: 'auto' }}>
-              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginTop: '12px', marginBottom: '40px' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                <button onClick={() => setShowLivePanel(false)} className="btn btn-secondary" style={{ borderRadius: '50%', width: 36, height: 36, padding: 0, fontSize: 18 }}>×</button>
-              </div>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginTop: 'calc(78px + env(safe-area-inset-top, 0px))', marginBottom: '40px' }}>
             <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 32, 0, 0.25)', borderRadius: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <button onClick={() => setShowLivePanel(false)} aria-label="Chiudi" className="btn btn-secondary" style={{ position: 'absolute', top: '12px', right: '12px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingRight: '40px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
                   <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
@@ -1739,10 +1737,28 @@ export default function FeedPage() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>BAC Stimato <BacInfo size={12} /></div>
-                  <div style={{ fontSize: '24px', fontWeight: '800', color: (activeSession.bac_level || 0) > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '4px' }}>
-                    {activeSession.bac_level ? activeSession.bac_level.toFixed(2) : '0.00'} <span style={{ fontSize: '12px' }}>g/l</span>
-                  </div>
+                  {/* BAC ATTUALE (adesso), ricalcolato live: non è il picco, che si vede
+                      a sessione chiusa. elapsedMinutes lo tiene aggiornato ogni 15s. */}
+                  {(() => {
+                    const liveBac = db.calculateCurrentBAC(
+                      activeSession.drinks || [],
+                      activeSession.created_at,
+                      activeSession.duration || elapsedMinutes || 1,
+                      undefined,
+                      currentUser?.weight,
+                      activeSession.full_stomach,
+                      currentUser?.sex,
+                      liveResidualGrams
+                    );
+                    return (
+                      <>
+                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>BAC Attuale <BacInfo size={12} /></div>
+                        <div style={{ fontSize: '24px', fontWeight: '800', color: liveBac > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '4px' }}>
+                          {liveBac.toFixed(2)} <span style={{ fontSize: '12px' }}>g/l</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                   {liveResidualGrams > 0 && (
                     <div style={{ fontSize: '10px', color: 'var(--secondary)', marginTop: '2px' }}>
                       include residuo precedente

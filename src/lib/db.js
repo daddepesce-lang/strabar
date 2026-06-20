@@ -1111,39 +1111,58 @@ export const db = {
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = Math.min(...timestamps);
     const maxDrinkTime = Math.max(...timestamps);
-    const createdAtTime = new Date(created_at || Date.now()).getTime();
-    const endTime = Math.max(maxDrinkTime, createdAtTime) + 3 * 60 * 60 * 1000;
 
-    const totalDurationMs = endTime - startTime;
-    const numSteps = 6;
-    const timepoints = [];
-
-    for (let i = 0; i < numSteps; i++) {
-      const T = startTime + (totalDurationMs * i) / (numSteps - 1);
-
-      let totalAbsorbedGrams = 0;
+    // BAC esatto a un dato istante T (grammi netti / (peso × r)).
+    const bacAt = (T) => {
+      let absorbed = 0;
       parsedDrinks.forEach(d => {
         const dt_h = (T - new Date(d.added_at).getTime()) / 3600000;
-        const fraction = this._absorbedFraction(dt_h, fullStomach, sex);
         const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
-        totalAbsorbedGrams += drinkUnits * 8 * fraction;
+        absorbed += drinkUnits * 8 * this._absorbedFraction(dt_h, fullStomach, sex);
       });
+      const eliminated = eliminationPerHour * Math.max(0, (T - startTime) / 3600000);
+      const net = Math.max(0, (priorResidualGrams || 0) + absorbed - eliminated);
+      return net / (w * r);
+    };
 
-      const hoursSinceStart = (T - startTime) / 3600000;
-      const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
+    // Campioniamo finemente (1 min) per trovare il PICCO reale e l'istante in cui
+    // il BAC torna ~0: così la curva mostrata cattura sempre il picco (evitando che
+    // il valore "attuale" risulti più alto di tutti i punti del grafico).
+    const stepMs = 60 * 1000;
+    const hardEnd = maxDrinkTime + 5 * 60 * 60 * 1000;
+    let peakT = startTime, peakV = bacAt(startTime);
+    for (let T = startTime; T <= hardEnd; T += stepMs) {
+      const v = bacAt(T);
+      if (v > peakV) { peakV = v; peakT = T; }
+    }
+    // Fine "naturale": primo istante dopo il picco in cui il BAC è ~0.
+    let endT = hardEnd;
+    for (let T = peakT; T <= hardEnd; T += stepMs) {
+      if (bacAt(T) <= 0.005) { endT = T; break; }
+    }
+    endT = Math.max(endT, startTime + 30 * 60 * 1000); // almeno mezz'ora di arco
 
-      const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
-      const bac = netGramsInBlood / (w * r);
-      const tObj = new Date(T);
-
-      timepoints.push({
-        time: tObj,
-        label: tObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        val: Math.max(0, parseFloat(bac.toFixed(2)))
-      });
+    // Punti da mostrare: inizio, metà salita, PICCO, e tre punti in discesa fino a fine.
+    const times = new Set([startTime]);
+    if (peakT > startTime) {
+      times.add(startTime + (peakT - startTime) * 0.5);
+      times.add(peakT);
+    }
+    const declineSpan = endT - peakT;
+    if (declineSpan > 0) {
+      times.add(peakT + declineSpan / 3);
+      times.add(peakT + (declineSpan * 2) / 3);
+      times.add(endT);
     }
 
-    return timepoints;
+    return [...times].sort((a, b) => a - b).map((T) => {
+      const tObj = new Date(T);
+      return {
+        time: tObj,
+        label: tObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        val: Math.max(0, parseFloat(bacAt(T).toFixed(2))),
+      };
+    });
   },
 
   calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach, sex, priorResidualGrams = 0) {

@@ -1,31 +1,61 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Info } from 'lucide-react';
 
 // Piccola (i) accanto ai valori del tasso alcolico.
 // Al tocco/click apre un popover che ricorda che i dati sono solo STIME
 // e non hanno alcun valore medico o legale.
+// Il popover è posizionato in `fixed` e clampato al viewport, così non
+// provoca mai scroll orizzontale (importante in PWA / schermi piccoli).
 export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)' }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [pos, setPos] = useState(null); // { top, left, width }
+  const btnRef = useRef(null);
+  const popRef = useRef(null);
+
+  const computePos = useCallback(() => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const margin = 8;
+    const vw = window.innerWidth;
+    const width = Math.min(240, vw - margin * 2);
+    // Centrato sull'icona, ma clampato dentro il viewport.
+    let left = rect.left + rect.width / 2 - width / 2;
+    left = Math.max(margin, Math.min(left, vw - width - margin));
+    const top = rect.bottom + 8;
+    setPos({ top, left, width });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+    computePos();
     const onDown = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (
+        btnRef.current && !btnRef.current.contains(e.target) &&
+        popRef.current && !popRef.current.contains(e.target)
+      ) {
+        setOpen(false);
+      }
     };
+    const onReflow = () => computePos();
     document.addEventListener('mousedown', onDown);
     document.addEventListener('touchstart', onDown);
+    window.addEventListener('resize', onReflow);
+    window.addEventListener('scroll', onReflow, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('touchstart', onDown);
+      window.removeEventListener('resize', onReflow);
+      window.removeEventListener('scroll', onReflow, true);
     };
-  }, [open]);
+  }, [open, computePos]);
 
   return (
-    <span ref={ref} style={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle' }}>
+    <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}>
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen((v) => !v); }}
         aria-label="Informazioni sul calcolo del tasso alcolico"
@@ -34,16 +64,15 @@ export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)
       >
         <Info size={size} />
       </button>
-      {open && (
+      {open && pos && (
         <span
-          onClick={(e) => { e.stopPropagation(); }}
+          ref={popRef}
+          onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 8px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '240px',
-            maxWidth: '70vw',
+            position: 'fixed',
+            top: pos.top,
+            left: pos.left,
+            width: pos.width,
             background: '#0D0D0D',
             border: '1px solid var(--border-dark)',
             borderRadius: '10px',
@@ -55,7 +84,7 @@ export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)
             textTransform: 'none',
             letterSpacing: 0,
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            zIndex: 2000,
+            zIndex: 4000,
             textAlign: 'left',
             whiteSpace: 'normal',
           }}

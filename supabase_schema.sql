@@ -311,5 +311,14 @@ ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS actor_name TEXT;
 -- MIGRAZIONE: peso corporeo nel profilo (per BAC/curva precisi)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS weight SMALLINT;
 
+-- MIGRAZIONE: sesso biologico nel profilo (coefficiente di Widmark per BAC/curva)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS sex TEXT;
+
+-- MIGRAZIONE: preferenze notifiche (quali tipi ricevere)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notif_prefs JSONB;
+
+-- MIGRAZIONE: mostrare il proprio tasso alcolico attuale sul profilo pubblico
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS show_bac_public BOOLEAN DEFAULT FALSE;
+
 -- Ricarica la cache dello schema di PostgREST (Supabase) così le nuove colonne sono subito visibili
 NOTIFY pgrst, 'reload schema';

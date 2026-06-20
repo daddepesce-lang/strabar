@@ -33,7 +33,9 @@ export const EXTRA_DRINKS = [
   // Birre
   { name: 'Birra Piccola (0.2L)', abv: 5, units: 1.0, label: '🍺 Birra Piccola' },
   { name: 'Birra Doppio Malto', abv: 8, units: 2.4, label: '🍺 Doppio Malto' },
+  { name: 'Doppio Malto Piccola (0.2L)', abv: 8, units: 1.2, label: '🍺 Doppio Malto Piccola' },
   { name: 'IPA / Artigianale', abv: 6.5, units: 2.0, label: '🍺 IPA' },
+  { name: 'IPA Piccola (0.2L)', abv: 6.5, units: 1.0, label: '🍺 IPA Piccola' },
   { name: 'Sidro', abv: 4.5, units: 1.3, label: '🍏 Sidro' },
   // Distillati / amari
   { name: 'Whisky (liscio)', abv: 40, units: 1.0, label: '🥃 Whisky' },

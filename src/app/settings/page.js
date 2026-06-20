@@ -40,6 +40,9 @@ export default function SettingsPage() {
   ];
   const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true });
 
+  // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
+  const [showBacPublic, setShowBacPublic] = useState(false);
+
   useEffect(() => {
     if (typeof db.isPushSubscribed === 'function') db.isPushSubscribed().then(setPushOn);
   }, []);
@@ -48,6 +51,12 @@ export default function SettingsPage() {
     const next = { ...notifPrefs, [key]: !notifPrefs[key] };
     setNotifPrefs(next);
     try { await db.updateProfile(currentUser.id, { notif_prefs: next }); } catch (err) { console.error(err); }
+  };
+
+  const toggleShowBacPublic = async () => {
+    const next = !showBacPublic;
+    setShowBacPublic(next);
+    try { await db.updateProfile(currentUser.id, { show_bac_public: next }); } catch (err) { console.error(err); }
   };
 
   const togglePush = async () => {
@@ -86,6 +95,7 @@ export default function SettingsPage() {
         setUsername(user.username || '');
         setAvatarUrl(user.avatar_url || '');
         if (user.notif_prefs) setNotifPrefs((p) => ({ ...p, ...user.notif_prefs }));
+        setShowBacPublic(!!user.show_bac_public);
       } catch (err) {
         console.error(err);
       } finally {
@@ -283,6 +293,36 @@ export default function SettingsPage() {
             Vale sia per le notifiche push sia per la campanella nell&apos;app.
           </p>
         </div>
+      </div>
+
+      {/* Privacy: tasso alcolico sul profilo pubblico */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          🍺 Privacy del tasso alcolico
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+          Se attivo, gli altri atleti vedranno il tuo <strong>tasso alcolico stimato attuale</strong> quando visitano il tuo profilo. Di default è nascosto.
+        </p>
+        <button
+          type="button"
+          onClick={toggleShowBacPublic}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+            background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px',
+            padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
+          }}
+        >
+          <span>Mostra il mio tasso alcolico sul profilo</span>
+          <span style={{
+            width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
+            background: showBacPublic ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
+          }}>
+            <span style={{
+              position: 'absolute', top: 2, left: showBacPublic ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
+              background: '#fff', transition: 'left .2s',
+            }} />
+          </span>
+        </button>
       </div>
     </div>
   );

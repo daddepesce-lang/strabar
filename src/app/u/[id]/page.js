@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import Avatar from '@/components/Avatar';
+import BacInfo from '@/components/BacInfo';
 import {
   Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus, Users,
   ArrowLeft, CalendarPlus, MapPin, Sparkles,
@@ -23,6 +24,13 @@ export default function AthleteProfilePage({ params }) {
   const [isFriend, setIsFriend] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+
+  // Orario corrente: aggiornato ogni minuto per tenere "vivo" il tasso alcolico mostrato.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const load = async () => {
     try {
@@ -131,6 +139,29 @@ export default function AthleteProfilePage({ params }) {
   let maxQty = 0;
   Object.entries(drinkCounts).forEach(([name, qty]) => { if (qty > maxQty) { maxQty = qty; favoriteDrink = name; } });
 
+  // Tasso alcolico attuale dell'atleta (solo se ha scelto di renderlo pubblico).
+  // Calcolato come sul proprio profilo: sessione live in corso + residuo recente.
+  const currentBAC = (() => {
+    if (!profile?.show_bac_public || activities.length === 0) return 0;
+    const nowISO = new Date(now).toISOString();
+    const weight = profile.weight;
+    const sex = profile.sex;
+    const w = parseFloat(weight) > 0 ? parseFloat(weight) : 70;
+    const r = db._widmarkR(sex);
+    const residual = db.residualGramsAtTime(activities, nowISO, weight, sex);
+    const active = activities.find(
+      (a) => a.is_active && now - new Date(a.created_at).getTime() < 5 * 60 * 60 * 1000
+    );
+    if (active) {
+      const duration = Math.max(1, Math.round((now - new Date(active.created_at).getTime()) / 60000));
+      return db.calculateCurrentBAC(active.drinks || [], active.created_at, duration, nowISO, weight, active.full_stomach, sex, residual);
+    }
+    return parseFloat((residual / (w * r)).toFixed(2));
+  })();
+  const hasActiveLive = profile?.show_bac_public && activities.some(
+    (a) => a.is_active && now - new Date(a.created_at).getTime() < 5 * 60 * 60 * 1000
+  );
+
   const formatDate = (ds) => new Date(ds).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 
   return (
@@ -203,6 +234,32 @@ export default function AthleteProfilePage({ params }) {
           <div style={{ fontSize: '15px', fontWeight: 800, marginTop: '12px', color: 'var(--primary)' }}>{favoriteDrink}</div>
         </div>
       </div>
+
+      {/* Tasso alcolico attuale dell'atleta (solo se lo ha reso pubblico) */}
+      {profile.show_bac_public && (() => {
+        const overLimit = currentBAC >= 0.5;
+        const hasAlcohol = currentBAC > 0;
+        const color = overLimit ? 'var(--error)' : hasAlcohol ? 'var(--primary)' : 'var(--success)';
+        return (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', border: `1px solid ${color}`, background: `linear-gradient(135deg, rgba(22,24,34,1) 0%, ${hasAlcohol ? 'rgba(255, 32, 0,0.06)' : 'rgba(16,185,129,0.06)'} 100%)` }}>
+            <span style={{ background: 'rgba(255,255,255,0.04)', width: 52, height: 52, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '24px' }}>🍺</span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tasso alcolico attuale</strong>
+                <BacInfo />
+                {hasActiveLive && (
+                  <span className="pulse" style={{ fontSize: '10px', fontWeight: 800, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: 900, color, lineHeight: 1.1, marginTop: '2px' }}>
+                {currentBAC.toFixed(2)} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-dark-secondary)' }}>g/l</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Attività recenti */}
       <div>
