@@ -1131,11 +1131,18 @@ export const db = {
   },
 
   calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach, sex, priorResidualGrams = 0) {
-    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
-    if (parsedDrinks.length === 0) return 0;
-
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
+    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
+
+    // Nessun drink in QUESTA sessione: il BAC può comunque essere > 0 per il residuo
+    // di sessioni chiuse da poco (es. apro una sessione subito dopo averne chiusa
+    // un'altra, o un brindisi all'evento). Prima qui si usciva sempre con 0,
+    // ignorando il residuo finché non si aggiungeva il primo drink.
+    if (parsedDrinks.length === 0) {
+      const prior = priorResidualGrams || 0;
+      return prior > 0 ? parseFloat((prior / (w * r)).toFixed(2)) : 0;
+    }
 
     // Per sessioni storiche usa la fine stimata (non "adesso", che darebbe BAC=0)
     const refMs = referenceTime ? new Date(referenceTime).getTime() : Date.now();
