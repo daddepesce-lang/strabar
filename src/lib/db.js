@@ -1051,7 +1051,7 @@ export const db = {
     if (!before || !Array.isArray(activities)) return 0;
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
-    const eliminationPerHour = 0.15 * w * r; // grammi/ora
+    const eliminationPerHour = this._beta(sex) * w * r; // grammi/ora
     let grams = 0;
     activities.forEach((a) => {
       if (!a || a.is_active) return; // ignora la sessione live in corso
@@ -1070,17 +1070,28 @@ export const db = {
   },
 
   // Coefficiente di distribuzione di Widmark in base al sesso (uomo ~0.68, donna ~0.55).
-  _widmarkR(sex) {
+  _isFemale(sex) {
     const s = (sex || '').toString().toLowerCase();
-    if (s === 'f' || s === 'female' || s === 'donna') return 0.55;
-    return 0.68; // uomo / non specificato
+    return s === 'f' || s === 'female' || s === 'donna';
   },
 
-  // Modello esponenziale Widmark: frazione assorbita al tempo dt_h dal drink
-  // tau = costante di assorbimento (ore). Stomaco vuoto: picco ~40min, pieno: ~90min.
-  _absorbedFraction(dt_h, fullStomach) {
+  _widmarkR(sex) {
+    return this._isFemale(sex) ? 0.55 : 0.68;
+  },
+
+  // β = velocità di smaltimento BAC (g/l/h).
+  // Donna: ~0.14 (meno ADH epatico), Uomo: ~0.17. Fonte: Widmark, Jones & Pounder.
+  _beta(sex) {
+    return this._isFemale(sex) ? 0.14 : 0.17;
+  },
+
+  // Frazione assorbita al tempo dt_h dopo il drink (modello esponenziale).
+  // Donna: tau più basso (minore ADH gastrico → assorbimento più rapido).
+  // Picco vuoto: Donna ~30min, Uomo ~40min; Pieno: Donna ~75min, Uomo ~90min.
+  _absorbedFraction(dt_h, fullStomach, sex) {
     if (dt_h <= 0) return 0;
-    const tau = fullStomach ? 0.75 : 0.35; // h; calibrato su letteratura clinica
+    const female = this._isFemale(sex);
+    const tau = fullStomach ? (female ? 0.60 : 0.75) : (female ? 0.28 : 0.35);
     return 1 - Math.exp(-dt_h / tau);
   },
 
@@ -1090,8 +1101,7 @@ export const db = {
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
-    const beta = 0.15; // g/kg/h (Widmark standard)
-    const eliminationPerHour = beta * w * r;
+    const eliminationPerHour = this._beta(sex) * w * r;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = Math.min(...timestamps);
@@ -1109,7 +1119,7 @@ export const db = {
       let totalAbsorbedGrams = 0;
       parsedDrinks.forEach(d => {
         const dt_h = (T - new Date(d.added_at).getTime()) / 3600000;
-        const fraction = this._absorbedFraction(dt_h, fullStomach);
+        const fraction = this._absorbedFraction(dt_h, fullStomach, sex);
         const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
         totalAbsorbedGrams += drinkUnits * 8 * fraction;
       });
@@ -1137,8 +1147,7 @@ export const db = {
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
-    const beta = 0.15;
-    const eliminationPerHour = beta * w * r;
+    const eliminationPerHour = this._beta(sex) * w * r;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = Math.min(...timestamps);
@@ -1149,7 +1158,7 @@ export const db = {
     let totalAbsorbedGrams = 0;
     parsedDrinks.forEach(d => {
       const dt_h = (refMs - new Date(d.added_at).getTime()) / 3600000;
-      const fraction = this._absorbedFraction(dt_h, fullStomach);
+      const fraction = this._absorbedFraction(dt_h, fullStomach, sex);
       const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
       totalAbsorbedGrams += drinkUnits * 8 * fraction;
     });
@@ -1161,6 +1170,44 @@ export const db = {
     const bac = netGramsInBlood / (w * r);
 
     return parseFloat(bac.toFixed(2));
+  },
+
+  // BAC di PICCO della sessione: il massimo valore raggiunto lungo la curva.
+  // Deterministico (a parità di drink/orari/durata dà sempre lo stesso valore),
+  // a differenza dello snapshot istantaneo che dipende da QUANDO è stato salvato.
+  // È il numero giusto da mostrare nel feed come "Tasso Alcolico Est.".
+  calculatePeakBAC(drinks, created_at, durationMinutes, weightKg, fullStomach, sex, priorResidualGrams = 0) {
+    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
+    if (parsedDrinks.length === 0) return 0;
+
+    const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
+    const r = this._widmarkR(sex);
+    const eliminationPerHour = this._beta(sex) * w * r;
+
+    const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
+    const startTime = Math.min(...timestamps);
+    const maxDrinkTime = Math.max(...timestamps);
+    // Il picco cade tra l'ultimo drink e ~3h dopo: campioniamo a passi di 5 min.
+    const endTime = maxDrinkTime + 3 * 60 * 60 * 1000;
+    const stepMs = 5 * 60 * 1000;
+
+    let peak = 0;
+    for (let T = startTime; T <= endTime; T += stepMs) {
+      let totalAbsorbedGrams = 0;
+      parsedDrinks.forEach(d => {
+        const dt_h = (T - new Date(d.added_at).getTime()) / 3600000;
+        const fraction = this._absorbedFraction(dt_h, fullStomach, sex);
+        const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
+        totalAbsorbedGrams += drinkUnits * 8 * fraction;
+      });
+      const hoursSinceStart = (T - startTime) / 3600000;
+      const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
+      const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
+      const bac = netGramsInBlood / (w * r);
+      if (bac > peak) peak = bac;
+    }
+
+    return parseFloat(peak.toFixed(2));
   },
 
   // --- SOCIAL (FOLLOWERS / FOLLOWING) ---

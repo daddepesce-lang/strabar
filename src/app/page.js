@@ -1134,6 +1134,16 @@ export default function FeedPage() {
   };
   const fmtEffort = (a) => { const m = effortMinutes(a); return `${Math.floor(m / 60)}h ${m % 60}m`; };
 
+  // Tasso alcolemico mostrato nel feed = BAC di PICCO della sessione (deterministico),
+  // usando peso/sesso del proprietario. Niente più snapshot volatili che davano valori
+  // diversi a parità di drink/durata.
+  const displayBac = (a) => {
+    if (!a || !a.drinks || a.drinks.length === 0) return 0;
+    const ownerWeight = (a.user_id === currentUser?.id ? currentUser?.weight : a.profiles?.weight) || undefined;
+    const ownerSex = (a.user_id === currentUser?.id ? currentUser?.sex : a.profiles?.sex) || undefined;
+    return db.calculatePeakBAC(a.drinks, a.created_at, a.duration || effortMinutes(a) || 120, ownerWeight, a.full_stomach, ownerSex);
+  };
+
   // Per i Tour: raggruppa i drink per tappa, in base alle finestre temporali di arrivo
   // ad ogni tappa (visited[i].arrived_at → visited[i+1].arrived_at). Ritorna null se non è un tour.
   const tourDrinksByStop = (act) => {
@@ -1474,17 +1484,10 @@ export default function FeedPage() {
   let topUnitsLeaderboard = [];
   let topBacLeaderboard = [];
   let bacTimeline = [];
+  let isRealVenue = false;
 
   if (selectedActivity) {
     totalU = parseFloat(selectedActivity.total_units || selectedActivity.drinks?.reduce((acc, d) => acc + ((d.units || 1.5) * d.qty), 0) || 0);
-
-    // Per sessioni storiche (non live) calcola il BAC al momento di fine sessione stimata,
-    // non adesso (che darebbe sempre 0 perché l'alcol è già smaltito da tempo).
-    const isLiveSession = selectedActivity.is_active &&
-      (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000;
-    const sessionEndTime = isLiveSession
-      ? undefined  // usa now (default)
-      : new Date(new Date(selectedActivity.created_at).getTime() + (selectedActivity.duration || 120) * 60 * 1000).toISOString();
 
     // Peso e sesso del proprietario della sessione (per BAC/curva precisi); fallback 70kg
     const ownerWeight =
@@ -1492,14 +1495,13 @@ export default function FeedPage() {
     const ownerSex =
       (selectedActivity.user_id === currentUser?.id ? currentUser?.sex : selectedActivity.profiles?.sex) || undefined;
 
-    derivedBac = (selectedActivity.bac_level && parseFloat(selectedActivity.bac_level) > 0)
-      ? parseFloat(selectedActivity.bac_level)
-      : db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, sessionEndTime, ownerWeight, selectedActivity.full_stomach, ownerSex);
+    // BAC di picco deterministico (coerente con la card del feed e la classifica)
+    derivedBac = db.calculatePeakBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex);
 
     // La "Classifica del Locale" ha senso solo per locali REALI (con coordinate e verificati):
     // le sessioni libere/non verificate non sono locali → niente classifica/legenda.
     const loc = selectedActivity.location;
-    const isRealVenue = loc && loc.name && !loc.freeform && typeof loc.lat === 'number' && typeof loc.lng === 'number';
+    isRealVenue = !!(loc && loc.name && !loc.freeform && !loc.unverified && typeof loc.lat === 'number' && typeof loc.lng === 'number');
     if (isRealVenue) {
       const locNameNormalized = loc.name.trim().toLowerCase();
       barSessions = activities.filter(act =>
@@ -1530,21 +1532,13 @@ export default function FeedPage() {
         localLegend = topUnitsLeaderboard[0];
       }
 
-      // Top BAC (Tasso Alcolico Record in una singola sessione).
-      // Se il BAC salvato è 0/mancante (es. sessioni vecchie), lo ricalcoliamo al volo.
+      // Top BAC (Tasso Alcolico Record in una singola sessione) = BAC di picco,
+      // calcolato sempre allo stesso modo della card/dettaglio per coerenza.
       topBacLeaderboard = [...barSessions]
-        .map(s => {
-          let bac = (s.bac_level && parseFloat(s.bac_level) > 0) ? parseFloat(s.bac_level) : 0;
-          if (bac === 0 && s.drinks && s.drinks.length > 0) {
-            const isLive = s.is_active && (Date.now() - new Date(s.created_at).getTime()) < 5 * 60 * 60 * 1000;
-            const endRef = isLive ? undefined : new Date(new Date(s.created_at).getTime() + (s.duration || 120) * 60 * 1000).toISOString();
-            bac = db.calculateCurrentBAC(s.drinks, s.created_at, s.duration || 120, endRef, s.profiles?.weight, s.full_stomach, s.profiles?.sex);
-          }
-          return {
-            name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
-            bac
-          };
-        })
+        .map(s => ({
+          name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
+          bac: db.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex)
+        }))
         .sort((a, b) => b.bac - a.bac)
         .slice(0, 3);
     }
@@ -1733,6 +1727,11 @@ export default function FeedPage() {
                   <div style={{ fontSize: '24px', fontWeight: '800', color: (activeSession.bac_level || 0) > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '4px' }}>
                     {activeSession.bac_level ? activeSession.bac_level.toFixed(2) : '0.00'} <span style={{ fontSize: '12px' }}>g/l</span>
                   </div>
+                  {liveResidualGrams > 0 && (
+                    <div style={{ fontSize: '10px', color: 'var(--secondary)', marginTop: '2px' }}>
+                      include residuo precedente
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2142,7 +2141,7 @@ export default function FeedPage() {
                   <div className="stat-box">
                     <span className="stat-label">Tasso Alcolico Est.</span>
                     <span className="stat-value">
-                      {(act.bac_level || 0).toFixed(2)} g/l
+                      {displayBac(act).toFixed(2)} g/l
                     </span>
                   </div>
                 </div>
@@ -2802,8 +2801,8 @@ export default function FeedPage() {
                     );
                   })()}
 
-                  {/* Classifiche del Locale — solo per locali reali (no sessioni libere) */}
-                  {!selectedActivity.location.freeform && typeof selectedActivity.location.lat === 'number' && (
+                  {/* Classifiche del Locale — solo per locali reali e verificati (no sessioni libere/non verificate) */}
+                  {isRealVenue && (
                   <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
                     <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       🏆 Classifica del Locale (Top Atleti)
@@ -2848,7 +2847,7 @@ export default function FeedPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(223, 255, 0,0.04)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(223, 255, 0,0.1)', marginTop: '12px', fontSize: '12px' }}>
                       <span>👑</span>
                       <div>
-                        <strong>Leggenda del Locale:</strong> {localLegend.name}{localLegend.total ? ` (${localLegend.total.toFixed(1)} U.A. totali)` : ''}.
+                        <strong>Leggenda del Locale:</strong> {localLegend.name}{localLegend.totalUnits ? ` (${localLegend.totalUnits.toFixed(1)} U.A. totali)` : ''}.
                       </div>
                     </div>
                   </div>
