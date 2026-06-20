@@ -86,6 +86,7 @@ export default function FeedPage() {
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
   const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
+  const [showBacExplanation, setShowBacExplanation] = useState(false);
 
   // Stati social: filtro feed (amici/tutti) e gestione follow
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
@@ -2692,9 +2693,42 @@ export default function FeedPage() {
 
             {/* TIMELINE CURVA BAC */}
             <div style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '8px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📈 Curva d&apos;Ebbrezza (Assorbimento &amp; Smaltimento Widmark)
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  📈 Curva d&apos;Ebbrezza (Assorbimento &amp; Smaltimento Widmark)
+                </h3>
+                <button
+                  onClick={() => setShowBacExplanation(v => !v)}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textDecoration: 'underline', padding: 0, flexShrink: 0 }}
+                >
+                  {showBacExplanation ? '▲ Chiudi spiegazione' : '❓ Come viene calcolato?'}
+                </button>
+              </div>
+
+              {/* Pannello spiegazione calcolo BAC */}
+              {showBacExplanation && (
+                <div style={{ background: 'rgba(255,32,0,0.04)', border: '1px solid rgba(255,32,0,0.2)', borderRadius: '8px', padding: '12px 14px', marginBottom: '12px', fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.6 }}>
+                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '6px' }}>Formula di Widmark — come funziona</strong>
+                  <p style={{ margin: '0 0 8px 0' }}>
+                    Il tasso alcolemico (BAC, g/l) è calcolato con la <strong style={{ color: 'var(--secondary)' }}>formula di Widmark</strong>:
+                  </p>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '8px 12px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--secondary)', marginBottom: '8px' }}>
+                    BAC = grammi_alcol_netti / (peso_kg × r)
+                  </div>
+                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '4px' }}>Dati usati per il calcolo:</strong>
+                  <ul style={{ margin: '0 0 8px 0', paddingLeft: '16px' }}>
+                    <li><strong style={{ color: '#FFF' }}>Drink registrati</strong> — tipo, gradazione (ABV%) e Unità Alcoliche (U.A.). 1 U.A. = 8 g di alcol puro. I drink vengono distribuiti uniformemente nell&apos;arco della sessione.</li>
+                    <li><strong style={{ color: '#FFF' }}>Peso corporeo</strong> — dal tuo profilo (default: 70 kg se non impostato). Più pesi, più il BAC si diluisce.</li>
+                    <li><strong style={{ color: '#FFF' }}>Sesso biologico</strong> — dal profilo. Il coefficiente r di Widmark è 0,68 (uomo) o 0,55 (donna); la velocità di smaltimento β è 0,17 g/l/h (uomo) o 0,14 g/l/h (donna).</li>
+                    <li><strong style={{ color: '#FFF' }}>Stomaco pieno o vuoto</strong> — cambia la velocità di assorbimento. A stomaco vuoto il picco arriva prima (≈30–40 min); a stomaco pieno più tardi (≈75–90 min).</li>
+                    <li><strong style={{ color: '#FFF' }}>Residuo alcolico pregresso</strong> — grammi ancora in circolo da sessioni chiuse nelle 4 ore precedenti, che si sommano al calcolo corrente.</li>
+                  </ul>
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>
+                    ⚠️ Stima indicativa a scopo informativo, non diagnostico. I valori reali variano in base a metabolismo, idratazione e altri fattori individuali.
+                  </p>
+                </div>
+              )}
+
               {/* Nota: curva della singola sessione */}
               <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(223, 255, 0,0.05)', border: '1px solid rgba(223, 255, 0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
                 <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
