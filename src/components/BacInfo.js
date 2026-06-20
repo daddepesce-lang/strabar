@@ -1,18 +1,23 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
 // Piccola (i) accanto ai valori del tasso alcolico.
 // Al tocco/click apre un popover che ricorda che i dati sono solo STIME
 // e non hanno alcun valore medico o legale.
-// Il popover è posizionato in `fixed` e clampato al viewport, così non
-// provoca mai scroll orizzontale (importante in PWA / schermi piccoli).
+// Il popover è renderizzato in un PORTAL su document.body e posizionato in
+// `fixed` clampato al viewport: così non viene mai tagliato né provoca scroll
+// orizzontale, anche dentro contenitori con backdrop-filter/transform (PWA).
 export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)' }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [pos, setPos] = useState(null); // { top, left, width }
   const btnRef = useRef(null);
   const popRef = useRef(null);
+
+  useEffect(() => setMounted(true), []);
 
   const computePos = useCallback(() => {
     const btn = btnRef.current;
@@ -24,8 +29,7 @@ export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)
     // Centrato sull'icona, ma clampato dentro il viewport.
     let left = rect.left + rect.width / 2 - width / 2;
     left = Math.max(margin, Math.min(left, vw - width - margin));
-    const top = rect.bottom + 8;
-    setPos({ top, left, width });
+    setPos({ top: rect.bottom + 8, left, width });
   }, []);
 
   useEffect(() => {
@@ -64,7 +68,7 @@ export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)
       >
         <Info size={size} />
       </button>
-      {open && pos && (
+      {mounted && open && pos && createPortal(
         <span
           ref={popRef}
           onClick={(e) => e.stopPropagation()}
@@ -84,13 +88,14 @@ export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)
             textTransform: 'none',
             letterSpacing: 0,
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            zIndex: 4000,
+            zIndex: 5000,
             textAlign: 'left',
             whiteSpace: 'normal',
           }}
         >
           ⚠️ Valore <strong style={{ color: '#FFF' }}>solo stimato</strong> con la formula di Widmark, a scopo informativo. <strong style={{ color: '#FFF' }}>Non ha alcun valore medico o legale</strong> e non va usato per decidere se metterti alla guida.
-        </span>
+        </span>,
+        document.body
       )}
     </span>
   );
