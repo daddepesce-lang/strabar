@@ -1024,23 +1024,28 @@ export const db = {
     if (!drinks) return [];
     // created_at è l'INIZIO della sessione: i drink senza orario vengono
     // distribuiti in AVANTI lungo la durata (da inizio a inizio+durata).
-    // Questo mantiene coerenza con il referenceTime = created_at + durata usato
-    // per le sessioni storiche, evitando di conteggiare lo smaltimento due volte.
     const startTime = new Date(created_at || Date.now());
     const durMs = (durationMinutes || 120) * 60 * 1000;
 
-    return drinks.map((d, index) => {
-      if (d.added_at) return { ...d };
+    // Drink con timestamp esplicito (live) → restituiti così come sono.
+    const withTs = drinks.filter(d => d.added_at);
 
-      // Spazia i drink senza timestamp uniformemente lungo la durata
-      const numDrinks = drinks.length;
-      const offsetMs = numDrinks > 1 ? (durMs * index) / (numDrinks - 1) : 0;
-      return {
-        ...d,
-        qty: d.qty || 1,
-        added_at: new Date(startTime.getTime() + offsetMs).toISOString()
-      };
+    // Drink senza timestamp → espandiamo per qty (ogni unità = uno slot separato)
+    // così 2 birre sono distribuite esattamente come 1 birra + 1 spritz.
+    const units = [];
+    drinks.forEach(d => {
+      if (d.added_at) return;
+      const qty = d.qty || 1;
+      for (let i = 0; i < qty; i++) units.push({ ...d, qty: 1 });
     });
+
+    const n = units.length;
+    const expanded = units.map((d, i) => ({
+      ...d,
+      added_at: new Date(startTime.getTime() + (n > 1 ? (durMs * i) / (n - 1) : 0)).toISOString()
+    }));
+
+    return [...withTs, ...expanded];
   },
 
   // Grammi di alcol ANCORA in circolo a un certo istante, derivanti dalle sessioni
