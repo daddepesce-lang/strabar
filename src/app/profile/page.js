@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { Calendar, User, Beer, Award, Heart, Shield, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
+import BacInfo from '@/components/BacInfo';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
@@ -34,6 +35,13 @@ export default function ProfilePage() {
   const [savingSex, setSavingSex] = useState(false);
   const [savingWeight, setSavingWeight] = useState(false);
   const [weightSaved, setWeightSaved] = useState(false);
+
+  // Orario corrente: aggiornato ogni minuto per tenere "vivo" il tasso alcolico attuale.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const handleSaveSex = async (sex) => {
     setSavingSex(true);
@@ -190,6 +198,29 @@ export default function ProfilePage() {
 
   const totalMinutes = activities.reduce((acc, act) => acc + act.duration, 0);
 
+  // Tasso alcolico ATTUALE (adesso): include la sessione live in corso (se c'è)
+  // e il residuo da sessioni chiuse nelle ultime ore. 0 = sobrio.
+  const currentBAC = (() => {
+    if (!currentUser || activities.length === 0) return 0;
+    const nowISO = new Date(now).toISOString();
+    const weight = currentUser.weight;
+    const sex = currentUser.sex;
+    const w = parseFloat(weight) > 0 ? parseFloat(weight) : 70;
+    const r = db._widmarkR(sex);
+    const residual = db.residualGramsAtTime(activities, nowISO, weight, sex);
+    const active = activities.find(
+      (a) => a.is_active && now - new Date(a.created_at).getTime() < 5 * 60 * 60 * 1000
+    );
+    if (active) {
+      const duration = Math.max(1, Math.round((now - new Date(active.created_at).getTime()) / 60000));
+      return db.calculateCurrentBAC(active.drinks || [], active.created_at, duration, nowISO, weight, active.full_stomach, sex, residual);
+    }
+    return parseFloat((residual / (w * r)).toFixed(2));
+  })();
+  const hasActiveLive = activities.some(
+    (a) => a.is_active && now - new Date(a.created_at).getTime() < 5 * 60 * 60 * 1000
+  );
+
   // Luoghi del bere dell'utente (per la mappa del profilo)
   const drinkPlaces = (() => {
     const map = {};
@@ -322,6 +353,38 @@ export default function ProfilePage() {
           </span>
         </div>
       </div>
+
+      {/* Tasso alcolico ATTUALE (adesso) */}
+      {(() => {
+        const overLimit = currentBAC >= 0.5;        // limite legale alla guida in Italia
+        const hasAlcohol = currentBAC > 0;
+        const color = overLimit ? 'var(--error)' : hasAlcohol ? 'var(--primary)' : 'var(--success)';
+        const msg = overLimit
+          ? '🚫 Sopra il limite legale alla guida (0,5 g/l). Non metterti al volante.'
+          : hasAlcohol
+          ? '⚠️ Hai ancora alcol in circolo. Aspetta prima di guidare.'
+          : '✅ Sei sobrio: nessun alcol stimato in circolo adesso.';
+        return (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', border: `1px solid ${color}`, background: `linear-gradient(135deg, rgba(22,24,34,1) 0%, ${hasAlcohol ? 'rgba(255, 32, 0,0.06)' : 'rgba(16,185,129,0.06)'} 100%)` }}>
+            <span style={{ background: 'rgba(255,255,255,0.04)', width: 52, height: 52, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '24px' }}>🍺</span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tasso alcolico attuale</strong>
+                <BacInfo />
+                {hasActiveLive && (
+                  <span className="pulse" style={{ fontSize: '10px', fontWeight: 800, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: 900, color, lineHeight: 1.1, marginTop: '2px' }}>
+                {currentBAC.toFixed(2)} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-dark-secondary)' }}>g/l</span>
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: '6px 0 0 0', lineHeight: 1.4 }}>{msg}</p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Peso corporeo per BAC preciso */}
       <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
@@ -766,6 +829,7 @@ export default function ProfilePage() {
                 <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', overflow: 'hidden' }}>
                   <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     📈 Curva di Ebbrezza BAC Settimanale
+                    <BacInfo size={15} />
                     {(!currentUser?.is_premium) && (
                       <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
                     )}

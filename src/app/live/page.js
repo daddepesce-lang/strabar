@@ -211,6 +211,9 @@ export default function LiveRadarPage() {
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', lineHeight: 1.5 }}>
             Vedi solo chi ha scelto di condividere la posizione live (con tutti o con gli amici). Attiva la condivisione quando avvii un brindisi per comparire qui.
           </p>
+          <p style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textAlign: 'center', lineHeight: 1.5, opacity: 0.7 }}>
+            ⚠️ I valori del tasso alcolico (g/l) sono solo stime statistiche (formula di Widmark) a scopo informativo: non hanno alcun valore medico o legale.
+          </p>
         </>
       )}
     </div>

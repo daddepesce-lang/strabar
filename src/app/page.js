@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
+import BacInfo from '@/components/BacInfo';
 import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
@@ -1738,7 +1739,7 @@ export default function FeedPage() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>BAC Stimato</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>BAC Stimato <BacInfo size={12} /></div>
                   <div style={{ fontSize: '24px', fontWeight: '800', color: (activeSession.bac_level || 0) > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '4px' }}>
                     {activeSession.bac_level ? activeSession.bac_level.toFixed(2) : '0.00'} <span style={{ fontSize: '12px' }}>g/l</span>
                   </div>
@@ -2154,7 +2155,7 @@ export default function FeedPage() {
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Tasso Alcolico Est.</span>
+                    <span className="stat-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>Tasso Alcolico Est. <BacInfo size={12} /></span>
                     <span className="stat-value">
                       {displayBac(act).toFixed(2)} g/l
                     </span>
@@ -2684,7 +2685,7 @@ export default function FeedPage() {
                 </div>
               </div>
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>BAC Stimato</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>BAC Stimato <BacInfo size={12} /></div>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: derivedBac > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '5px' }}>
                   {derivedBac.toFixed(2)} <span style={{ fontSize: '12px', fontWeight: '600' }}>g/l</span>
                 </div>
@@ -2876,8 +2877,8 @@ export default function FeedPage() {
 
                       {/* Top BAC */}
                       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)', minWidth: 0 }}>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
-                          ⚡ Record BAC (Picco g/l)
+                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          ⚡ Record BAC (Picco g/l) <BacInfo size={12} />
                         </div>
                         {topBacLeaderboard.length === 0 ? (
                           <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Nessun record</div>

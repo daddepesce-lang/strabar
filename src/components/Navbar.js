@@ -179,17 +179,17 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* Indicatore LIVE animato: appare se TU hai una diretta in corso. Apre il pannello live. */}
+        {/* Indicatore "in diretta": piccolo pallino pulsante accanto al logo.
+            Appare se TU hai una diretta in corso. Tocca per aprire il pannello live. */}
         {myLive && (
           <button
             type="button"
             onClick={openMyLive}
             aria-label="Apri la tua diretta"
+            title="Sei in diretta"
             className="pulse"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '8px', padding: '4px 10px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255,32,0,0.12)', color: 'var(--primary)', fontWeight: 800, fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE
-          </button>
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginLeft: '6px', padding: 0, width: '12px', height: '12px', borderRadius: '50%', border: 'none', background: 'var(--primary)', boxShadow: '0 0 8px rgba(255,32,0,0.7)', cursor: 'pointer', flexShrink: 0 }}
+          />
         )}
 
         <div className="nav-links">

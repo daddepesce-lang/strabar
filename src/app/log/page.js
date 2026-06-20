@@ -360,7 +360,8 @@ export default function LogActivityPage() {
 
       // Notifica PWA
 
-      router.push('/');
+      // Apre direttamente il pannello live per iniziare a registrare i drink.
+      router.push('/?live=1');
     } catch (err) {
       alert("Errore nell'avvio della sessione libera: " + err.message);
     } finally {
@@ -451,7 +452,8 @@ export default function LogActivityPage() {
           duration: 1,
         });
       }
-      router.push('/');
+      // Apre direttamente il pannello live per iniziare a registrare i drink.
+      router.push('/?live=1');
     } catch (err) {
       alert("Errore nell'avvio della sessione: " + (err.message || err));
       setCheckingGps(false);

@@ -154,6 +154,13 @@ button, input, select, textarea {
   gap: 30px;
 }
 
+/* Le tracce della grid devono poter restringersi sotto il contenuto,
+   altrimenti contenuti non comprimibili (banner live, card) sforano e
+   causano lo scroll orizzontale. */
+.dashboard-grid > * {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
