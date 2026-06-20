@@ -1076,53 +1076,54 @@ export const db = {
     return 0.68; // uomo / non specificato
   },
 
+  // Modello esponenziale Widmark: frazione assorbita al tempo dt_h dal drink
+  // tau = costante di assorbimento (ore). Stomaco vuoto: picco ~40min, pieno: ~90min.
+  _absorbedFraction(dt_h, fullStomach) {
+    if (dt_h <= 0) return 0;
+    const tau = fullStomach ? 0.75 : 0.35; // h; calibrato su letteratura clinica
+    return 1 - Math.exp(-dt_h / tau);
+  },
+
   calculateBACTimeline(drinks, created_at, durationMinutes, weightKg, fullStomach, sex, priorResidualGrams = 0) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return [];
 
-    // Peso reale dell'utente se disponibile, altrimenti 70kg di default (Widmark)
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
-    const eliminationPerHour = 0.15 * w * r; // grammi smaltiti all'ora
-    // A stomaco pieno l'assorbimento è più lento e il picco più basso (~ -20%)
-    const stomachFactor = fullStomach ? 0.8 : 1.0;
+    const beta = 0.15; // g/kg/h (Widmark standard)
+    const eliminationPerHour = beta * w * r;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
-    const startTime = new Date(Math.min(...timestamps));
+    const startTime = Math.min(...timestamps);
     const maxDrinkTime = Math.max(...timestamps);
     const createdAtTime = new Date(created_at || Date.now()).getTime();
-    
-    // L'end time è la fine della sessione o il momento dell'ultimo drink, più 2 ore per vedere lo smaltimento
-    const endTime = new Date(Math.max(maxDrinkTime, createdAtTime) + 2 * 60 * 60 * 1000);
-    
-    const totalDurationMs = endTime.getTime() - startTime.getTime();
-    const numSteps = 5;
+    const endTime = Math.max(maxDrinkTime, createdAtTime) + 3 * 60 * 60 * 1000;
+
+    const totalDurationMs = endTime - startTime;
+    const numSteps = 6;
     const timepoints = [];
 
     for (let i = 0; i < numSteps; i++) {
-      const T = new Date(startTime.getTime() + (totalDurationMs * i) / (numSteps - 1));
-      
+      const T = startTime + (totalDurationMs * i) / (numSteps - 1);
+
       let totalAbsorbedGrams = 0;
       parsedDrinks.forEach(d => {
-        const drinkTime = new Date(d.added_at).getTime();
-        const dtHours = (T.getTime() - drinkTime) / (1000 * 60 * 60);
-        
-        // Se dtHours è leggermente negativo (drift temporale), lo trattiamo come 0 (assorbimento istantaneo al 50%)
-        const effectiveDtHours = Math.max(0, dtHours);
-        const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
+        const dt_h = (T - new Date(d.added_at).getTime()) / 3600000;
+        const fraction = this._absorbedFraction(dt_h, fullStomach);
         const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
-        totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction * stomachFactor;
+        totalAbsorbedGrams += drinkUnits * 8 * fraction;
       });
 
-      const hoursSinceStart = (T.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      const hoursSinceStart = (T - startTime) / 3600000;
       const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
 
       const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
       const bac = netGramsInBlood / (w * r);
+      const tObj = new Date(T);
 
       timepoints.push({
-        time: T,
-        label: T.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        time: tObj,
+        label: tObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         val: Math.max(0, parseFloat(bac.toFixed(2)))
       });
     }
@@ -1136,31 +1137,25 @@ export const db = {
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
-    const eliminationPerHour = 0.15 * w * r;
-    const stomachFactor = fullStomach ? 0.8 : 1.0;
+    const beta = 0.15;
+    const eliminationPerHour = beta * w * r;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
-    const startTime = new Date(Math.min(...timestamps));
+    const startTime = Math.min(...timestamps);
 
-    // referenceTime: se non passato usa "adesso" (sessione live).
-    // Per sessioni storiche, passa la fine stimata della sessione (created_at + duration)
-    // in modo da mostrare il BAC al picco della sessione, non 0 dopo giorni.
+    // Per sessioni storiche usa la fine stimata (non "adesso", che darebbe BAC=0)
     const refMs = referenceTime ? new Date(referenceTime).getTime() : Date.now();
-    
+
     let totalAbsorbedGrams = 0;
     parsedDrinks.forEach(d => {
-      const drinkTime = new Date(d.added_at).getTime();
-      const dtHours = (refMs - drinkTime) / (1000 * 60 * 60);
-      
-      // Se dtHours è leggermente negativo (drift temporale), lo trattiamo come 0 (assorbimento istantaneo al 50%)
-      const effectiveDtHours = Math.max(0, dtHours);
-      const absorbedFraction = Math.max(0.5, Math.min(1, effectiveDtHours / 0.25));
+      const dt_h = (refMs - new Date(d.added_at).getTime()) / 3600000;
+      const fraction = this._absorbedFraction(dt_h, fullStomach);
       const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
-      totalAbsorbedGrams += drinkUnits * 8 * absorbedFraction * stomachFactor;
+      totalAbsorbedGrams += drinkUnits * 8 * fraction;
     });
 
-    const hoursSinceStart = (refMs - startTime.getTime()) / (1000 * 60 * 60);
-    const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
+    const hoursSinceStart = (refMs - startTime) / 3600000;
+    const totalEliminatedGrams = eliminationPerHour * Math.max(0, hoursSinceStart);
 
     const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
     const bac = netGramsInBlood / (w * r);

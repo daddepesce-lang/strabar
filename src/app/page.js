@@ -1510,30 +1510,25 @@ export default function FeedPage() {
         act.location.name.trim().toLowerCase() === locNameNormalized
       );
 
-      // Classifica U.A. per utente (somma tutte le sessioni al locale)
+      // Aggrega U.A. per utente (somma di tutte le sessioni al locale)
       const userUnits = {};
       barSessions.forEach(s => {
         const uId = s.user_id;
         const name = s.profiles?.display_name || s.profiles?.username || "Atleta Strabar";
-        if (!userUnits[uId]) userUnits[uId] = { name, total: 0 };
-        userUnits[uId].total += parseFloat(s.total_units || 0);
+        if (!userUnits[uId]) userUnits[uId] = { name, totalUnits: 0 };
+        userUnits[uId].totalUnits += parseFloat(s.total_units || 0);
       });
 
-      // Leggenda = chi ha consumato più U.A. in totale (allineato con la classifica)
-      Object.values(userUnits).forEach(u => {
-        if (u.total > (localLegend.total || 0)) {
-          localLegend = { name: u.name, total: u.total };
-        }
-      });
-
-      // Top Carico (Max U.A. in una singola sessione)
-      topUnitsLeaderboard = [...barSessions]
-        .map(s => ({
-          name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
-          totalUnits: parseFloat(s.total_units || 0)
-        }))
+      // Classifica U.A. aggregata per utente (stessa persona non compare 2 volte)
+      topUnitsLeaderboard = Object.values(userUnits)
+        .map(u => ({ name: u.name, totalUnits: parseFloat(u.totalUnits.toFixed(1)) }))
         .sort((a, b) => b.totalUnits - a.totalUnits)
         .slice(0, 3);
+
+      // Leggenda = #1 della classifica (allineati)
+      if (topUnitsLeaderboard.length > 0) {
+        localLegend = topUnitsLeaderboard[0];
+      }
 
       // Top BAC (Tasso Alcolico Record in una singola sessione).
       // Se il BAC salvato è 0/mancante (es. sessioni vecchie), lo ricalcoliamo al volo.
