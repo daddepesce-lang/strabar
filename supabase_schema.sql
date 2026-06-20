@@ -305,6 +305,12 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE NOT NULL;
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS full_stomach BOOLEAN DEFAULT NULL;
 
+-- MIGRAZIONE: residuo di alcol pregresso (grammi) CONGELATO all'avvio della sessione.
+-- Serve a far vedere a TUTTI (proprietario, profilo, spettatori, radar) lo stesso
+-- BAC live: senza questo, ognuno ricalcola il residuo dal proprio storico e i numeri
+-- divergono. NULL = vecchie sessioni → si ripiega sul calcolo al volo.
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS residual_grams NUMERIC(5,1) DEFAULT NULL;
+
 -- MIGRAZIONE: nome dell'attore nelle notifiche (per chi ha creato la tabella prima)
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS actor_name TEXT;
 

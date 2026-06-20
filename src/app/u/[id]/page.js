@@ -148,14 +148,16 @@ export default function AthleteProfilePage({ params }) {
     const sex = profile.sex;
     const w = parseFloat(weight) > 0 ? parseFloat(weight) : 70;
     const r = db._widmarkR(sex);
-    const residual = db.residualGramsAtTime(activities, nowISO, weight, sex);
     const active = activities.find(
       (a) => a.is_active && now - new Date(a.created_at).getTime() < 5 * 60 * 60 * 1000
     );
     if (active) {
       const duration = Math.max(1, Math.round((now - new Date(active.created_at).getTime()) / 60000));
+      // Residuo CONGELATO sulla sessione: stesso valore che vede il proprietario.
+      const residual = db.sessionResidualGrams(active, activities, weight, sex);
       return db.calculateCurrentBAC(active.drinks || [], active.created_at, duration, nowISO, weight, active.full_stomach, sex, residual);
     }
+    const residual = db.residualGramsAtTime(activities, nowISO, weight, sex);
     return parseFloat((residual / (w * r)).toFixed(2));
   })();
   const hasActiveLive = profile?.show_bac_public && activities.some(

@@ -429,6 +429,17 @@ export const db = {
       created_at: activityData.created_at || new Date().toISOString()
     };
 
+    // CONGELA il residuo pregresso sulla sessione live, qualunque sia l'origine
+    // (evento, locale, percorso, manuale): così il BAC live è IDENTICO per tutti
+    // (proprietario, profilo, spettatori, radar) e non dipende da chi ha lo storico.
+    if (newActivity.is_active && activityData.residual_grams === undefined) {
+      try {
+        newActivity.residual_grams = await this._computeResidualForNewSession(user.id, newActivity.created_at);
+      } catch { /* best effort: senza residuo congelato si ripiega sul calcolo al volo */ }
+    } else if (activityData.residual_grams !== undefined) {
+      newActivity.residual_grams = activityData.residual_grams;
+    }
+
     if (isSupabaseConfigured) {
       // Inserisci la sessione. Se lo schema del DB non ha ancora una colonna opzionale,
       // rimuoviamo SOLO la colonna mancante segnalata dall'errore e riproviamo.
@@ -1071,6 +1082,41 @@ export const db = {
     return parseFloat(grams.toFixed(1));
   },
 
+  // Residuo (grammi) da usare nei calcoli del BAC live di UNA sessione.
+  // Preferisce il valore CONGELATO sulla sessione (`residual_grams`, scritto all'avvio
+  // in createActivity): essendo memorizzato, è identico per il proprietario, il suo
+  // profilo, gli spettatori e il radar → tutti vedono lo stesso BAC live.
+  // Se assente (vecchie sessioni) ricalcola al volo dal pool disponibile, riferito
+  // all'avvio sessione (created_at) per restare coerente col modello di eliminazione.
+  sessionResidualGrams(session, fallbackPool, weightKg, sex) {
+    const stored = session ? parseFloat(session.residual_grams) : NaN;
+    if (Number.isFinite(stored)) return stored;
+    return this.residualGramsAtTime(fallbackPool || [], session?.created_at, weightKg, sex);
+  },
+
+  // Calcola il residuo di alcol pregresso da CONGELARE su una nuova sessione live:
+  // grammi ancora in circolo all'orario `createdAtISO` dalle sessioni chiuse di recente
+  // dell'utente. Usato una sola volta, alla creazione (vedi createActivity).
+  async _computeResidualForNewSession(userId, createdAtISO) {
+    let recent = [];
+    let weight, sex;
+    if (isSupabaseConfigured) {
+      const since = new Date(new Date(createdAtISO).getTime() - 6 * 3600000).toISOString();
+      const [{ data: sess }, { data: prof }] = await Promise.all([
+        supabase.from('sessions').select('drinks, created_at, duration, full_stomach, is_active')
+          .eq('user_id', userId).eq('is_active', false).gte('created_at', since),
+        supabase.from('profiles').select('weight, sex').eq('id', userId).maybeSingle(),
+      ]);
+      recent = sess || [];
+      weight = prof?.weight; sex = prof?.sex;
+    } else {
+      recent = (getStored('sb_activities') || []).filter((a) => a.user_id === userId && !a.is_active);
+      const p = (getStored('sb_profiles') || []).find((x) => x.id === userId);
+      weight = p?.weight; sex = p?.sex;
+    }
+    return this.residualGramsAtTime(recent, createdAtISO, weight, sex);
+  },
+
   // Coefficiente di distribuzione di Widmark in base al sesso (uomo ~0.68, donna ~0.55).
   _isFemale(sex) {
     const s = (sex || '').toString().toLowerCase();
@@ -1550,7 +1596,7 @@ export const db = {
       try {
         const { data, error } = await supabase
           .from('sessions')
-          .select('id, user_id, location, created_at, bac_level, drinks, is_active, full_stomach, duration, profiles(username, display_name, weight, sex)')
+          .select('id, user_id, location, created_at, bac_level, drinks, is_active, full_stomach, duration, residual_grams, profiles(username, display_name, weight, sex)')
           .eq('is_active', true)
           .gte('created_at', since)
           .order('created_at', { ascending: false });
@@ -1606,12 +1652,13 @@ export const db = {
         share: loc.share,
         distance,
         drinks: (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0),
-        // BAC ricalcolato ADESSO con peso/sesso reali del proprietario: stesso numero
-        // che lui vede nel suo pannello live (non lo snapshot salvato, che era diverso).
+        // BAC ricalcolato ADESSO con peso/sesso reali + residuo CONGELATO della sessione:
+        // stesso identico numero che vede il proprietario nel suo pannello live.
         bac: this.calculateCurrentBAC(
           a.drinks || [], a.created_at,
           a.duration || Math.max(1, Math.round((now - new Date(a.created_at).getTime()) / 60000)),
-          undefined, a.profiles?.weight, a.full_stomach, a.profiles?.sex
+          undefined, a.profiles?.weight, a.full_stomach, a.profiles?.sex,
+          this.sessionResidualGrams(a, [], a.profiles?.weight, a.profiles?.sex)
         ),
         created_at: a.created_at,
       });

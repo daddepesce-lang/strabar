@@ -258,8 +258,9 @@ export default function FeedPage() {
 
   // Calcola alcol residuo da sessioni precedenti per la live
   useEffect(() => {
-    if (!activeSession || !myActivities.length) { setLiveResidualGrams(0); return; }
-    const g = db.residualGramsAtTime(myActivities, activeSession.created_at, currentUser?.weight, currentUser?.sex);
+    if (!activeSession) { setLiveResidualGrams(0); return; }
+    // Preferisce il residuo CONGELATO sulla sessione (coerente con profilo/spettatori/radar).
+    const g = db.sessionResidualGrams(activeSession, myActivities, currentUser?.weight, currentUser?.sex);
     setLiveResidualGrams(g);
   }, [activeSession?.id, myActivities.length]);
 
@@ -1149,7 +1150,8 @@ export default function FeedPage() {
     const ownerSex = (a.user_id === currentUser?.id ? currentUser?.sex : a.profiles?.sex) || undefined;
     const pool = (a.user_id === currentUser?.id ? myActivities : activities) || [];
     const others = pool.filter((x) => x.user_id === a.user_id && x.id !== a.id);
-    return db.residualGramsAtTime(others, a.created_at, ownerWeight, ownerSex);
+    // Preferisce il residuo CONGELATO sulla sessione (uguale per tutti); fallback al calcolo.
+    return db.sessionResidualGrams(a, others, ownerWeight, ownerSex);
   };
 
   const displayBac = (a) => {
