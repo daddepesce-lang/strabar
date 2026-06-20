@@ -226,18 +226,18 @@ export default function ProfilePage() {
     }
   });
 
-  // Genera dati per il calendario delle bevute (Mese Corrente, ad esempio Giugno 2026)
-  // Per semplicità facciamo una griglia di 30 giorni
-  const daysInMonth = 30;
-  const monthName = 'Giugno 2026';
-  
-  // Mappa le attività sui giorni del mese basandosi sulla data di creazione
+  // Genera dati per il calendario delle bevute (mese corrente, dinamico)
+  const calNow = new Date();
+  const calYear = calNow.getFullYear();
+  const calMonth = calNow.getMonth(); // 0-indexed
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const monthName = calNow.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+
+  // Mappa le attività sui giorni del mese corrente basandosi sulla data di creazione
   const getDayAlcolLevel = (dayNum) => {
-    // Cerca attività in quel giorno specifico (es. 2026-06-XX)
     const dayActs = activities.filter(act => {
       const actDate = new Date(act.created_at);
-      // Assumiamo che stiamo tracciando per il mese corrente
-      return actDate.getDate() === dayNum && actDate.getMonth() === 5; // 5 = Giugno (0-indexed)
+      return actDate.getDate() === dayNum && actDate.getMonth() === calMonth && actDate.getFullYear() === calYear;
     });
 
     const dayUnits = dayActs.reduce((acc, a) => acc + a.total_units, 0);
@@ -503,7 +503,7 @@ export default function ProfilePage() {
                         key={dayNum}
                         onClick={() => handleDayClick(dayNum, dayInfo)}
                         className={`calendar-day ${dayInfo.levelClass}`}
-                        title={`${dayNum} Giugno: ${dayInfo.units.toFixed(1)} U.A.`}
+                        title={`${dayNum} ${monthName}: ${dayInfo.units.toFixed(1)} U.A.`}
                       >
                         {dayNum}
                       </div>
@@ -559,6 +559,59 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* TUTTE LE MIE SESSIONI (cronologico, ogni mese) */}
+          <div className="card" style={{ marginTop: '10px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Beer size={20} color="var(--primary)" />
+              Le mie sessioni ({activities.length})
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
+              Tutte le tue sessioni registrate, dalla più recente. Tocca una sessione per aprirne il dettaglio.
+            </p>
+
+            {activities.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '34px', color: 'var(--text-dark-secondary)', fontSize: '14px', border: '1px dashed var(--border-dark)', borderRadius: '10px' }}>
+                Non hai ancora registrato sessioni. 🍻
+              </div>
+            ) : (
+              <div className="feed-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[...activities]
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                  .map((act) => (
+                    <Link key={act.id} href={`/?activity=${act.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                      <article className="card activity-card" style={{ cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                          <h4 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '15px' }}>{act.title}</h4>
+                          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>
+                            {new Date(act.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <div className="activity-stats">
+                          <div className="stat-box">
+                            <span className="stat-label">Drink</span>
+                            <span className="stat-value highlight">{(act.drinks || []).reduce((s, d) => s + (d.qty || 0), 0)}</span>
+                          </div>
+                          <div className="stat-box">
+                            <span className="stat-label">Durata</span>
+                            <span className="stat-value">{Math.floor((act.duration || 0) / 60)}h {(act.duration || 0) % 60}m</span>
+                          </div>
+                          <div className="stat-box">
+                            <span className="stat-label">Carico</span>
+                            <span className="stat-value">{act.total_units} U.A.</span>
+                          </div>
+                        </div>
+                        {act.location && (
+                          <div style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <MapPin size={13} /> {act.location.name}
+                          </div>
+                        )}
+                      </article>
+                    </Link>
+                  ))}
+              </div>
+            )}
           </div>
 
           {/* MAPPA DEI LUOGHI DEL BERE (Heatmap geografica) */}
@@ -697,16 +750,10 @@ export default function ProfilePage() {
                 // Durata totale del giorno: somma delle durate o almeno 60 min
                 const totalDuration = daySessions.reduce((acc, a) => acc + (a.duration || 0), 0) || 60;
                 const firstCreatedAt = daySessions.length > 0 ? daySessions[0].created_at : d.toISOString();
-                // referenceTime = fine stimata dell'ultima sessione (non oggi) per mostrare il BAC al picco, non adesso
-                let referenceTime;
-                if (daySessions.length > 0 && i !== 0) {
-                  const lastSession = daySessions[daySessions.length - 1];
-                  referenceTime = new Date(
-                    new Date(lastSession.created_at).getTime() + (lastSession.duration || 60) * 60 * 1000
-                  ).toISOString();
-                }
+                // BAC di picco deterministico, coerente con feed/dettaglio/classifica
+                // (stesso metodo calculatePeakBAC, con peso e sesso reali dell'utente).
                 const peakBac = allDrinks.length > 0
-                  ? parseFloat(db.calculateCurrentBAC(allDrinks, firstCreatedAt, totalDuration, referenceTime).toFixed(2))
+                  ? db.calculatePeakBAC(allDrinks, firstCreatedAt, totalDuration, currentUser?.weight, false, currentUser?.sex)
                   : 0;
                 weekDays.push({ label: dayLabel, val: peakBac, sessionsCount: daySessions.length });
               }
@@ -735,37 +782,51 @@ export default function ProfilePage() {
 
                   {currentUser?.is_premium ? (
                     <div style={{ padding: '20px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
-                      {/* Riga limite guida */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '160px', paddingTop: '10px', position: 'relative' }}>
-                        {/* Linea limite guida posizionata al 50% di 1.0 g/l => 50% altezza */}
-                        <div style={{ position: 'absolute', bottom: `${(0.5 / maxBac) * 100}%`, left: 0, right: 0, height: '1px', borderTop: '1px dashed var(--error)', zIndex: 1 }} />
-                        <span style={{ position: 'absolute', bottom: `calc(${(0.5 / maxBac) * 100}% + 4px)`, right: '4px', fontSize: '9px', color: 'var(--error)', fontWeight: '700', zIndex: 2 }}>Limite guida 0.5 g/l</span>
+                      {/* Area grafico: barre e linea limite condividono ESATTAMENTE lo stesso
+                          fondo e la stessa scala (niente padding/etichette nel mezzo, così la
+                          linea 0.5 g/l è coerente con l'altezza delle barre). */}
+                      <div style={{ position: 'relative', height: '160px' }}>
+                        {/* Linea limite guida 0.5 g/l, ancorata al fondo del grafico */}
+                        <div style={{ position: 'absolute', bottom: `${(0.5 / maxBac) * 100}%`, left: 0, right: 0, height: '0', borderTop: '1px dashed var(--error)', zIndex: 3, pointerEvents: 'none' }} />
+                        <span style={{ position: 'absolute', bottom: `calc(${(0.5 / maxBac) * 100}% + 3px)`, right: '4px', fontSize: '9px', color: 'var(--error)', fontWeight: '700', zIndex: 4, pointerEvents: 'none' }}>Limite guida 0.5 g/l</span>
 
-                        {weekDays.map((item, idx) => {
-                          const barHeightPct = maxBac > 0 ? Math.max(2, (item.val / maxBac) * 100) : 2;
-                          return (
-                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px', zIndex: 2, height: '100%', justifyContent: 'flex-end' }}>
-                              {item.val > 0 && (
-                                <span style={{ fontSize: '9px', fontWeight: '700', color: item.val > 0.5 ? 'var(--error)' : 'var(--success)', textAlign: 'center' }}>{item.val.toFixed(2)}</span>
-                              )}
-                              <div
-                                title={item.sessionsCount > 0 ? `${item.sessionsCount} sessione/i · BAC picco ${item.val.toFixed(2)} g/l` : 'Nessuna sessione'}
-                                style={{
-                                  width: '22px',
-                                  height: `${barHeightPct}%`,
-                                  background: item.val === 0 ? 'rgba(255,255,255,0.05)' : item.val > 0.5 ? 'var(--premium-gradient)' : 'var(--success)',
-                                  borderRadius: '4px 4px 0 0',
-                                  transition: 'height 0.5s ease',
-                                  border: item.val === 0 ? '1px dashed rgba(255,255,255,0.08)' : 'none'
-                                }}
-                              />
-                              <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>{item.label}</span>
-                              {item.sessionsCount > 0 && (
-                                <span style={{ fontSize: '8px', color: 'var(--primary)', fontWeight: '700' }}>{item.sessionsCount}s</span>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {/* Riga barre: stesso contenitore della linea, fondo allineato */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '100%' }}>
+                          {weekDays.map((item, idx) => {
+                            const barHeightPct = maxBac > 0 ? Math.max(2, (item.val / maxBac) * 100) : 2;
+                            return (
+                              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', flex: 1, height: '100%', zIndex: 2 }}>
+                                {item.val > 0 && (
+                                  <span style={{ fontSize: '9px', fontWeight: '700', color: item.val > 0.5 ? 'var(--error)' : 'var(--success)', textAlign: 'center', marginBottom: '2px' }}>{item.val.toFixed(2)}</span>
+                                )}
+                                <div
+                                  title={item.sessionsCount > 0 ? `${item.sessionsCount} sessione/i · BAC picco ${item.val.toFixed(2)} g/l` : 'Nessuna sessione'}
+                                  style={{
+                                    width: '22px',
+                                    height: `${barHeightPct}%`,
+                                    flexShrink: 0,
+                                    background: item.val === 0 ? 'rgba(255,255,255,0.05)' : item.val > 0.5 ? 'var(--premium-gradient)' : 'var(--success)',
+                                    borderRadius: '4px 4px 0 0',
+                                    transition: 'height 0.5s ease',
+                                    border: item.val === 0 ? '1px dashed rgba(255,255,255,0.08)' : 'none'
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Etichette giorni e sessioni: riga separata SOTTO il grafico */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                        {weekDays.map((item, idx) => (
+                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{item.label}</span>
+                            {item.sessionsCount > 0 && (
+                              <span style={{ fontSize: '8px', color: 'var(--primary)', fontWeight: '700' }}>{item.sessionsCount}s</span>
+                            )}
+                          </div>
+                        ))}
                       </div>
 
                       {!hasSomeData && (

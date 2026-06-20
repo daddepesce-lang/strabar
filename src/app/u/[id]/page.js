@@ -217,7 +217,8 @@ export default function AthleteProfilePage({ params }) {
         ) : (
           <div className="feed-list">
             {combinedActivities.map((act) => (
-              <article key={act.id} className="card activity-card">
+              <Link key={act.id} href={`/?activity=${act.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+              <article className="card activity-card" style={{ cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                   <h3 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.title}</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -247,6 +248,7 @@ export default function AthleteProfilePage({ params }) {
                   </div>
                 )}
               </article>
+              </Link>
             ))}
           </div>
         )}
