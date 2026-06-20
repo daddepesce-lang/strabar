@@ -316,7 +316,7 @@ export const db = {
         .from('sessions')
         .select(`
           ${SESSION_LIST_COLS},
-          profiles(username, display_name, avatar_url, weight),
+          profiles(username, display_name, avatar_url, weight, sex),
           cheers(user_id),
           comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
         `)
@@ -364,7 +364,7 @@ export const db = {
         .from('sessions')
         .select(`
           *,
-          profiles(username, display_name, avatar_url, weight),
+          profiles(username, display_name, avatar_url, weight, sex),
           cheers(user_id),
           comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
         `)
@@ -876,7 +876,7 @@ export const db = {
           .from('sessions')
           .select(`
             *,
-            profiles(username, display_name, avatar_url, weight),
+            profiles(username, display_name, avatar_url, weight, sex),
             cheers(user_id),
             comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
           `)
@@ -1390,7 +1390,7 @@ export const db = {
         .from('sessions')
         .select(`
           id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, created_at,
-          profiles(username, display_name, avatar_url, weight),
+          profiles(username, display_name, avatar_url, weight, sex),
           cheers(user_id),
           comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
         `)
@@ -1543,7 +1543,7 @@ export const db = {
       try {
         const { data, error } = await supabase
           .from('sessions')
-          .select('id, user_id, location, created_at, bac_level, drinks, is_active, profiles(username, display_name)')
+          .select('id, user_id, location, created_at, bac_level, drinks, is_active, full_stomach, duration, profiles(username, display_name, weight, sex)')
           .eq('is_active', true)
           .gte('created_at', since)
           .order('created_at', { ascending: false });
@@ -1599,7 +1599,13 @@ export const db = {
         share: loc.share,
         distance,
         drinks: (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0),
-        bac: parseFloat(a.bac_level || 0),
+        // BAC ricalcolato ADESSO con peso/sesso reali del proprietario: stesso numero
+        // che lui vede nel suo pannello live (non lo snapshot salvato, che era diverso).
+        bac: this.calculateCurrentBAC(
+          a.drinks || [], a.created_at,
+          a.duration || Math.max(1, Math.round((now - new Date(a.created_at).getTime()) / 60000)),
+          undefined, a.profiles?.weight, a.full_stomach, a.profiles?.sex
+        ),
         created_at: a.created_at,
       });
     });

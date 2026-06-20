@@ -1156,6 +1156,11 @@ export default function FeedPage() {
     if (!a || !a.drinks || a.drinks.length === 0) return 0;
     const ownerWeight = (a.user_id === currentUser?.id ? currentUser?.weight : a.profiles?.weight) || undefined;
     const ownerSex = (a.user_id === currentUser?.id ? currentUser?.sex : a.profiles?.sex) || undefined;
+    // Sessione LIVE: tutti vedono lo stesso numero del proprietario, cioè il BAC
+    // ATTUALE (adesso). Solo a sessione chiusa si mostra il PICCO deterministico.
+    if (isLiveAct(a)) {
+      return db.calculateCurrentBAC(a.drinks, a.created_at, a.duration || effortMinutes(a) || 1, undefined, ownerWeight, a.full_stomach, ownerSex, priorResidualFor(a));
+    }
     return db.calculatePeakBAC(a.drinks, a.created_at, a.duration || effortMinutes(a) || 120, ownerWeight, a.full_stomach, ownerSex, priorResidualFor(a));
   };
 
@@ -1513,8 +1518,11 @@ export default function FeedPage() {
     // Residuo da sessioni precedenti dello stesso utente (tasso pregresso), anche per lo storico
     const selResidual = priorResidualFor(selectedActivity);
 
-    // BAC di picco deterministico (coerente con la card del feed e la classifica)
-    derivedBac = db.calculatePeakBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual);
+    // Sessione LIVE → BAC attuale (adesso), coerente col pannello live del proprietario
+    // e uguale per tutti gli spettatori. Sessione chiusa → picco deterministico.
+    derivedBac = isLiveAct(selectedActivity)
+      ? db.calculateCurrentBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || effortMinutes(selectedActivity) || 1, undefined, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual)
+      : db.calculatePeakBAC(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual);
 
     // La "Classifica del Locale" ha senso solo per locali REALI (con coordinate e verificati):
     // le sessioni libere/non verificate non sono locali → niente classifica/legenda.
