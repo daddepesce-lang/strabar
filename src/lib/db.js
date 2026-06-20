@@ -1043,6 +1043,32 @@ export const db = {
     });
   },
 
+  // Grammi di alcol ANCORA in circolo a un certo istante, derivanti dalle sessioni
+  // CHIUSE recenti dell'utente (per riportare il "residuo" su una nuova sessione live).
+  // `activities` = sessioni dell'utente (es. myActivities). Pura, niente query.
+  residualGramsAtTime(activities, beforeISO, weightKg, sex, windowHours = 4) {
+    const before = new Date(beforeISO).getTime();
+    if (!before || !Array.isArray(activities)) return 0;
+    const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
+    const r = this._widmarkR(sex);
+    const eliminationPerHour = 0.15 * w * r; // grammi/ora
+    let grams = 0;
+    activities.forEach((a) => {
+      if (!a || a.is_active) return; // ignora la sessione live in corso
+      const drinks = a.drinks || [];
+      if (drinks.length === 0) return;
+      const ts = this.getDrinksWithTimestamps(drinks, a.created_at, a.duration || 120)
+        .map((d) => new Date(d.added_at).getTime());
+      const sStart = Math.min(...ts);
+      if (!(sStart < before)) return;                 // solo sessioni iniziate prima
+      const hours = (before - sStart) / 3600000;
+      if (hours > windowHours) return;                // fuori finestra → residuo trascurabile
+      const totalGrams = drinks.reduce((s, d) => s + (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1) * 8, 0);
+      grams += Math.max(0, totalGrams - eliminationPerHour * hours);
+    });
+    return parseFloat(grams.toFixed(1));
+  },
+
   // Coefficiente di distribuzione di Widmark in base al sesso (uomo ~0.68, donna ~0.55).
   _widmarkR(sex) {
     const s = (sex || '').toString().toLowerCase();
@@ -1050,7 +1076,7 @@ export const db = {
     return 0.68; // uomo / non specificato
   },
 
-  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg, fullStomach, sex) {
+  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg, fullStomach, sex, priorResidualGrams = 0) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return [];
 
@@ -1091,7 +1117,7 @@ export const db = {
       const hoursSinceStart = (T.getTime() - startTime.getTime()) / (1000 * 60 * 60);
       const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
 
-      const netGramsInBlood = Math.max(0, totalAbsorbedGrams - totalEliminatedGrams);
+      const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
       const bac = netGramsInBlood / (w * r);
 
       timepoints.push({
@@ -1104,7 +1130,7 @@ export const db = {
     return timepoints;
   },
 
-  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach, sex) {
+  calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach, sex, priorResidualGrams = 0) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
     if (parsedDrinks.length === 0) return 0;
 
@@ -1136,7 +1162,7 @@ export const db = {
     const hoursSinceStart = (refMs - startTime.getTime()) / (1000 * 60 * 60);
     const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
 
-    const netGramsInBlood = Math.max(0, totalAbsorbedGrams - totalEliminatedGrams);
+    const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
     const bac = netGramsInBlood / (w * r);
 
     return parseFloat(bac.toFixed(2));

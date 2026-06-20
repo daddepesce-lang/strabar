@@ -65,6 +65,7 @@ export default function FeedPage() {
   // Nuovi stati per il paradigma Live Session e Slideshow Feed
   const [activeSession, setActiveSession] = useState(null);
   const [showLivePanel, setShowLivePanel] = useState(false); // pannello live a comparsa (non nel feed)
+  const [liveResidualGrams, setLiveResidualGrams] = useState(0); // alcol residuo da sessioni precedenti recenti
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [feedSlideIndices, setFeedSlideIndices] = useState({}); // { [actId]: index }
   const [profilesList, setProfilesList] = useState([]);
@@ -251,6 +252,13 @@ export default function FeedPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Calcola alcol residuo da sessioni precedenti per la live
+  useEffect(() => {
+    if (!activeSession || !myActivities.length) { setLiveResidualGrams(0); return; }
+    const g = db.residualGramsAtTime(myActivities, activeSession.created_at, currentUser?.weight, currentUser?.sex);
+    setLiveResidualGrams(g);
+  }, [activeSession?.id, myActivities.length]);
 
   // Timer per la sessione attiva
   useEffect(() => {
@@ -534,7 +542,7 @@ export default function FeedPage() {
   const handleToggleFullStomach = async (value) => {
     if (!activeSession || !!activeSession.full_stomach === !!value) return;
     const duration = activeSession.duration || 1;
-    const newBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, duration, undefined, currentUser?.weight, value, currentUser?.sex);
+    const newBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, duration, undefined, currentUser?.weight, value, currentUser?.sex, liveResidualGrams);
     const updated = { full_stomach: value, bac_level: parseFloat(newBac.toFixed(2)) };
     setActiveSession((prev) => (prev ? { ...prev, ...updated } : prev));
     try {
@@ -610,7 +618,7 @@ export default function FeedPage() {
       const duration = Math.max(1, Math.round((new Date().getTime() - startTimeMs) / (60 * 1000)));
       
       // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default; peso reale se impostato)
-      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex);
+      const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
       
       const updatedFields = {
         drinks: updatedDrinks,
@@ -664,7 +672,7 @@ export default function FeedPage() {
         const startTimeMs = Math.min(...timestamps);
         duration = Math.max(1, Math.round((Date.now() - startTimeMs) / 60000));
       }
-      const newBac = db.calculateCurrentBAC(drinks, base.created_at, duration, undefined, currentUser?.weight, base.full_stomach, currentUser?.sex);
+      const newBac = db.calculateCurrentBAC(drinks, base.created_at, duration, undefined, currentUser?.weight, base.full_stomach, currentUser?.sex, liveResidualGrams);
       const updatedFields = {
         drinks,
         total_units: parseFloat(newTotalUnits.toFixed(1)),
@@ -1502,20 +1510,19 @@ export default function FeedPage() {
         act.location.name.trim().toLowerCase() === locNameNormalized
       );
 
-      // Calcola Leggenda del Locale (visite)
-      const userVisits = {};
+      // Classifica U.A. per utente (somma tutte le sessioni al locale)
+      const userUnits = {};
       barSessions.forEach(s => {
         const uId = s.user_id;
         const name = s.profiles?.display_name || s.profiles?.username || "Atleta Strabar";
-        if (!userVisits[uId]) {
-          userVisits[uId] = { name, count: 0 };
-        }
-        userVisits[uId].count += 1;
+        if (!userUnits[uId]) userUnits[uId] = { name, total: 0 };
+        userUnits[uId].total += parseFloat(s.total_units || 0);
       });
-      
-      Object.values(userVisits).forEach(u => {
-        if (u.count > localLegend.count) {
-          localLegend = u;
+
+      // Leggenda = chi ha consumato più U.A. in totale (allineato con la classifica)
+      Object.values(userUnits).forEach(u => {
+        if (u.total > (localLegend.total || 0)) {
+          localLegend = { name: u.name, total: u.total };
         }
       });
 
@@ -1745,7 +1752,7 @@ export default function FeedPage() {
 
               {/* Curva BAC per orario (in tempo reale), tiene conto degli orari dei drink */}
               {(() => {
-                const tl = db.calculateBACTimeline(activeSession.drinks || [], activeSession.created_at, activeSession.duration || elapsedMinutes || 1, currentUser?.weight, activeSession.full_stomach, currentUser?.sex);
+                const tl = db.calculateBACTimeline(activeSession.drinks || [], activeSession.created_at, activeSession.duration || elapsedMinutes || 1, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
                 if (!tl || tl.length === 0) return null;
                 return (
                   <div style={{ marginBottom: '15px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '12px' }}>
@@ -2846,7 +2853,7 @@ export default function FeedPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(223, 255, 0,0.04)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(223, 255, 0,0.1)', marginTop: '12px', fontSize: '12px' }}>
                       <span>👑</span>
                       <div>
-                        <strong>Leggenda del Locale:</strong> {localLegend.name} ({localLegend.count} {localLegend.count === 1 ? 'sessione' : 'sessioni'} registrate qui).
+                        <strong>Leggenda del Locale:</strong> {localLegend.name}{localLegend.total ? ` (${localLegend.total.toFixed(1)} U.A. totali)` : ''}.
                       </div>
                     </div>
                   </div>
