@@ -56,6 +56,7 @@ export default function EventDetailPage({ params }) {
   const [toInvite, setToInvite] = useState([]);
   const [copied, setCopied] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
+  const [responding, setResponding] = useState(false);
   const [eventShare, setEventShare] = useState('friends'); // privacy della sessione avviata dall'evento
 
   // Modifica evento (solo organizzatore)
@@ -219,11 +220,16 @@ export default function EventDetailPage({ params }) {
 
   const respond = async (status) => {
     if (!currentUser) { router.push('/auth'); return; }
+    if (responding) return;                    // evita doppi invii ravvicinati
+    if (event?.myResponse === status) return;  // stessa risposta → niente da fare
+    setResponding(true);
     try {
       await db.respondToEvent(id, status);
       await load();
     } catch (err) {
       alert(err.message || 'Errore');
+    } finally {
+      setResponding(false);
     }
   };
 
@@ -356,6 +362,7 @@ export default function EventDetailPage({ params }) {
               <button
                 key={key}
                 onClick={() => respond(key)}
+                disabled={responding}
                 className="btn"
                 style={{
                   flex: '1 1 120px', borderRadius: '12px', padding: '12px',
@@ -363,6 +370,8 @@ export default function EventDetailPage({ params }) {
                   background: active ? color : 'var(--bg-input-dark)',
                   color: active ? '#0D0D0D' : 'var(--text-dark-primary)',
                   fontWeight: 700,
+                  opacity: responding && !active ? 0.6 : 1,
+                  cursor: responding ? 'default' : 'pointer',
                 }}
               >
                 <Icon size={16} /> {label}

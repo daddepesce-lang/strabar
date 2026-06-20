@@ -1051,25 +1051,22 @@ export const db = {
   // Grammi di alcol ANCORA in circolo a un certo istante, derivanti dalle sessioni
   // CHIUSE recenti dell'utente (per riportare il "residuo" su una nuova sessione live).
   // `activities` = sessioni dell'utente (es. myActivities). Pura, niente query.
-  residualGramsAtTime(activities, beforeISO, weightKg, sex, windowHours = 4) {
+  residualGramsAtTime(activities, beforeISO, weightKg, sex, windowHours = 6) {
     const before = new Date(beforeISO).getTime();
     if (!before || !Array.isArray(activities)) return 0;
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
-    const r = this._widmarkR(sex);
-    const eliminationPerHour = this._beta(sex) * w * r; // grammi/ora
     let grams = 0;
     activities.forEach((a) => {
       if (!a || a.is_active) return; // ignora la sessione live in corso
       const drinks = a.drinks || [];
       if (drinks.length === 0) return;
-      const ts = this.getDrinksWithTimestamps(drinks, a.created_at, a.duration || 120)
-        .map((d) => new Date(d.added_at).getTime());
-      const sStart = Math.min(...ts);
+      const parsed = this.getDrinksWithTimestamps(drinks, a.created_at, a.duration || 120);
+      const sStart = Math.min(...parsed.map((d) => new Date(d.added_at).getTime()));
       if (!(sStart < before)) return;                 // solo sessioni iniziate prima
-      const hours = (before - sStart) / 3600000;
-      if (hours > windowHours) return;                // fuori finestra → residuo trascurabile
-      const totalGrams = drinks.reduce((s, d) => s + (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1) * 8, 0);
-      grams += Math.max(0, totalGrams - eliminationPerHour * hours);
+      if ((before - sStart) / 3600000 > windowHours) return; // fuori finestra → trascurabile
+      // Stesso modello (assorbimento + eliminazione) delle altre stime: niente più
+      // assorbimento istantaneo che gonfiava il "livello attuale" rispetto al picco.
+      grams += this._netGramsAtTime(parsed, before, w, a.full_stomach, sex, 0);
     });
     return parseFloat(grams.toFixed(1));
   },
@@ -1100,69 +1097,37 @@ export const db = {
     return 1 - Math.exp(-dt_h / tau);
   },
 
-  calculateBACTimeline(drinks, created_at, durationMinutes, weightKg, fullStomach, sex, priorResidualGrams = 0) {
-    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
-    if (parsedDrinks.length === 0) return [];
+  // Grammi di alcol puro stimati per un drink (quantità inclusa).
+  // 1 U.A. = 12 g → Unità Alcolica italiana ufficiale (ISS / Ministero della Salute).
+  // GRAMS_PER_UNIT sostituisce il vecchio 8 g (standard UK) che sottostimava ~33%.
+  // CONSERVATIVE_FACTOR (+10%) = margine prudenziale: per il BAC è più sicuro
+  // sovrastimare che sottostimare. `units` assente → default 1.3 U.A.
+  // Vale per QUALSIASI drink del catalogo (usa il suo campo `units`), non un caso singolo.
+  GRAMS_PER_UNIT: 12,
+  CONSERVATIVE_FACTOR: 1.10,
+  _drinkGrams(d) {
+    const units = Number.isFinite(d.units) ? d.units : 1.3;
+    return units * (d.qty || 1) * this.GRAMS_PER_UNIT * this.CONSERVATIVE_FACTOR;
+  },
 
+  // FONTE DI VERITÀ UNICA: grammi NETTI di alcol in circolo a un dato istante.
+  // Modello = assorbimento esponenziale per drink + eliminazione lineare (Widmark).
+  // Picco, livello attuale, curva e residuo passano TUTTI da qui: così non possono
+  // più dare numeri incoerenti tra loro (era la causa di "picco 0,06 vs attuale 0,13").
+  _netGramsAtTime(parsedDrinks, refMs, weightKg, fullStomach, sex, priorResidualGrams = 0) {
+    const prior = priorResidualGrams || 0;
+    if (!parsedDrinks || parsedDrinks.length === 0) return Math.max(0, prior);
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
     const eliminationPerHour = this._beta(sex) * w * r;
-
-    const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
-    const startTime = Math.min(...timestamps);
-    const maxDrinkTime = Math.max(...timestamps);
-
-    // BAC esatto a un dato istante T (grammi netti / (peso × r)).
-    const bacAt = (T) => {
-      let absorbed = 0;
-      parsedDrinks.forEach(d => {
-        const dt_h = (T - new Date(d.added_at).getTime()) / 3600000;
-        const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
-        absorbed += drinkUnits * 8 * this._absorbedFraction(dt_h, fullStomach, sex);
-      });
-      const eliminated = eliminationPerHour * Math.max(0, (T - startTime) / 3600000);
-      const net = Math.max(0, (priorResidualGrams || 0) + absorbed - eliminated);
-      return net / (w * r);
-    };
-
-    // Campioniamo finemente (1 min) per trovare il PICCO reale e l'istante in cui
-    // il BAC torna ~0: così la curva mostrata cattura sempre il picco (evitando che
-    // il valore "attuale" risulti più alto di tutti i punti del grafico).
-    const stepMs = 60 * 1000;
-    const hardEnd = maxDrinkTime + 5 * 60 * 60 * 1000;
-    let peakT = startTime, peakV = bacAt(startTime);
-    for (let T = startTime; T <= hardEnd; T += stepMs) {
-      const v = bacAt(T);
-      if (v > peakV) { peakV = v; peakT = T; }
-    }
-    // Fine "naturale": primo istante dopo il picco in cui il BAC è ~0.
-    let endT = hardEnd;
-    for (let T = peakT; T <= hardEnd; T += stepMs) {
-      if (bacAt(T) <= 0.005) { endT = T; break; }
-    }
-    endT = Math.max(endT, startTime + 30 * 60 * 1000); // almeno mezz'ora di arco
-
-    // Punti da mostrare: inizio, metà salita, PICCO, e tre punti in discesa fino a fine.
-    const times = new Set([startTime]);
-    if (peakT > startTime) {
-      times.add(startTime + (peakT - startTime) * 0.5);
-      times.add(peakT);
-    }
-    const declineSpan = endT - peakT;
-    if (declineSpan > 0) {
-      times.add(peakT + declineSpan / 3);
-      times.add(peakT + (declineSpan * 2) / 3);
-      times.add(endT);
-    }
-
-    return [...times].sort((a, b) => a - b).map((T) => {
-      const tObj = new Date(T);
-      return {
-        time: tObj,
-        label: tObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        val: Math.max(0, parseFloat(bacAt(T).toFixed(2))),
-      };
+    const startTime = Math.min(...parsedDrinks.map(d => new Date(d.added_at).getTime()));
+    let absorbed = 0;
+    parsedDrinks.forEach(d => {
+      const dt_h = (refMs - new Date(d.added_at).getTime()) / 3600000;
+      absorbed += this._drinkGrams(d) * this._absorbedFraction(dt_h, fullStomach, sex);
     });
+    const eliminated = eliminationPerHour * Math.max(0, (refMs - startTime) / 3600000);
+    return Math.max(0, prior + absorbed - eliminated);
   },
 
   calculateCurrentBAC(drinks, created_at, durationMinutes, referenceTime, weightKg, fullStomach, sex, priorResidualGrams = 0) {
@@ -1171,28 +1136,11 @@ export const db = {
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
-    const eliminationPerHour = this._beta(sex) * w * r;
-
-    const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
-    const startTime = Math.min(...timestamps);
 
     // Per sessioni storiche usa la fine stimata (non "adesso", che darebbe BAC=0)
     const refMs = referenceTime ? new Date(referenceTime).getTime() : Date.now();
 
-    let totalAbsorbedGrams = 0;
-    parsedDrinks.forEach(d => {
-      const dt_h = (refMs - new Date(d.added_at).getTime()) / 3600000;
-      const fraction = this._absorbedFraction(dt_h, fullStomach, sex);
-      const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
-      totalAbsorbedGrams += drinkUnits * 8 * fraction;
-    });
-
-    const hoursSinceStart = (refMs - startTime) / 3600000;
-    const totalEliminatedGrams = eliminationPerHour * Math.max(0, hoursSinceStart);
-
-    const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
-    const bac = netGramsInBlood / (w * r);
-
+    const bac = this._netGramsAtTime(parsedDrinks, refMs, w, fullStomach, sex, priorResidualGrams) / (w * r);
     return parseFloat(bac.toFixed(2));
   },
 
@@ -1206,7 +1154,6 @@ export const db = {
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
-    const eliminationPerHour = this._beta(sex) * w * r;
 
     const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
     const startTime = Math.min(...timestamps);
@@ -1217,21 +1164,57 @@ export const db = {
 
     let peak = 0;
     for (let T = startTime; T <= endTime; T += stepMs) {
-      let totalAbsorbedGrams = 0;
-      parsedDrinks.forEach(d => {
-        const dt_h = (T - new Date(d.added_at).getTime()) / 3600000;
-        const fraction = this._absorbedFraction(dt_h, fullStomach, sex);
-        const drinkUnits = (Number.isFinite(d.units) ? d.units : 1.3) * (d.qty || 1);
-        totalAbsorbedGrams += drinkUnits * 8 * fraction;
-      });
-      const hoursSinceStart = (T - startTime) / 3600000;
-      const totalEliminatedGrams = eliminationPerHour * hoursSinceStart;
-      const netGramsInBlood = Math.max(0, (priorResidualGrams || 0) + totalAbsorbedGrams - totalEliminatedGrams);
-      const bac = netGramsInBlood / (w * r);
+      const bac = this._netGramsAtTime(parsedDrinks, T, w, fullStomach, sex, priorResidualGrams) / (w * r);
       if (bac > peak) peak = bac;
     }
 
     return parseFloat(peak.toFixed(2));
+  },
+
+  // Serie DENSA per disegnare la vera curva di ebbrezza (salita → picco → smaltimento).
+  // Ritorna ~60 campioni {t, val} dal primo drink fino al ritorno a ~0, più il picco
+  // e gli orari chiave. Stesso modello unico → la curva coincide sempre col picco mostrato.
+  calculateBACCurve(drinks, created_at, durationMinutes, weightKg, fullStomach, sex, priorResidualGrams = 0) {
+    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
+    if (parsedDrinks.length === 0) return null;
+
+    const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
+    const r = this._widmarkR(sex);
+    const timestamps = parsedDrinks.map(d => new Date(d.added_at).getTime());
+    const startTime = Math.min(...timestamps);
+    const maxDrinkTime = Math.max(...timestamps);
+    const bacAt = (T) =>
+      this._netGramsAtTime(parsedDrinks, T, w, fullStomach, sex, priorResidualGrams) / (w * r);
+
+    // Picco reale (1 min) e primo istante in cui si torna ~sobri.
+    const stepFine = 60 * 1000;
+    const hardEnd = maxDrinkTime + 10 * 60 * 60 * 1000;
+    let peakT = startTime, peakV = bacAt(startTime);
+    for (let T = startTime; T <= hardEnd; T += stepFine) {
+      const v = bacAt(T);
+      if (v > peakV) { peakV = v; peakT = T; }
+    }
+    let endT = hardEnd;
+    for (let T = peakT; T <= hardEnd; T += stepFine) {
+      if (bacAt(T) <= 0.005) { endT = T; break; }
+    }
+    endT = Math.max(endT, startTime + 60 * 60 * 1000); // almeno 1h di arco
+
+    const N = 60;
+    const series = [];
+    for (let i = 0; i <= N; i++) {
+      const T = startTime + ((endT - startTime) * i) / N;
+      series.push({ t: T, val: Math.max(0, parseFloat(bacAt(T).toFixed(3))) });
+    }
+    const fmt = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return {
+      series,
+      start: startTime,
+      end: endT,
+      peak: { t: peakT, val: Math.max(0, parseFloat(peakV.toFixed(2))), label: fmt(peakT) },
+      startLabel: fmt(startTime),
+      endLabel: fmt(endT),
+    };
   },
 
   // --- SOCIAL (FOLLOWERS / FOLLOWING) ---
@@ -2203,18 +2186,27 @@ export const db = {
     if (!user) throw new Error('Devi essere loggato per rispondere a un evento!');
 
     if (isSupabaseConfigured) {
+      // Stato precedente: serve per notificare l'host SOLO quando la risposta cambia
+      // davvero (evita le notifiche duplicate se si ritocca più volte lo stesso pulsante).
+      const { data: prev } = await supabase
+        .from('event_responses')
+        .select('status')
+        .eq('event_id', eventId).eq('user_id', user.id)
+        .maybeSingle();
       const { error } = await supabase
         .from('event_responses')
         .upsert({ event_id: eventId, user_id: user.id, status }, { onConflict: 'event_id,user_id' });
       if (error) throw error;
-      // Notifica l'host (se non sono io)
-      const { data: ev } = await supabase.from('events').select('host_id, title').eq('id', eventId).maybeSingle();
-      if (ev && ev.host_id !== user.id) {
-        const label = status === 'going' ? 'Partecipo' : status === 'maybe' ? 'Forse' : 'Non posso';
-        this.pushNotification(ev.host_id, {
-          type: 'event_rsvp', actor_id: user.id, actor_name: user.display_name || user.username,
-          message: `${user.display_name || user.username} ha risposto "${label}" a "${ev.title}"`, link: `/events/${eventId}`,
-        });
+      // Notifica l'host (se non sono io) solo al primo RSVP o a un effettivo cambio.
+      if (!prev || prev.status !== status) {
+        const { data: ev } = await supabase.from('events').select('host_id, title').eq('id', eventId).maybeSingle();
+        if (ev && ev.host_id !== user.id) {
+          const label = status === 'going' ? 'Partecipo' : status === 'maybe' ? 'Forse' : 'Non posso';
+          this.pushNotification(ev.host_id, {
+            type: 'event_rsvp', actor_id: user.id, actor_name: user.display_name || user.username,
+            message: `${user.display_name || user.username} ha risposto "${label}" a "${ev.title}"`, link: `/events/${eventId}`,
+          });
+        }
       }
       return true;
     }
@@ -2227,10 +2219,11 @@ export const db = {
     ev.responses = ev.responses || [];
     const entry = { user_id: user.id, user_name: user.display_name || user.username, status, created_at: new Date().toISOString() };
     const rIdx = ev.responses.findIndex((r) => r.user_id === user.id);
+    const prevStatus = rIdx > -1 ? ev.responses[rIdx].status : null;
     if (rIdx > -1) ev.responses[rIdx] = entry; else ev.responses.push(entry);
     events[idx] = ev;
     this.setEventsRaw(events);
-    if (ev.host_id !== user.id) {
+    if (ev.host_id !== user.id && prevStatus !== status) {
       const label = status === 'going' ? 'Partecipo' : status === 'maybe' ? 'Forse' : 'Non posso';
       this.pushNotification(ev.host_id, {
         type: 'event_rsvp', actor_id: user.id, actor_name: user.display_name || user.username,
@@ -2421,6 +2414,20 @@ export const db = {
     }
 
     if (isSupabaseConfigured) {
+      // Anti-duplicato: se una notifica identica (stesso destinatario, tipo e testo)
+      // è già arrivata negli ultimi 5 minuti, non re-inserirla. Protegge da doppi tap
+      // o invii ripetuti a prescindere dal chiamante.
+      try {
+        const sinceISO = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: dup } = await supabase.from('notifications')
+          .select('id')
+          .eq('user_id', recipientId)
+          .eq('type', payload.type || 'info')
+          .eq('message', payload.message || '')
+          .gte('created_at', sinceISO)
+          .limit(1);
+        if (dup && dup.length > 0) return;
+      } catch { /* in dubbio, procedi con l'inserimento */ }
       try {
         const { error } = await supabase.from('notifications').insert({
           user_id: recipientId,
@@ -2451,6 +2458,15 @@ export const db = {
 
     if (typeof window === 'undefined') return;
     const notifs = this.getNotificationsRaw();
+    // Anti-duplicato (vedi sopra): salta notifiche identiche degli ultimi 5 minuti.
+    const since = Date.now() - 5 * 60 * 1000;
+    const isDup = notifs.some((n) =>
+      n.user_id === recipientId &&
+      (n.type || 'info') === (payload.type || 'info') &&
+      (n.message || '') === (payload.message || '') &&
+      new Date(n.created_at).getTime() >= since
+    );
+    if (isDup) return;
     notifs.push({
       id: 'ntf-' + Math.random().toString(36).substr(2, 9),
       user_id: recipientId,

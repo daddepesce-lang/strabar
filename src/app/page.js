@@ -9,6 +9,7 @@ import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
+import BacCurve from '@/components/BacCurve';
 import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
@@ -1011,6 +1012,7 @@ export default function FeedPage() {
     try {
       await db.deleteActivity(actId);
       setEditingActivity(null);
+      setSelectedActivity(null);
       await loadFeed();
     } catch (err) {
       console.error("Errore eliminazione:", err);
@@ -1496,7 +1498,7 @@ export default function FeedPage() {
   let localLegend = { name: "Nessuno", count: 0 };
   let topUnitsLeaderboard = [];
   let topBacLeaderboard = [];
-  let bacTimeline = [];
+  let bacCurve = null;
   let isRealVenue = false;
 
   if (selectedActivity) {
@@ -1559,8 +1561,8 @@ export default function FeedPage() {
         .slice(0, 3);
     }
 
-    // Timeline BAC reale basata sugli orari di aggiunta dei singoli drink (peso reale se disponibile)
-    bacTimeline = db.calculateBACTimeline(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual);
+    // Curva BAC reale basata sugli orari di aggiunta dei singoli drink (peso reale se disponibile)
+    bacCurve = db.calculateBACCurve(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual);
   }
 
   // Visibilità live: una sessione PRIVATA non appare a nessuno finché è attiva
@@ -1778,21 +1780,12 @@ export default function FeedPage() {
 
               {/* Curva BAC per orario (in tempo reale), tiene conto degli orari dei drink */}
               {(() => {
-                const tl = db.calculateBACTimeline(activeSession.drinks || [], activeSession.created_at, activeSession.duration || elapsedMinutes || 1, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
-                if (!tl || tl.length === 0) return null;
+                const curve = db.calculateBACCurve(activeSession.drinks || [], activeSession.created_at, activeSession.duration || elapsedMinutes || 1, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
+                if (!curve) return null;
                 return (
                   <div style={{ marginBottom: '15px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '12px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>📈 Curva BAC (g/l)</span>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', padding: '6px 0' }}>
-                      <div style={{ position: 'absolute', top: '18px', left: '12px', right: '12px', height: '3px', background: 'linear-gradient(90deg, var(--success) 0%, var(--primary) 50%, var(--error) 100%)', zIndex: 1 }} />
-                      {tl.map((pt, idx) => (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, flex: 1 }}>
-                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{pt.label}</span>
-                          <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: pt.val > 0.8 ? 'var(--error)' : pt.val > 0.5 ? 'var(--primary)' : 'var(--success)', border: '2px solid #000', margin: '5px 0' }} />
-                          <span style={{ fontSize: '11px', fontWeight: 800, color: pt.val > 0.5 ? 'var(--primary)' : '#FFF' }}>{pt.val.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>📈 Curva di ebbrezza (g/l)</span>
+                    <BacCurve curve={curve} height={140} />
                   </div>
                 );
               })()}
@@ -2734,11 +2727,11 @@ export default function FeedPage() {
                   </div>
                   <strong style={{ color: '#FFF', display: 'block', marginBottom: '4px' }}>Dati usati per il calcolo:</strong>
                   <ul style={{ margin: '0 0 8px 0', paddingLeft: '16px' }}>
-                    <li><strong style={{ color: '#FFF' }}>Drink registrati</strong> — tipo, gradazione (ABV%) e Unità Alcoliche (U.A.). 1 U.A. = 8 g di alcol puro. I drink vengono distribuiti uniformemente nell&apos;arco della sessione.</li>
+                    <li><strong style={{ color: '#FFF' }}>Drink registrati</strong> — tipo, gradazione (ABV%) e Unità Alcoliche (U.A.). 1 U.A. = 12 g di alcol puro (standard italiano), con un margine prudenziale del +10% (meglio sovrastimare che sottostimare). I drink vengono distribuiti uniformemente nell&apos;arco della sessione.</li>
                     <li><strong style={{ color: '#FFF' }}>Peso corporeo</strong> — dal tuo profilo (default: 70 kg se non impostato). Più pesi, più il BAC si diluisce.</li>
                     <li><strong style={{ color: '#FFF' }}>Sesso biologico</strong> — dal profilo. Il coefficiente r di Widmark è 0,68 (uomo) o 0,55 (donna); la velocità di smaltimento β è 0,17 g/l/h (uomo) o 0,14 g/l/h (donna).</li>
                     <li><strong style={{ color: '#FFF' }}>Stomaco pieno o vuoto</strong> — cambia la velocità di assorbimento. A stomaco vuoto il picco arriva prima (≈30–40 min); a stomaco pieno più tardi (≈75–90 min).</li>
-                    <li><strong style={{ color: '#FFF' }}>Residuo alcolico pregresso</strong> — grammi ancora in circolo da sessioni chiuse nelle 4 ore precedenti, che si sommano al calcolo corrente.</li>
+                    <li><strong style={{ color: '#FFF' }}>Residuo alcolico pregresso</strong> — grammi ancora in circolo da sessioni chiuse nelle 6 ore precedenti, che si sommano al calcolo corrente.</li>
                   </ul>
                   <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>
                     ⚠️ Stima indicativa a scopo informativo, non diagnostico. I valori reali variano in base a metabolismo, idratazione e altri fattori individuali.
@@ -2755,33 +2748,9 @@ export default function FeedPage() {
                     : <><strong style={{ color: 'var(--secondary)' }}>Curva storica di questa singola sessione.</strong> Il BAC mostrato rappresenta il picco stimato al termine della sessione, non adesso. (L&apos;alcol è già smaltito.)</>}
                 </p>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', padding: '10px 0' }}>
-                <div style={{ position: 'absolute', top: '24px', left: '20px', right: '20px', height: '3px', background: 'linear-gradient(90deg, var(--success) 0%, var(--primary) 50%, var(--error) 100%)', zIndex: 1 }} />
-                
-                {bacTimeline.map((pt, idx) => (
-                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, flex: 1 }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600' }}>{pt.label}</span>
-                    <div style={{ 
-                      width: '18px', 
-                      height: '18px', 
-                      borderRadius: '50%', 
-                      background: pt.val > 0.8 ? 'var(--error)' : pt.val > 0.5 ? 'var(--primary)' : 'var(--success)', 
-                      border: '3px solid #000',
-                      boxShadow: '0 0 10px rgba(255, 32, 0,0.5)',
-                      marginTop: '6px',
-                      marginBottom: '6px'
-                    }} />
-                    <span style={{ fontSize: '12px', fontWeight: '800', color: pt.val > 0.5 ? 'var(--primary)' : '#FFF' }}>
-                      {pt.val.toFixed(2)} <span style={{ fontSize: '9px', fontWeight: 'normal', color: 'var(--text-dark-secondary)' }}>g/l</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '8px' }}>
-                <span>Inizio (Sobrio)</span>
-                <span>Fase di Salita</span>
-                <span>Fine Sforzo (Smaltimento fegato)</span>
-              </div>
+              {bacCurve
+                ? <BacCurve curve={bacCurve} height={170} />
+                : <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', margin: '8px 0' }}>Nessun drink registrato in questa sessione.</p>}
             </div>
 
             {/* SEZIONE MAPPA / INTEGRAZIONE LOCALE */}
@@ -3003,6 +2972,27 @@ export default function FeedPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Azioni proprietario: modifica/elimina la sessione anche dallo storico */}
+            {currentUser && selectedActivity.user_id === currentUser.id && (
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '25px' }}>
+                <button
+                  type="button"
+                  onClick={() => { handleEditActivity(selectedActivity); setSelectedActivity(null); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700 }}
+                >
+                  <Edit size={15} /> Modifica sessione
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteActivity(selectedActivity.id)}
+                  style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700, background: 'rgba(239,68,68,0.12)', border: '1px solid var(--error)', color: '#FF7D7D', borderRadius: 'var(--radius)', cursor: 'pointer' }}
+                >
+                  <Trash2 size={15} /> Elimina
+                </button>
               </div>
             )}
 
