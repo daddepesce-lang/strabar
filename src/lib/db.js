@@ -302,6 +302,18 @@ export const db = {
   },
 
   // --- ACTIVITIES (BEVUTE) ---
+  // Colonne di lista delle sessioni (SENZA `media`, vedi nota in getActivities), MA con
+  // `residual_grams`: serve a far vedere a tutti lo stesso BAC live. `_selectSessions`
+  // include la colonna e, se il DB non l'ha ancora migrata, riprova senza (niente crash).
+  _SESSION_LIST_COLS: 'id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, residual_grams, created_at',
+  async _selectSessions(buildQuery) {
+    let res = await buildQuery(this._SESSION_LIST_COLS);
+    if (res.error && /residual_grams/i.test(res.error.message || '')) {
+      res = await buildQuery(this._SESSION_LIST_COLS.replace(', residual_grams', ''));
+    }
+    return res;
+  },
+
   // Feed: supporta la PAGINAZIONE. Senza argomenti scarica tutto (retro-compatibile
   // per aggregazioni come classifiche/luoghi); con { limit } scarica solo una pagina,
   // così il feed non legge più l'intera tabella ad ogni apertura.
@@ -311,18 +323,19 @@ export const db = {
       // essere salvate come base64 (megabyte) quando lo Storage non è disponibile, e
       // `select *` le scaricava tutte ad ogni apertura del feed → caricamento eterno.
       // Le foto si caricano solo aprendo il singolo post (getActivity).
-      const SESSION_LIST_COLS = 'id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, created_at';
-      let query = supabase
-        .from('sessions')
-        .select(`
-          ${SESSION_LIST_COLS},
-          profiles(username, display_name, avatar_url, weight, sex),
-          cheers(user_id),
-          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
-        `)
-        .order('created_at', { ascending: false });
-      if (limit != null) query = query.range(offset, offset + limit - 1);
-      const { data, error } = await query;
+      const { data, error } = await this._selectSessions((cols) => {
+        let query = supabase
+          .from('sessions')
+          .select(`
+            ${cols},
+            profiles(username, display_name, avatar_url, weight, sex),
+            cheers(user_id),
+            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
+          `)
+          .order('created_at', { ascending: false });
+        if (limit != null) query = query.range(offset, offset + limit - 1);
+        return query;
+      });
       if (error) throw error;
 
       return data.map(act => ({
@@ -1117,6 +1130,37 @@ export const db = {
     return this.residualGramsAtTime(recent, createdAtISO, weight, sex);
   },
 
+  // BACKFILL: congela il residuo sulle sessioni recenti dell'utente che ne sono prive
+  // (vecchie o ancora in corso, create prima dell'introduzione del campo). Così anche
+  // le live già avviate diventano coerenti per chi le guarda. RLS-safe: aggiorna SOLO
+  // le proprie righe. Best-effort: se la colonna non è ancora migrata, esce senza errori.
+  async backfillResidualGrams(hoursBack = 12) {
+    if (!isSupabaseConfigured) return 0;
+    const user = await this.getCurrentUser();
+    if (!user) return 0;
+    const since = new Date(Date.now() - hoursBack * 3600000).toISOString();
+    let rows = [];
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('id, created_at')
+        .eq('user_id', user.id)
+        .gte('created_at', since)
+        .is('residual_grams', null);
+      if (error) return 0; // colonna non migrata (o altro) → niente backfill
+      rows = data || [];
+    } catch { return 0; }
+    let updated = 0;
+    for (const r of rows) {
+      try {
+        const grams = await this._computeResidualForNewSession(user.id, r.created_at);
+        const { error } = await supabase.from('sessions').update({ residual_grams: grams }).eq('id', r.id);
+        if (!error) updated++;
+      } catch { /* ignora la singola riga */ }
+    }
+    return updated;
+  },
+
   // Coefficiente di distribuzione di Widmark in base al sesso (uomo ~0.68, donna ~0.55).
   _isFemale(sex) {
     const s = (sex || '').toString().toLowerCase();
@@ -1438,17 +1482,19 @@ export const db = {
   async getUserActivities(userId) {
     if (!userId) return [];
     if (isSupabaseConfigured) {
-      // Senza `media` (vedi nota in getActivities): le statistiche/profilo non ne hanno bisogno.
-      const { data, error } = await supabase
-        .from('sessions')
-        .select(`
-          id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, created_at,
-          profiles(username, display_name, avatar_url, weight, sex),
-          cheers(user_id),
-          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      // Senza `media` (vedi nota in getActivities); con residual_grams via _selectSessions.
+      const { data, error } = await this._selectSessions((cols) =>
+        supabase
+          .from('sessions')
+          .select(`
+            ${cols},
+            profiles(username, display_name, avatar_url, weight, sex),
+            cheers(user_id),
+            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+      );
       if (error) throw error;
       return (data || []).map(act => ({
         ...act,

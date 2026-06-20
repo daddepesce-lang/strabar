@@ -161,6 +161,18 @@ export default function FeedPage() {
         if (typeof db.getAllProfiles === 'function') db.getAllProfiles().then(setProfilesList).catch(() => {});
         if (typeof db.getUserActivities === 'function') db.getUserActivities(user.id).then(setMyActivities).catch(() => {});
         if (typeof db.getTopDrinkers === 'function') db.getTopDrinkers(5).then(setTopDrinkers).catch(() => {});
+
+        // Backfill una-tantum: congela il residuo sulle MIE sessioni recenti che ne sono
+        // prive (vecchie o live già in corso). Dopo, ricarico così il valore compare
+        // anche per chi guarda. RLS-safe e silenzioso se la colonna non è ancora migrata.
+        if (typeof db.backfillResidualGrams === 'function') {
+          db.backfillResidualGrams().then((n) => {
+            if (n > 0) {
+              db.getUserActivities(user.id).then(setMyActivities).catch(() => {});
+              db.getActivities({ limit: FEED_PAGE_SIZE }).then(setActivities).catch(() => {});
+            }
+          }).catch(() => {});
+        }
       }
     } catch (err) {
       console.error("Errore nel caricamento del feed:", err);
