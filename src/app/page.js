@@ -485,9 +485,10 @@ export default function FeedPage() {
         abv: preset.abv,
         units: preset.units,
         qty: 1,
-        added_at: nowStr
+        added_at: nowStr,
+        added_times: [nowStr]
       };
-      
+
       // IMPORTANTE: rileggi sempre la sessione fresca dal DB per evitare stato stale
       const freshAct = typeof db.getActivity === 'function'
         ? await db.getActivity(selectedActivity.id)
@@ -501,15 +502,10 @@ export default function FeedPage() {
         baseActivity.duration || 120
       );
 
-      // Se lo stesso drink è già presente, incrementa la quantità invece di aggiungere una riga
-      const dupIdx = existingDrinks.findIndex((d) => d.name === newDrink.name);
-      let updatedDrinks;
-      if (dupIdx >= 0) {
-        updatedDrinks = [...existingDrinks];
-        updatedDrinks[dupIdx] = { ...updatedDrinks[dupIdx], qty: (updatedDrinks[dupIdx].qty || 1) + 1 };
-      } else {
-        updatedDrinks = [...existingDrinks, newDrink];
-      }
+      // existingDrinks è già espanso in unità con orario distinto: aggiungiamo la nuova
+      // unità con il suo orario (così la curva fa lo scalino). Il display raggruppa per
+      // nome con groupDrinks(), quindi non serve più accorpare qui sul campo qty.
+      const updatedDrinks = [...existingDrinks, newDrink];
       
       // Nuova somma delle unità
       const newTotalUnits = updatedDrinks.reduce((acc, d) => acc + (d.units * (d.qty || 1)), 0);
@@ -578,7 +574,8 @@ export default function FeedPage() {
         abv: preset.abv,
         units: preset.units,
         qty: 1,
-        added_at: nowStr
+        added_at: nowStr,
+        added_times: [nowStr]
       };
 
       // IMPORTANTE: rileggi sempre la sessione fresca dal DB per evitare
@@ -617,12 +614,17 @@ export default function FeedPage() {
         }
       }
 
-      // Stesso drink già presente → +1 quantità invece di una nuova riga
+      // Stesso drink già presente → +1 quantità, ma REGISTRA anche l'orario di questa
+      // aggiunta in added_times (così la curva fa lo scalino come per drink diversi).
       const dupIdx = currentDrinks.findIndex((d) => d.name === newDrink.name);
       let updatedDrinks;
       if (dupIdx >= 0) {
         updatedDrinks = [...currentDrinks];
-        updatedDrinks[dupIdx] = { ...updatedDrinks[dupIdx], qty: (updatedDrinks[dupIdx].qty || 1) + 1 };
+        const ex = updatedDrinks[dupIdx];
+        const exTimes = Array.isArray(ex.added_times) && ex.added_times.length > 0
+          ? ex.added_times
+          : (ex.added_at ? [ex.added_at] : []);
+        updatedDrinks[dupIdx] = { ...ex, qty: (ex.qty || 1) + 1, added_times: [...exTimes, nowStr] };
       } else {
         updatedDrinks = [...currentDrinks, newDrink];
       }
@@ -676,6 +678,10 @@ export default function FeedPage() {
       const row = { ...drinks[idx] };
       if ((row.qty || 1) > 1) {
         row.qty = row.qty - 1;
+        // Tieni allineati gli orari delle singole aggiunte (rimuovi l'ultimo).
+        if (Array.isArray(row.added_times) && row.added_times.length > 0) {
+          row.added_times = row.added_times.slice(0, -1);
+        }
         drinks[idx] = row;
       } else {
         drinks.splice(idx, 1);

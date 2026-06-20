@@ -1051,8 +1051,20 @@ export const db = {
     const startTime = new Date(created_at || Date.now());
     const durMs = (durationMinutes || 120) * 60 * 1000;
 
-    // Drink con timestamp esplicito (live) → restituiti così come sono.
-    const withTs = drinks.filter(d => d.added_at);
+    // Drink con timestamp esplicito (live). Se lo stesso drink è stato aggiunto più
+    // volte, `added_times` contiene l'orario di OGNI aggiunta: lo espandiamo in una
+    // unità per ciascun orario reale, così la curva fa uno "scalino" a ogni drink
+    // (anche se è lo stesso tipo). Dati vecchi senza `added_times` → invariati.
+    const withTs = [];
+    drinks.forEach(d => {
+      if (!d.added_at) return;
+      const times = Array.isArray(d.added_times) && d.added_times.length > 0 ? d.added_times : null;
+      if (times) {
+        times.forEach(t => withTs.push({ ...d, qty: 1, added_at: t, added_times: undefined }));
+      } else {
+        withTs.push(d);
+      }
+    });
 
     // Drink senza timestamp → espandiamo per qty (ogni unità = uno slot separato)
     // così 2 birre sono distribuite esattamente come 1 birra + 1 spritz.
@@ -1304,11 +1316,22 @@ export const db = {
       series.push({ t: T, val: Math.max(0, parseFloat(bacAt(T).toFixed(3))) });
     }
     const fmt = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Orario in cui, in DISCESA, si scende sotto il limite legale di 0,5 g/l
+    // (solo se il picco l'ha superato). Utile per sapere "da che ora potrei guidare".
+    let belowLimit = null;
+    if (peakV >= 0.5) {
+      for (let T = peakT; T <= endT; T += stepFine) {
+        if (bacAt(T) < 0.5) { belowLimit = { t: T, label: fmt(T) }; break; }
+      }
+    }
+
     return {
       series,
       start: startTime,
       end: endT,
       peak: { t: peakT, val: Math.max(0, parseFloat(peakV.toFixed(2))), label: fmt(peakT) },
+      belowLimit,
       startLabel: fmt(startTime),
       endLabel: fmt(endT),
     };
