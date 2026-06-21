@@ -37,7 +37,7 @@ export default function LogActivityPage() {
 
   // Visibilità della sessione live: chi la vede nel feed e sul radar mentre bevi.
   // 'private' = nascosta a tutti finché è live (riappare nel feed solo a chiusura).
-  const [liveShare, setLiveShare] = useState('friends'); // 'private' | 'friends' | 'public'
+  const [liveShare, setLiveShare] = useState('public'); // 'private' | 'friends' | 'public'
   const [fullStomach, setFullStomach] = useState(false); // stomaco pieno → BAC più preciso
 
   // Stati per registrazione a posteriori

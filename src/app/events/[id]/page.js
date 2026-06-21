@@ -57,7 +57,7 @@ export default function EventDetailPage({ params }) {
   const [copied, setCopied] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
   const [responding, setResponding] = useState(false);
-  const [eventShare, setEventShare] = useState('friends'); // privacy della sessione avviata dall'evento
+  const [eventShare, setEventShare] = useState('public'); // privacy della sessione avviata dall'evento
 
   // Modifica evento (solo organizzatore)
   const [showEdit, setShowEdit] = useState(false);

@@ -14,7 +14,7 @@ export default function RoutesPage() {
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [activeWaypointIndex, setActiveWaypointIndex] = useState(null);
   const [tourTarget, setTourTarget] = useState(2); // drink-target per tappa
-  const [tourVisibility, setTourVisibility] = useState('friends'); // private | friends | public
+  const [tourVisibility, setTourVisibility] = useState('public'); // private | friends | public
   const [startingTour, setStartingTour] = useState(false);
   const [loading, setLoading] = useState(true);
 

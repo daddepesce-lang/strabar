@@ -3238,7 +3238,7 @@ export default function FeedPage() {
                   ].map(({ k, l }) => (
                     <div
                       key={k}
-                      className={`seg-tab ${(editingActivity.location?.share || 'friends') === k ? 'active' : ''}`}
+                      className={`seg-tab ${(editingActivity.location?.share || 'public') === k ? 'active' : ''}`}
                       onClick={() => setEditingActivity((prev) => ({ ...prev, location: { ...(prev.location || { name: prev.location?.name || 'Sessione Libera' }), share: k } }))}
                     >
                       {l}
