@@ -1810,6 +1810,7 @@ export const db = {
       // comparire tra i locali/classifiche.
       if (typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
       if (loc.freeform) return;
+      if (loc.share === 'private') return; // sessione privata: esclusa dalle classifiche pubbliche
       const key = this.normalizePlaceKey(loc.name);
       if (!map[key]) {
         map[key] = {
@@ -1840,8 +1841,10 @@ export const db = {
     return Object.values(map)
       .map((p) => {
         const drinkers = Object.values(p.drinkers);
-        let legend = { name: 'Nessuno', count: 0 };
-        drinkers.forEach((d) => { if (d.count > legend.count) legend = d; });
+        // Leggenda del Locale = chi ha consumato più U.A. totali (metrica unica, usata
+        // ovunque: pagina locali, dettaglio sessione, evento → niente più incoerenze).
+        let legend = { name: 'Nessuno', count: 0, units: 0 };
+        drinkers.forEach((d) => { if (d.units > legend.units) legend = d; });
         const placeReviews = reviews.filter((r) => r.place_key === p.key);
         const avgRating = placeReviews.length
           ? placeReviews.reduce((a, r) => a + r.rating, 0) / placeReviews.length
@@ -2063,10 +2066,20 @@ export const db = {
   },
 
   // Classifica atleti per un singolo locale (visite + unità alcoliche)
+  // Una sessione conta per le classifiche PUBBLICHE del locale se è a un locale reale
+  // (coordinate, verificato, non libero) e NON è privata. Le relazioni di chi guarda
+  // non contano: la classifica è la stessa per tutti (la RLS lascia leggere tutto).
+  _countsForVenue(a) {
+    const loc = a && a.location;
+    return !!(loc && loc.name && !loc.freeform && !loc.unverified &&
+      typeof loc.lat === 'number' && typeof loc.lng === 'number' &&
+      loc.share !== 'private');
+  },
+
   async getPlaceLeaderboard(placeKey) {
     const activities = await this.getActivities();
     const sessions = activities.filter(
-      (a) => a.location && !a.location.unverified && this.normalizePlaceKey(a.location.name) === placeKey
+      (a) => this._countsForVenue(a) && this.normalizePlaceKey(a.location.name) === placeKey
     );
     const byUser = {};
     sessions.forEach((s) => {
@@ -2077,6 +2090,43 @@ export const db = {
       byUser[uid].units += parseFloat(s.total_units || 0);
     });
     return Object.values(byUser).map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }));
+  },
+
+  // FONTE UNICA della "Classifica del Locale" mostrata nel dettaglio sessione e altrove.
+  // Su DATI COMPLETI (non sul feed troncato/filtrato per spettatore) ed escludendo le
+  // sessioni private. Ritorna: classifica U.A. per utente, record BAC per sessione,
+  // e la Leggenda (= #1 per U.A. totali). Stesso identico risultato per chiunque guardi.
+  async getVenueBoard(placeKey) {
+    if (!placeKey) return { sessionsCount: 0, legend: { name: 'Nessuno', units: 0, visits: 0 }, byUnits: [], topBac: [] };
+    const activities = await this.getActivities();
+    const sessions = activities.filter(
+      (a) => this._countsForVenue(a) && this.normalizePlaceKey(a.location.name) === placeKey
+    );
+    const byUser = {};
+    sessions.forEach((s) => {
+      const uid = s.user_id;
+      const name = s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar';
+      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0 };
+      byUser[uid].visits += 1;
+      byUser[uid].units += parseFloat(s.total_units || 0);
+    });
+    const byUnits = Object.values(byUser)
+      .map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }))
+      .sort((a, b) => b.units - a.units || b.visits - a.visits);
+    const topBac = sessions
+      .map((s) => ({
+        name: s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar',
+        bac: this.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex),
+      }))
+      .sort((a, b) => b.bac - a.bac)
+      .slice(0, 3);
+    return {
+      key: placeKey,
+      sessionsCount: sessions.length,
+      legend: byUnits[0] || { name: 'Nessuno', units: 0, visits: 0 },
+      byUnits: byUnits.slice(0, 3),
+      topBac,
+    };
   },
 
   // Classifica globale degli atleti Strabar (per U.A. totali, sessioni, drink, locali)

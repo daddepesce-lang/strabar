@@ -291,7 +291,7 @@ export default function ClassifichePage() {
       db.getPlaceLeaderboard(place.key),
       db.getPlaceReviews(place.key),
     ]);
-    setLeaderboard(lb.sort((a, b) => b.visits - a.visits || b.units - a.units));
+    setLeaderboard(lb.sort((a, b) => b.units - a.units || b.visits - a.visits));
     setReviews(rv);
     setNewRating(5);
     setNewReview('');
@@ -513,9 +513,9 @@ export default function ClassifichePage() {
                     </div>
                   </div>
 
-                  {place.localLegend && place.localLegend.count > 0 && (
+                  {place.localLegend && place.localLegend.units > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--secondary)' }}>
-                      <Crown size={14} /> Leggenda del Locale: <strong>{place.localLegend.name}</strong> ({place.localLegend.count} visite)
+                      <Crown size={14} /> Leggenda del Locale: <strong>{place.localLegend.name}</strong> ({place.localLegend.units.toFixed(1)} U.A.)
                     </div>
                   )}
                 </button>
@@ -578,8 +578,8 @@ export default function ClassifichePage() {
                     <Link href={`/u/${u.user_id}`} onClick={() => setSelected(null)} style={{ fontWeight: 600, fontSize: '14px', color: '#FFF' }}>{u.name}</Link>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <strong style={{ color: 'var(--primary)', fontSize: '14px' }}>{u.visits} visite</strong>
-                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--secondary)' }}>{u.units} U.A.</span>
+                    <strong style={{ color: 'var(--secondary)', fontSize: '14px' }}>{u.units} U.A.</strong>
+                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{u.visits} visite</span>
                   </div>
                 </div>
               ))}

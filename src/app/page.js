@@ -62,6 +62,7 @@ export default function FeedPage() {
   const [newCommentText, setNewCommentText] = useState({});
   const [activeCommentsSection, setActiveCommentsSection] = useState({});
   const [selectedActivity, setSelectedActivity] = useState(null);
+  const [venueBoard, setVenueBoard] = useState(null); // classifica del locale (dati completi)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   // Nuovi stati per il paradigma Live Session e Slideshow Feed
@@ -115,6 +116,21 @@ export default function FeedPage() {
       }
     } catch { /* noop */ }
   };
+
+  // Classifica del Locale per il dettaglio: caricata su DATI COMPLETI (non sul feed
+  // troncato) ed escludendo le sessioni private. Così la Leggenda è UGUALE per tutti
+  // e coincide con la classifica della pagina Locali.
+  useEffect(() => {
+    const loc = selectedActivity?.location;
+    const isVenue = !!(loc && loc.name && !loc.freeform && !loc.unverified && typeof loc.lat === 'number' && typeof loc.lng === 'number');
+    if (!isVenue || typeof db.getVenueBoard !== 'function') { setVenueBoard(null); return; }
+    let cancelled = false;
+    db.getVenueBoard(db.normalizePlaceKey(loc.name))
+      .then((b) => { if (!cancelled) setVenueBoard(b); })
+      .catch(() => { if (!cancelled) setVenueBoard(null); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedActivity?.id]);
 
   const triggerLocalNotification = (title, body) => {
     // Usa il service worker quando disponibile (necessario per le PWA mobile)
@@ -1519,7 +1535,6 @@ export default function FeedPage() {
   // Dynamic variables for selected activity modal
   let totalU = 0;
   let derivedBac = 0;
-  let barSessions = [];
   let localLegend = { name: "Nessuno", count: 0 };
   let topUnitsLeaderboard = [];
   let topBacLeaderboard = [];
@@ -1548,45 +1563,16 @@ export default function FeedPage() {
     // le sessioni libere/non verificate non sono locali → niente classifica/legenda.
     const loc = selectedActivity.location;
     isRealVenue = !!(loc && loc.name && !loc.freeform && !loc.unverified && typeof loc.lat === 'number' && typeof loc.lng === 'number');
-    if (isRealVenue) {
-      const locNameNormalized = loc.name.trim().toLowerCase();
-      barSessions = activities.filter(act =>
-        act.location &&
-        act.location.name &&
-        !act.location.freeform &&
-        !act.location.unverified &&
-        act.location.name.trim().toLowerCase() === locNameNormalized
-      );
-
-      // Aggrega U.A. per utente (somma di tutte le sessioni al locale)
-      const userUnits = {};
-      barSessions.forEach(s => {
-        const uId = s.user_id;
-        const name = s.profiles?.display_name || s.profiles?.username || "Atleta Strabar";
-        if (!userUnits[uId]) userUnits[uId] = { name, totalUnits: 0 };
-        userUnits[uId].totalUnits += parseFloat(s.total_units || 0);
-      });
-
-      // Classifica U.A. aggregata per utente (stessa persona non compare 2 volte)
-      topUnitsLeaderboard = Object.values(userUnits)
-        .map(u => ({ name: u.name, totalUnits: parseFloat(u.totalUnits.toFixed(1)) }))
-        .sort((a, b) => b.totalUnits - a.totalUnits)
-        .slice(0, 3);
-
-      // Leggenda = #1 della classifica (allineati)
-      if (topUnitsLeaderboard.length > 0) {
-        localLegend = topUnitsLeaderboard[0];
-      }
-
-      // Top BAC (Tasso Alcolico Record in una singola sessione) = BAC di picco,
-      // calcolato sempre allo stesso modo della card/dettaglio per coerenza.
-      topBacLeaderboard = [...barSessions]
-        .map(s => ({
-          name: s.profiles?.display_name || s.profiles?.username || "Atleta Strabar",
-          bac: db.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex)
-        }))
-        .sort((a, b) => b.bac - a.bac)
-        .slice(0, 3);
+    if (isRealVenue && venueBoard && venueBoard.key === db.normalizePlaceKey(loc.name)) {
+      // Classifiche da DATI COMPLETI (venueBoard), uguali per tutti, private escluse.
+      // U.A. per utente (la stessa persona non compare due volte).
+      topUnitsLeaderboard = (venueBoard.byUnits || []).map(u => ({ name: u.name, totalUnits: u.units }));
+      // Leggenda = #1 per U.A. totali (metrica unica, coerente con la pagina Locali).
+      localLegend = venueBoard.legend?.name
+        ? { name: venueBoard.legend.name, totalUnits: venueBoard.legend.units }
+        : localLegend;
+      // Record BAC di picco per singola sessione.
+      topBacLeaderboard = venueBoard.topBac || [];
     }
 
     // Curva BAC reale basata sugli orari di aggiunta dei singoli drink (peso reale se disponibile)
