@@ -4,6 +4,7 @@ import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 import Footer from "@/components/Footer";
 import AgeGate from "@/components/AgeGate";
+import OnboardingGate from "@/components/OnboardingGate";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
@@ -51,6 +52,7 @@ export default function RootLayout({ children }) {
       <body>
         <ServiceWorkerRegister />
         <AgeGate />
+        <OnboardingGate />
         <PwaInstallBanner />
         <div className="app-container">
           <Navbar />

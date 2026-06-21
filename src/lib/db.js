@@ -236,15 +236,18 @@ export const db = {
     }
   },
 
-  async signup(email, password, displayName, username) {
+  async signup(email, password, displayName, username, consentVersion) {
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           data: {
             username: username,
-            display_name: displayName
+            display_name: displayName,
+            // Consenso GDPR a Termini/Privacy: il trigger handle_new_user lo registra
+            // sul profilo (consent_version + tos_accepted_at = ora del server).
+            consent_version: consentVersion || null
           }
         }
       });
@@ -766,6 +769,85 @@ export const db = {
       }
       return false;
     }
+  },
+
+  // Registra (o aggiorna) il consenso GDPR a Termini/Privacy sul profilo.
+  // Usato dal gate post-login per chi non l'ha dato alla registrazione
+  // (utenti pre-esistenti, accesso con Google che non passa dai metadati del trigger).
+  async recordConsent(userId, version) {
+    if (!userId) return false;
+    return this.updateProfile(userId, {
+      consent_version: version,
+      tos_accepted_at: new Date().toISOString(),
+    });
+  },
+
+  // GDPR — Portabilità (art. 20): raccoglie TUTTI i dati personali dell'utente
+  // in un unico oggetto (poi scaricato come JSON dalle impostazioni). Ogni query è
+  // protetta: se una tabella non esiste o fallisce, restituisce lista vuota.
+  async exportMyData(userId) {
+    if (!userId) throw new Error('Utente non valido.');
+    if (!isSupabaseConfigured) {
+      const profiles = getStored('sb_profiles');
+      return {
+        exported_at: new Date().toISOString(),
+        profile: profiles.find((p) => p.id === userId) || null,
+        sessions: (getStored('sb_activities') || []).filter((a) => a.user_id === userId),
+      };
+    }
+    const grab = async (q) => { try { const { data } = await q; return data || []; } catch { return []; } };
+    const profileRows = await grab(supabase.from('profiles').select('*').eq('id', userId));
+    const [sessions, routes, eventsHosted, eventResponses, comments, cheers, reviews, following, followers, notifications] = await Promise.all([
+      grab(supabase.from('sessions').select('*').eq('user_id', userId)),
+      grab(supabase.from('routes').select('*').eq('user_id', userId)),
+      grab(supabase.from('events').select('*').eq('host_id', userId)),
+      grab(supabase.from('event_responses').select('*').eq('user_id', userId)),
+      grab(supabase.from('comments').select('*').eq('user_id', userId)),
+      grab(supabase.from('cheers').select('*').eq('user_id', userId)),
+      grab(supabase.from('place_reviews').select('*').eq('user_id', userId)),
+      grab(supabase.from('follows').select('*').eq('follower_id', userId)),
+      grab(supabase.from('follows').select('*').eq('following_id', userId)),
+      grab(supabase.from('notifications').select('*').eq('user_id', userId)),
+    ]);
+    return {
+      exported_at: new Date().toISOString(),
+      profile: profileRows[0] || null,
+      sessions,
+      routes,
+      events_hosted: eventsHosted,
+      event_responses: eventResponses,
+      comments,
+      cheers,
+      place_reviews: reviews,
+      following,
+      followers,
+      notifications,
+    };
+  },
+
+  // GDPR — Diritto all'oblio (art. 17): elimina l'account e TUTTI i dati collegati.
+  // La cancellazione vera (auth.users + cascata) avviene lato server con la service
+  // role; qui chiamiamo la route protetta e poi chiudiamo la sessione locale.
+  async deleteMyAccount() {
+    if (!isSupabaseConfigured) {
+      const userRaw = typeof window !== 'undefined' ? localStorage.getItem('sb_current_user') : null;
+      const user = userRaw ? JSON.parse(userRaw) : null;
+      if (user) {
+        const profiles = getStored('sb_profiles').filter((p) => p.id !== user.id);
+        setStored('sb_profiles', profiles);
+        const acts = (getStored('sb_activities') || []).filter((a) => a.user_id !== user.id);
+        setStored('sb_activities', acts);
+        localStorage.removeItem('sb_current_user');
+      }
+      return true;
+    }
+    const res = await fetch('/api/account/delete', { method: 'POST' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Cancellazione non riuscita. Riprova più tardi.');
+    }
+    await supabase.auth.signOut().catch(() => {});
+    return true;
   },
 
   // --- CUSTOM DRINKS FOR WIDMARK CALCULATOR ---

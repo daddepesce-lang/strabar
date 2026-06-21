@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     avatar_url TEXT,
     is_premium BOOLEAN DEFAULT FALSE NOT NULL,
     weight SMALLINT,
+    consent_version TEXT,
+    tos_accepted_at TIMESTAMPTZ,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -31,12 +33,17 @@ ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, username, display_name, is_premium)
+    -- Registra il consenso a Termini/Privacy passato come metadato alla registrazione.
+    -- La data è impostata dal server (now()) — più affidabile dell'orologio del client —
+    -- e solo se è arrivata una versione di consenso (signup email/password con checkbox).
+    INSERT INTO public.profiles (id, username, display_name, is_premium, consent_version, tos_accepted_at)
     VALUES (
         new.id,
         COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
         COALESCE(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
-        FALSE
+        FALSE,
+        new.raw_user_meta_data->>'consent_version',
+        CASE WHEN new.raw_user_meta_data->>'consent_version' IS NOT NULL THEN NOW() ELSE NULL END
     )
     ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
@@ -70,8 +77,34 @@ CREATE TABLE IF NOT EXISTS public.sessions (
 );
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 
+-- PRIVACY REALE (applicata dal DB, non solo dall'interfaccia).
+-- Prima la policy era `USING (true)`: chiunque, con la sola anon key del bundle,
+-- poteva leggere TUTTE le sessioni via REST — incluse quelle "private"/"amici",
+-- con GPS e tasso. Il filtro lato client nascondeva i dati nell'UI ma non li
+-- proteggeva. Ora il DB applica la stessa logica di privacy:
+--   1) il proprietario vede sempre le proprie sessioni;
+--   2) le pubbliche (nessuna posizione, o share assente/='public') sono visibili a tutti;
+--   3) le "amici" solo a chi è collegato da un follow in QUALSIASI direzione;
+--   4) le "private" solo al proprietario (nessuna clausola le include per altri).
+-- Gli utenti non autenticati (anon, es. pagina di condivisione) vedono solo le pubbliche.
 DROP POLICY IF EXISTS "Le sessioni sono pubbliche" ON public.sessions;
-CREATE POLICY "Le sessioni sono pubbliche" ON public.sessions FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Sessioni: visibili secondo privacy" ON public.sessions;
+CREATE POLICY "Sessioni: visibili secondo privacy"
+ON public.sessions FOR SELECT USING (
+  auth.uid() = user_id
+  OR COALESCE(location->>'share', 'public') = 'public'
+  OR (
+    location->>'share' = 'friends'
+    AND EXISTS (
+      SELECT 1 FROM public.follows f
+      WHERE (f.follower_id = auth.uid() AND f.following_id = sessions.user_id)
+         OR (f.follower_id = sessions.user_id AND f.following_id = auth.uid())
+    )
+  )
+);
+
+-- Indice per rendere veloce il controllo "amici" (ramo following_id) della policy.
+CREATE INDEX IF NOT EXISTS idx_follows_following_id ON public.follows (following_id);
 
 DROP POLICY IF EXISTS "Gli utenti possono registrare nuove sessioni" ON public.sessions;
 CREATE POLICY "Gli utenti possono registrare nuove sessioni"
@@ -325,6 +358,12 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notif_prefs JSONB;
 
 -- MIGRAZIONE: mostrare il proprio tasso alcolico attuale sul profilo pubblico
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS show_bac_public BOOLEAN DEFAULT FALSE;
+
+-- MIGRAZIONE: consenso GDPR a Termini e Privacy (tracciabilità del consenso).
+-- consent_version = versione dei documenti accettati alla registrazione;
+-- tos_accepted_at = quando (impostato dal server nel trigger handle_new_user).
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS consent_version TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMPTZ;
 
 -- Ricarica la cache dello schema di PostgREST (Supabase) così le nuove colonne sono subito visibili
 NOTIFY pgrst, 'reload schema';

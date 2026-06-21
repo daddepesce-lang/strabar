@@ -43,6 +43,13 @@ export default function SettingsPage() {
   // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
   const [showBacPublic, setShowBacPublic] = useState(false);
 
+  // GDPR: esportazione dati (portabilità) e cancellazione account (oblio)
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dataMsg, setDataMsg] = useState('');
+  const [dataErr, setDataErr] = useState('');
+
   useEffect(() => {
     if (typeof db.isPushSubscribed === 'function') db.isPushSubscribed().then(setPushOn);
   }, []);
@@ -57,6 +64,41 @@ export default function SettingsPage() {
     const next = !showBacPublic;
     setShowBacPublic(next);
     try { await db.updateProfile(currentUser.id, { show_bac_public: next }); } catch (err) { console.error(err); }
+  };
+
+  const handleExportData = async () => {
+    if (!currentUser) return;
+    setExporting(true); setDataMsg(''); setDataErr('');
+    try {
+      const data = await db.exportMyData(currentUser.id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `strabar-dati-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setDataMsg('Esportazione completata: controlla i tuoi download.');
+    } catch (err) {
+      setDataErr(err.message || 'Esportazione non riuscita.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true); setDataErr('');
+    try {
+      await db.deleteMyAccount();
+      window.dispatchEvent(new Event('auth-change'));
+      router.push('/');
+      router.refresh();
+    } catch (err) {
+      setDataErr(err.message || 'Cancellazione non riuscita.');
+      setDeleting(false);
+    }
   };
 
   const togglePush = async () => {
@@ -323,6 +365,66 @@ export default function SettingsPage() {
             }} />
           </span>
         </button>
+      </div>
+
+      {/* GDPR: i tuoi dati (portabilità + diritto all'oblio) */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          🔐 I tuoi dati
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+          Puoi scaricare una copia di tutti i tuoi dati o eliminare definitivamente il tuo account.
+        </p>
+
+        {dataMsg && <p style={{ fontSize: '13px', color: '#6EE7B7', margin: 0 }}>{dataMsg}</p>}
+        {dataErr && <p style={{ fontSize: '13px', color: '#FF7D7D', margin: 0 }}>{dataErr}</p>}
+
+        <button
+          type="button"
+          onClick={handleExportData}
+          disabled={exporting}
+          className="btn btn-secondary"
+          style={{ width: '100%', justifyContent: 'center' }}
+        >
+          {exporting ? 'Esportazione...' : '⬇️ Scarica i miei dati (JSON)'}
+        </button>
+
+        <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px', marginTop: '2px' }}>
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => { setConfirmDelete(true); setDataErr(''); setDataMsg(''); }}
+              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'none', border: '1px solid var(--error)', color: '#FF7D7D', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              🗑️ Elimina il mio account
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ fontSize: '13px', color: '#FF7D7D', margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
+                Sei sicuro? L&apos;operazione è <strong>irreversibile</strong>: profilo, sessioni, percorsi, follow e commenti verranno eliminati per sempre.
+              </p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px', background: 'var(--error)', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {deleting ? 'Elimino...' : 'Elimina definitivamente'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

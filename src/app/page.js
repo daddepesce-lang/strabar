@@ -2969,12 +2969,7 @@ export default function FeedPage() {
                   Aggiungi un drink consumato adesso. La curva di ebbrezza e la durata della sessione verranno ricalcolate all&apos;orario corrente.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {[
-                    { name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
-                    { name: 'Birra Chiara Media', abv: 5, units: 1.6, label: '🍺 Birra' },
-                    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
-                    { name: 'Shot (Tequila/Rhum/Chupito)', abv: 40, units: 1.3, label: '🥃 Shot' }
-                  ].map((preset, pIdx) => (
+                  {QUICK_DRINKS.map((preset, pIdx) => (
                     <button
                       key={pIdx}
                       type="button"

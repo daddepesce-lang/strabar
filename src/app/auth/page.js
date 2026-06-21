@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { db } from '@/lib/db';
+import { CONSENT_VERSION } from '@/lib/consent';
 import { Beer, Mail, Lock, User, AtSign } from 'lucide-react';
 
 export default function AuthPage() {
@@ -12,6 +14,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,7 +69,10 @@ export default function AuthPage() {
         if (!displayName || !username) {
           throw new Error("Tutti i campi sono obbligatori per la registrazione!");
         }
-        const result = await db.signup(email, password, displayName, username);
+        if (!acceptedTerms) {
+          throw new Error("Per registrarti devi accettare i Termini di Servizio e la Privacy Policy.");
+        }
+        const result = await db.signup(email, password, displayName, username, CONSENT_VERSION);
 
         // Email di benvenuto (best-effort, via Resend) — non blocca la registrazione
         fetch('/api/welcome', {
@@ -194,7 +200,25 @@ export default function AuthPage() {
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px' }} disabled={loading}>
+          {!isLogin && (
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '20px', fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.5', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                required={!isLogin}
+                style={{ width: '18px', height: '18px', marginTop: '1px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer' }}
+              />
+              <span>
+                Ho letto e accetto i{' '}
+                <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Termini di Servizio</Link>
+                {' '}e la{' '}
+                <Link href="/privacy" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Privacy Policy</Link>.
+              </span>
+            </label>
+          )}
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px' }} disabled={loading || (!isLogin && !acceptedTerms)}>
             {loading ? 'Attendi...' : isLogin ? 'Accedi' : 'Crea Account'}
           </button>
 
@@ -217,6 +241,11 @@ export default function AuthPage() {
           type="button" 
           onClick={async () => {
             setError('');
+            // In registrazione, anche l'accesso con Google richiede il consenso a Termini/Privacy.
+            if (!isLogin && !acceptedTerms) {
+              setError("Per registrarti devi accettare i Termini di Servizio e la Privacy Policy.");
+              return;
+            }
             setLoading(true);
             try {
               await db.loginWithGoogle();

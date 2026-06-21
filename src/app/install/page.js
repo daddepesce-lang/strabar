@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Beer, Download, Share, Plus, Check, Wifi, Bell } from 'lucide-react';
+import { Download, Share, Plus, Check, Wifi, Bell } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 
 function isStandalone() {
@@ -50,9 +50,14 @@ export default function InstallPage() {
   return (
     <div style={{ maxWidth: '560px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px', textAlign: 'center' }}>
       <div>
-        <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '20px', borderRadius: '24px', color: 'var(--primary)', marginBottom: '16px' }}>
-          <Beer size={48} fill="var(--primary)" />
-        </div>
+        {/* Icona reale dell'app (la stessa che finisce sulla Home una volta installata) */}
+        <img
+          src="/icon-512.png"
+          alt="Strabar"
+          width={96}
+          height={96}
+          style={{ borderRadius: '22px', marginBottom: '16px', boxShadow: '0 10px 28px rgba(255, 32, 0,0.28)' }}
+        />
         <h1 style={{ fontSize: '30px', fontWeight: 900 }}>Installa Strabar 🍻</h1>
         <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '8px', lineHeight: 1.5 }}>
           Aggiungi Strabar alla schermata Home: si apre come una vera app, a schermo intero, con notifiche e supporto offline.

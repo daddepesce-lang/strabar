@@ -45,7 +45,11 @@ body {
   color: var(--text-dark-primary);
   font-family: var(--font-sans);
   min-height: 100vh;
-  overflow-x: hidden;
+  /* `clip` e NON `hidden`: con `hidden` il browser calcola overflow-y:auto e il
+     body diventa uno scroll container, facendo "staccare" dal fondo le barre
+     position:fixed (il bottom-nav) su alcuni telefoni/PWA. `clip` blocca solo lo
+     scroll orizzontale lasciando il body NON scrollabile → fixed àncorato al viewport. */
+  overflow-x: clip;
   /* Comfort mobile: niente flash blu al tap, niente zoom involontario del testo */
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
