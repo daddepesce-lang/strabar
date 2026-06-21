@@ -1284,14 +1284,12 @@ export const db = {
   // Grammi di alcol puro stimati per un drink (quantità inclusa).
   // 1 U.A. = 12 g → Unità Alcolica italiana ufficiale (ISS / Ministero della Salute).
   // GRAMS_PER_UNIT sostituisce il vecchio 8 g (standard UK) che sottostimava ~33%.
-  // CONSERVATIVE_FACTOR (+10%) = margine prudenziale: per il BAC è più sicuro
-  // sovrastimare che sottostimare. `units` assente → default 1.3 U.A.
+  // `units` assente → default 1.3 U.A.
   // Vale per QUALSIASI drink del catalogo (usa il suo campo `units`), non un caso singolo.
   GRAMS_PER_UNIT: 12,
-  CONSERVATIVE_FACTOR: 1.10,
   _drinkGrams(d) {
     const units = Number.isFinite(d.units) ? d.units : 1.3;
-    return units * (d.qty || 1) * this.GRAMS_PER_UNIT * this.CONSERVATIVE_FACTOR;
+    return units * (d.qty || 1) * this.GRAMS_PER_UNIT;
   },
 
   // FONTE DI VERITÀ UNICA: grammi NETTI di alcol in circolo a un dato istante.

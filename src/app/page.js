@@ -2741,7 +2741,7 @@ export default function FeedPage() {
                   </div>
                   <strong style={{ color: '#FFF', display: 'block', marginBottom: '4px' }}>Dati usati per il calcolo:</strong>
                   <ul style={{ margin: '0 0 8px 0', paddingLeft: '16px' }}>
-                    <li><strong style={{ color: '#FFF' }}>Drink registrati</strong> — tipo, gradazione (ABV%) e Unità Alcoliche (U.A.). 1 U.A. = 12 g di alcol puro (standard italiano), con un margine prudenziale del +10% (meglio sovrastimare che sottostimare). I drink vengono distribuiti uniformemente nell&apos;arco della sessione.</li>
+                    <li><strong style={{ color: '#FFF' }}>Drink registrati</strong> — tipo, gradazione (ABV%) e Unità Alcoliche (U.A.). 1 U.A. = 12 g di alcol puro (standard italiano). I drink vengono distribuiti uniformemente nell&apos;arco della sessione.</li>
                     <li><strong style={{ color: '#FFF' }}>Peso corporeo</strong> — dal tuo profilo (default: 70 kg se non impostato). Più pesi, più il BAC si diluisce.</li>
                     <li><strong style={{ color: '#FFF' }}>Sesso biologico</strong> — dal profilo. Il coefficiente r di Widmark è 0,68 (uomo) o 0,55 (donna); la velocità di smaltimento β è 0,17 g/l/h (uomo) o 0,14 g/l/h (donna).</li>
                     <li><strong style={{ color: '#FFF' }}>Stomaco pieno o vuoto</strong> — cambia la velocità di assorbimento. A stomaco vuoto il picco arriva prima (≈30–40 min); a stomaco pieno più tardi (≈75–90 min).</li>
