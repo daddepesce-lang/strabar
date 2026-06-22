@@ -181,6 +181,14 @@ export default function LogActivityPage() {
       setIsAppendingToSession(true);
       openVenueSelector();
     }
+    // Deep-link da notifica "tag in live": avvia la sessione nello STESSO locale
+    // (?venue=&lat=&lng=). Si verifica comunque la posizione GPS per le classifiche.
+    const venueName = urlParams.get('venue');
+    const vLat = parseFloat(urlParams.get('lat'));
+    const vLng = parseFloat(urlParams.get('lng'));
+    if (venueName && Number.isFinite(vLat) && Number.isFinite(vLng)) {
+      startFromTag({ name: venueName, lat: vLat, lng: vLng });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -458,6 +466,22 @@ export default function LogActivityPage() {
       alert("Errore nell'avvio della sessione: " + (err.message || err));
       setCheckingGps(false);
     }
+  };
+
+  // Avvio da deep-link "tag in live": il locale è già noto (dal taggatore). Verifichiamo il GPS
+  // per capire se l'utente è davvero sul posto; in caso contrario parte "non verificata" (non
+  // conta per le classifiche), gestito da startSessionAtVenue tramite la distanza.
+  const startFromTag = async (venue) => {
+    if (activeSession) {
+      alert('Hai già una sessione live attiva. Chiudila prima di avviarne un\'altra.');
+      return;
+    }
+    const loc = await requestUserLocation();
+    const distance = loc.coords && typeof db.checkGeofencing === 'function'
+      ? db.checkGeofencing(venue.lat, venue.lng, loc.coords.lat, loc.coords.lng, Infinity).distance
+      : 999999; // GPS non disponibile → trattata come "lontano" (non verificata)
+    setUserCoords(loc.coords || null);
+    startSessionAtVenue({ name: venue.name, lat: venue.lat, lng: venue.lng, distance });
   };
 
   // Avvia sessione da locale inserito manualmente.

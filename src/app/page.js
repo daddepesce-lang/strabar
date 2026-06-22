@@ -783,6 +783,12 @@ export default function FeedPage() {
     setFriendResults([]);
     try {
       await db.updateActivity(activeSession.id, { drank_with: updated });
+      // Se ho taggato un utente reale (@username), avvisalo: può aprire la SUA sessione
+      // nello stesso luogo (link con il locale; conta per la classifica se è sul posto).
+      const m = String(value).match(/\(@([\w-]+)\)/);
+      if (m && m[1] && currentUser && typeof db._notifyTaggedCompanions === 'function') {
+        db._notifyTaggedCompanions(currentUser, { ...activeSession, drank_with: updated }, [m[1]]).catch(() => {});
+      }
     } catch (err) {
       console.error('Errore nel taggare il compagno:', err);
       alert('Impossibile aggiungere il compagno: ' + (err.message || err));

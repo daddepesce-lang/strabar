@@ -15,6 +15,29 @@ export default function NotificationsAdmin() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [form, setForm] = useState({ title: '', message: '', link: '', target: 'all', scheduledAt: '' });
+  const [cfg, setCfg] = useState(null);
+  const [cfgMsg, setCfgMsg] = useState('');
+
+  const loadConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/config', { cache: 'no-store' });
+      const j = await res.json();
+      setCfg(j.config || { push_reminder_enabled: true, push_reminder_every: 3 });
+    } catch { setCfg({ push_reminder_enabled: true, push_reminder_every: 3 }); }
+  };
+  const saveConfig = async (patch) => {
+    setCfgMsg('');
+    const next = { ...cfg, ...patch };
+    setCfg(next);
+    try {
+      const res = await fetch('/api/admin/config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+      const j = await res.json();
+      if (!res.ok) { setCfgMsg('Errore: ' + (j.error || '')); return; }
+      setCfg(j.config); setCfgMsg('Salvato ✅');
+      setTimeout(() => setCfgMsg(''), 2000);
+    } catch (err) { setCfgMsg('Errore: ' + (err.message || err)); }
+  };
+  useEffect(() => { loadConfig(); }, []);
 
   const load = async () => {
     setLoading(true);
@@ -56,6 +79,39 @@ export default function NotificationsAdmin() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Promemoria "attiva le notifiche" */}
+      <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+          <Bell size={17} color="var(--secondary)" /> Promemoria attivazione notifiche
+        </h3>
+        <p style={{ fontSize: 12, color: 'var(--text-dark-secondary)', margin: 0 }}>
+          Agli utenti che NON hanno attivato le notifiche, ogni tot aperture dell&apos;app mostriamo un invito ad attivarle.
+          Il controllo avviene sul dispositivo (costo Supabase ~zero). L&apos;utente può scegliere di non vederli più.
+        </p>
+        {!cfg ? (
+          <div style={{ color: 'var(--text-dark-secondary)' }}><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> Carico…</div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => saveConfig({ push_reminder_enabled: !cfg.push_reminder_enabled })}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', color: '#FFF', fontSize: 13, fontWeight: 600 }}>
+              <span>Promemoria {cfg.push_reminder_enabled ? 'attivi' : 'disattivati'}</span>
+              <span style={{ width: 44, height: 24, borderRadius: 12, position: 'relative', background: cfg.push_reminder_enabled ? 'var(--primary)' : 'rgba(255,255,255,0.15)' }}>
+                <span style={{ position: 'absolute', top: 2, left: cfg.push_reminder_enabled ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+              </span>
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-dark-secondary)' }}>Ogni</span>
+              <input type="number" min={1} max={50} value={cfg.push_reminder_every}
+                onChange={(e) => setCfg({ ...cfg, push_reminder_every: e.target.value })}
+                onBlur={(e) => saveConfig({ push_reminder_every: e.target.value })}
+                className="form-control" style={{ width: 70, height: 38, fontSize: 14, textAlign: 'center' }} />
+              <span style={{ fontSize: 13, color: 'var(--text-dark-secondary)' }}>aperture</span>
+            </div>
+            {cfgMsg && <span style={{ fontSize: 12, color: cfgMsg.startsWith('Errore') ? 'var(--error)' : 'var(--success)' }}>{cfgMsg}</span>}
+          </div>
+        )}
+      </div>
+
       <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <h3 style={{ fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
           <Bell size={17} color="var(--primary)" /> Nuova notifica

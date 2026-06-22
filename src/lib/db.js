@@ -552,14 +552,33 @@ export const db = {
 
   // Notifica gli amici taggati (drank_with: "Nome (@username)") quando avvii una sessione LIVE,
   // invitandoli ad avviare la loro. Rispetta la preferenza 'tagged' (gestibile, default ON).
-  async _notifyTaggedCompanions(actor, session) {
-    const usernames = [];
+  // Notifica gli amici taggati in una live. Se `onlyUsernames` è passato, notifica solo quelli
+  // (usato quando si tagga DURANTE la live, per non re-notificare i già taggati).
+  // Se la sessione è geolocalizzata, il messaggio cita il LUOGO e il link porta a /log
+  // pre-impostato su quel locale: il taggato avvia lì la sua sessione e — se è davvero sul
+  // posto (verifica GPS) — conta per la classifica.
+  async _notifyTaggedCompanions(actor, session, onlyUsernames = null) {
+    let usernames = [];
     (session.drank_with || []).forEach((t) => {
       const m = String(t).match(/\(@([\w-]+)\)/);
       if (m && m[1]) usernames.push(m[1]);
     });
+    if (onlyUsernames) {
+      const allow = new Set(onlyUsernames.map((u) => u.toLowerCase()));
+      usernames = usernames.filter((u) => allow.has(u.toLowerCase()));
+    }
     if (!usernames.length || !isSupabaseConfigured) return;
     const actorName = actor.display_name || actor.username || 'Un amico';
+
+    const loc = session.location;
+    const geo = loc && loc.name && !loc.freeform && typeof loc.lat === 'number' && typeof loc.lng === 'number';
+    const message = geo
+      ? `${actorName} ti ha taggato da "${loc.name}"! Apri la tua sessione qui — se sei sul posto conta per la classifica 🍻`
+      : `${actorName} ti ha taggato in una sessione live! Vuoi avviare la tua? 🍻`;
+    const link = geo
+      ? `/log?venue=${encodeURIComponent(loc.name)}&lat=${loc.lat}&lng=${loc.lng}`
+      : '/log';
+
     try {
       const { data: profs } = await supabase
         .from('profiles')
@@ -567,13 +586,7 @@ export const db = {
         .in('username', usernames);
       (profs || []).forEach((p) => {
         if (!p?.id || p.id === actor.id) return;
-        this.pushNotification(p.id, {
-          type: 'session_tag',
-          actor_id: actor.id,
-          actor_name: actorName,
-          message: `${actorName} ti ha taggato in una sessione live! Vuoi avviare la tua? 🍻`,
-          link: '/log',
-        });
+        this.pushNotification(p.id, { type: 'session_tag', actor_id: actor.id, actor_name: actorName, message, link });
       });
     } catch (err) {
       console.warn('Notifica tag live non inviata:', err.message || err);
@@ -3068,6 +3081,25 @@ export const db = {
       const routes = getStored('sb_routes').filter((r) => r.id !== routeId);
       setStored('sb_routes', routes);
     }
+  },
+
+  // Config globale dell'app (riga singola). Messa in CACHE in localStorage per 24h così non
+  // genera query ad ogni apertura: di fatto costo Supabase ~zero. Ritorna sempre dei default.
+  async getAppConfig() {
+    const DEFAULTS = { push_reminder_enabled: true, push_reminder_every: 3 };
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = JSON.parse(localStorage.getItem('sb_app_config') || 'null');
+        if (cached && Date.now() - cached.t < 24 * 60 * 60 * 1000) return { ...DEFAULTS, ...cached.v };
+      } catch { /* noop */ }
+    }
+    if (!isSupabaseConfigured) return DEFAULTS;
+    try {
+      const { data } = await supabase.from('app_config').select('push_reminder_enabled, push_reminder_every').eq('id', 'singleton').maybeSingle();
+      const v = { ...DEFAULTS, ...(data || {}) };
+      if (typeof window !== 'undefined') localStorage.setItem('sb_app_config', JSON.stringify({ t: Date.now(), v }));
+      return v;
+    } catch { return DEFAULTS; }
   },
 
   // Banner pubblicitari attivi (la RLS restituisce solo quelli attivi e in finestra temporale),

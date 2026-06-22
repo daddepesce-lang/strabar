@@ -322,19 +322,14 @@ export default function Navbar() {
           <PlusCircle size={24} />
           Registra
         </Link>
-        <Link href="/live" className={isActive('/live') ? 'active' : ''} style={{ position: 'relative' }}>
-          <Radar size={20} />
-          Radar
-          {liveCount > 0 && (
-            <span style={{ position: 'absolute', top: '2px', right: 'calc(50% - 22px)', minWidth: '15px', height: '15px', padding: '0 3px', background: 'var(--primary)', color: '#fff', borderRadius: '8px', fontSize: '9px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {liveCount > 9 ? '9+' : liveCount}
-            </span>
-          )}
+        <Link href="/profile" className={isActive('/profile') ? 'active' : ''}>
+          <User size={20} />
+          Profilo
         </Link>
         <button
           type="button"
           onClick={() => setMoreOpen(true)}
-          className={['/routes', '/events', '/profile', '/premium'].some((p) => pathname.startsWith(p)) ? 'active' : ''}
+          className={['/routes', '/events', '/live', '/premium'].some((p) => pathname.startsWith(p)) ? 'active' : ''}
         >
           <Menu size={20} />
           Altro
@@ -351,7 +346,7 @@ export default function Navbar() {
               <button type="button" onClick={() => setMoreOpen(false)} aria-label="Chiudi"><X size={20} /></button>
             </div>
             <div className="more-sheet-grid">
-              <Link href="/profile" className={isActive('/profile') ? 'active' : ''}><User size={22} /><span>Profilo</span></Link>
+              <Link href="/live" className={isActive('/live') ? 'active' : ''}><Radar size={22} /><span>Radar</span></Link>
               <Link href="/routes" className={isActive('/routes') ? 'active' : ''}><Map size={22} /><span>Percorsi</span></Link>
               <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>Eventi</span></Link>
               <Link href="/install" className={isActive('/install') ? 'active' : ''}><Share2 size={22} /><span>Invita</span></Link>

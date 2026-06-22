@@ -2,6 +2,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
+import PushReminderGate from "@/components/PushReminderGate";
 import Footer from "@/components/Footer";
 import AgeGate from "@/components/AgeGate";
 import OnboardingGate from "@/components/OnboardingGate";
@@ -54,6 +55,7 @@ export default function RootLayout({ children }) {
         <AgeGate />
         <OnboardingGate />
         <PwaInstallBanner />
+        <PushReminderGate />
         <div className="app-container">
           <Navbar />
           <main className="main-content">
