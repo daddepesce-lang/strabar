@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import NavSearch from '@/components/NavSearch';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar,
+  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck,
 } from 'lucide-react';
 
 function timeAgo(dateString) {
@@ -29,6 +29,7 @@ export default function Navbar() {
   const [liveCount, setLiveCount] = useState(0);
   const [myLive, setMyLive] = useState(false); // l'utente corrente ha una sessione live attiva?
   const [notifOpen, setNotifOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false); // foglio "Altro" su mobile
   const notifRef = useRef(null);
 
   useEffect(() => {
@@ -91,6 +92,9 @@ export default function Navbar() {
     if (pathname === '/') window.dispatchEvent(new Event('strabar:open-live'));
     else router.push('/?live=1');
   };
+
+  // Chiudi il foglio "Altro" quando cambia pagina
+  useEffect(() => { setMoreOpen(false); }, [pathname]);
 
   // Chiudi dropdown cliccando fuori
   useEffect(() => {
@@ -217,6 +221,13 @@ export default function Navbar() {
             <Share2 size={20} />
           </Link>
 
+          {/* Admin: visibile solo agli amministratori */}
+          {user?.is_admin && (
+            <Link href="/admin" className={`action-btn ${isActive('/admin') ? 'active' : ''}`} title="Dashboard amministratore">
+              <ShieldCheck size={20} />
+            </Link>
+          )}
+
           {user && (
             <div className="notif-wrapper" ref={notifRef}>
               <button onClick={toggleNotifs} className="action-btn" title="Notifiche" style={{ position: 'relative' }}>
@@ -294,8 +305,10 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Bottom navigation per mobile — nascosta se non loggato o su accesso/installazione */}
+      {/* Bottom navigation per mobile — 5 slot (i meno usati nel foglio "Altro").
+          Nascosta se non loggato o su accesso/installazione. */}
       {user && !pathname.startsWith('/auth') && !pathname.startsWith('/install') && (
+      <>
       <nav className="mobile-nav">
         <Link href="/" className={isActive('/') ? 'active' : ''}>
           <Beer size={20} />
@@ -305,34 +318,55 @@ export default function Navbar() {
           <Trophy size={20} />
           Classifiche
         </Link>
-        {user && (
-          <Link href="/live" className={isActive('/live') ? 'active' : ''} style={{ position: 'relative' }}>
-            <Radar size={20} />
-            Radar
-            {liveCount > 0 && (
-              <span style={{ position: 'absolute', top: '2px', right: 'calc(50% - 22px)', minWidth: '15px', height: '15px', padding: '0 3px', background: 'var(--primary)', color: '#fff', borderRadius: '8px', fontSize: '9px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {liveCount > 9 ? '9+' : liveCount}
-              </span>
-            )}
-          </Link>
-        )}
         <Link href="/log" className={`mn-register ${isActive('/log') ? 'active' : ''}`}>
           <PlusCircle size={24} />
           Registra
         </Link>
-        <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
-          <Map size={20} />
-          Percorsi
+        <Link href="/live" className={isActive('/live') ? 'active' : ''} style={{ position: 'relative' }}>
+          <Radar size={20} />
+          Radar
+          {liveCount > 0 && (
+            <span style={{ position: 'absolute', top: '2px', right: 'calc(50% - 22px)', minWidth: '15px', height: '15px', padding: '0 3px', background: 'var(--primary)', color: '#fff', borderRadius: '8px', fontSize: '9px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {liveCount > 9 ? '9+' : liveCount}
+            </span>
+          )}
         </Link>
-        <Link href="/events" className={isActive('/events') ? 'active' : ''}>
-          <Calendar size={20} />
-          Eventi
-        </Link>
-        <Link href="/profile" className={isActive('/profile') ? 'active' : ''}>
-          <User size={20} />
-          Profilo
-        </Link>
+        <button
+          type="button"
+          onClick={() => setMoreOpen(true)}
+          className={['/routes', '/events', '/profile', '/premium'].some((p) => pathname.startsWith(p)) ? 'active' : ''}
+        >
+          <Menu size={20} />
+          Altro
+        </button>
       </nav>
+
+      {/* Foglio "Altro": destinazioni secondarie + azioni account */}
+      {moreOpen && (
+        <div className="more-sheet-backdrop" onClick={() => setMoreOpen(false)}>
+          <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="more-sheet-handle" />
+            <div className="more-sheet-head">
+              <strong>Menu</strong>
+              <button type="button" onClick={() => setMoreOpen(false)} aria-label="Chiudi"><X size={20} /></button>
+            </div>
+            <div className="more-sheet-grid">
+              <Link href="/profile" className={isActive('/profile') ? 'active' : ''}><User size={22} /><span>Profilo</span></Link>
+              <Link href="/routes" className={isActive('/routes') ? 'active' : ''}><Map size={22} /><span>Percorsi</span></Link>
+              <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>Eventi</span></Link>
+              <Link href="/install" className={isActive('/install') ? 'active' : ''}><Share2 size={22} /><span>Invita</span></Link>
+              {!user.is_premium && (
+                <Link href="/premium" className={isActive('/premium') ? 'active' : ''}><Award size={22} /><span>Premium</span></Link>
+              )}
+              {user.is_admin && (
+                <Link href="/admin" className={isActive('/admin') ? 'active' : ''}><ShieldCheck size={22} /><span>Admin</span></Link>
+              )}
+              <button type="button" onClick={handleLogout}><LogOut size={22} /><span>Esci</span></button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
       )}
     </>
   );

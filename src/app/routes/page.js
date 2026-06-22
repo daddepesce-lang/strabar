@@ -684,7 +684,10 @@ out body;`;
   // Computed values
   const currentActiveWaypoints = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
   const routeDistance = osrmDistance > 0 ? osrmDistance : parseFloat(calculateTotalDistance(currentActiveWaypoints));
-  const travelTime = osrmDuration > 0 ? osrmDuration : Math.round((routeDistance / 4.5) * 60);
+  // Stima indicativa sulla distanza in linea d'aria: ~4,5 km/h a piedi, ~25 km/h in auto
+  // (velocità media urbana, soste/traffico inclusi). Per i tempi reali c'è Google Maps.
+  const travelSpeedKmh = travelMode === 'foot' ? 4.5 : 25;
+  const travelTime = Math.max(1, Math.round((routeDistance / travelSpeedKmh) * 60));
   const routeTotalUnits = currentActiveWaypoints.reduce((s, wp) => s + (parseFloat(wp.units) || 0), 0);
 
   const filteredRoutes = routes.filter(route => {
@@ -757,7 +760,7 @@ out body;`;
       {/* Main Grid: Sidebar + Map */}
       <div className="r-grid-sidebar">
         {/* LEFT SIDEBAR */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+        <div className="routes-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
 
           {/* Tour Details Form (during creation) */}
           {isCreating && currentUser?.is_premium && (
@@ -1279,11 +1282,11 @@ out body;`;
         </div>
 
         {/* RIGHT SIDE: MAP */}
-        <div style={{ position: 'relative' }}>
+        <div className="routes-map-wrap" style={{ position: 'relative' }}>
           <div
             id="map-container"
-            className="map-container"
-            style={{ height: '600px', borderRadius: 'var(--radius)' }}
+            className="map-container routes-map"
+            style={{ borderRadius: 'var(--radius)' }}
           />
 
           {/* Paywall Overlay for non-premium users */}

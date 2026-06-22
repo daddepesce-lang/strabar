@@ -39,8 +39,9 @@ export default function SettingsPage() {
     { key: 'events', label: 'Eventi e inviti' },
     { key: 'tagged', label: 'Tag in una sessione live ("Vuoi avviare la tua?")' },
     { key: 'inactivity', label: 'Promemoria sessione live inattiva (prima della chiusura)' },
+    { key: 'promo', label: 'Novità e promozioni da Strabar' },
   ];
-  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true });
+  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true, promo: true });
 
   // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
   const [showBacPublic, setShowBacPublic] = useState(false);

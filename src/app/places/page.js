@@ -355,8 +355,8 @@ export default function ClassifichePage() {
         <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.03)' }}>
           <span style={{ fontSize: '18px', lineHeight: 1 }}>🔒</span>
           <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-            La classifica è <strong>uguale per tutti</strong>: contano solo le sessioni <strong>pubbliche e geolocalizzate</strong> (locale verificato).
-            Il <strong>nome</strong> è visibile solo per te e per chi segui o ti segue: gli altri restano coperti.
+            Contano solo i <strong>check-in geolocalizzati e verificati</strong> presso un locale (non le sessioni libere o private) —
+            le stesse che fanno punteggio nelle classifiche dei locali. Il <strong>nome</strong> è visibile solo per te e per chi segui o ti segue: gli altri restano coperti.
           </p>
         </div>
       )}

@@ -885,6 +885,20 @@ button, input, select, textarea {
   }
   .hero-title { font-size: 42px; }
   .landing-section-gap { gap: 50px !important; }
+
+  /* Pianificatore percorsi su mobile: niente scroll annidato della colonna comandi,
+     e la mappa va per prima e resta visibile (sticky) mentre scorri i comandi. */
+  .routes-sidebar {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .r-grid-sidebar { display: flex; flex-direction: column; }
+  .routes-map-wrap { order: -1; } /* mappa in cima su mobile, poi i comandi */
+}
+
+.routes-map { height: 600px; }
+@media (max-width: 900px) {
+  .routes-map { height: 320px; }
 }
 
 /* ---- PHONE ---- */
@@ -948,7 +962,8 @@ button, input, select, textarea {
     border-top: 1px solid var(--border-dark);
     z-index: 1200; /* sopra i controlli +/- di Leaflet (z-index 1000) */
   }
-  .mobile-nav a {
+  .mobile-nav a,
+  .mobile-nav > button {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -956,7 +971,7 @@ button, input, select, textarea {
     align-items: center;
     justify-content: center;
     gap: 3px;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-dark-secondary);
     position: relative;
@@ -965,9 +980,15 @@ button, input, select, textarea {
     white-space: nowrap;
     text-overflow: ellipsis;
     padding: 0 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
   }
-  .mobile-nav a.active { color: var(--primary); }
-  .mobile-nav a.active::before {
+  .mobile-nav a.active,
+  .mobile-nav > button.active { color: var(--primary); }
+  .mobile-nav a.active::before,
+  .mobile-nav > button.active::before {
     content: '';
     position: absolute;
     top: 0;
@@ -1013,6 +1034,68 @@ button, input, select, textarea {
     align-items: center;
     justify-content: center;
   }
+
+  /* Foglio "Altro" (bottom sheet) per le destinazioni secondarie */
+  .more-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: flex-end;
+  }
+  .more-sheet {
+    width: 100%;
+    background: rgba(16, 18, 26, 0.99);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border-dark);
+    border-radius: 20px 20px 0 0;
+    padding: 6px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  .more-sheet-handle {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-dark);
+    margin: 8px auto 6px;
+  }
+  .more-sheet-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .more-sheet-head strong { font-size: 16px; }
+  .more-sheet-head button {
+    background: none;
+    border: none;
+    color: var(--text-dark-secondary);
+    cursor: pointer;
+    padding: 4px;
+  }
+  .more-sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .more-sheet-grid a,
+  .more-sheet-grid button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 8px;
+    border-radius: 14px;
+    background: var(--bg-input-dark);
+    border: 1px solid var(--border-dark);
+    color: var(--text-dark-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .more-sheet-grid a.active { border-color: var(--primary); color: var(--primary); }
 
   /* Generic typography down-scale for dense headers */
   h1 { font-size: 26px !important; line-height: 1.15; }

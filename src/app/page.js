@@ -70,6 +70,7 @@ export default function FeedPage() {
   const [activeSession, setActiveSession] = useState(null);
   const [showLivePanel, setShowLivePanel] = useState(false); // pannello live a comparsa (non nel feed)
   const [tourMsg, setTourMsg] = useState(null); // ultimo esito tappa (mostrato in-app, per intero)
+  const [banners, setBanners] = useState([]); // banner pubblicitari gestiti da admin
   const [liveResidualGrams, setLiveResidualGrams] = useState(0); // alcol residuo da sessioni precedenti recenti
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [feedSlideIndices, setFeedSlideIndices] = useState({}); // { [actId]: index }
@@ -157,6 +158,11 @@ export default function FeedPage() {
 
       setActivities(acts);
       setFeedHasMore(acts.length >= FEED_PAGE_SIZE);
+
+      // Banner pubblicitari (best effort, non blocca il feed)
+      if (typeof db.getActiveBanners === 'function') {
+        db.getActiveBanners().then(setBanners).catch(() => {});
+      }
 
       if (user) {
         setActiveSession(active);
@@ -1639,6 +1645,33 @@ export default function FeedPage() {
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
       <div className="feed-list">
+        {/* Banner sponsor (gestito da /admin) */}
+        {banners.length > 0 && (() => {
+          const b = banners[0];
+          const inner = (
+            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {b.image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={b.image_url} alt={b.title} style={{ width: '100%', maxHeight: 160, objectFit: 'cover' }} />
+              )}
+              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Sponsor{b.partner ? ` · ${b.partner}` : ''}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#FFF', marginTop: 2 }}>{b.title}</div>
+                  {b.body && <div style={{ fontSize: 13, color: 'var(--text-dark-secondary)', marginTop: 2 }}>{b.body}</div>}
+                </div>
+                {b.link_url && (
+                  <span className="btn btn-primary" style={{ flexShrink: 0, borderRadius: 20, padding: '8px 16px', fontSize: 13 }}>{b.cta || 'Scopri'}</span>
+                )}
+              </div>
+            </div>
+          );
+          return b.link_url
+            ? <a href={b.link_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block', marginBottom: 16 }}>{inner}</a>
+            : <div style={{ marginBottom: 16 }}>{inner}</div>;
+        })()}
         {currentUser ? (
           activeSession ? (
             <>

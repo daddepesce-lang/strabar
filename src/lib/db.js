@@ -2269,15 +2269,13 @@ export const db = {
       loc.share !== 'private');
   },
 
-  // Una sessione concorre alla CLASSIFICA GENERALE solo se è pubblica e geolocalizzata
-  // (locale verificato con coordinate, non libera). Così il totale è IDENTICO per chiunque
-  // guardi: le sessioni pubbliche sono leggibili da tutti (vedi RLS), quindi non dipende
-  // più da chi segui. Le 'friends'/'private' restano fuori dalla classifica.
+  // Una sessione concorre alla CLASSIFICA GENERALE con la STESSA identica regola della
+  // classifica del locale (_countsForVenue): check-in geolocalizzato, verificato, non libero
+  // e non privato. Così i numeri RICONCILIANO: il totale generale di un atleta è la somma
+  // delle stesse sessioni che lo fanno comparire nelle classifiche dei locali — non può più
+  // risultare inferiore a una sua singola sessione presso un locale.
   _countsForGlobalBoard(a) {
-    const loc = a && a.location;
-    return !!(loc && loc.name && !loc.freeform && !loc.unverified &&
-      typeof loc.lat === 'number' && typeof loc.lng === 'number' &&
-      (loc.share || 'public') === 'public');
+    return this._countsForVenue(a);
   },
 
   async getPlaceLeaderboard(placeKey) {
@@ -3070,6 +3068,21 @@ export const db = {
       const routes = getStored('sb_routes').filter((r) => r.id !== routeId);
       setStored('sb_routes', routes);
     }
+  },
+
+  // Banner pubblicitari attivi (la RLS restituisce solo quelli attivi e in finestra temporale),
+  // ordinati per priorità. Usati nel feed. Best effort: se la tabella non esiste, [].
+  async getActiveBanners() {
+    if (!isSupabaseConfigured) return [];
+    try {
+      const { data, error } = await supabase
+        .from('ad_banners')
+        .select('id, title, body, image_url, link_url, cta, partner, category, priority')
+        .order('priority', { ascending: false })
+        .limit(10);
+      if (error) return [];
+      return data || [];
+    } catch { return []; }
   },
 
   async getRoute(routeId) {
