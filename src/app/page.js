@@ -2330,12 +2330,15 @@ export default function FeedPage() {
                   </div>
                 </div>
 
-                {/* Lista Drink taggati (raggruppati per quantità) */}
+                {/* Lista Drink (raggruppati): chip con emoji per tipo + badge quantità */}
                 <div className="activity-drinks-detail">
                   {groupDrinks(act.drinks).map((drink, idx) => (
                     <span key={idx} className="drink-tag">
-                      <Beer size={12} />
-                      {drink.qty}x {drink.name} ({drink.abv}%)
+                      <span style={{ fontSize: '14px', lineHeight: 1 }}>{drinkEmoji(drink.name)}</span>
+                      {drink.name}
+                      {drink.qty > 1 && (
+                        <strong style={{ color: 'var(--primary)', background: 'rgba(255,32,0,0.12)', borderRadius: '7px', padding: '0 6px', fontSize: '11px' }}>×{drink.qty}</strong>
+                      )}
                     </span>
                   ))}
                 </div>

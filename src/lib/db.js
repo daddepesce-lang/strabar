@@ -2402,13 +2402,19 @@ export const db = {
   // I TOTALI sono identici per tutti (solo sessioni pubbliche geolocalizzate, vedi
   // _countsForGlobalBoard). Il NOME è visibile solo per te stesso e per chi segui / ti segue;
   // gli altri restano "coperti" (revealed=false) per privacy.
-  async getUserLeaderboard(viewerId) {
+  // includeAll = false → solo check-in geolocalizzati verificati (classifica VERIFICATA).
+  // includeAll = true  → tutte le sessioni non private, anche libere (classifica ATTIVITÀ TOTALE,
+  //                      non verificata: solo statistica, niente premi/valore competitivo).
+  async getUserLeaderboard(viewerId, includeAll = false) {
     const activities = await this.getActivities();
+    const counts = (a) => includeAll
+      ? (a.location?.share !== 'private') // tutte tranne le private
+      : this._countsForGlobalBoard(a);    // solo geolocalizzate verificate
     const byUser = {};
     activities.forEach((a) => {
       const uid = a.user_id;
       if (!uid) return;
-      if (!this._countsForGlobalBoard(a)) return; // solo pubbliche + geolocalizzate
+      if (!counts(a)) return;
       if (!byUser[uid]) {
         byUser[uid] = {
           user_id: uid,

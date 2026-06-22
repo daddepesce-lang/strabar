@@ -46,6 +46,7 @@ export default function ClassifichePage() {
 
   // Atleti
   const [users, setUsers] = useState([]);
+  const [boardMode, setBoardMode] = useState('verified'); // 'verified' | 'all'
   const [userSort, setUserSort] = useState('units');
 
   // Locali
@@ -256,13 +257,11 @@ export default function ClassifichePage() {
   const loadAll = async () => {
     try {
       if (!db || typeof db.getPlaces !== 'function') return;
-      const [pl, us, user] = await Promise.all([
+      const [pl, user] = await Promise.all([
         db.getPlaces(),
-        db.getUserLeaderboard(),
         db.getCurrentUser(),
       ]);
       setPlaces(pl);
-      setUsers(us);
       setCurrentUser(user);
       if (user && typeof db.getActiveSession === 'function') {
         const active = await db.getActiveSession(user.id);
@@ -274,6 +273,12 @@ export default function ClassifichePage() {
       setLoading(false);
     }
   };
+
+  // Classifica atleti: ricarica quando cambia modalità (Verificata / Totale) o spettatore.
+  useEffect(() => {
+    if (typeof db.getUserLeaderboard !== 'function') return;
+    db.getUserLeaderboard(currentUser?.id, boardMode === 'all').then(setUsers).catch(() => {});
+  }, [boardMode, currentUser?.id]);
 
   useEffect(() => {
     loadAll();
@@ -352,13 +357,24 @@ export default function ClassifichePage() {
       </div>
 
       {tab === 'atleti' && (
-        <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.03)' }}>
-          <span style={{ fontSize: '18px', lineHeight: 1 }}>🔒</span>
-          <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-            Contano solo i <strong>check-in geolocalizzati e verificati</strong> presso un locale (non le sessioni libere o private) —
-            le stesse che fanno punteggio nelle classifiche dei locali. Il <strong>nome</strong> è visibile solo per te e per chi segui o ti segue: gli altri restano coperti.
-          </p>
-        </div>
+        <>
+          {/* Modalità classifica: Verificata (locali) vs Attività totale (anche libere) */}
+          <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '420px' }}>
+            <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>🏆 Verificata</div>
+            <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>📊 Tutte le sessioni</div>
+          </div>
+          <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.03)' }}>
+            <span style={{ fontSize: '18px', lineHeight: 1 }}>{boardMode === 'verified' ? '🏆' : '📊'}</span>
+            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+              {boardMode === 'verified' ? (
+                <>Classifica <strong>ufficiale</strong>: contano solo i <strong>check-in geolocalizzati e verificati</strong> sul posto (le stesse delle classifiche dei locali). È quella che vale.</>
+              ) : (
+                <>Classifica <strong>per attività</strong>: include <strong>tutte le sessioni, anche libere</strong> (non verificate). Solo per divertimento — non assegna premi né leggende.</>
+              )}
+              {' '}Il <strong>nome</strong> è visibile solo per te e per chi segui o ti segue: gli altri restano coperti.
+            </p>
+          </div>
+        </>
       )}
 
       {/* Tab Atleti / Locali */}
