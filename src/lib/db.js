@@ -753,6 +753,7 @@ export const db = {
       description: routeData.description || '',
       waypoints: routeData.waypoints || [],
       is_premium: !!routeData.is_premium,
+      visibility: routeData.visibility || 'public', // public | friends | private
       created_at: new Date().toISOString()
     };
 
@@ -3030,8 +3031,45 @@ export const db = {
   },
 
   // Alias usato dalla pagina percorsi (firma compatta)
-  async saveRoute(name, description, waypoints, isPremium = false) {
-    return this.createRoute({ name, description, waypoints, is_premium: isPremium });
+  async saveRoute(name, description, waypoints, isPremium = false, visibility = 'public') {
+    return this.createRoute({ name, description, waypoints, is_premium: isPremium, visibility });
+  },
+
+  // Aggiorna un percorso esistente (solo il proprietario, garantito dalla RLS UPDATE).
+  async updateRoute(routeId, fields) {
+    if (isSupabaseConfigured) {
+      let { data, error } = await supabase
+        .from('routes')
+        .update(fields)
+        .eq('id', routeId)
+        .select()
+        .single();
+      // Se la colonna visibility non esiste ancora nel DB, riprova senza.
+      if (error && (error.code === '42703' || /column .* does not exist|visibility/i.test(error.message || ''))) {
+        const { visibility, ...rest } = fields;
+        ({ data, error } = await supabase.from('routes').update(rest).eq('id', routeId).select().single());
+      }
+      if (error) throw error;
+      return data;
+    } else {
+      const routes = getStored('sb_routes');
+      const idx = routes.findIndex((r) => r.id === routeId);
+      if (idx === -1) throw new Error('Percorso non trovato!');
+      routes[idx] = { ...routes[idx], ...fields };
+      setStored('sb_routes', routes);
+      return routes[idx];
+    }
+  },
+
+  // Elimina un percorso (solo il proprietario, garantito dalla RLS DELETE).
+  async deleteRoute(routeId) {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('routes').delete().eq('id', routeId);
+      if (error) throw error;
+    } else {
+      const routes = getStored('sb_routes').filter((r) => r.id !== routeId);
+      setStored('sb_routes', routes);
+    }
   },
 
   async getRoute(routeId) {

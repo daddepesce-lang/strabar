@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2 } from 'lucide-react';
+import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3 } from 'lucide-react';
 import Link from 'next/link';
 import RequireAuth from '@/components/RequireAuth';
 
@@ -20,9 +20,12 @@ export default function RoutesPage() {
 
   // Creation state
   const [isCreating, setIsCreating] = useState(false);
+  const [editingRouteId, setEditingRouteId] = useState(null); // se valorizzato, stiamo modificando
   const [newRouteName, setNewRouteName] = useState('');
   const [newRouteDesc, setNewRouteDesc] = useState('');
+  const [newRouteVisibility, setNewRouteVisibility] = useState('public'); // chi vede il percorso salvato
   const [newRouteWaypoints, setNewRouteWaypoints] = useState([]);
+  const [deletingRoute, setDeletingRoute] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,48 +165,20 @@ export default function RoutesPage() {
     initLeaflet();
   }, [loading]);
 
-  // Recupera il percorso stradale reale (foot o driving) tramite OSRM API
-  // Nota: Utilizziamo il profilo 'driving' di OSRM come base per le strade reali per evitare errori 404/400 (il server pubblico supporta principalmente driving)
-  // e ricalcoliamo la durata a piedi sul lato client se travelMode è 'foot'.
+  // Tracciato del percorso: linee dritte tra le tappe (in ordine), tratteggiate.
+  // NIENTE routing stradale OSRM: su zone come Venezia (canali, ZTL, isole pedonali)
+  // il profilo 'driving' restituiva percorsi totalmente sballati ("fuori per fuori").
+  // Per la navigazione reale c'è il pulsante "Apri in Google Maps". La distanza qui
+  // è quella in linea d'aria tra le tappe (indicativa).
   useEffect(() => {
     const activeWaypoints = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
+    setOsrmDistance(0);
+    setOsrmDuration(0);
     if (activeWaypoints.length < 2) {
       setRouteCoordsState([]);
-      setOsrmDistance(0);
-      setOsrmDuration(0);
       return;
     }
-
-    const fetchRoute = async () => {
-      try {
-        const coordString = activeWaypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
-        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`);
-        const data = await res.json();
-        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
-          const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-          setRouteCoordsState(coords);
-          const distKm = parseFloat((route.distance / 1000).toFixed(2));
-          setOsrmDistance(distKm);
-          
-          if (travelMode === 'foot') {
-            // Calcolo tempo a piedi: ~4.5 km/h
-            setOsrmDuration(Math.round((distKm / 4.5) * 60));
-          } else {
-            setOsrmDuration(Math.round(route.duration / 60));
-          }
-        } else {
-          const straightCoords = activeWaypoints.map(wp => [wp.lat, wp.lng]);
-          setRouteCoordsState(straightCoords);
-        }
-      } catch (err) {
-        console.error("Errore nel calcolo del percorso stradale:", err);
-        const straightCoords = activeWaypoints.map(wp => [wp.lat, wp.lng]);
-        setRouteCoordsState(straightCoords);
-      }
-    };
-
-    fetchRoute();
+    setRouteCoordsState(activeWaypoints.map((wp) => [wp.lat, wp.lng]));
   }, [newRouteWaypoints, selectedRoute, isCreating, travelMode]);
 
   // Icona tappa (rossa di default, oro+glow se è la tappa attiva)
@@ -271,8 +246,9 @@ export default function RoutesPage() {
       mapInstance.current.invalidateSize(); // Corregge dimensioni grigie di Leaflet in React
       polylineRef.current = L.polyline(routeCoordsState, {
         color: '#FF2000',
-        weight: 4,
-        opacity: 0.85,
+        weight: 3,
+        opacity: 0.8,
+        dashArray: '8, 8', // tratteggiata: indica collegamento "in linea d'aria", non stradale
       }).addTo(mapInstance.current);
 
       mapInstance.current.fitBounds(L.featureGroup(markersRef.current).getBounds(), { padding: [50, 50] });
@@ -457,6 +433,41 @@ export default function RoutesPage() {
     setTimeout(() => setJustAdded(null), 2000);
   };
 
+  // Aggiunge una tappa per INDIRIZZO: quando il locale non compare nella ricerca per nome,
+  // scrivi il suo indirizzo (via + civico + città) e lo GEOCODIFICHIAMO per ottenere le
+  // coordinate PRECISE — senza usare il GPS. La posizione viene dal geocoding, non dalla mappa.
+  const handleAddManualStop = async () => {
+    const query = window.prompt('Indirizzo del locale (es. "Calle dei Botteri 1546, Venezia"). Lo cerchiamo sulla mappa per posizionarlo con precisione.');
+    if (!query || !query.trim()) return;
+    setIsSearching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query.trim())}&format=json&limit=1&addressdetails=1`
+      );
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        alert('Indirizzo non trovato. Prova ad aggiungere la città o il civico (es. "Via Roma 10, Padova").');
+        return;
+      }
+      const r = data[0];
+      const lat = parseFloat(r.lat);
+      const lng = parseFloat(r.lon);
+      const label = window.prompt('Nome della tappa (come vuoi che appaia nel tour):', r.display_name.split(',')[0]) || r.display_name.split(',')[0];
+      setNewRouteWaypoints((prev) => {
+        if (prev.some((wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lng) < 0.00001)) return prev;
+        return [...prev, { name: label.trim(), lat, lng, note: r.display_name.split(',').slice(1, 3).join(',').trim(), units: 1.5 }];
+      });
+      if (mapInstance.current) mapInstance.current.setView([lat, lng], 17);
+      setJustAdded(label.trim());
+      setTimeout(() => setJustAdded(null), 2000);
+    } catch (err) {
+      console.error('Errore geocoding tappa manuale:', err);
+      alert('Errore nella ricerca dell\'indirizzo. Riprova.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   // Aggiorna il fabbisogno alcolico (U.A.) di una tappa
   const handleUpdateWaypointUnits = (idx, delta) => {
     setNewRouteWaypoints((prev) =>
@@ -555,9 +566,9 @@ out body;`;
         total_units: 0,
         duration: 1,
       });
-      // Niente apertura automatica di Google Maps: nella live c'è il pulsante
-      // "🧭 Guidami a ..." per navigare verso la tappa quando vuoi tu.
-      router.push('/');
+      // Vai alla home con reload COMPLETO: così il pannello live viene caricato subito
+      // (router.push non rieseguiva il fetch della sessione attiva se la home era già montata).
+      window.location.href = '/';
     } catch (err) {
       alert('Errore nell\'avvio del tour: ' + (err.message || err));
       setStartingTour(false);
@@ -575,18 +586,52 @@ out body;`;
       return;
     }
     setIsCreating(true);
+    setEditingRouteId(null);
     setSelectedRoute(null);
     setNewRouteWaypoints([]);
     setNewRouteName('');
     setNewRouteDesc('');
+    setNewRouteVisibility('public');
     setDiscoveredBars([]);
+  };
+
+  // Modifica un percorso esistente (solo il proprietario): pre-carica il form di creazione.
+  const handleEditRoute = (route) => {
+    setIsCreating(true);
+    setEditingRouteId(route.id);
+    setSelectedRoute(null);
+    setNewRouteName(route.name || '');
+    setNewRouteDesc(route.description || '');
+    setNewRouteVisibility(route.visibility || 'public');
+    setNewRouteWaypoints((route.waypoints || []).map((w) => ({ ...w, lng: w.lng ?? w.lon })));
+    setDiscoveredBars([]);
+  };
+
+  // Elimina un percorso (solo il proprietario)
+  const handleDeleteRoute = async (route) => {
+    if (!route) return;
+    if (!window.confirm(`Eliminare il percorso "${route.name}"? L'azione è irreversibile.`)) return;
+    setDeletingRoute(true);
+    try {
+      await db.deleteRoute(route.id);
+      setRoutes((prev) => prev.filter((r) => r.id !== route.id));
+      if (selectedRoute?.id === route.id) setSelectedRoute(null);
+      if (editingRouteId === route.id) handleCancelCreation();
+    } catch (err) {
+      console.error(err);
+      alert('Impossibile eliminare il percorso: ' + (err.message || err));
+    } finally {
+      setDeletingRoute(false);
+    }
   };
 
   const handleCancelCreation = () => {
     setIsCreating(false);
+    setEditingRouteId(null);
     setNewRouteWaypoints([]);
     setNewRouteName('');
     setNewRouteDesc('');
+    setNewRouteVisibility('public');
     setDiscoveredBars([]);
     setSearchQuery('');
     setSearchResults([]);
@@ -607,11 +652,25 @@ out body;`;
     }
 
     try {
-      const saved = await db.saveRoute(newRouteName, newRouteDesc, newRouteWaypoints);
-      setRoutes(prev => [saved, ...prev]);
-      setSelectedRoute(saved);
-      setIsCreating(false);
-      alert('Itinerario salvato con successo!');
+      if (editingRouteId) {
+        const updated = await db.updateRoute(editingRouteId, {
+          name: newRouteName,
+          description: newRouteDesc,
+          waypoints: newRouteWaypoints,
+          visibility: newRouteVisibility,
+        });
+        setRoutes((prev) => prev.map((r) => (r.id === editingRouteId ? { ...r, ...updated } : r)));
+        setSelectedRoute(updated);
+        setIsCreating(false);
+        setEditingRouteId(null);
+        alert('Itinerario aggiornato!');
+      } else {
+        const saved = await db.saveRoute(newRouteName, newRouteDesc, newRouteWaypoints, false, newRouteVisibility);
+        setRoutes(prev => [saved, ...prev]);
+        setSelectedRoute(saved);
+        setIsCreating(false);
+        alert('Itinerario salvato con successo!');
+      }
     } catch (err) {
       console.error(err);
       alert('Impossibile salvare l\'itinerario.');
@@ -678,7 +737,7 @@ out body;`;
                 <X size={16} /> Annulla
               </button>
               <button onClick={handleSaveRoute} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-                <Save size={16} /> Salva Tour
+                <Save size={16} /> {editingRouteId ? 'Aggiorna Tour' : 'Salva Tour'}
               </button>
             </div>
           ) : (
@@ -728,6 +787,15 @@ out body;`;
                   style={{ fontSize: '13px', resize: 'vertical' }}
                 />
               </div>
+              {/* Chi può vedere questo percorso salvato */}
+              <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '10px' }}>Chi può vedere questo itinerario</label>
+                <div className="seg-tabs feed-filter-tabs">
+                  <div className={`seg-tab ${newRouteVisibility === 'public' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('public')}>🌍 Tutti</div>
+                  <div className={`seg-tab ${newRouteVisibility === 'friends' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('friends')}>👥 Amici</div>
+                  <div className={`seg-tab ${newRouteVisibility === 'private' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('private')}>🔒 Solo io</div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -738,7 +806,7 @@ out body;`;
                 <Search size={16} /> 2. Cerca un locale
               </h3>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
-                Scrivi il nome di un bar, pub o osteria (es. &quot;Cantina Do Mori Venezia&quot;) e aggiungilo come tappa.
+                Cerca un bar/pub/osteria <em>oppure</em> una via, una piazza o un indirizzo (es. &quot;Strada Nuova Venezia&quot;) e aggiungilo come tappa. Se non trovi nulla, usa &quot;tappa manuale&quot; qui sotto.
               </p>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
@@ -807,6 +875,15 @@ out body;`;
                   })}
                 </div>
               )}
+
+              {/* Tappa manuale: posizione = centro mappa, nome a scelta */}
+              <button
+                onClick={handleAddManualStop}
+                className="btn btn-secondary"
+                style={{ width: '100%', borderRadius: '10px', fontSize: '12px', height: '36px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <Plus size={13} /> Non lo trovi? Aggiungilo per indirizzo
+              </button>
 
               {/* Opzione secondaria: esplora bar sulla mappa */}
               <details style={{ marginTop: '4px' }}>
@@ -994,11 +1071,23 @@ out body;`;
                           borderRadius: '10px',
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '4px' }}>
-                          <strong style={{ fontSize: '13px', color: '#FFF' }}>{route.name}</strong>
-                          {route.is_premium && (
-                            <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
-                          )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '4px', gap: '6px' }}>
+                          <strong style={{ fontSize: '13px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{route.name}</span>
+                            {route.user_id === currentUser?.id && (
+                              <span style={{ fontSize: '8px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 4px', flexShrink: 0 }}>I MIEI</span>
+                            )}
+                          </strong>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                            {route.user_id === currentUser?.id && (
+                              <span title={`Visibilità: ${route.visibility || 'public'}`} style={{ fontSize: '11px' }}>
+                                {route.visibility === 'private' ? '🔒' : route.visibility === 'friends' ? '👥' : '🌍'}
+                              </span>
+                            )}
+                            {route.is_premium && (
+                              <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
+                            )}
+                          </span>
                         </div>
                         <p style={{
                           fontSize: '11px',
@@ -1083,7 +1172,7 @@ out body;`;
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={14} color="var(--primary)" /> Distanza Totale
+                  <MapPin size={14} color="var(--primary)" /> Distanza <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>(linea d&apos;aria)</span>
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>{routeDistance} km</strong>
               </div>
@@ -1100,6 +1189,28 @@ out body;`;
                 <strong className="stat-value" style={{ fontSize: '15px', color: 'var(--secondary)' }}>{routeTotalUnits.toFixed(1)} U.A.</strong>
               </div>
             </div>
+
+            {/* Navigazione reale: deleghiamo a Google Maps (indicazioni vere a piedi/auto) */}
+            {currentActiveWaypoints.length >= 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const pts = currentActiveWaypoints.filter((w) => w.lat != null && (w.lng ?? w.lon) != null);
+                  if (pts.length < 2) return;
+                  const fmt = (w) => `${w.lat},${w.lng ?? w.lon}`;
+                  const origin = fmt(pts[0]);
+                  const destination = fmt(pts[pts.length - 1]);
+                  const mid = pts.slice(1, -1).map(fmt).join('|');
+                  const mode = travelMode === 'foot' ? 'walking' : 'driving';
+                  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${mid ? `&waypoints=${encodeURIComponent(mid)}` : ''}&travelmode=${mode}`;
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                }}
+                className="btn btn-secondary"
+                style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '14px' }}
+              >
+                🧭 Apri in Google Maps
+              </button>
+            )}
 
             {/* Azioni sul percorso selezionato */}
             {!isCreating && selectedRoute && (
@@ -1139,6 +1250,29 @@ out body;`;
                 >
                   🔗 Condividi Percorso
                 </button>
+
+                {/* Gestione percorso: solo il proprietario può modificarlo/eliminarlo */}
+                {selectedRoute.user_id === currentUser?.id && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleEditRoute(selectedRoute)}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, borderRadius: '20px', padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    >
+                      <Edit3 size={14} /> Modifica
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRoute(selectedRoute)}
+                      disabled={deletingRoute}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, borderRadius: '20px', padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--error)', borderColor: 'var(--error)' }}
+                    >
+                      {deletingRoute ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={14} />} Elimina
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

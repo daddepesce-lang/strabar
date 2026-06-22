@@ -69,6 +69,7 @@ export default function FeedPage() {
   // Nuovi stati per il paradigma Live Session e Slideshow Feed
   const [activeSession, setActiveSession] = useState(null);
   const [showLivePanel, setShowLivePanel] = useState(false); // pannello live a comparsa (non nel feed)
+  const [tourMsg, setTourMsg] = useState(null); // ultimo esito tappa (mostrato in-app, per intero)
   const [liveResidualGrams, setLiveResidualGrams] = useState(0); // alcol residuo da sessioni precedenti recenti
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [feedSlideIndices, setFeedSlideIndices] = useState({}); // { [actId]: index }
@@ -675,6 +676,9 @@ export default function FeedPage() {
       // singolo drink: era troppo rumorosa.
       if (verifyMessage) {
         triggerLocalNotification(locationUpdate ? 'Tappa verificata! ✅' : 'Drink registrato 🍺', verifyMessage);
+        // Mostralo anche IN-APP per intero: la notifica di sistema tronca il testo.
+        setTourMsg(verifyMessage);
+        setTimeout(() => setTourMsg((m) => (m === verifyMessage ? null : m)), 9000);
       }
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione attiva:", err);
@@ -881,6 +885,33 @@ export default function FeedPage() {
     const next = (tour.current || 0) + 1;
     if (next >= tour.stops.length) return;
     await goToTourStop(tour.stops, next);
+  };
+
+  // Torna alla tappa PRECEDENTE (es. hai premuto "prossima" per errore): riporta indietro
+  // l'indice e annulla l'ultima visita registrata, senza eliminare i drink.
+  const handleGoBackTourStop = async () => {
+    const tour = activeSession?.location?.tour;
+    if (!tour) return;
+    const prev = (tour.current || 0) - 1;
+    if (prev < 0) return;
+    const stop = tour.stops[prev];
+    if (!stop) return;
+    const visited = (tour.visited || []).slice(0, -1); // rimuove l'avanzamento per errore
+    const newLocation = {
+      ...activeSession.location,
+      name: stop.name,
+      lat: stop.lat ?? activeSession.location?.lat ?? null,
+      lng: stop.lng ?? activeSession.location?.lng ?? null,
+      unverified: true,
+      tour: { ...tour, current: prev, visited },
+    };
+    setActiveSession((p) => (p ? { ...p, location: newLocation } : p));
+    try {
+      await db.updateActivity(activeSession.id, { location: newLocation });
+    } catch (err) {
+      console.error('Errore ritorno tappa:', err);
+      alert('Impossibile tornare alla tappa precedente: ' + (err.message || err));
+    }
   };
 
   // Aggiunge una tappa NON in programma (es. un bar trovato per caso) subito
@@ -1666,6 +1697,14 @@ export default function FeedPage() {
                         : '✅ Tappa verificata — conta per le classifiche'}
                     </div>
 
+                    {/* Esito ultimo drink/posizione, mostrato per intero (la notifica di sistema lo tronca) */}
+                    {tourMsg && (
+                      <div onClick={() => setTourMsg(null)} style={{ fontSize: '12px', lineHeight: 1.45, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px', cursor: 'pointer', color: 'var(--text-dark-primary)' }}>
+                        {tourMsg}
+                        <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>tocca per chiudere</span>
+                      </div>
+                    )}
+
                     {/* Budget drink a questa tappa */}
                     <div style={{ marginBottom: '10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '4px' }}>
@@ -1688,6 +1727,11 @@ export default function FeedPage() {
                     )}
 
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {cur > 0 && (
+                        <button onClick={handleGoBackTourStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }} title="Torna alla tappa precedente (annulla un avanzamento per errore)">
+                          ⬅️ Indietro
+                        </button>
+                      )}
                       {nextStop ? (
                         <button onClick={handleAdvanceTourStop} className="btn btn-primary" style={{ flex: 1, fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', fontWeight: 700 }}>
                           ➡️ Prossima: {nextStop.name.length > 16 ? nextStop.name.slice(0, 14) + '…' : nextStop.name}
@@ -3019,8 +3063,8 @@ export default function FeedPage() {
               })}
             </div>
 
-            {/* Sezione Aggiungi Drink (Modifica Sessione) */}
-            {currentUser && selectedActivity.user_id === currentUser.id && (
+            {/* Sezione Aggiungi Drink — solo per la sessione LIVE in corso, non sui post già chiusi */}
+            {currentUser && selectedActivity.user_id === currentUser.id && selectedActivity.is_active && (
               <div style={{ background: 'rgba(255, 32, 0, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Plus size={16} /> Aggiungi Drink in tempo reale
