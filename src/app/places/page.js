@@ -351,6 +351,16 @@ export default function ClassifichePage() {
         </p>
       </div>
 
+      {tab === 'atleti' && (
+        <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.03)' }}>
+          <span style={{ fontSize: '18px', lineHeight: 1 }}>🔒</span>
+          <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+            La classifica è <strong>uguale per tutti</strong>: contano solo le sessioni <strong>pubbliche e geolocalizzate</strong> (locale verificato).
+            Il <strong>nome</strong> è visibile solo per te e per chi segui o ti segue: gli altri restano coperti.
+          </p>
+        </div>
+      )}
+
       {/* Tab Atleti / Locali */}
       <div className="seg-tabs">
         <button onClick={() => setTab('atleti')} className={`seg-tab ${tab === 'atleti' ? 'active' : ''}`}>
@@ -393,33 +403,42 @@ export default function ClassifichePage() {
                   const u = sortedUsers[pos];
                   if (!u) return <div key={pos} />;
                   const isFirst = pos === 0;
-                  return (
-                    <Link key={u.user_id} href={`/u/${u.user_id}`}
-                      className={`podium-col ${isFirst ? 'first' : ''}`}>
+                  const inner = (
+                    <>
                       <div className="podium-medal">{medal(pos)}</div>
-                      <div className="activity-avatar podium-avatar">{(u.name || 'U').charAt(0)}</div>
+                      <div className="activity-avatar podium-avatar">{u.revealed ? (u.name || 'U').charAt(0) : '🥷'}</div>
                       <div className="podium-name">{u.name}</div>
                       <div className="podium-metric">{userMetric(u)}</div>
                       <div className={`podium-bar ${isFirst ? 'gold' : ''}`} style={{ height: isFirst ? 60 : pos === 1 ? 44 : 32 }}>
                         {pos + 1}
                       </div>
+                    </>
+                  );
+                  return u.revealed ? (
+                    <Link key={u.user_id} href={`/u/${u.user_id}`} className={`podium-col ${isFirst ? 'first' : ''}`}>
+                      {inner}
                     </Link>
+                  ) : (
+                    <div key={u.user_id} className={`podium-col ${isFirst ? 'first' : ''}`}>
+                      {inner}
+                    </div>
                   );
                 })}
               </div>
 
               {/* Resto classifica */}
               <div className="card" style={{ padding: '8px' }}>
-                {sortedUsers.map((u, i) => (
-                  <Link key={u.user_id} href={`/u/${u.user_id}`} className="rank-row">
+                {sortedUsers.map((u, i) => {
+                  const rowInner = (
+                    <>
                     <span className={`rank-num ${i < 3 ? 'top' : ''}`}>{medal(i)}</span>
                     <div className="activity-avatar" style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}>
-                      {(u.name || 'U').charAt(0)}
+                      {u.revealed ? (u.name || 'U').charAt(0) : '🥷'}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <strong style={{ fontSize: '14px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</strong>
-                        {u.is_premium && <Award size={12} color="var(--secondary)" style={{ flexShrink: 0 }} />}
+                        <strong style={{ fontSize: '14px', color: u.revealed ? '#FFF' : 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</strong>
+                        {u.is_premium && u.revealed && <Award size={12} color="var(--secondary)" style={{ flexShrink: 0 }} />}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
                         {u.sessions} sessioni · {u.placesCount} locali
@@ -431,8 +450,14 @@ export default function ClassifichePage() {
                         {userSort === 'units' ? 'U.A.' : userSort === 'sessions' ? 'sessioni' : 'locali'}
                       </span>
                     </div>
-                  </Link>
-                ))}
+                    </>
+                  );
+                  return u.revealed ? (
+                    <Link key={u.user_id} href={`/u/${u.user_id}`} className="rank-row">{rowInner}</Link>
+                  ) : (
+                    <div key={u.user_id} className="rank-row" style={{ cursor: 'default' }}>{rowInner}</div>
+                  );
+                })}
               </div>
             </>
           )}

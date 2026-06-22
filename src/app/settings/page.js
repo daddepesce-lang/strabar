@@ -37,8 +37,10 @@ export default function SettingsPage() {
     { key: 'comment', label: 'Commenti ai tuoi brindisi' },
     { key: 'follow', label: 'Nuovi follower' },
     { key: 'events', label: 'Eventi e inviti' },
+    { key: 'tagged', label: 'Tag in una sessione live ("Vuoi avviare la tua?")' },
+    { key: 'inactivity', label: 'Promemoria sessione live inattiva (prima della chiusura)' },
   ];
-  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true });
+  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true });
 
   // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
   const [showBacPublic, setShowBacPublic] = useState(false);

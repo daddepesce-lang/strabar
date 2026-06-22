@@ -64,6 +64,7 @@ export default function FeedPage() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [venueBoard, setVenueBoard] = useState(null); // classifica del locale (dati completi)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false); // visore foto a schermo intero
 
   // Nuovi stati per il paradigma Live Session e Slideshow Feed
   const [activeSession, setActiveSession] = useState(null);
@@ -109,6 +110,7 @@ export default function FeedPage() {
     // (la lista del feed non scarica `media` per restare leggera).
     setSelectedActivity(act);
     setCurrentSlideIndex(0);
+    setLightboxOpen(false);
     try {
       if (typeof db.getActivity === 'function') {
         const full = await db.getActivity(act.id);
@@ -2636,15 +2638,21 @@ export default function FeedPage() {
               if (images.length === 0) return null;
               return (
                 <div style={{ position: 'relative', width: '100%', height: '260px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', border: '1px solid var(--border-dark)' }}>
-                  {/* Immagine Attiva */}
-                  <div style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundImage: `url(${images[currentSlideIndex]?.url})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    transition: 'background-image 0.2s ease-in-out'
-                  }} />
+                  {/* Immagine Attiva (tap per ingrandire a schermo intero) */}
+                  <div
+                    onClick={() => setLightboxOpen(true)}
+                    title="Tocca per ingrandire"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      backgroundImage: `url(${images[currentSlideIndex]?.url})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      transition: 'background-image 0.2s ease-in-out',
+                      cursor: 'zoom-in'
+                    }} />
+                  {/* Icona "ingrandisci" in alto a destra */}
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.55)', color: '#FFF', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none', fontSize: '15px' }}>⛶</div>
                   
                   {/* Nome e contatore Overlay */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)', padding: '20px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
@@ -2670,6 +2678,58 @@ export default function FeedPage() {
                         type="button"
                         onClick={() => setCurrentSlideIndex(prev => (prev === images.length - 1 ? 0 : prev + 1))}
                         style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '18px', zIndex: 3 }}
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Visore foto a schermo intero (lightbox) */}
+            {lightboxOpen && (() => {
+              const images = selectedActivity.media?.filter(m => m.type === 'image') || [];
+              if (images.length === 0) return null;
+              const idx = Math.min(currentSlideIndex, images.length - 1);
+              return (
+                <div
+                  onClick={() => setLightboxOpen(false)}
+                  style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.94)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={images[idx]?.url}
+                    alt={`Foto ${idx + 1}`}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ maxWidth: '96vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '8px' }}
+                  />
+                  {/* Chiudi */}
+                  <button
+                    type="button"
+                    onClick={() => setLightboxOpen(false)}
+                    style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#FFF', width: '40px', height: '40px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', zIndex: 2 }}
+                  >
+                    ✕
+                  </button>
+                  {/* Contatore */}
+                  <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: '#FFF', fontSize: '13px', fontWeight: 600, background: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: '20px' }}>
+                    {idx + 1} / {images.length}
+                  </div>
+                  {/* Frecce */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setCurrentSlideIndex(prev => (prev === 0 ? images.length - 1 : prev - 1)); }}
+                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#FFF', width: '44px', height: '44px', borderRadius: '50%', fontSize: '24px', cursor: 'pointer' }}
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setCurrentSlideIndex(prev => (prev === images.length - 1 ? 0 : prev + 1)); }}
+                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#FFF', width: '44px', height: '44px', borderRadius: '50%', fontSize: '24px', cursor: 'pointer' }}
                       >
                         ›
                       </button>

@@ -344,6 +344,11 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS full_stomach BOOLEAN DEFAUL
 -- divergono. NULL = vecchie sessioni → si ripiega sul calcolo al volo.
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS residual_grams NUMERIC(5,1) DEFAULT NULL;
 
+-- MIGRAZIONE: timestamp dell'ultimo preavviso di inattività inviato per la sessione live.
+-- Serve a non ripetere la notifica "aggiungi un drink"; si riarma da solo quando arriva
+-- un nuovo drink (il confronto lato app è warned_at < ultimo drink).
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS inactivity_warned_at TIMESTAMPTZ DEFAULT NULL;
+
 -- MIGRAZIONE: nome dell'attore nelle notifiche (per chi ha creato la tabella prima)
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS actor_name TEXT;
 

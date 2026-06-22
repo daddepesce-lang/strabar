@@ -44,6 +44,34 @@ const setStored = (key, data) => {
 
 // API di Database unificata
 export const db = {
+  // Ridimensiona e ricomprime le foto PRIMA dell'upload: una foto da smartphone pesa
+  // spesso 3-8 MB, e ogni visualizzazione la riscarica → egress Storage altissimo.
+  // Riduciamo il lato lungo a ~1600px e convertiamo in JPEG q.82 (tipicamente 100-400 KB).
+  // In caso di errore (o GIF animate) si carica l'originale.
+  async _compressImage(file, maxDim = 1600, quality = 0.82) {
+    if (typeof window === 'undefined') return file;
+    if (!file || !file.type || !file.type.startsWith('image/')) return file;
+    if (file.type === 'image/gif') return file;
+    try {
+      const bitmap = await createImageBitmap(file);
+      let { width, height } = bitmap;
+      const scale = Math.min(1, maxDim / Math.max(width, height));
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close?.();
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
+      if (!blob || blob.size >= file.size) return file; // se non riduce, tieni l'originale
+      return new File([blob], (file.name || 'foto').replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+    } catch {
+      return file;
+    }
+  },
+
   // --- UPLOAD STORAGE ---
   async uploadFileToStorage(file) {
     if (!isSupabaseConfigured) {
@@ -56,15 +84,20 @@ export const db = {
     }
 
     try {
-      const fileExt = file.name.split('.').pop();
+      const upload = await this._compressImage(file);
+      const fileExt = (upload.name && upload.name.split('.').pop()) || 'jpg';
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `activity-media/${fileName}`;
+
+      // Cache lunga: i nomi file sono unici/immutabili → 1 anno di cache su CDN e browser,
+      // così le foto già viste non rigenerano egress ad ogni apertura.
+      const CACHE = '31536000';
 
       // Proviamo ad effettuare l'upload nel bucket 'media'
       const { data, error } = await supabase.storage
         .from('media')
-        .upload(filePath, file, {
-          cacheControl: '3600',
+        .upload(filePath, upload, {
+          cacheControl: CACHE,
           upsert: false
         });
 
@@ -73,8 +106,8 @@ export const db = {
         // Fallback sul bucket 'activities'
         const { data: fallbackData, error: fallbackError } = await supabase.storage
           .from('activities')
-          .upload(filePath, file, {
-            cacheControl: '3600',
+          .upload(filePath, upload, {
+            cacheControl: CACHE,
             upsert: false
           });
 
@@ -495,6 +528,8 @@ export const db = {
         if (typeof window !== 'undefined') {
           localStorage.setItem('sb_active_session_id', data.id);
         }
+        // Notifica gli amici taggati: "Vuoi avviare la tua sessione?" (best effort)
+        this._notifyTaggedCompanions(user, data).catch(() => {});
       }
 
       if (error) throw error;
@@ -512,6 +547,36 @@ export const db = {
       activities.push(savedActivity);
       setStored('sb_activities', activities);
       return savedActivity;
+    }
+  },
+
+  // Notifica gli amici taggati (drank_with: "Nome (@username)") quando avvii una sessione LIVE,
+  // invitandoli ad avviare la loro. Rispetta la preferenza 'tagged' (gestibile, default ON).
+  async _notifyTaggedCompanions(actor, session) {
+    const usernames = [];
+    (session.drank_with || []).forEach((t) => {
+      const m = String(t).match(/\(@([\w-]+)\)/);
+      if (m && m[1]) usernames.push(m[1]);
+    });
+    if (!usernames.length || !isSupabaseConfigured) return;
+    const actorName = actor.display_name || actor.username || 'Un amico';
+    try {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('username', usernames);
+      (profs || []).forEach((p) => {
+        if (!p?.id || p.id === actor.id) return;
+        this.pushNotification(p.id, {
+          type: 'session_tag',
+          actor_id: actor.id,
+          actor_name: actorName,
+          message: `${actorName} ti ha taggato in una sessione live! Vuoi avviare la tua? 🍻`,
+          link: '/log',
+        });
+      });
+    } catch (err) {
+      console.warn('Notifica tag live non inviata:', err.message || err);
     }
   },
 
@@ -972,6 +1037,43 @@ export const db = {
     }
   },
 
+  // --- AUTO-CHIUSURA SESSIONI LIVE ---
+  // La sessione si chiude da sola dopo N ore dall'ULTIMO drink registrato (non dall'avvio).
+  // A metà strada parte un preavviso ("aggiungi un drink per non farla chiudere").
+  SESSION_AUTOCLOSE_HOURS: 4,
+  SESSION_WARN_HOURS: 2,
+
+  // Istante (ms) dell'ultimo drink registrato nella sessione (added_times/added_at),
+  // con fallback su created_at se nessun drink ha timestamp.
+  _lastDrinkTime(s) {
+    let last = new Date(s.created_at).getTime();
+    (s.drinks || []).forEach((d) => {
+      const times = Array.isArray(d.added_times) && d.added_times.length
+        ? d.added_times
+        : (d.added_at ? [d.added_at] : []);
+      times.forEach((t) => {
+        const ms = new Date(t).getTime();
+        if (Number.isFinite(ms) && ms > last) last = ms;
+      });
+    });
+    return last;
+  },
+
+  // Preavviso di inattività al proprietario della sessione. Best effort: marca la sessione
+  // per non ripetersi (si "riarma" da solo appena viene aggiunto un nuovo drink, perché il
+  // confronto è warned_at < ultimo drink). Rispetta la preferenza notifiche 'inactivity'.
+  async _warnInactiveSession(session) {
+    try {
+      await this.updateActivity(session.id, { inactivity_warned_at: new Date().toISOString() });
+    } catch { /* colonna assente: il dedup a 5 min di pushNotification evita lo spam */ }
+    this.pushNotification(session.user_id, {
+      type: 'inactivity',
+      actor_id: session.user_id,
+      message: 'La tua sessione si chiuderà tra 2 ore se non aggiungi un drink 🍺',
+      link: '/',
+    });
+  },
+
   async getActiveSession(userId) {
     if (isSupabaseConfigured) {
       let data = null;
@@ -1022,16 +1124,21 @@ export const db = {
 
       if (!data) return null;
 
-      // Auto-expire se è più vecchia di 5 ore
+      // Auto-chiusura dopo 4h dall'ULTIMO drink; preavviso a 2h.
       const createdTime = new Date(data.created_at).getTime();
-      const elapsedHours = (Date.now() - createdTime) / (1000 * 60 * 60);
-      if (elapsedHours > 5) {
+      const lastDrinkMs = this._lastDrinkTime(data);
+      const idleHours = (Date.now() - lastDrinkMs) / (1000 * 60 * 60);
+      if (idleHours >= this.SESSION_AUTOCLOSE_HOURS) {
         await this.closeSession(data.id, {
           feeling: data.feeling || 'Sobrio',
-          description: data.description || 'Chiusa automaticamente dal sistema dopo 5 ore.',
+          description: data.description || 'Chiusa automaticamente dopo 4 ore di inattività.',
           duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
         });
         return null;
+      }
+      if (idleHours >= this.SESSION_WARN_HOURS) {
+        const warnedMs = data.inactivity_warned_at ? new Date(data.inactivity_warned_at).getTime() : 0;
+        if (warnedMs < lastDrinkMs) this._warnInactiveSession(data).catch(() => {});
       }
 
       return {
@@ -1051,16 +1158,21 @@ export const db = {
       const found = activities.find(a => a.user_id === userId && a.is_active === true);
       if (!found) return null;
 
-      // Auto-expire se è più vecchia di 5 ore
+      // Auto-chiusura dopo 4h dall'ULTIMO drink; preavviso a 2h.
       const createdTime = new Date(found.created_at).getTime();
-      const elapsedHours = (Date.now() - createdTime) / (1000 * 60 * 60);
-      if (elapsedHours > 5) {
+      const lastDrinkMs = this._lastDrinkTime(found);
+      const idleHours = (Date.now() - lastDrinkMs) / (1000 * 60 * 60);
+      if (idleHours >= this.SESSION_AUTOCLOSE_HOURS) {
         await this.closeSession(found.id, {
           feeling: found.feeling || 'Sobrio',
-          description: found.description || 'Chiusa automaticamente dal sistema dopo 5 ore.',
+          description: found.description || 'Chiusa automaticamente dopo 4 ore di inattività.',
           duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
         });
         return null;
+      }
+      if (idleHours >= this.SESSION_WARN_HOURS) {
+        const warnedMs = found.inactivity_warned_at ? new Date(found.inactivity_warned_at).getTime() : 0;
+        if (warnedMs < lastDrinkMs) this._warnInactiveSession(found).catch(() => {});
       }
 
       const profiles = getStored('sb_profiles');
@@ -2156,6 +2268,17 @@ export const db = {
       loc.share !== 'private');
   },
 
+  // Una sessione concorre alla CLASSIFICA GENERALE solo se è pubblica e geolocalizzata
+  // (locale verificato con coordinate, non libera). Così il totale è IDENTICO per chiunque
+  // guardi: le sessioni pubbliche sono leggibili da tutti (vedi RLS), quindi non dipende
+  // più da chi segui. Le 'friends'/'private' restano fuori dalla classifica.
+  _countsForGlobalBoard(a) {
+    const loc = a && a.location;
+    return !!(loc && loc.name && !loc.freeform && !loc.unverified &&
+      typeof loc.lat === 'number' && typeof loc.lng === 'number' &&
+      (loc.share || 'public') === 'public');
+  },
+
   async getPlaceLeaderboard(placeKey) {
     const activities = await this.getActivities();
     const sessions = activities.filter(
@@ -2209,14 +2332,38 @@ export const db = {
     };
   },
 
-  // Classifica globale degli atleti Strabar (per U.A. totali, sessioni, drink, locali)
-  async getUserLeaderboard() {
+  // Insieme degli ID di cui lo spettatore può vedere il NOME nelle classifiche: se stesso
+  // + chi segue + chi lo segue. Tutti gli altri restano "coperti" (privacy globale).
+  async _revealIdsFor(viewerId) {
+    let viewer = viewerId;
+    if (viewer === undefined) {
+      try { viewer = (await this.getCurrentUser())?.id || null; } catch { viewer = null; }
+    }
+    const ids = new Set();
+    if (viewer) {
+      ids.add(viewer);
+      try {
+        const [following, followers] = await Promise.all([
+          this.getFollowing(viewer).catch(() => []),
+          this.getFollowers(viewer).catch(() => []),
+        ]);
+        [...(following || []), ...(followers || [])].forEach((f) => f?.id && ids.add(f.id));
+      } catch { /* noop */ }
+    }
+    return ids;
+  },
+
+  // Classifica globale degli atleti Strabar (per U.A. totali, sessioni, drink, locali).
+  // I TOTALI sono identici per tutti (solo sessioni pubbliche geolocalizzate, vedi
+  // _countsForGlobalBoard). Il NOME è visibile solo per te stesso e per chi segui / ti segue;
+  // gli altri restano "coperti" (revealed=false) per privacy.
+  async getUserLeaderboard(viewerId) {
     const activities = await this.getActivities();
     const byUser = {};
     activities.forEach((a) => {
       const uid = a.user_id;
       if (!uid) return;
-      if (a.location?.unverified) return; // sessione non verificata: esclusa dalla classifica
+      if (!this._countsForGlobalBoard(a)) return; // solo pubbliche + geolocalizzate
       if (!byUser[uid]) {
         byUser[uid] = {
           user_id: uid,
@@ -2235,18 +2382,99 @@ export const db = {
       u.drinks += (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0);
       if (a.location?.name) u.places.add(this.normalizePlaceKey(a.location.name));
     });
+
+    // Chi può vedere il nome: io + chi seguo + chi mi segue. Gli altri restano anonimi.
+    const revealIds = await this._revealIdsFor(viewerId);
+
     return Object.values(byUser)
-      .map((u) => ({
-        user_id: u.user_id,
-        name: u.name,
-        username: u.username,
-        is_premium: u.is_premium,
-        sessions: u.sessions,
-        units: parseFloat(u.units.toFixed(1)),
-        drinks: u.drinks,
-        placesCount: u.places.size,
-      }))
+      .map((u) => {
+        const revealed = revealIds.has(u.user_id);
+        return {
+          user_id: u.user_id,
+          revealed,
+          name: revealed ? u.name : 'Atleta riservato',
+          username: revealed ? u.username : null,
+          is_premium: u.is_premium,
+          sessions: u.sessions,
+          units: parseFloat(u.units.toFixed(1)),
+          drinks: u.drinks,
+          placesCount: u.places.size,
+        };
+      })
       .sort((a, b) => b.units - a.units || b.sessions - a.sessions);
+  },
+
+  // Classifica + statistiche di un EVENTO: aggrega le sessioni avviate dall'evento
+  // (location.event_id === eventId). Rispetta la privacy globale: i totali si basano
+  // solo sulle sessioni che lo spettatore può effettivamente vedere (la RLS filtra le
+  // 'amici'/'private' dei non collegati), e il NOME è svelato solo per te e i tuoi amici.
+  async getEventBoard(eventId, viewerId) {
+    if (!eventId) return null;
+    const activities = await this.getActivities();
+    const sessions = activities.filter((a) => a.location?.event_id === eventId);
+
+    const byUser = {};
+    sessions.forEach((s) => {
+      const uid = s.user_id;
+      if (!uid) return;
+      if (!byUser[uid]) {
+        byUser[uid] = {
+          user_id: uid,
+          name: s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar',
+          username: s.profiles?.username || 'atleta',
+          is_premium: s.profiles?.is_premium || false,
+          sessions: 0, units: 0, drinks: 0,
+        };
+      }
+      const u = byUser[uid];
+      u.sessions += 1;
+      u.units += parseFloat(s.total_units || 0);
+      u.drinks += (s.drinks || []).reduce((acc, d) => acc + (d.qty || 0), 0);
+    });
+
+    const revealIds = await this._revealIdsFor(viewerId);
+    const board = Object.values(byUser)
+      .map((u) => {
+        const revealed = revealIds.has(u.user_id);
+        return {
+          user_id: u.user_id,
+          revealed,
+          name: revealed ? u.name : 'Atleta riservato',
+          username: revealed ? u.username : null,
+          is_premium: u.is_premium,
+          sessions: u.sessions,
+          units: parseFloat(u.units.toFixed(1)),
+          drinks: u.drinks,
+        };
+      })
+      .sort((a, b) => b.units - a.units || b.drinks - a.drinks);
+
+    const totalUnits = board.reduce((s, u) => s + u.units, 0);
+    const totalDrinks = board.reduce((s, u) => s + u.drinks, 0);
+    const participants = board.length;
+    const topBac = sessions
+      .map((s) => {
+        const revealed = revealIds.has(s.user_id);
+        return {
+          name: revealed ? (s.profiles?.display_name || s.profiles?.username || 'Atleta') : 'Atleta riservato',
+          revealed,
+          bac: this.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex),
+        };
+      })
+      .sort((a, b) => b.bac - a.bac)
+      .slice(0, 3);
+
+    return {
+      eventId,
+      participants,
+      activeNow: sessions.filter((s) => s.is_active).length,
+      totalUnits: parseFloat(totalUnits.toFixed(1)),
+      totalDrinks,
+      avgUnits: participants ? parseFloat((totalUnits / participants).toFixed(1)) : 0,
+      routeName: sessions.find((s) => s.location?.route_name)?.location?.route_name || null,
+      board,
+      topBac,
+    };
   },
 
   // --- RECENSIONI LOCALI ---
@@ -2661,8 +2889,8 @@ export const db = {
 
     // Preferenze notifiche. DEFAULT: solo "mi piace" (cheers) e commenti da altri verso di te.
     // follow ed eventi sono OFF di default (l'utente può attivarli dalle Impostazioni).
-    const NOTIF_DEFAULTS = { follow: false, cheers: true, comment: true, events: false };
-    const category = { cheers: 'cheers', comment: 'comment', follow: 'follow', event_invite: 'events', event_rsvp: 'events' }[payload.type] || null;
+    const NOTIF_DEFAULTS = { follow: false, cheers: true, comment: true, events: false, tagged: true, inactivity: true };
+    const category = { cheers: 'cheers', comment: 'comment', follow: 'follow', event_invite: 'events', event_rsvp: 'events', session_tag: 'tagged', inactivity: 'inactivity' }[payload.type] || null;
     if (category && isSupabaseConfigured) {
       try {
         const { data: prof } = await supabase.from('profiles').select('notif_prefs').eq('id', recipientId).maybeSingle();

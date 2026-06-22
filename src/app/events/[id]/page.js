@@ -68,6 +68,7 @@ export default function EventDetailPage({ params }) {
   const [locSearching, setLocSearching] = useState(false);
   const [selectedLoc, setSelectedLoc] = useState(null); // { name, lat, lng } se reale; null = testo libero
   const [editLocName, setEditLocName] = useState('');
+  const [board, setBoard] = useState(null); // classifica + statistiche dell'evento
 
   const load = async () => {
     try {
@@ -80,6 +81,8 @@ export default function EventDetailPage({ params }) {
         setFollowing(fol);
         setRoutes(rts);
       }
+      // Classifica/statistiche dell'evento (nomi coperti per i non-amici, privacy globale)
+      try { setBoard(await db.getEventBoard(id, user?.id)); } catch { setBoard(null); }
     } catch (err) {
       console.error('Errore caricamento evento:', err);
     } finally {
@@ -198,9 +201,17 @@ export default function EventDetailPage({ params }) {
           }
         }
       }
-      const loc = hasCoords
-        ? { name: event.location.name, lat: event.location.lat, lng: event.location.lng, share: eventShare, ...(unverified ? { unverified: true } : {}) }
-        : (event.location_name ? { name: event.location_name, share: eventShare } : null);
+      // La sessione viene "legata" all'evento (event_id) — e al percorso se presente —
+      // così la classifica/statistiche dell'evento sa quali sessioni contare.
+      const loc = {
+        ...(hasCoords
+          ? { name: event.location.name, lat: event.location.lat, lng: event.location.lng, ...(unverified ? { unverified: true } : {}) }
+          : (event.location_name ? { name: event.location_name } : {})),
+        share: eventShare,
+        event_id: event.id,
+        event_title: event.title,
+        ...(event.route_id ? { route_id: event.route_id, route_name: event.route_name || null } : {}),
+      };
       await db.createActivity({
         title: `Brindisi · ${event.title}`,
         location: loc,
@@ -408,6 +419,88 @@ export default function EventDetailPage({ params }) {
           </p>
         )}
       </div>
+
+      {/* Classifica + statistiche dell'evento */}
+      {board && board.participants > 0 && (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+            <Crown size={18} color="var(--secondary)" /> Classifica dell&apos;evento
+            {board.routeName && (
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <RouteIcon size={13} /> {board.routeName}
+              </span>
+            )}
+          </h3>
+
+          {/* Statistiche aggregate */}
+          <div className="r-grid-stat-4" style={{ background: 'rgba(255,32,0,0.04)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,32,0,0.15)' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Partecipanti</div>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{board.participants}</div>
+            </div>
+            <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>U.A. totali</div>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFF', marginTop: '4px' }}>{board.totalUnits}</div>
+            </div>
+            <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Drink</div>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFF', marginTop: '4px' }}>{board.totalDrinks}</div>
+            </div>
+            <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Media U.A.</div>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--secondary)', marginTop: '4px' }}>{board.avgUnits}</div>
+            </div>
+          </div>
+          {board.activeNow > 0 && (
+            <p style={{ fontSize: '12px', color: 'var(--success)', margin: 0, fontWeight: 600 }}>🔴 {board.activeNow} live in corso adesso</p>
+          )}
+
+          {/* Classifica per U.A. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {board.board.map((u, i) => {
+              const row = (
+                <>
+                  <span style={{ width: 26, textAlign: 'center', fontWeight: 800, color: i === 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)', flexShrink: 0 }}>
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                  </span>
+                  <div className="activity-avatar" style={{ width: 32, height: 32, fontSize: 14, flexShrink: 0 }}>
+                    {u.revealed ? (u.name || 'U').charAt(0) : '🥷'}
+                  </div>
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '14px', color: u.revealed ? '#FFF' : 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {u.name}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{u.drinks} drink</span>
+                  <strong style={{ fontSize: '15px', color: 'var(--primary)', flexShrink: 0, minWidth: 54, textAlign: 'right' }}>{u.units} U.A.</strong>
+                </>
+              );
+              return u.revealed ? (
+                <Link key={u.user_id} href={`/u/${u.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '10px', background: 'var(--bg-input-dark)' }}>{row}</Link>
+              ) : (
+                <div key={u.user_id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '10px', background: 'var(--bg-input-dark)' }}>{row}</div>
+              );
+            })}
+          </div>
+
+          {/* Top BAC */}
+          {board.topBac.length > 0 && board.topBac[0].bac > 0 && (
+            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>🥴 Picco tasso alcolico</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                {board.topBac.map((t, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span style={{ color: t.revealed ? '#FFF' : 'var(--text-dark-secondary)' }}>{t.revealed ? '' : '🥷 '}{t.name}</span>
+                    <strong style={{ color: 'var(--secondary)' }}>{t.bac.toFixed(2)} g/L</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+            🔒 Contano le sessioni avviate da questo evento. Il nome è visibile solo per te e per chi segui o ti segue; gli altri restano coperti.
+          </p>
+        </div>
+      )}
 
       {/* Partecipanti */}
       <div className="r-grid-2">
