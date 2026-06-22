@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { createClient as createServerSupabase } from '@/utils/supabase/server';
 import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 
-const ADMIN_EMAILS = ['davide.pesce@urbanasmart.com'];
+const ADMIN_EMAILS = ['daddepesce@gmail.com'];
 
 // Verifica che il chiamante sia un amministratore e restituisce un client con SERVICE ROLE.
 // Ritorna { admin, user } se autorizzato, oppure { error, status } da inoltrare al client.

@@ -9,7 +9,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 // (bypassa la RLS) ma restituisce SOLO aggregati e una lista utenti minimale.
 // Richiede SUPABASE_SERVICE_ROLE_KEY (segreta, solo lato server).
 
-const ADMIN_EMAILS = ['davide.pesce@urbanasmart.com'];
+const ADMIN_EMAILS = ['daddepesce@gmail.com'];
 
 const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 

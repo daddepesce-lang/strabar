@@ -185,7 +185,13 @@ export default function FeedPage() {
         // statistiche personali e classifica. Caricati dopo, in modo indipendente.
         if (typeof db.getAllProfiles === 'function') db.getAllProfiles().then(setProfilesList).catch(() => {});
         if (typeof db.getUserActivities === 'function') db.getUserActivities(user.id).then(setMyActivities).catch(() => {});
-        if (typeof db.getTopDrinkers === 'function') db.getTopDrinkers(5).then(setTopDrinkers).catch(() => {});
+        // Leaderboard Club: STESSA fonte e regola della classifica generale (/places) — solo
+        // check-in geolocalizzati verificati — così i numeri coincidono e non risultano più alti qui.
+        if (typeof db.getUserLeaderboard === 'function') {
+          db.getUserLeaderboard(user.id)
+            .then((rows) => setTopDrinkers((rows || []).slice(0, 5).map((u) => ({ user_id: u.user_id, name: u.name, units: u.units, isPremium: u.is_premium }))))
+            .catch(() => {});
+        }
 
         // Backfill una-tantum: congela il residuo sulle MIE sessioni recenti che ne sono
         // prive (vecchie o live già in corso). Dopo, ricarico così il valore compare
@@ -2569,7 +2575,7 @@ export default function FeedPage() {
             Leaderboard Club 🏆
           </h3>
           <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-            Classifica settimanale basata sulle Unità Alcoliche (U.A.) registrate.
+            Classifica per Unità Alcoliche (U.A.) dei check-in geolocalizzati — come nella sezione Classifiche.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {leaderboardData.map((item, idx) => (
