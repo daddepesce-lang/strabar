@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera } from 'lucide-react';
+import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera, Info } from 'lucide-react';
 import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 
 export default function LogActivityPage() {
@@ -29,6 +29,7 @@ export default function LogActivityPage() {
   const [geoError, setGeoError] = useState(null);
   const [nearbyRadius, setNearbyRadius] = useState(200);
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [showInfo, setShowInfo] = useState(false); // popover "come funziona"
   const [manualPlace, setManualPlace] = useState({ name: '', address: '' });
   const [manualGeocoding, setManualGeocoding] = useState(false);
 
@@ -548,158 +549,92 @@ export default function LogActivityPage() {
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '22px' }}>
       <div style={{ textAlign: 'center' }}>
-        <span style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
-          ⏱️ Registrazione in Tempo Reale
-        </span>
-        <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#FFF', marginTop: '14px' }}>
-          Inizia un Brindisi Live 🍻
+        <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#FFF' }}>
+          Registra 🍻
         </h1>
-        <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '10px', lineHeight: '1.55' }}>
-          Tracciamo lo sforzo in tempo reale per monitorare il tasso alcolico (BAC) minuto per minuto.
+        <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '8px', lineHeight: '1.5' }}>
+          Traccia la serata e il tuo tasso alcolico, minuto per minuto.
         </p>
       </div>
 
-      {/* Visibilità della sessione live (feed + radar) */}
-      <div className="card" style={{ padding: '16px', border: '1px solid var(--border-dark)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          <MapPin size={16} color="var(--primary)" />
-          <strong style={{ fontSize: '14px' }}>Chi vede la tua sessione live? 👀</strong>
-        </div>
-        <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '10px', lineHeight: 1.4 }}>
-          {liveShare === 'private'
-            ? '🔒 Privata: non appari né nel feed né sul radar mentre bevi. La sessione comparirà nel feed solo quando la chiudi.'
-            : liveShare === 'friends'
-            ? '👥 Solo i tuoi follower ti vedono nel feed e sul radar (usiamo la posizione solo durante la sessione).'
-            : '🌍 Tutti possono vederti nel feed e sul radar live (usiamo la posizione solo durante la sessione).'}
-        </p>
-        <div className="seg-tabs">
-          <div className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>🌍 Tutti</div>
-          <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
-          <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>🔒 Privata</div>
-        </div>
-
-        {/* Stomaco pieno/vuoto → BAC e curva più precisi */}
-        <div style={{ marginTop: '12px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>🍽️ Hai mangiato? Aiuta a stimare meglio il tasso alcolico:</span>
-          <div className="seg-tabs">
-            <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>Stomaco vuoto</div>
-            <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>🍝 Stomaco pieno</div>
-          </div>
-        </div>
-      </div>
-
+      {/* DUE SCELTE */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
-        {/* OPZIONE 1: Al locale */}
-        <div 
+        {/* Registra sessione (ora) */}
+        <div
           onClick={handleLocaleCheckInClick}
-          className="card" 
-          style={{ 
-            cursor: 'pointer', 
-            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 32, 0, 0.05) 100%)', 
-            border: '1px solid var(--border-dark)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            padding: '24px',
-            transition: 'var(--transition)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--primary)';
-            e.currentTarget.style.transform = 'translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border-dark)';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
+          className="card"
+          style={{ cursor: 'pointer', background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 32, 0, 0.06) 100%)', border: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: '18px', padding: '22px', transition: 'var(--transition)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-dark)'; e.currentTarget.style.transform = 'translateY(0)'; }}
         >
           <div style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
-            <MapPin size={28} />
+            {startingSession ? <Loader size={26} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={26} fill="var(--primary)" />}
           </div>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Brindisi al Locale (Geolocalizzato)</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Registra sessione</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-              Fai check-in in un pub o bar reale nelle vicinanze. Richiede la prossimità GPS (200m).
+              Adesso, in tempo reale. Scegli il locale dove sei o vai libera.
             </p>
           </div>
         </div>
 
-        {/* OPZIONE 2: Libera/Roaming */}
-        <div 
-          onClick={handleStartFreeSession}
-          className="card" 
-          style={{ 
-            cursor: startingSession ? 'not-allowed' : 'pointer', 
-            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(223, 255, 0, 0.05) 100%)', 
-            border: '1px solid var(--border-dark)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            padding: '24px',
-            transition: 'var(--transition)'
-          }}
-          onMouseEnter={(e) => {
-            if (!startingSession) {
-              e.currentTarget.style.borderColor = 'var(--secondary)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!startingSession) {
-              e.currentTarget.style.borderColor = 'var(--border-dark)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }
-          }}
-        >
-          <div style={{ background: 'rgba(223, 255, 0, 0.1)', color: 'var(--secondary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
-            {startingSession ? (
-              <Loader size={28} style={{ animation: 'spin 1s linear infinite' }} />
-            ) : (
-              <Play size={28} fill="var(--secondary)" />
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Brindisi Libero / Roaming</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-              Inizia una sessione alcolica libera (es. festa a casa, picnic, degustazione itinerante) senza vincoli di posizione.
-            </p>
-          </div>
-        </div>
-        {/* OPZIONE 3: Registra a Posteriori */}
+        {/* Sessione passata */}
         <div
           onClick={() => setShowRetroForm(true)}
           className="card"
-          style={{
-            cursor: 'pointer',
-            background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(16, 185, 129, 0.04) 100%)',
-            border: '1px dashed rgba(16,185,129,0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            padding: '24px',
-            transition: 'var(--transition)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#10B981';
-            e.currentTarget.style.transform = 'translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(16,185,129,0.4)';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
+          style={{ cursor: 'pointer', background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(16, 185, 129, 0.04) 100%)', border: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: '18px', padding: '22px', transition: 'var(--transition)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#10B981'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-dark)'; e.currentTarget.style.transform = 'translateY(0)'; }}
         >
           <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
-            <Clock size={28} />
+            <Clock size={26} />
           </div>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Registra Sessione Passata ⏳</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Sessione passata</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-              Hai dimenticato di avviare il live? Inserisci una serata passata specificando data, drink consumati e locale.
+              Inserisci una serata già conclusa: data, drink e locale.
             </p>
           </div>
         </div>
-
       </div>
+
+      {/* Come funziona (i) — spiegazione breve della regola classifiche */}
+      <div style={{ textAlign: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setShowInfo((v) => !v)}
+          style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Info size={14} /> Come funziona per le classifiche
+        </button>
+        {showInfo && (
+          <div className="card" style={{ textAlign: 'left', marginTop: '10px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', lineHeight: 1.4 }}>
+            <div>📍 <strong>In un locale dove sei</strong> (GPS attivo) → vale per le classifiche.</div>
+            <div>🚶 <strong>Locale ma sei lontano</strong> → registrata, ma non conta.</div>
+            <div>🍸 <strong>Nessun locale</strong> → sessione libera (festa a casa, picnic…).</div>
+          </div>
+        )}
+      </div>
+
+      {/* Opzioni avanzate: privacy + stomaco (default sensati, qui solo se vuoi cambiarli) */}
+      <details className="card" style={{ padding: '14px 16px' }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '14px', listStyle: 'none' }}>⚙️ Opzioni (privacy, stomaco)</summary>
+        <div style={{ marginTop: '14px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>👀 Chi vede la tua sessione live?</span>
+          <div className="seg-tabs">
+            <div className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>🌍 Tutti</div>
+            <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
+            <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>🔒 Privata</div>
+          </div>
+          <div style={{ marginTop: '12px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>🍽️ Hai mangiato? (stima BAC più precisa)</span>
+            <div className="seg-tabs">
+              <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>Stomaco vuoto</div>
+              <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>🍝 Stomaco pieno</div>
+            </div>
+          </div>
+        </div>
+      </details>
 
       {/* MODAL 1: Avviso Sessione Attiva */}
       {showActiveSessionWarning && activeSession && (
@@ -830,6 +765,22 @@ export default function LogActivityPage() {
               </div>
             )}
 
+            {/* Auto-rilevamento: se sei già DENTRO/vicino a un locale, proponilo con un tap */}
+            {!isAppendingToSession && userCoords && localeSearchQuery.trim().length < 2 && !showManualEntry
+              && displayedVenues[0] && displayedVenues[0].distance != null && displayedVenues[0].distance <= 100 && (
+              <div
+                onClick={() => startSessionAtVenue(displayedVenues[0])}
+                style={{ cursor: 'pointer', marginBottom: '12px', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'rgba(255,32,0,0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}
+              >
+                <MapPin size={22} color="var(--primary)" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', color: '#FFF', fontWeight: 700 }}>Sei da {displayedVenues[0].name}?</div>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Tocca per registrare qui — vale per le classifiche 🏆</span>
+                </div>
+                <span className="btn btn-primary" style={{ borderRadius: '16px', padding: '6px 12px', fontSize: '12px', flexShrink: 0 }}>Conferma</span>
+              </div>
+            )}
+
             {/* Lista Locali */}
             <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px', minHeight: '120px' }}>
               {loadingVenues && localeSearchQuery.trim().length < 2 ? (
@@ -877,6 +828,18 @@ export default function LogActivityPage() {
                 ))
               )}
             </div>
+
+            {/* Nessun locale → sessione libera (resta nel flusso unico) */}
+            {!isAppendingToSession && (
+              <button
+                onClick={() => { setShowLocaleSelector(false); handleStartFreeSession(); }}
+                disabled={startingSession}
+                className="btn btn-secondary"
+                style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '10px', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                🍸 Non sono in un locale — Sessione libera
+              </button>
+            )}
 
             {/* Inserimento manuale */}
             <div style={{ borderTop: '1px solid var(--border-dark)', marginTop: '12px', paddingTop: '12px' }}>
