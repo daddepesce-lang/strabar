@@ -743,6 +743,39 @@ export const db = {
     }
   },
 
+  // Modifica un proprio commento (RLS garantisce che solo l'autore possa farlo).
+  async updateComment(commentId, text) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('comments')
+        .update({ text })
+        .eq('id', commentId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } else {
+      const activities = getStored('sb_activities');
+      activities.forEach((a) => {
+        (a.comments || []).forEach((c) => { if (c.id === commentId) c.text = text; });
+      });
+      setStored('sb_activities', activities);
+      return { id: commentId, text };
+    }
+  },
+
+  // Elimina un proprio commento (RLS garantisce che solo l'autore possa farlo).
+  async deleteComment(commentId) {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('comments').delete().eq('id', commentId);
+      if (error) throw error;
+    } else {
+      const activities = getStored('sb_activities');
+      activities.forEach((a) => { a.comments = (a.comments || []).filter((c) => c.id !== commentId); });
+      setStored('sb_activities', activities);
+    }
+  },
+
   // --- ROUTES (PUB CRAWLS) ---
   async getRoutes() {
     if (isSupabaseConfigured) {

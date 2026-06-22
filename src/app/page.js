@@ -16,6 +16,19 @@ import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
+// Emoji rappresentativa del drink dal nome (per una lista più ordinata e leggibile).
+const drinkEmoji = (name = '') => {
+  const n = name.toLowerCase();
+  if (/spritz|aperol|campari|negroni|americano/.test(n)) return '🍹';
+  if (/birra|beer|ipa|lager|doppio malto|stout|weiss|analcolica/.test(n)) return '🍺';
+  if (/vino|wine|prosecco|spumante|champagne|bollicine|rosso|bianco/.test(n)) return '🍷';
+  if (/gin|tonic|vodka|martini|cocktail|mojito|margarita|daiquiri|cuba/.test(n)) return '🍸';
+  if (/shot|tequila|rum|whisky|whiskey|grappa|amaro|liquore|sambuca|vodka/.test(n)) return '🥃';
+  if (/sidro|cider/.test(n)) return '🍏';
+  if (/caffè|caffe|coffee/.test(n)) return '☕';
+  return '🍺';
+};
+
 // Raggruppa i drink uguali sommando le quantità (per una visualizzazione compatta
 // anche su sessioni create prima del merge automatico).
 const groupDrinks = (drinks) => {
@@ -60,6 +73,7 @@ export default function FeedPage() {
   const [topDrinkers, setTopDrinkers] = useState([]); // classifica globale top atleti
   const [loading, setLoading] = useState(true);
   const [newCommentText, setNewCommentText] = useState({});
+  const [editingComment, setEditingComment] = useState(null); // { id, text } commento in modifica
   const [activeCommentsSection, setActiveCommentsSection] = useState({});
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [venueBoard, setVenueBoard] = useState(null); // classifica del locale (dati completi)
@@ -506,6 +520,30 @@ export default function FeedPage() {
     }
   };
 
+  // Modifica/elimina un PROPRIO commento
+  const handleSaveCommentEdit = async (activityId, commentId) => {
+    const text = (editingComment?.text || '').trim();
+    if (!text) return;
+    patchActivity(activityId, (a) => ({ ...a, comments: (a.comments || []).map((c) => (c.id === commentId ? { ...c, text } : c)) }));
+    setEditingComment(null);
+    try {
+      await db.updateComment(commentId, text);
+    } catch (err) {
+      console.error('Errore modifica commento:', err);
+      alert('Impossibile modificare il commento: ' + (err.message || err));
+    }
+  };
+  const handleDeleteComment = async (activityId, commentId) => {
+    if (!window.confirm('Eliminare questo commento?')) return;
+    patchActivity(activityId, (a) => ({ ...a, comments: (a.comments || []).filter((c) => c.id !== commentId) }));
+    try {
+      await db.deleteComment(commentId);
+    } catch (err) {
+      console.error('Errore eliminazione commento:', err);
+      alert('Impossibile eliminare il commento: ' + (err.message || err));
+    }
+  };
+
   const handleAddDrinkToSession = async (preset) => {
     if (!selectedActivity) return;
     
@@ -668,7 +706,14 @@ export default function FeedPage() {
       
       // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default; peso reale se impostato)
       const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
-      
+
+      // Avviso superamento limite legale di guida (0,5 g/L) — solo al momento del sorpasso
+      // della soglia, e disattivabile dall'utente (preferenza 'driving', default ON).
+      const prevBac = parseFloat(activeSession.bac_level || 0);
+      if (newBac >= 0.5 && prevBac < 0.5 && currentUser?.notif_prefs?.driving !== false) {
+        triggerLocalNotification('⚠️ Limite di guida superato', 'Hai superato 0,5 g/L: NON metterti alla guida. Smaltisci con calma o chiama un taxi/NCC. 🚕');
+      }
+
       const updatedFields = {
         drinks: updatedDrinks,
         total_units: parseFloat(newTotalUnits.toFixed(1)),
@@ -1644,14 +1689,15 @@ export default function FeedPage() {
     return true; // 'public' o sessioni storiche senza flag
   };
 
-  // Feed filtrato: prima per visibilità, poi "Amici" mostra le sessioni di chi seguo + le mie
+  // Feed filtrato: prima per visibilità, poi il filtro scelto.
+  // 'all' = tutto; 'friends' = chi seguo + le mie; 'live' = solo sessioni live in corso.
   const visibleActivities = activities
     .filter(isVisibleToMe)
-    .filter((a) =>
-      feedFilter === 'friends' && currentUser
-        ? a.user_id === currentUser.id || followingIds.includes(a.user_id)
-        : true
-    );
+    .filter((a) => {
+      if (feedFilter === 'live') return isLiveAct(a);
+      if (feedFilter === 'friends' && currentUser) return a.user_id === currentUser.id || followingIds.includes(a.user_id);
+      return true;
+    });
 
   return (
     <div className="dashboard-grid">
@@ -2149,9 +2195,9 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Filtro feed: Amici / Tutti */}
+        {/* Filtro feed: Amici / Tutti / Live */}
         {currentUser && activities.length > 0 && (
-          <div className="seg-tabs feed-filter-tabs" style={{ marginTop: '20px', marginBottom: '12px', maxWidth: '280px' }}>
+          <div className="seg-tabs feed-filter-tabs" style={{ marginTop: '20px', marginBottom: '12px', maxWidth: '360px' }}>
             <div
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
@@ -2163,6 +2209,12 @@ export default function FeedPage() {
               onClick={() => setFeedFilter('all')}
             >
               🌍 Tutti
+            </div>
+            <div
+              className={`seg-tab ${feedFilter === 'live' ? 'active' : ''}`}
+              onClick={() => setFeedFilter('live')}
+            >
+              🔴 Live
             </div>
           </div>
         )}
@@ -2176,6 +2228,8 @@ export default function FeedPage() {
                 </p>
                 <ShareAppButton style={{ borderRadius: '24px', padding: '11px 22px' }} label="Invita amici su Strabar" />
               </div>
+            ) : feedFilter === 'live' ? (
+              <p style={{ color: 'var(--text-dark-secondary)' }}>Nessuna sessione 🔴 live in questo momento. Avviane una tu! 🍻</p>
             ) : (
               <p style={{ color: 'var(--text-dark-secondary)' }}>Nessuna attività registrata. Sii il primo a brindare! 🥂</p>
             )}
@@ -2470,14 +2524,35 @@ export default function FeedPage() {
                           <div className="activity-avatar" style={{ width: '28px', height: '28px', fontSize: '12px' }}>
                             {comment.user_name ? comment.user_name.charAt(0) : 'U'}
                           </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                               <strong>{comment.user_name}</strong>
-                              <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
-                                {formatDate(comment.created_at)}
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{formatDate(comment.created_at)}</span>
+                                {currentUser && comment.user_id === currentUser.id && editingComment?.id !== comment.id && (
+                                  <>
+                                    <button type="button" onClick={() => setEditingComment({ id: comment.id, text: comment.text })} title="Modifica" style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>✏️</button>
+                                    <button type="button" onClick={() => handleDeleteComment(act.id, comment.id)} title="Elimina" style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>🗑️</button>
+                                  </>
+                                )}
                               </span>
                             </div>
-                            <p style={{ color: 'var(--text-dark-primary)' }}>{comment.text}</p>
+                            {editingComment?.id === comment.id ? (
+                              <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                                <input
+                                  className="form-control"
+                                  value={editingComment.text}
+                                  onChange={(e) => setEditingComment((p) => ({ ...p, text: e.target.value }))}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveCommentEdit(act.id, comment.id); if (e.key === 'Escape') setEditingComment(null); }}
+                                  style={{ flex: 1, height: '32px', fontSize: '13px' }}
+                                  autoFocus
+                                />
+                                <button type="button" onClick={() => handleSaveCommentEdit(act.id, comment.id)} className="btn btn-primary" style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '12px' }}>Salva</button>
+                                <button type="button" onClick={() => setEditingComment(null)} className="btn btn-secondary" style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '12px' }}>✕</button>
+                              </div>
+                            ) : (
+                              <p style={{ color: 'var(--text-dark-primary)' }}>{comment.text}</p>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -3079,34 +3154,45 @@ export default function FeedPage() {
               </div>
             )}
 
-            {/* Elenco completo e dettagliato delle consumazioni */}
-            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>Dettagli della Prestazione (Drinks)</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '25px' }}>
-              {groupDrinks(selectedActivity.drinks).map((drink, idx) => {
-                const calculatedUnits = (drink.units ? (drink.units * drink.qty) : (drink.qty * 1.5));
-                const drinkTime = drink.added_at 
-                  ? new Date(drink.added_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-                  : '';
-                
-                return (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Beer size={18} color="var(--primary)" />
-                      <div>
-                        <strong style={{ fontSize: '15px' }}>{drink.name}</strong>
-                        <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-                          Gradazione: {drink.abv}% {drinkTime && `| Consumato alle: ${drinkTime}`}
+            {/* Elenco consumazioni — ordinato, con icona per tipo, quantità e barra U.A. */}
+            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Drink della sessione</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>
+                {selectedActivity.drinks.reduce((s, d) => s + (d.qty || 0), 0)} drink · {parseFloat(selectedActivity.total_units || 0).toFixed(1)} U.A.
+              </span>
+            </h3>
+            {(() => {
+              const grouped = groupDrinks(selectedActivity.drinks);
+              const maxU = Math.max(0.1, ...grouped.map((d) => (d.units ? d.units * d.qty : d.qty * 1.5)));
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '25px' }}>
+                  {grouped.map((drink, idx) => {
+                    const calculatedUnits = drink.units ? drink.units * drink.qty : drink.qty * 1.5;
+                    const drinkTime = drink.added_at ? new Date(drink.added_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'rgba(255,32,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                          {drinkEmoji(drink.name)}
                         </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '14px', color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{drink.name}</strong>
+                            {drink.qty > 1 && <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', background: 'rgba(255,32,0,0.12)', borderRadius: '8px', padding: '1px 7px', flexShrink: 0 }}>×{drink.qty}</span>}
+                          </div>
+                          <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 6 }}>
+                            <div style={{ width: `${(calculatedUnits / maxU) * 100}%`, height: '100%', background: 'var(--primary)', borderRadius: 3 }} />
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: 3 }}>
+                            {drink.abv}%{drinkTime && ` · ${drinkTime}`}
+                          </div>
+                        </div>
+                        <strong style={{ fontSize: '14px', color: 'var(--primary)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{calculatedUnits.toFixed(1)} U.A.</strong>
                       </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: '700', fontSize: '15px' }}>{drink.qty} bicchiere/i</div>
-                      <div style={{ fontSize: '11px', color: 'var(--primary)' }}>~ {calculatedUnits.toFixed(1)} Unità</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* Sezione Aggiungi Drink — solo per la sessione LIVE in corso, non sui post già chiusi */}
             {currentUser && selectedActivity.user_id === currentUser.id && selectedActivity.is_active && (

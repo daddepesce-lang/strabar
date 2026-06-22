@@ -18,6 +18,17 @@ export default function ShareActivityPage({ params }) {
   const [sharingTheme, setSharingTheme] = useState('gradient');
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
   const [copied, setCopied] = useState(false);
+  const logoRef = useRef(null);
+  const [logoReady, setLogoReady] = useState(false);
+
+  // Pre-carica il logo ufficiale di Strabar per disegnarlo sull'immagine condivisa.
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => { logoRef.current = img; setLogoReady(true); };
+    img.onerror = () => { setLogoReady(false); };
+    img.src = '/logo.png';
+  }, []);
 
   useEffect(() => {
     const loadActivity = async () => {
@@ -98,12 +109,18 @@ export default function ShareActivityPage({ params }) {
         ctx.strokeRect(10, 10, size - 20, size - 20);
       }
 
-      // LOGO "STRABAR" in alto
-      ctx.fillStyle = '#FF2000';
-      ctx.font = 'bold 50px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('STRA', 80, 120);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('BAR', 215, 120);
+      // LOGO ufficiale Strabar (immagine). Fallback al testo se non ancora caricato.
+      if (logoReady && logoRef.current && logoRef.current.naturalWidth) {
+        const lh = 72;
+        const lw = lh * (logoRef.current.naturalWidth / logoRef.current.naturalHeight);
+        ctx.drawImage(logoRef.current, 80, 64, lw, lh);
+      } else {
+        ctx.fillStyle = '#FF2000';
+        ctx.font = 'bold 50px "DM Sans", -apple-system, sans-serif';
+        ctx.fillText('STRA', 80, 120);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText('BAR', 215, 120);
+      }
 
       // Sottotitolo
       ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
@@ -270,7 +287,7 @@ export default function ShareActivityPage({ params }) {
     } else {
       drawStats();
     }
-  }, [activity, sharingTheme, selectedPhotoIdx]);
+  }, [activity, sharingTheme, selectedPhotoIdx, logoReady]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;

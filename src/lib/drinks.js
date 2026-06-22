@@ -37,10 +37,12 @@ export const EXTRA_DRINKS = [
   { name: 'Prosecco / Spumante', abv: 11, units: 1.2, label: '🥂 Bollicine' },
   { name: 'Bellini / Mimosa', abv: 8, units: 1.0, label: '🍾 Bellini' },
   { name: 'Vino Dolce / Passito', abv: 15, units: 1.2, label: '🍷 Passito' },
-  // Birre — tipo + taglia espliciti (Piccola 0,2L · Media 0,4L · Grande 0,66L)
+  // Birre — tipo + taglia espliciti (Lattina 0,33L · Piccola 0,2L · Media 0,4L · Grande 0,66L · Boccale 1L)
   { name: 'Birra Bionda Piccola (0,2L)', abv: 5, units: 1.0, label: '🍺 Bionda Piccola 0,2L' },
+  { name: 'Birra Bionda Lattina/Bottiglia (0,33L)', abv: 5, units: 1.65, label: '🍺 Bionda 0,33L' },
   { name: 'Birra Bionda Media (0,4L)', abv: 5, units: 2.0, label: '🍺 Bionda Media 0,4L' },
   { name: 'Birra Bionda Grande (0,66L)', abv: 5, units: 3.3, label: '🍺 Bionda Grande 0,66L' },
+  { name: 'Birra Bionda Boccale (1L)', abv: 5, units: 5.0, label: '🍺 Bionda Boccale 1L' },
   { name: 'Birra Rossa/Ambrata Media (0,4L)', abv: 5.5, units: 2.2, label: '🍺 Rossa Media 0,4L' },
   { name: 'Doppio Malto Piccola (0,2L)', abv: 8, units: 1.6, label: '🍺 Doppio Malto Piccola 0,2L' },
   { name: 'Doppio Malto Media (0,4L)', abv: 8, units: 3.2, label: '🍺 Doppio Malto Media 0,4L' },
