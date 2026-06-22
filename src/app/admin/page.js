@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { Loader, Users, Beer, MapPin, TrendingUp, ShieldCheck, Crown } from 'lucide-react';
 import NotificationsAdmin from './NotificationsAdmin';
 import BannersAdmin from './BannersAdmin';
+import UsersAdmin from './UsersAdmin';
 
 function Kpi({ label, value, sub, color }) {
   return (
@@ -79,10 +80,12 @@ export default function AdminPage() {
       {/* Schede */}
       <div className="seg-tabs">
         <button onClick={() => setTab('dashboard')} className={`seg-tab ${tab === 'dashboard' ? 'active' : ''}`}>📊 Dashboard</button>
+        <button onClick={() => setTab('utenti')} className={`seg-tab ${tab === 'utenti' ? 'active' : ''}`}>👥 Utenti</button>
         <button onClick={() => setTab('notifiche')} className={`seg-tab ${tab === 'notifiche' ? 'active' : ''}`}>🔔 Notifiche</button>
         <button onClick={() => setTab('banner')} className={`seg-tab ${tab === 'banner' ? 'active' : ''}`}>📢 Banner</button>
       </div>
 
+      {tab === 'utenti' && <UsersAdmin />}
       {tab === 'notifiche' && <NotificationsAdmin />}
       {tab === 'banner' && <BannersAdmin />}
 

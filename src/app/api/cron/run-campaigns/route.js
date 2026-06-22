@@ -31,14 +31,19 @@ export async function GET(req) {
   for (const campaign of due || []) {
     try {
       const recipients = await sendCampaign(admin, campaign);
-      if (campaign.repeat === 'weekly') {
-        // Ricorrente: riprogramma alla prossima settimana (avanza finché è nel futuro)
-        // e lascia sent_at NULL, così tornerà a partire. recipients aggiorna l'ultimo invio.
-        let next = new Date(campaign.scheduled_at).getTime();
+      if (['daily', 'weekly', 'monthly'].includes(campaign.repeat)) {
+        // Ricorrente: riprogramma alla prossima occorrenza (avanza finché è nel futuro),
+        // lasciando sent_at NULL così tornerà a partire. recipients = ultimo invio.
+        const next = new Date(campaign.scheduled_at);
         const now = Date.now();
-        while (next <= now) next += 7 * 24 * 60 * 60 * 1000;
+        let guard = 0;
+        while (next.getTime() <= now && guard++ < 1000) {
+          if (campaign.repeat === 'daily') next.setDate(next.getDate() + 1);
+          else if (campaign.repeat === 'weekly') next.setDate(next.getDate() + 7);
+          else next.setMonth(next.getMonth() + 1); // monthly
+        }
         await admin.from('notification_campaigns')
-          .update({ scheduled_at: new Date(next).toISOString(), recipients }).eq('id', campaign.id);
+          .update({ scheduled_at: next.toISOString(), recipients }).eq('id', campaign.id);
       } else {
         // Una volta sola: marca come inviata e non riparte più.
         await admin.from('notification_campaigns')

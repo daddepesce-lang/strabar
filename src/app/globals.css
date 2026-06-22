@@ -892,8 +892,8 @@ button, input, select, textarea {
     max-height: none !important;
     overflow: visible !important;
   }
-  .r-grid-sidebar { display: flex; flex-direction: column; }
-  .routes-map-wrap { order: -1; } /* mappa in cima su mobile, poi i comandi */
+  /* Su mobile: ordine naturale (selettore/comandi, poi mappa e tappe) — così il
+     selettore percorso resta SOPRA le tappe del percorso selezionato. */
 }
 
 .routes-map { height: 600px; }

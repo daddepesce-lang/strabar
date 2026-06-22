@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader, Plus, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Loader, Plus, Trash2, Image as ImageIcon, Search, MapPin } from 'lucide-react';
+import { db } from '@/lib/db';
 
 const CATEGORIES = [
   { key: 'locale', label: '🍸 Locale' },
@@ -10,7 +11,7 @@ const CATEGORIES = [
   { key: 'altro', label: '📦 Altro' },
 ];
 
-const EMPTY = { title: '', body: '', image_url: '', link_url: '', cta: 'Scopri', partner: '', category: 'locale', priority: 0, active: true };
+const EMPTY = { title: '', body: '', image_url: '', link_url: '', cta: 'Scopri', partner: '', category: 'locale', priority: 0, active: true, starts_at: '', ends_at: '' };
 
 export default function BannersAdmin() {
   const [banners, setBanners] = useState([]);
@@ -18,6 +19,9 @@ export default function BannersAdmin() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [form, setForm] = useState(EMPTY);
+  const [venueQ, setVenueQ] = useState('');
+  const [venueRes, setVenueRes] = useState([]);
+  const [venueSearching, setVenueSearching] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -31,11 +35,34 @@ export default function BannersAdmin() {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Ricerca locale (geocoding): collega il banner a un locale reale precompilando
+  // partner, link a Google Maps e titolo.
+  const searchVenue = async () => {
+    if (!venueQ.trim()) return;
+    setVenueSearching(true); setVenueRes([]);
+    try {
+      const r = await db.searchVenues(venueQ.trim());
+      setVenueRes((r || []).slice(0, 6));
+    } catch { setVenueRes([]); } finally { setVenueSearching(false); }
+  };
+  const pickVenue = (v) => {
+    const name = v.name || v.display_name?.split(',')[0] || venueQ;
+    const maps = v.lat && v.lng ? `https://www.google.com/maps/search/?api=1&query=${v.lat},${v.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+    setForm((f) => ({ ...f, partner: name, link_url: maps, title: f.title || name, category: f.category === 'altro' ? 'locale' : f.category }));
+    setVenueRes([]); setVenueQ('');
+  };
+
   const create = async () => {
     if (!form.title.trim()) { setMsg('Titolo obbligatorio.'); return; }
     setBusy(true); setMsg('');
     try {
-      const res = await fetch('/api/admin/banners', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, priority: parseInt(form.priority) || 0 }) });
+      const payload = {
+        ...form,
+        priority: parseInt(form.priority) || 0,
+        starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
+        ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
+      };
+      const res = await fetch('/api/admin/banners', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const j = await res.json();
       if (!res.ok) { setMsg('Errore: ' + (j.error || '')); return; }
       setForm(EMPTY); load();
@@ -60,6 +87,29 @@ export default function BannersAdmin() {
         <h3 style={{ fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
           <ImageIcon size={17} color="var(--primary)" /> Nuovo banner
         </h3>
+
+        {/* Ricerca locale: collega il banner a un locale reale (riempie partner + link mappe) */}
+        <div>
+          <label className="form-label" style={{ fontSize: 10 }}>Collega un locale (opzionale)</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input className="form-control" style={{ ...inputStyle, flex: 1 }} placeholder="Cerca un locale per nome/indirizzo…" value={venueQ}
+              onChange={(e) => setVenueQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchVenue(); } }} />
+            <button type="button" onClick={searchVenue} className="btn btn-secondary" style={{ borderRadius: 10, padding: '0 14px' }}>
+              {venueSearching ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={15} />}
+            </button>
+          </div>
+          {venueRes.length > 0 && (
+            <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: 8, marginTop: 6, overflow: 'hidden' }}>
+              {venueRes.map((v, i) => (
+                <button key={i} type="button" onClick={() => pickVenue(v)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: i < venueRes.length - 1 ? '1px solid var(--border-dark)' : 'none', padding: '8px 10px', cursor: 'pointer', color: '#FFF' }}>
+                  <MapPin size={12} color="var(--primary)" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name || v.display_name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <input className="form-control" style={inputStyle} placeholder="Titolo (es. Taxi Venezia 24h)" value={form.title} onChange={(e) => set('title', e.target.value)} />
         <textarea className="form-control" placeholder="Testo (es. Prenota il rientro sicuro con un tocco)" rows={2} value={form.body} onChange={(e) => set('body', e.target.value)} style={{ fontSize: 14, resize: 'vertical' }} />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -73,6 +123,17 @@ export default function BannersAdmin() {
             {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
           <input type="number" className="form-control" style={{ ...inputStyle, flex: '0 0 90px' }} placeholder="Priorità" value={form.priority} onChange={(e) => set('priority', e.target.value)} title="Priorità (più alto = mostrato prima)" />
+        </div>
+        {/* Durata: da quando a quando mostrarlo (vuoto = sempre / nessuna scadenza) */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 200px' }}>
+            <label className="form-label" style={{ fontSize: 10 }}>Mostra da (opzionale)</label>
+            <input type="datetime-local" className="form-control" style={inputStyle} value={form.starts_at} onChange={(e) => set('starts_at', e.target.value)} />
+          </div>
+          <div style={{ flex: '1 1 200px' }}>
+            <label className="form-label" style={{ fontSize: 10 }}>Scadenza / fine (opzionale)</label>
+            <input type="datetime-local" className="form-control" style={inputStyle} value={form.ends_at} onChange={(e) => set('ends_at', e.target.value)} />
+          </div>
         </div>
         {msg && <div style={{ fontSize: 13, color: msg.startsWith('Errore') ? 'var(--error)' : 'var(--success)' }}>{msg}</div>}
         <button onClick={create} disabled={busy} className="btn btn-primary" style={{ borderRadius: 14, justifyContent: 'center', gap: 6 }}>
@@ -94,6 +155,7 @@ export default function BannersAdmin() {
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 2 }}>
                 {CATEGORIES.find((c) => c.key === b.category)?.label || b.category} · priorità {b.priority}
+                {b.ends_at ? ` · scade ${new Date(b.ends_at).toLocaleDateString('it-IT')}` : ''}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

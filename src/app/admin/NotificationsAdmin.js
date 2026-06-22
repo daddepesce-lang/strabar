@@ -133,8 +133,10 @@ export default function NotificationsAdmin() {
           <div style={{ flex: '1 1 160px' }}>
             <label className="form-label" style={{ fontSize: 10 }}>Ricorrenza</label>
             <select className="form-control" style={inputStyle} value={form.repeat} onChange={(e) => set('repeat', e.target.value)}>
-              <option value="none">Non si ripete (una volta)</option>
+              <option value="none">Una volta</option>
+              <option value="daily">Ogni giorno</option>
               <option value="weekly">Ogni settimana</option>
+              <option value="monthly">Ogni mese</option>
             </select>
           </div>
         </div>
@@ -166,8 +168,8 @@ export default function NotificationsAdmin() {
               <div style={{ fontSize: 13, color: '#FFF', fontWeight: 600 }}>{c.title ? `${c.title} — ` : ''}{c.message}</div>
               <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 2 }}>
                 {TARGETS.find((t) => t.key === c.target)?.label || c.target}
-                {c.repeat === 'weekly' ? ' · 🔁 ogni settimana' : ''}
-                {c.sent_at ? ` · inviata a ${c.recipients} il ${new Date(c.sent_at).toLocaleString('it-IT')}` : c.scheduled_at ? ` · ${c.repeat === 'weekly' ? 'prossimo invio' : 'programmata per'} ${new Date(c.scheduled_at).toLocaleString('it-IT')}` : ' · bozza'}
+                {c.repeat && c.repeat !== 'none' ? ` · 🔁 ${({ daily: 'ogni giorno', weekly: 'ogni settimana', monthly: 'ogni mese' })[c.repeat] || c.repeat}` : ''}
+                {c.sent_at ? ` · inviata a ${c.recipients} il ${new Date(c.sent_at).toLocaleString('it-IT')}` : c.scheduled_at ? ` · ${c.repeat && c.repeat !== 'none' ? 'prossimo invio' : 'programmata per'} ${new Date(c.scheduled_at).toLocaleString('it-IT')}` : ' · bozza'}
               </div>
             </div>
             <button onClick={() => remove(c.id)} className="action-btn" title="Elimina" style={{ color: 'var(--error)', flexShrink: 0 }}><Trash2 size={16} /></button>

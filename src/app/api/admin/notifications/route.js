@@ -88,7 +88,7 @@ export async function POST(req) {
   // Campagna programmata: 'none' = una volta sola, 'weekly' = ogni settimana (gestito dal cron)
   const { data, error } = await gate.admin
     .from('notification_campaigns')
-    .insert({ ...base, scheduled_at: scheduledAt || null, repeat: repeat === 'weekly' ? 'weekly' : 'none' })
+    .insert({ ...base, scheduled_at: scheduledAt || null, repeat: ['daily', 'weekly', 'monthly'].includes(repeat) ? repeat : 'none' })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
