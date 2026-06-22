@@ -14,7 +14,7 @@ export default function NotificationsAdmin() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [form, setForm] = useState({ title: '', message: '', link: '', target: 'all', scheduledAt: '' });
+  const [form, setForm] = useState({ title: '', message: '', link: '', target: 'all', scheduledAt: '', repeat: 'none' });
   const [cfg, setCfg] = useState(null);
   const [cfgMsg, setCfgMsg] = useState('');
 
@@ -64,7 +64,7 @@ export default function NotificationsAdmin() {
       const j = await res.json();
       if (!res.ok) { setMsg('Errore: ' + (j.error || '')); return; }
       setMsg(action === 'send' ? `Inviata a ${j.recipients} utenti ✅` : 'Campagna programmata ✅');
-      setForm({ title: '', message: '', link: '', target: 'all', scheduledAt: '' });
+      setForm({ title: '', message: '', link: '', target: 'all', scheduledAt: '', repeat: 'none' });
       load();
     } catch (err) { setMsg('Errore: ' + (err.message || err)); } finally { setBusy(false); }
   };
@@ -130,6 +130,13 @@ export default function NotificationsAdmin() {
             <label className="form-label" style={{ fontSize: 10 }}>Programma per (opzionale)</label>
             <input type="datetime-local" className="form-control" style={inputStyle} value={form.scheduledAt} onChange={(e) => set('scheduledAt', e.target.value)} />
           </div>
+          <div style={{ flex: '1 1 160px' }}>
+            <label className="form-label" style={{ fontSize: 10 }}>Ricorrenza</label>
+            <select className="form-control" style={inputStyle} value={form.repeat} onChange={(e) => set('repeat', e.target.value)}>
+              <option value="none">Non si ripete (una volta)</option>
+              <option value="weekly">Ogni settimana</option>
+            </select>
+          </div>
         </div>
         {msg && <div style={{ fontSize: 13, color: msg.startsWith('Errore') ? 'var(--error)' : 'var(--success)' }}>{msg}</div>}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -142,8 +149,8 @@ export default function NotificationsAdmin() {
         </div>
         <p style={{ fontSize: 11, color: 'var(--text-dark-secondary)', margin: 0 }}>
           Le notifiche rispettano l&apos;opt-out promozionale degli utenti. <strong>Invia ora</strong> parte subito.
-          Le <strong>programmate</strong> vengono spedite alla corsa giornaliera del cron (~18:00, ora dell&apos;aperitivo):
-          imposta una campagna per la data desiderata e partirà a quell&apos;ora. Per orari diversi usa &quot;Invia ora&quot;.
+          Le <strong>programmate</strong> partono alla corsa giornaliera del cron (~18:00). Scegli la <strong>ricorrenza</strong>:
+          <em>Non si ripete</em> = parte una volta sola alla data scelta; <em>Ogni settimana</em> = si ripete ogni settimana nello stesso giorno. Per orari diversi usa &quot;Invia ora&quot;.
         </p>
       </div>
 
@@ -159,7 +166,8 @@ export default function NotificationsAdmin() {
               <div style={{ fontSize: 13, color: '#FFF', fontWeight: 600 }}>{c.title ? `${c.title} — ` : ''}{c.message}</div>
               <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 2 }}>
                 {TARGETS.find((t) => t.key === c.target)?.label || c.target}
-                {c.sent_at ? ` · inviata a ${c.recipients} il ${new Date(c.sent_at).toLocaleString('it-IT')}` : c.scheduled_at ? ` · programmata per ${new Date(c.scheduled_at).toLocaleString('it-IT')}` : ' · bozza'}
+                {c.repeat === 'weekly' ? ' · 🔁 ogni settimana' : ''}
+                {c.sent_at ? ` · inviata a ${c.recipients} il ${new Date(c.sent_at).toLocaleString('it-IT')}` : c.scheduled_at ? ` · ${c.repeat === 'weekly' ? 'prossimo invio' : 'programmata per'} ${new Date(c.scheduled_at).toLocaleString('it-IT')}` : ' · bozza'}
               </div>
             </div>
             <button onClick={() => remove(c.id)} className="action-btn" title="Elimina" style={{ color: 'var(--error)', flexShrink: 0 }}><Trash2 size={16} /></button>

@@ -62,7 +62,7 @@ export async function POST(req) {
   const gate = await requireAdmin();
   if (gate.error) return NextResponse.json({ error: gate.error }, { status: gate.status });
   const body = await req.json().catch(() => ({}));
-  const { action, title, message, link, target, scheduledAt } = body;
+  const { action, title, message, link, target, scheduledAt, repeat } = body;
   if (!message || !message.trim()) return NextResponse.json({ error: 'Il messaggio è obbligatorio' }, { status: 400 });
 
   const base = {
@@ -76,7 +76,7 @@ export async function POST(req) {
   if (action === 'send') {
     const { data: campaign, error } = await gate.admin
       .from('notification_campaigns')
-      .insert({ ...base, sent_at: new Date().toISOString() })
+      .insert({ ...base, repeat: 'none', sent_at: new Date().toISOString() })
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -85,10 +85,10 @@ export async function POST(req) {
     return NextResponse.json({ ok: true, recipients });
   }
 
-  // Campagna programmata (verrà inviata dal cron) o bozza
+  // Campagna programmata: 'none' = una volta sola, 'weekly' = ogni settimana (gestito dal cron)
   const { data, error } = await gate.admin
     .from('notification_campaigns')
-    .insert({ ...base, scheduled_at: scheduledAt || null })
+    .insert({ ...base, scheduled_at: scheduledAt || null, repeat: repeat === 'weekly' ? 'weekly' : 'none' })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
