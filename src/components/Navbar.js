@@ -318,7 +318,7 @@ export default function Navbar() {
           <Trophy size={20} />
           Classifiche
         </Link>
-        <Link href="/log" className={`mn-register ${isActive('/log') ? 'active' : ''}`}>
+        <Link href="/log" className={`mn-register ${isActive('/log') ? 'active' : ''} ${myLive ? 'live' : ''}`}>
           <PlusCircle size={24} />
           Registra
         </Link>

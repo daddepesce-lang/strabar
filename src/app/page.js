@@ -102,6 +102,11 @@ export default function FeedPage() {
   const [tourMsg, setTourMsg] = useState(null); // ultimo esito tappa (mostrato in-app, per intero)
   const [banners, setBanners] = useState([]); // banner pubblicitari gestiti da admin
   const [liveResidualGrams, setLiveResidualGrams] = useState(0); // alcol residuo da sessioni precedenti recenti
+  // Lock per l'aggiunta drink: blocca nuove selezioni finché l'aggiunta non è completata
+  // (evita il doppio tap sullo stesso drink causato dal lag di rete). Il ref garantisce
+  // un guard SINCRONO (tap ravvicinati prima del re-render); lo state aggiorna la UI.
+  const [addingDrink, setAddingDrink] = useState(false);
+  const addingDrinkRef = useRef(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [profilesList, setProfilesList] = useState([]);
   const [showCloseForm, setShowCloseForm] = useState(false);
@@ -650,7 +655,12 @@ export default function FeedPage() {
 
   const handleAddDrinkToActiveSession = async (preset) => {
     if (!activeSession) return;
-    
+    // Guard anti doppio-tap: ignora nuove selezioni finché l'aggiunta in corso non è
+    // completata. Il ref blocca in modo sincrono anche i tap ravvicinati nello stesso tick.
+    if (addingDrinkRef.current) return;
+    addingDrinkRef.current = true;
+    setAddingDrink(true);
+
     try {
       const nowStr = new Date().toISOString();
       const newDrink = {
@@ -755,6 +765,9 @@ export default function FeedPage() {
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione attiva:", err);
       alert("Impossibile aggiungere il drink: " + err.message);
+    } finally {
+      addingDrinkRef.current = false;
+      setAddingDrink(false);
     }
   };
 
@@ -1381,9 +1394,28 @@ export default function FeedPage() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold' }}>
+      <div style={{ paddingTop: '8px' }}>
+        <div className="pulse" style={{ color: 'var(--primary)', fontSize: '15px', fontWeight: 700, textAlign: 'center', marginBottom: '18px' }}>
           Versando una fresca... 🍺
+        </div>
+        <div className="skeleton-feed">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="card activity-card" style={{ cursor: 'default' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div className="sk sk-avatar" />
+                <div style={{ flex: 1 }}>
+                  <div className="sk sk-line" style={{ width: '45%', marginBottom: '8px' }} />
+                  <div className="sk sk-line" style={{ width: '30%', height: '9px' }} />
+                </div>
+              </div>
+              <div className="sk sk-line" style={{ width: '70%', height: '18px', marginBottom: '12px' }} />
+              <div className="sk sk-stats" />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="sk sk-line" style={{ width: '64px', height: '26px', borderRadius: '20px' }} />
+                <div className="sk sk-line" style={{ width: '80px', height: '26px', borderRadius: '20px' }} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -1978,15 +2010,16 @@ export default function FeedPage() {
                     <button
                       key={idx}
                       onClick={() => handleAddDrinkToActiveSession(preset)}
+                      disabled={addingDrink}
                       className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px' }}
+                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer' }}
                     >
                       {preset.label}
                     </button>
                   ))}
                 </div>
                 <div style={{ marginTop: '12px' }}>
-                  <BeerPicker onPick={handleAddDrinkToActiveSession} />
+                  <BeerPicker onPick={handleAddDrinkToActiveSession} disabled={addingDrink} />
                 </div>
                 <button
                   onClick={() => setShowAllLiveDrinks((v) => !v)}
@@ -2000,8 +2033,9 @@ export default function FeedPage() {
                       <button
                         key={idx}
                         onClick={() => handleAddDrinkToActiveSession(preset)}
+                        disabled={addingDrink}
                         className="btn btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)' }}
+                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer' }}
                       >
                         {preset.label}
                       </button>
@@ -2328,8 +2362,8 @@ export default function FeedPage() {
                   </div>
                   <div className="stat-box">
                     <span className="stat-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>Tasso Alcolico Est. <BacInfo size={12} /></span>
-                    <span className="stat-value">
-                      {displayBac(act).toFixed(2)} g/l
+                    <span className={`bac-pill ${displayBac(act) >= 0.5 ? 'high' : displayBac(act) >= 0.2 ? 'mid' : 'low'}`}>
+                      {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.7 }}>g/l</span>
                     </span>
                   </div>
                 </div>
@@ -2398,7 +2432,7 @@ export default function FeedPage() {
                      type="button"
                      onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
                      aria-label="Apri le foto della serata"
-                     style={{ display: 'block', width: '100%', padding: 0, marginBottom: '15px', border: '1px solid var(--border-dark)', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-input-dark)', position: 'relative' }}
+                     className="activity-cover"
                    >
                      {/* eslint-disable-next-line @next/next/no-img-element */}
                      <img
@@ -2406,9 +2440,8 @@ export default function FeedPage() {
                        alt="Foto della serata"
                        loading="lazy"
                        decoding="async"
-                       style={{ display: 'block', width: '100%', height: '220px', objectFit: 'cover' }}
                      />
-                     <span style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.65)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                     <span style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4, zIndex: 1 }}>
                        <Camera size={12} /> Foto
                      </span>
                    </button>

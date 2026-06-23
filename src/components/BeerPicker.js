@@ -7,7 +7,7 @@ import { BEER_FAMILIES } from '@/lib/drinks';
 // poi si apre la riga delle taglie (Piccola/Media/Grande). Toccare una taglia aggiunge
 // quel drink via onPick(preset); per più birre basta toccare ancora (la quantità si regola
 // poi con i +/- nella lista). Riutilizzabile in tutti i punti di registrazione drink.
-export default function BeerPicker({ onPick }) {
+export default function BeerPicker({ onPick, disabled = false }) {
   const [openKey, setOpenKey] = useState(null);
   const open = BEER_FAMILIES.find((f) => f.key === openKey);
 
@@ -44,8 +44,9 @@ export default function BeerPicker({ onPick }) {
               key={i}
               type="button"
               onClick={() => onPick(preset)}
+              disabled={disabled}
               className="btn btn-secondary"
-              style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)' }}
+              style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'wait' : 'pointer' }}
               title={`${preset.units.toFixed(1)} U.A. · ${preset.abv}%`}
             >
               {open.label.replace(/^🍺\s*/, '🍺 ')} {preset.size} <span style={{ color: 'var(--text-dark-secondary)' }}>· {preset.units.toFixed(1)} U.A.</span>
