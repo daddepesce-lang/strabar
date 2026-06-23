@@ -1,5 +1,6 @@
 import { createClient as createBrowserClient } from '@/utils/supabase/client';
 import { publicName } from '@/lib/names';
+import { QUICK_DRINKS, EXTRA_DRINKS, BEER_FAMILIES } from '@/lib/drinks';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -50,7 +51,7 @@ export const db = {
   // convertiamo in WEBP (~25-30% più leggero del JPEG a parità di qualità), con fallback
   // automatico a JPEG sui browser che non sanno codificare WebP via canvas.
   // In caso di errore (o GIF animate) si carica l'originale.
-  async _compressImage(file, maxDim = 1600, quality = 0.82) {
+  async _compressImage(file, maxDim = 1440, quality = 0.80) {
     if (typeof window === 'undefined') return file;
     if (!file || !file.type || !file.type.startsWith('image/')) return file;
     if (file.type === 'image/gif') return file;
@@ -84,18 +85,25 @@ export const db = {
   // passa da /api/upload (le chiavi R2 restano sul server). Il client comprime e genera la
   // miniatura PRIMA di inviare, così carichiamo poco e il feed serve una thumbnail leggera.
 
-  // Copertina per il feed: lato lungo ~1080px, JPEG q.82 → nitida anche su display retina
-  // a tutta larghezza (~120-180 KB). Su R2 l'egress è gratuito, quindi qui privilegiamo la
-  // QUALITÀ; resta comunque ~metà della foto piena e veloce da caricare. Il lightbox usa
-  // sempre l'immagine piena (≤1600px), quindi nessuna perdita per l'utente.
+  // Copertina per il feed: lato lungo ~800px, WebP q.72 (~40-70 KB). Il feed la mostra al
+  // massimo a ~680px, quindi 800px basta e avanza anche su retina. Il lightbox/dettaglio usa
+  // sempre l'immagine PIENA (≤1440px), quindi nessuna perdita per chi apre la foto.
+  // Anteprime più leggere = molta meno banda servita (cached egress) man mano che si scala.
   async _makeThumb(file) {
-    return this._compressImage(file, 1080, 0.8);
+    return this._compressImage(file, 800, 0.72);
+  },
+
+  // Avatar: si vedono a ≤80px, quindi 256px q.72 (~8-18 KB) sono più che sufficienti.
+  // Prima venivano salvati a 1080px (~150 KB) e caricati su OGNI card del feed: enorme
+  // spreco di banda. Questa è una miniatura dedicata, una sola immagine.
+  async _makeAvatar(file) {
+    return this._compressImage(file, 256, 0.72);
   },
 
   // Carica un'immagine su R2 e ritorna { url (piena), thumb (miniatura) }.
   async uploadImage(file) {
     const [full, thumb] = await Promise.all([
-      this._compressImage(file),   // piena qualità (≤1600px, q.82)
+      this._compressImage(file),   // piena qualità (≤1440px, q.80)
       this._makeThumb(file),       // miniatura leggera per il feed
     ]);
     const fd = new FormData();
@@ -112,11 +120,20 @@ export const db = {
     return { url, thumb: thumbUrl || url };
   },
 
-  // Compatibilità: i chiamanti che vogliono una sola URL (es. avatar) usano la miniatura,
-  // più che sufficiente per le foto profilo e ancora più leggera.
+  // Avatar (foto profilo): carica UNA sola immagine piccola (256px) su R2. Niente coppia
+  // piena+thumb: per un avatar è inutile e spreca banda. Ritorna la sola URL.
   async uploadFileToStorage(file) {
-    const { thumb } = await this.uploadImage(file);
-    return thumb;
+    const small = await this._makeAvatar(file);
+    const fd = new FormData();
+    fd.append('full', small, (small.name || 'avatar.webp'));
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    if (!res.ok) {
+      let msg = 'Caricamento immagine non riuscito.';
+      try { const j = await res.json(); if (j.error) msg = j.error; } catch { /* noop */ }
+      throw new Error(msg);
+    }
+    const { url } = await res.json();
+    return url;
   },
 
   // --- AUTH UTILS ---
@@ -3149,6 +3166,34 @@ export const db = {
       if (typeof window !== 'undefined') localStorage.setItem('sb_app_config', JSON.stringify({ t: Date.now(), v }));
       return v;
     } catch { return DEFAULTS; }
+  },
+
+  // Catalogo drink: override gestito da admin (app_config.drink_catalog) oppure il
+  // catalogo STATICO di default. Cache 24h in localStorage → ~zero query Supabase.
+  // Struttura: { quick:[], extra:[], beerFamilies:[] } (come src/lib/drinks.js).
+  DEFAULT_DRINK_CATALOG: { quick: QUICK_DRINKS, extra: EXTRA_DRINKS, beerFamilies: BEER_FAMILIES },
+  _validCatalog(c) {
+    return !!(c && Array.isArray(c.quick) && Array.isArray(c.extra) && Array.isArray(c.beerFamilies));
+  },
+  async getDrinkCatalog() {
+    const DEFAULT = this.DEFAULT_DRINK_CATALOG;
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = JSON.parse(localStorage.getItem('sb_drink_catalog') || 'null');
+        if (cached && Date.now() - cached.t < 24 * 60 * 60 * 1000 && this._validCatalog(cached.v)) return cached.v;
+      } catch { /* noop */ }
+    }
+    if (!isSupabaseConfigured) return DEFAULT;
+    try {
+      const { data } = await supabase.from('app_config').select('drink_catalog').eq('id', 'singleton').maybeSingle();
+      const v = this._validCatalog(data?.drink_catalog) ? data.drink_catalog : DEFAULT;
+      if (typeof window !== 'undefined') localStorage.setItem('sb_drink_catalog', JSON.stringify({ t: Date.now(), v }));
+      return v;
+    } catch { return DEFAULT; }
+  },
+  // Forza il refresh della cache catalogo (dopo un salvataggio admin).
+  clearDrinkCatalogCache() {
+    if (typeof window !== 'undefined') { try { localStorage.removeItem('sb_drink_catalog'); } catch { /* noop */ } }
   },
 
   // Banner pubblicitari attivi (la RLS restituisce solo quelli attivi e in finestra temporale),

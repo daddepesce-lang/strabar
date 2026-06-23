@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera, Info } from 'lucide-react';
-import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
+import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import BeerPicker from '@/components/BeerPicker';
 
 export default function LogActivityPage() {
   const router = useRouter();
+  // Catalogo drink dinamico (gestito da admin), con fallback statico immediato.
+  const { quick: QUICK_DRINKS, extra: EXTRA_DRINKS } = useDrinkCatalog();
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [startingSession, setStartingSession] = useState(false);

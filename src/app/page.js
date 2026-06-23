@@ -10,11 +10,12 @@ import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import BacCurve from '@/components/BacCurve';
-import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
+import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import { publicName } from '@/lib/names';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
 import InfoPopover from '@/components/InfoPopover';
+import LazyMap from '@/components/LazyMap';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
@@ -67,6 +68,8 @@ const VENICE_TOUR = [
 ];
 
 export default function FeedPage() {
+  // Catalogo drink dinamico (gestito da admin), con fallback statico immediato.
+  const { quick: QUICK_DRINKS, extra: EXTRA_DRINKS } = useDrinkCatalog();
   const router = useRouter();
   const FEED_PAGE_SIZE = 10;
   const [currentUser, setCurrentUser] = useState(null);
@@ -2458,7 +2461,7 @@ export default function FeedPage() {
                    const wp = [{ name: loc.name || 'Qui', lat, lng, note: loc.name || '' }];
                    return (
                      <div style={{ height: '170px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: '15px', position: 'relative' }}>
-                       <RouteMap waypoints={wp} height="100%" connectLine={false} interactive={false} />
+                       <LazyMap waypoints={wp} height="100%" connectLine={false} interactive={false} />
                      </div>
                    );
                  })()}

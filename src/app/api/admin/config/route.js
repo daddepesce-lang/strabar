@@ -21,6 +21,19 @@ export async function PATCH(req) {
   if (typeof body.push_reminder_enabled === 'boolean') fields.push_reminder_enabled = body.push_reminder_enabled;
   if (body.push_reminder_every != null) fields.push_reminder_every = Math.max(1, Math.min(50, parseInt(body.push_reminder_every) || 3));
 
+  // Catalogo drink gestito da admin. Accetta { quick, extra, beerFamilies } oppure null
+  // per tornare al catalogo statico di default. Validazione minima della struttura.
+  if ('drink_catalog' in body) {
+    const dc = body.drink_catalog;
+    if (dc === null) {
+      fields.drink_catalog = null;
+    } else if (dc && Array.isArray(dc.quick) && Array.isArray(dc.extra) && Array.isArray(dc.beerFamilies)) {
+      fields.drink_catalog = dc;
+    } else {
+      return NextResponse.json({ error: 'drink_catalog non valido (servono quick, extra, beerFamilies come array).' }, { status: 400 });
+    }
+  }
+
   const { data, error } = await gate.admin
     .from('app_config')
     .upsert({ id: 'singleton', ...fields })

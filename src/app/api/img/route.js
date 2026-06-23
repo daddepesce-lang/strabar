@@ -20,10 +20,10 @@ function hostAllowed(host) {
     const configured = process.env.R2_PUBLIC_URL ? new URL(process.env.R2_PUBLIC_URL).host : null;
     if (configured && host === configured) return true;
   } catch { /* env malformata: ignora */ }
+  // Solo R2: i media stanno tutti su Cloudflare R2. Niente Supabase Storage (egress).
   return (
     host.endsWith('.r2.dev') ||
-    host.endsWith('.r2.cloudflarestorage.com') ||
-    host.endsWith('.supabase.co')
+    host.endsWith('.r2.cloudflarestorage.com')
   );
 }
 

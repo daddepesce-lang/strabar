@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BEER_FAMILIES } from '@/lib/drinks';
+import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 
 // Selettore birre con TAGLIA: si sceglie prima il tipo (Bionda/Rossa/IPA/Doppio Malto),
 // poi si apre la riga delle taglie (Piccola/Media/Grande). Toccare una taglia aggiunge
@@ -9,7 +9,8 @@ import { BEER_FAMILIES } from '@/lib/drinks';
 // poi con i +/- nella lista). Riutilizzabile in tutti i punti di registrazione drink.
 export default function BeerPicker({ onPick, disabled = false }) {
   const [openKey, setOpenKey] = useState(null);
-  const open = BEER_FAMILIES.find((f) => f.key === openKey);
+  const { beerFamilies } = useDrinkCatalog();
+  const open = beerFamilies.find((f) => f.key === openKey);
 
   return (
     <div>
@@ -17,7 +18,7 @@ export default function BeerPicker({ onPick, disabled = false }) {
         Birra — scegli tipo e taglia:
       </span>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {BEER_FAMILIES.map((f) => {
+        {beerFamilies.map((f) => {
           const active = f.key === openKey;
           return (
             <button
