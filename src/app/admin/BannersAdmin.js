@@ -45,7 +45,7 @@ export default function BannersAdmin() {
     if (!file.type.startsWith('image/')) { setMsg('Errore: seleziona un file immagine.'); return; }
     setUploading(true); setMsg('');
     try {
-      const url = await db.uploadFileToStorage(file);
+      const { url } = await db.uploadImage(file);
       set('image_url', url);
     } catch (err) {
       setMsg('Errore upload: ' + (err.message || err));

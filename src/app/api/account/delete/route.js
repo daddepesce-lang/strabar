@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient as createServerSupabase } from '@/utils/supabase/server';
 import { createClient as createAdminSupabase } from '@supabase/supabase-js';
+import { r2DeletePrefix, isR2Configured } from '@/lib/r2';
+
+export const runtime = 'nodejs';
 
 // POST /api/account/delete
 // Cancellazione account self-service (GDPR — diritto all'oblio, art. 17).
@@ -34,6 +37,14 @@ export async function POST() {
     const admin = createAdminSupabase(url, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+
+    // Diritto all'oblio anche per i file multimediali: elimina da R2 tutti gli oggetti
+    // dell'utente (sono salvati sotto media/<userId>/). Best-effort: non blocca la
+    // cancellazione dell'account se R2 non risponde.
+    if (isR2Configured) {
+      try { await r2DeletePrefix(`media/${user.id}/`); }
+      catch (e) { console.error('Pulizia R2 fallita (account delete):', e); }
+    }
 
     const { error: delError } = await admin.auth.admin.deleteUser(user.id);
     if (delError) {

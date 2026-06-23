@@ -907,8 +907,8 @@ export default function FeedPage() {
     }
     setPhotoUploading(true);
     try {
-      const url = await db.uploadFileToStorage(file);
-      const newMedia = [...(activeSession.media || []), { type: 'image', name: file.name, url }];
+      const { url, thumb } = await db.uploadImage(file);
+      const newMedia = [...(activeSession.media || []), { type: 'image', name: file.name, url, thumb }];
       setActiveSession((prev) => (prev ? { ...prev, media: newMedia } : prev));
       await db.updateActivity(activeSession.id, { media: newMedia });
     } catch (err) {

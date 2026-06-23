@@ -52,7 +52,8 @@ export default function PrivacyPage() {
         <section>
           <h2 style={s.h2}>A chi comunichiamo i dati (responsabili)</h2>
           <ul style={s.ul}>
-            <li><strong>Supabase</strong> (autenticazione, database, archiviazione foto) — fornitore dell&apos;infrastruttura.</li>
+            <li><strong>Supabase</strong> (autenticazione, database) — fornitore dell&apos;infrastruttura.</li>
+            <li><strong>Cloudflare R2</strong> — archiviazione delle foto e dei file multimediali che carichi. Le immagini sono ospitate su Cloudflare e raggiungibili tramite URL pubblico.</li>
             <li><strong>Vercel</strong> — hosting dell&apos;applicazione web.</li>
             <li><strong>OpenStreetMap / Nominatim / Overpass API</strong> — quando cerchi un locale o carichi i bar su mappa, la query testuale e le coordinate approssimative vengono inviate ai loro server per ottenere i risultati.</li>
             <li><strong>OSRM (Project OSRM)</strong> — per il calcolo del percorso stradale tra le tappe di un itinerario, le coordinate dei punti vengono inviate al server pubblico <em>router.project-osrm.org</em>.</li>

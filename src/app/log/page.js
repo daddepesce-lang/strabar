@@ -68,8 +68,8 @@ export default function LogActivityPage() {
     }
     setRetroPhotoUploading(true);
     try {
-      const url = await db.uploadFileToStorage(file);
-      setRetroForm((p) => ({ ...p, media: [...p.media, { type: 'image', name: file.name, url }] }));
+      const { url, thumb } = await db.uploadImage(file);
+      setRetroForm((p) => ({ ...p, media: [...p.media, { type: 'image', name: file.name, url, thumb }] }));
     } catch (err) {
       console.error('Errore upload foto:', err);
       alert("Errore nel caricamento della foto: " + (err.message || err));

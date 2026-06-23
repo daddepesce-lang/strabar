@@ -73,67 +73,42 @@ export const db = {
     }
   },
 
-  // --- UPLOAD STORAGE ---
+  // --- UPLOAD STORAGE (Cloudflare R2) ---
+  // I file multimediali stanno su R2 (egress gratuito), NON su Supabase Storage. L'upload
+  // passa da /api/upload (le chiavi R2 restano sul server). Il client comprime e genera la
+  // miniatura PRIMA di inviare, così carichiamo poco e il feed serve una thumbnail leggera.
+
+  // Miniatura per il feed: lato lungo ~480px, JPEG q.62 → tipicamente 20-50 KB.
+  // La foto piena (per il lightbox) resta in alta qualità: nessuna perdita per l'utente.
+  async _makeThumb(file) {
+    return this._compressImage(file, 480, 0.62);
+  },
+
+  // Carica un'immagine su R2 e ritorna { url (piena), thumb (miniatura) }.
+  async uploadImage(file) {
+    const [full, thumb] = await Promise.all([
+      this._compressImage(file),   // piena qualità (≤1600px, q.82)
+      this._makeThumb(file),       // miniatura leggera per il feed
+    ]);
+    const fd = new FormData();
+    fd.append('full', full, (full.name || 'foto') + '');
+    if (thumb && thumb !== full) fd.append('thumb', thumb, 'thumb.jpg');
+
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    if (!res.ok) {
+      let msg = 'Caricamento immagine non riuscito.';
+      try { const j = await res.json(); if (j.error) msg = j.error; } catch { /* noop */ }
+      throw new Error(msg);
+    }
+    const { url, thumb: thumbUrl } = await res.json();
+    return { url, thumb: thumbUrl || url };
+  },
+
+  // Compatibilità: i chiamanti che vogliono una sola URL (es. avatar) usano la miniatura,
+  // più che sufficiente per le foto profilo e ancora più leggera.
   async uploadFileToStorage(file) {
-    if (!isSupabaseConfigured) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    try {
-      const upload = await this._compressImage(file);
-      const fileExt = (upload.name && upload.name.split('.').pop()) || 'jpg';
-      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = `activity-media/${fileName}`;
-
-      // Cache lunga: i nomi file sono unici/immutabili → 1 anno di cache su CDN e browser,
-      // così le foto già viste non rigenerano egress ad ogni apertura.
-      const CACHE = '31536000';
-
-      // Proviamo ad effettuare l'upload nel bucket 'media'
-      const { data, error } = await supabase.storage
-        .from('media')
-        .upload(filePath, upload, {
-          cacheControl: CACHE,
-          upsert: false
-        });
-
-      if (error) {
-        console.warn("Errore durante l'upload sul bucket 'media', provo con 'activities':", error);
-        // Fallback sul bucket 'activities'
-        const { data: fallbackData, error: fallbackError } = await supabase.storage
-          .from('activities')
-          .upload(filePath, upload, {
-            cacheControl: CACHE,
-            upsert: false
-          });
-
-        if (fallbackError) {
-          throw new Error("Impossibile caricare il file. Assicurati che esista un bucket pubblico 'media' o 'activities' in Supabase.");
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from('activities')
-          .getPublicUrl(filePath);
-
-        return publicUrlData.publicUrl;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
-
-      return publicUrlData.publicUrl;
-    } catch (err) {
-      console.error("Errore di caricamento su Supabase Storage:", err);
-      // NIENTE fallback base64: salvare immagini come base64 nel DB lo appesantiva
-      // e rallentava tutto. Meglio fallire con un messaggio chiaro.
-      throw new Error("Caricamento immagine non riuscito. Verifica che il bucket 'media' esista e riprova.");
-    }
+    const { thumb } = await this.uploadImage(file);
+    return thumb;
   },
 
   // --- AUTH UTILS ---
@@ -358,12 +333,15 @@ export const db = {
     return res;
   },
 
-  // Prima foto (URL http) tra i media: usata come copertina leggera nel feed.
-  // Ignora i base64 (data:) per non appesantire la colonna cover_url.
+  // Copertina leggera per il feed: la MINIATURA (thumb) della prima foto, se presente,
+  // altrimenti l'URL pieno. Ignora i base64 (data:) per non appesantire cover_url.
   _coverFromMedia(media) {
     if (!Array.isArray(media)) return null;
-    const img = media.find((m) => m && m.type === 'image' && typeof m.url === 'string' && /^https?:\/\//.test(m.url));
-    return img ? img.url : null;
+    const img = media.find((m) => {
+      const u = m && m.type === 'image' && (m.thumb || m.url);
+      return typeof u === 'string' && /^https?:\/\//.test(u);
+    });
+    return img ? (img.thumb || img.url) : null;
   },
 
   // Feed: supporta la PAGINAZIONE. Senza argomenti scarica tutto (retro-compatibile
