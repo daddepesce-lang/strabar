@@ -573,6 +573,7 @@ select.form-control {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   text-align: center;
   padding: 2px 10px;
   position: relative;
@@ -594,7 +595,14 @@ select.form-control {
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.04em;
-  margin-bottom: 2px;
+  margin-bottom: 6px;
+  /* Riserva 2 righe così le etichette corte e quelle che vanno a capo
+     occupano la stessa altezza → i numeri sotto restano allineati */
+  min-height: 26px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1.15;
 }
 
 /* Numeri "hero" condensati: font display (Bebas Neue) per look da fitness-app */

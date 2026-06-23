@@ -60,7 +60,13 @@ export default function ShareActivityPage({ params }) {
     const images = activity.media?.filter(m => m.type === 'image') || [];
     const hasPhoto = images.length > 0;
     const usePhoto = sharingTheme === 'photo' && hasPhoto;
-    const photoUrl = (images[selectedPhotoIdx] || images[0])?.url;
+    const rawPhotoUrl = (images[selectedPhotoIdx] || images[0])?.url;
+    // I media stanno su R2 (*.r2.dev) senza header CORS: caricarli direttamente con
+    // crossOrigin fallisce e la foto non compare. Li facciamo passare dal proxy
+    // same-origin /api/img così il canvas resta esportabile (vedi src/app/api/img).
+    const photoUrl = rawPhotoUrl
+      ? (rawPhotoUrl.startsWith('http') ? `/api/img?url=${encodeURIComponent(rawPhotoUrl)}` : rawPhotoUrl)
+      : undefined;
 
     const drawStats = () => {
       // 1. Disegna lo sfondo

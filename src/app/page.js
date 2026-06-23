@@ -2361,7 +2361,7 @@ export default function FeedPage() {
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>Tasso Alcolico Est. <BacInfo size={12} /></span>
+                    <span className="stat-label" style={{ gap: '4px' }}>Tasso Alcolico Est. <BacInfo size={12} /></span>
                     <span className={`bac-pill ${displayBac(act) >= 0.5 ? 'high' : displayBac(act) >= 0.2 ? 'mid' : 'low'}`}>
                       {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.7 }}>g/l</span>
                     </span>
