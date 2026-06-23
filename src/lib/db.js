@@ -45,9 +45,10 @@ const setStored = (key, data) => {
 
 // API di Database unificata
 export const db = {
-  // Ridimensiona e ricomprime le foto PRIMA dell'upload: una foto da smartphone pesa
-  // spesso 3-8 MB, e ogni visualizzazione la riscarica → egress Storage altissimo.
-  // Riduciamo il lato lungo a ~1600px e convertiamo in JPEG q.82 (tipicamente 100-400 KB).
+  // Ridimensiona e ricomprime le foto PRIMA dell'upload (sul dispositivo): una foto da
+  // smartphone pesa 3-8 MB e riempirebbe in fretta lo storage. Riduciamo il lato lungo e
+  // convertiamo in WEBP (~25-30% più leggero del JPEG a parità di qualità), con fallback
+  // automatico a JPEG sui browser che non sanno codificare WebP via canvas.
   // In caso di errore (o GIF animate) si carica l'originale.
   async _compressImage(file, maxDim = 1600, quality = 0.82) {
     if (typeof window === 'undefined') return file;
@@ -65,9 +66,14 @@ export const db = {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(bitmap, 0, 0, width, height);
       bitmap.close?.();
-      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
+      const encode = (type) => new Promise((res) => canvas.toBlob(res, type, quality));
+      let blob = await encode('image/webp');
+      let ext = 'webp', mime = 'image/webp';
+      if (!blob || blob.type !== 'image/webp') { // browser senza encode WebP → JPEG
+        blob = await encode('image/jpeg'); ext = 'jpg'; mime = 'image/jpeg';
+      }
       if (!blob || blob.size >= file.size) return file; // se non riduce, tieni l'originale
-      return new File([blob], (file.name || 'foto').replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+      return new File([blob], (file.name || 'foto').replace(/\.\w+$/, '') + '.' + ext, { type: mime });
     } catch {
       return file;
     }
@@ -78,10 +84,12 @@ export const db = {
   // passa da /api/upload (le chiavi R2 restano sul server). Il client comprime e genera la
   // miniatura PRIMA di inviare, così carichiamo poco e il feed serve una thumbnail leggera.
 
-  // Miniatura per il feed: lato lungo ~480px, JPEG q.62 → tipicamente 20-50 KB.
-  // La foto piena (per il lightbox) resta in alta qualità: nessuna perdita per l'utente.
+  // Copertina per il feed: lato lungo ~1080px, JPEG q.82 → nitida anche su display retina
+  // a tutta larghezza (~120-180 KB). Su R2 l'egress è gratuito, quindi qui privilegiamo la
+  // QUALITÀ; resta comunque ~metà della foto piena e veloce da caricare. Il lightbox usa
+  // sempre l'immagine piena (≤1600px), quindi nessuna perdita per l'utente.
   async _makeThumb(file) {
-    return this._compressImage(file, 480, 0.62);
+    return this._compressImage(file, 1080, 0.8);
   },
 
   // Carica un'immagine su R2 e ritorna { url (piena), thumb (miniatura) }.
