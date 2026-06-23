@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import { publicName } from '@/lib/names';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import {
@@ -178,7 +179,7 @@ export default function AthleteProfilePage({ params }) {
           <Avatar src={profile.avatar_url} name={profile.display_name || profile.username} size={76} style={{ border: '3px solid var(--primary)' }} />
           <div style={{ flex: 1, minWidth: '180px' }}>
             <h1 style={{ fontSize: '26px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              {profile.display_name}
+              {publicName(profile)}
               {profile.is_premium && (
                 <span className="badge-premium"><Award size={12} /> Premium</span>
               )}
@@ -233,7 +234,7 @@ export default function AthleteProfilePage({ params }) {
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ color: '#3B82F6', marginBottom: '8px' }}><Heart size={26} /></div>
           <span className="stat-label">Drink Preferito</span>
-          <div style={{ fontSize: '15px', fontWeight: 800, marginTop: '12px', color: 'var(--primary)' }}>{favoriteDrink}</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, marginTop: '12px', color: 'var(--primary)', overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.25 }}>{favoriteDrink}</div>
         </div>
       </div>
 
@@ -266,7 +267,7 @@ export default function AthleteProfilePage({ params }) {
       {/* Attività recenti */}
       <div>
         <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Users size={20} color="var(--primary)" /> Attività di {profile.display_name}
+          <Users size={20} color="var(--primary)" /> Attività di {publicName(profile)}
         </h2>
 
         {combinedActivities.length === 0 ? (

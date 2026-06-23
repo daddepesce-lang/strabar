@@ -54,5 +54,40 @@ export async function GET(req) {
       console.error('Errore invio campagna programmata', campaign.id, err);
     }
   }
-  return NextResponse.json({ ok: true, processed: (due || []).length, sent });
+
+  // Rete di sicurezza: chiudi le sessioni "live" rimaste appese (is_active=true) quando
+  // l'utente non ha più riaperto l'app per far scattare l'auto-chiusura client. Senza questo
+  // restavano "live" all'infinito (es. visibili nel pannello admin). Coerente con i 4h
+  // dall'ULTIMO drink usati da db.getActiveSession.
+  let closedStale = 0;
+  try {
+    const { data: actives } = await admin
+      .from('sessions')
+      .select('id, created_at, drinks, feeling, description')
+      .eq('is_active', true);
+    const AUTOCLOSE_MS = 4 * 60 * 60 * 1000;
+    const now = Date.now();
+    const lastDrinkMs = (s) => {
+      let last = new Date(s.created_at).getTime();
+      (s.drinks || []).forEach((d) => {
+        const times = Array.isArray(d.added_times) && d.added_times.length ? d.added_times : (d.added_at ? [d.added_at] : []);
+        times.forEach((t) => { const ms = new Date(t).getTime(); if (Number.isFinite(ms) && ms > last) last = ms; });
+      });
+      return last;
+    };
+    for (const s of actives || []) {
+      if (now - lastDrinkMs(s) < AUTOCLOSE_MS) continue;
+      await admin.from('sessions').update({
+        is_active: false,
+        feeling: s.feeling || 'Sobrio',
+        description: s.description || 'Chiusa automaticamente dopo 4 ore di inattività.',
+        duration: Math.max(1, Math.round((now - new Date(s.created_at).getTime()) / 60000)),
+      }).eq('id', s.id);
+      closedStale += 1;
+    }
+  } catch (err) {
+    console.error('Errore chiusura sessioni stale', err);
+  }
+
+  return NextResponse.json({ ok: true, processed: (due || []).length, sent, closedStale });
 }

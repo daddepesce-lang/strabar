@@ -41,11 +41,13 @@ ANALYZE public.sessions;
 -- RPC: classifica globale top atleti per U.A. (aggrega nel DB)
 -- Evita di scaricare tutte le sessioni sul client per la sidebar.
 -- ============================================================
+DROP FUNCTION IF EXISTS public.get_top_drinkers(integer);
 CREATE OR REPLACE FUNCTION public.get_top_drinkers(lim integer DEFAULT 5)
 RETURNS TABLE (
   user_id uuid,
   username text,
   display_name text,
+  use_username boolean,
   is_premium boolean,
   total_units numeric
 )
@@ -56,11 +58,12 @@ AS $$
     s.user_id,
     p.username,
     p.display_name,
+    COALESCE(p.use_username, false) AS use_username,
     p.is_premium,
     COALESCE(SUM(s.total_units), 0)::numeric AS total_units
   FROM public.sessions s
   JOIN public.profiles p ON p.id = s.user_id
-  GROUP BY s.user_id, p.username, p.display_name, p.is_premium
+  GROUP BY s.user_id, p.username, p.display_name, p.use_username, p.is_premium
   ORDER BY total_units DESC
   LIMIT GREATEST(lim, 1);
 $$;

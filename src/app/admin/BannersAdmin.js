@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader, Plus, Trash2, Image as ImageIcon, Search, MapPin } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Loader, Plus, Trash2, Image as ImageIcon, Search, MapPin, Upload, X } from 'lucide-react';
 import { db } from '@/lib/db';
 
 const CATEGORIES = [
@@ -22,6 +22,8 @@ export default function BannersAdmin() {
   const [venueQ, setVenueQ] = useState('');
   const [venueRes, setVenueRes] = useState([]);
   const [venueSearching, setVenueSearching] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
 
   const load = async () => {
     setLoading(true);
@@ -34,6 +36,24 @@ export default function BannersAdmin() {
   useEffect(() => { load(); }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Upload immagine del banner: comprime e carica su Storage (stesso bucket delle foto
+  // sessione), poi salva la URL pubblica in image_url. Niente base64 → banner leggeri.
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setMsg('Errore: seleziona un file immagine.'); return; }
+    setUploading(true); setMsg('');
+    try {
+      const url = await db.uploadFileToStorage(file);
+      set('image_url', url);
+    } catch (err) {
+      setMsg('Errore upload: ' + (err.message || err));
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
   // Ricerca locale (geocoding): collega il banner a un locale reale precompilando
   // partner, link a Google Maps e titolo.
@@ -112,10 +132,25 @@ export default function BannersAdmin() {
 
         <input className="form-control" style={inputStyle} placeholder="Titolo (es. Taxi Venezia 24h)" value={form.title} onChange={(e) => set('title', e.target.value)} />
         <textarea className="form-control" placeholder="Testo (es. Prenota il rientro sicuro con un tocco)" rows={2} value={form.body} onChange={(e) => set('body', e.target.value)} style={{ fontSize: 14, resize: 'vertical' }} />
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input className="form-control" style={{ ...inputStyle, flex: '1 1 220px' }} placeholder="URL immagine (opzionale)" value={form.image_url} onChange={(e) => set('image_url', e.target.value)} />
-          <input className="form-control" style={{ ...inputStyle, flex: '1 1 220px' }} placeholder="Link (es. https://… o tel:+39…)" value={form.link_url} onChange={(e) => set('link_url', e.target.value)} />
+        {/* Immagine del banner: carica un file (consigliato) oppure incolla una URL */}
+        <div>
+          <label className="form-label" style={{ fontSize: 10 }}>Immagine del banner (opzionale)</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}>
+            <input className="form-control" style={{ ...inputStyle, flex: '1 1 200px' }} placeholder="Incolla una URL oppure carica →" value={form.image_url} onChange={(e) => set('image_url', e.target.value)} />
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} style={{ display: 'none' }} />
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn btn-secondary" style={{ borderRadius: 10, padding: '0 14px', gap: 6, whiteSpace: 'nowrap' }}>
+              {uploading ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={15} />} Carica
+            </button>
+          </div>
+          {form.image_url && (
+            <div style={{ position: 'relative', marginTop: 8, width: 'fit-content' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={form.image_url} alt="anteprima banner" style={{ maxHeight: 110, maxWidth: '100%', borderRadius: 10, border: '1px solid var(--border-dark)', display: 'block' }} />
+              <button type="button" onClick={() => set('image_url', '')} title="Rimuovi immagine" style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF' }}><X size={14} /></button>
+            </div>
+          )}
         </div>
+        <input className="form-control" style={inputStyle} placeholder="Link (es. https://… o tel:+39…)" value={form.link_url} onChange={(e) => set('link_url', e.target.value)} />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input className="form-control" style={{ ...inputStyle, flex: '1 1 140px' }} placeholder="Partner" value={form.partner} onChange={(e) => set('partner', e.target.value)} />
           <input className="form-control" style={{ ...inputStyle, flex: '1 1 100px' }} placeholder="CTA" value={form.cta} onChange={(e) => set('cta', e.target.value)} />

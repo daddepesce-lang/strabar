@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera, Info } from 'lucide-react';
 import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
+import BeerPicker from '@/components/BeerPicker';
 
 export default function LogActivityPage() {
   const router = useRouter();
@@ -1028,6 +1029,11 @@ export default function LogActivityPage() {
                       {preset.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Birre con scelta di tipo e taglia */}
+                <div style={{ marginBottom: '10px' }}>
+                  <BeerPicker onPick={handleRetroAddDrink} />
                 </div>
 
                 {/* Catalogo esteso */}

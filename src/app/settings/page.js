@@ -47,6 +47,9 @@ export default function SettingsPage() {
   // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
   const [showBacPublic, setShowBacPublic] = useState(false);
 
+  // Come compaio agli altri: nome reale (false) o @username (true)
+  const [useUsername, setUseUsername] = useState(false);
+
   // GDPR: esportazione dati (portabilità) e cancellazione account (oblio)
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -68,6 +71,12 @@ export default function SettingsPage() {
     const next = !showBacPublic;
     setShowBacPublic(next);
     try { await db.updateProfile(currentUser.id, { show_bac_public: next }); } catch (err) { console.error(err); }
+  };
+
+  // Sceglie come comparire agli altri (nome reale o @username). value=true → username.
+  const setNamePref = async (value) => {
+    setUseUsername(value);
+    try { await db.updateProfile(currentUser.id, { use_username: value }); } catch (err) { console.error(err); }
   };
 
   const handleExportData = async () => {
@@ -142,6 +151,7 @@ export default function SettingsPage() {
         setAvatarUrl(user.avatar_url || '');
         if (user.notif_prefs) setNotifPrefs((p) => ({ ...p, ...user.notif_prefs }));
         setShowBacPublic(!!user.show_bac_public);
+        setUseUsername(!!user.use_username);
       } catch (err) {
         console.error(err);
       } finally {
@@ -338,6 +348,46 @@ export default function SettingsPage() {
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '8px', marginBottom: 0 }}>
             Vale sia per le notifiche push sia per la campanella nell&apos;app.
           </p>
+        </div>
+      </div>
+
+      {/* Privacy: come compaio agli altri (nome reale vs @username) */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          🙋 Come compaio agli altri
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+          Scegli come appare il tuo nome nel <strong>feed</strong>, nelle <strong>classifiche</strong> e sul tuo profilo pubblico.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {[
+            { value: false, title: `Nome${displayName ? ` (${displayName})` : ''}`, sub: 'Il tuo nome reale' },
+            { value: true, title: username ? `@${username}` : 'Username', sub: 'Solo il tuo username' },
+          ].map((opt) => {
+            const active = useUsername === opt.value;
+            return (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => setNamePref(opt.value)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', textAlign: 'left',
+                  background: 'var(--bg-input-dark)', borderRadius: '10px', padding: '10px 12px', cursor: 'pointer',
+                  color: 'var(--text-dark-primary)', border: active ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
+                }}
+              >
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.title}</span>
+                  <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{opt.sub}</span>
+                </span>
+                <span style={{
+                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                  border: active ? '6px solid var(--primary)' : '2px solid var(--border-dark)',
+                  background: active ? '#fff' : 'transparent', transition: 'all .15s',
+                }} />
+              </button>
+            );
+          })}
         </div>
       </div>
 

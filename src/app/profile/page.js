@@ -535,7 +535,7 @@ export default function ProfilePage() {
                 <Heart size={32} />
               </div>
               <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>Drink Preferito</span>
-              <div style={{ fontSize: '18px', fontWeight: '800', marginTop: '15px', color: 'var(--primary)', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '12px', color: 'var(--primary)', minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.25 }}>
                 {favoriteDrink}
               </div>
             </div>

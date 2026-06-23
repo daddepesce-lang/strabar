@@ -1,4 +1,5 @@
 import { createClient as createBrowserClient } from '@/utils/supabase/client';
+import { publicName } from '@/lib/names';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -341,13 +342,28 @@ export const db = {
   // Colonne di lista delle sessioni (SENZA `media`, vedi nota in getActivities), MA con
   // `residual_grams`: serve a far vedere a tutti lo stesso BAC live. `_selectSessions`
   // include la colonna e, se il DB non l'ha ancora migrata, riprova senza (niente crash).
-  _SESSION_LIST_COLS: 'id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, residual_grams, created_at',
+  // `cover_url`: URL della SOLA foto di copertina (anteprima nel feed). Leggero (una
+  // stringa) → mostriamo la thumbnail senza scaricare l'intera colonna `media` (che può
+  // contenere base64 pesante). Le altre foto si caricano on-demand all'apertura.
+  _SESSION_LIST_COLS: 'id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, residual_grams, cover_url, created_at',
   async _selectSessions(buildQuery) {
     let res = await buildQuery(this._SESSION_LIST_COLS);
+    // Degrada con grazia se il DB non ha ancora la migrazione delle colonne opzionali.
     if (res.error && /residual_grams/i.test(res.error.message || '')) {
       res = await buildQuery(this._SESSION_LIST_COLS.replace(', residual_grams', ''));
     }
+    if (res.error && /cover_url/i.test(res.error.message || '')) {
+      res = await buildQuery(this._SESSION_LIST_COLS.replace(', cover_url', '').replace(', residual_grams', ''));
+    }
     return res;
+  },
+
+  // Prima foto (URL http) tra i media: usata come copertina leggera nel feed.
+  // Ignora i base64 (data:) per non appesantire la colonna cover_url.
+  _coverFromMedia(media) {
+    if (!Array.isArray(media)) return null;
+    const img = media.find((m) => m && m.type === 'image' && typeof m.url === 'string' && /^https?:\/\//.test(m.url));
+    return img ? img.url : null;
   },
 
   // Feed: supporta la PAGINAZIONE. Senza argomenti scarica tutto (retro-compatibile
@@ -364,7 +380,7 @@ export const db = {
           .from('sessions')
           .select(`
             ${cols},
-            profiles(username, display_name, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, avatar_url, weight, sex),
             cheers(user_id),
             comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
           `)
@@ -413,7 +429,7 @@ export const db = {
         .from('sessions')
         .select(`
           *,
-          profiles(username, display_name, avatar_url, weight, sex),
+          profiles(username, display_name, use_username, avatar_url, weight, sex),
           cheers(user_id),
           comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
         `)
@@ -472,6 +488,7 @@ export const db = {
       location: activityData.location || null,
       bac_level: parseFloat(activityData.bac_level || 0),
       media: activityData.media || null,
+      cover_url: this._coverFromMedia(activityData.media),
       full_stomach: activityData.full_stomach !== undefined ? activityData.full_stomach : null,
       is_active: activityData.is_active !== undefined ? activityData.is_active : false,
       // Usa created_at personalizzato per sessioni a posteriori, altrimenti adesso
@@ -1024,6 +1041,10 @@ export const db = {
   },
 
   async updateActivity(activityId, updatedData) {
+    // Tieni allineata la copertina leggera del feed ogni volta che cambiano i media.
+    if ('media' in updatedData) {
+      updatedData = { ...updatedData, cover_url: this._coverFromMedia(updatedData.media) };
+    }
     if (isSupabaseConfigured) {
       let { data, error } = await supabase
         .from('sessions')
@@ -1032,9 +1053,10 @@ export const db = {
         .select()
         .single();
       if (error) {
-        // Fallback: se la colonna is_active non esiste nel DB e stiamo provando a modificarla, rimuoviamola e riproviamo
+        // Fallback: se una colonna opzionale (is_active/cover_url) non esiste ancora nel DB,
+        // rimuoviamola e riproviamo invece di far fallire tutto l'update.
         if (error.code === '42703' || /column .* does not exist/i.test(error.message || '')) {
-          const { is_active, ...rest } = updatedData;
+          const { is_active, cover_url, ...rest } = updatedData;
           if (Object.keys(rest).length > 0) {
             const { data: retryData, error: retryError } = await supabase
               .from('sessions')
@@ -1131,7 +1153,7 @@ export const db = {
           .from('sessions')
           .select(`
             *,
-            profiles(username, display_name, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, avatar_url, weight, sex),
             cheers(user_id),
             comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
           `)
@@ -1750,7 +1772,7 @@ export const db = {
           .from('sessions')
           .select(`
             ${cols},
-            profiles(username, display_name, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, avatar_url, weight, sex),
             cheers(user_id),
             comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
           `)
@@ -1786,7 +1808,7 @@ export const db = {
           return data.map((r, i) => ({
             rank: i + 1,
             user_id: r.user_id,
-            name: r.display_name || r.username || 'Atleta Strabar',
+            name: publicName(r),
             units: parseFloat(Number(r.total_units || 0).toFixed(1)),
             isPremium: !!r.is_premium,
           }));
@@ -1817,14 +1839,14 @@ export const db = {
         if (top.length === 0) return [];
         const { data: profs } = await supabase
           .from('profiles')
-          .select('id, username, display_name, is_premium')
+          .select('id, username, display_name, use_username, is_premium')
           .in('id', top.map((t) => t.user_id));
         const pmap = {};
         (profs || []).forEach((p) => { pmap[p.id] = p; });
         return top.map((t, i) => ({
           rank: i + 1,
           user_id: t.user_id,
-          name: pmap[t.user_id]?.display_name || pmap[t.user_id]?.username || 'Atleta Strabar',
+          name: publicName(pmap[t.user_id]),
           units: t.units,
           isPremium: !!pmap[t.user_id]?.is_premium,
         }));
@@ -1904,7 +1926,7 @@ export const db = {
       try {
         const { data, error } = await supabase
           .from('sessions')
-          .select('id, user_id, location, created_at, bac_level, drinks, is_active, full_stomach, duration, residual_grams, profiles(username, display_name, weight, sex)')
+          .select('id, user_id, location, created_at, bac_level, drinks, is_active, full_stomach, duration, residual_grams, profiles(username, display_name, use_username, weight, sex)')
           .eq('is_active', true)
           .gte('created_at', since)
           .order('created_at', { ascending: false });
@@ -1952,7 +1974,7 @@ export const db = {
       out.push({
         id: a.id,
         user_id: a.user_id,
-        name: a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar',
+        name: publicName(a.profiles),
         username: a.profiles?.username || 'atleta',
         place: loc.name || 'Posizione condivisa',
         lat: loc.lat,

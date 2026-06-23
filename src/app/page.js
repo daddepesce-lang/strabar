@@ -11,6 +11,9 @@ import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import BacCurve from '@/components/BacCurve';
 import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
+import { publicName } from '@/lib/names';
+import MediaLightbox from '@/components/MediaLightbox';
+import BeerPicker from '@/components/BeerPicker';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
@@ -76,7 +79,20 @@ export default function FeedPage() {
   const [editingComment, setEditingComment] = useState(null); // { id, text } commento in modifica
   const [activeCommentsSection, setActiveCommentsSection] = useState({});
   const [selectedActivity, setSelectedActivity] = useState(null);
+  const [lightbox, setLightbox] = useState(null); // { images: [url], index } per lo slideshow foto
   const [venueBoard, setVenueBoard] = useState(null); // classifica del locale (dati completi)
+
+  // Apre lo slideshow delle foto di una sessione. Mostra subito la copertina (nessuna attesa),
+  // poi carica le altre foto ON-DEMAND con getActivity (il feed non scarica `media` per restare
+  // velocissimo). Così l'egress avviene solo quando l'utente apre davvero le foto.
+  const openSessionPhotos = async (act, startIndex = 0) => {
+    setLightbox({ images: act.cover_url ? [act.cover_url] : [], index: 0 });
+    try {
+      const full = (act.media && act.media.length) ? act : await db.getActivity(act.id);
+      const imgs = (full?.media || []).filter((m) => m.type === 'image' && m.url).map((m) => m.url);
+      if (imgs.length) setLightbox({ images: imgs, index: Math.min(startIndex, imgs.length - 1) });
+    } catch { /* in caso di errore resta visibile la sola copertina */ }
+  };
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false); // visore foto a schermo intero
 
@@ -87,7 +103,6 @@ export default function FeedPage() {
   const [banners, setBanners] = useState([]); // banner pubblicitari gestiti da admin
   const [liveResidualGrams, setLiveResidualGrams] = useState(0); // alcol residuo da sessioni precedenti recenti
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
-  const [feedSlideIndices, setFeedSlideIndices] = useState({}); // { [actId]: index }
   const [profilesList, setProfilesList] = useState([]);
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
@@ -1151,20 +1166,6 @@ export default function FeedPage() {
     }
   };
 
-  const handleNextSlide = (actId, maxIndex) => {
-    setFeedSlideIndices(prev => ({
-      ...prev,
-      [actId]: ((prev[actId] || 0) + 1) % maxIndex
-    }));
-  };
-
-  const handlePrevSlide = (actId, maxIndex) => {
-    setFeedSlideIndices(prev => ({
-      ...prev,
-      [actId]: (prev[actId] || 0) === 0 ? maxIndex - 1 : (prev[actId] || 0) - 1
-    }));
-  };
-
   const renderCompanionsList = (act) => {
     // "Ha bevuto con" SOLO le persone taggate esplicitamente (drank_with).
     // Niente più rilevamento automatico per vicinanza/orario: dava falsi "insieme".
@@ -1984,6 +1985,9 @@ export default function FeedPage() {
                     </button>
                   ))}
                 </div>
+                <div style={{ marginTop: '12px' }}>
+                  <BeerPicker onPick={handleAddDrinkToActiveSession} />
+                </div>
                 <button
                   onClick={() => setShowAllLiveDrinks((v) => !v)}
                   style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginTop: '8px' }}
@@ -2264,7 +2268,7 @@ export default function FeedPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="activity-author">
                       <Link href={`/u/${act.user_id}`} style={{ color: 'inherit' }}>
-                        {act.profiles?.display_name || 'Utente Strabar'}
+                        {publicName(act.profiles, 'Utente Strabar')}
                       </Link>
                       {act.profiles?.is_premium && (
                         <span className="badge-premium" style={{ marginLeft: '8px', fontSize: '8px' }}>
@@ -2386,71 +2390,29 @@ export default function FeedPage() {
                    );
                  })()}
 
-                 {(() => {
-                   const images = act.media?.filter(m => m.type === 'image') || [];
-                   const otherMedia = act.media?.filter(m => m.type !== 'image') || [];
-                   const activeSlideIdx = feedSlideIndices[act.id] || 0;
-                   if (images.length === 0 && otherMedia.length === 0) return null;
-                   
-                   return (
-                     <div style={{ marginBottom: '15px' }}>
-                       {images.length > 0 && (
-                         <div style={{ position: 'relative', width: '100%', height: '220px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: otherMedia.length > 0 ? '8px' : '0' }}>
-                           {/* Active image */}
-                           <div style={{
-                             width: '100%',
-                             height: '100%',
-                             backgroundImage: `url(${images[activeSlideIdx]?.url})`,
-                             backgroundSize: 'cover',
-                             backgroundPosition: 'center',
-                             transition: 'background-image 0.2s ease-in-out'
-                           }} />
-                           
-                           {/* Overlay index */}
-                           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)', padding: '12px 16px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
-                             <span style={{ fontSize: '13px', fontWeight: '600' }}>
-                               {`Ricordo ${activeSlideIdx + 1}`}
-                             </span>
-                             <span style={{ fontSize: '11px', fontWeight: '600', background: 'rgba(0,0,0,0.5)', padding: '2px 6px', borderRadius: '10px' }}>
-                               {activeSlideIdx + 1} / {images.length}
-                             </span>
-                           </div>
-
-                           {/* Arrows */}
-                           {images.length > 1 && (
-                             <>
-                               <button
-                                 type="button"
-                                 onClick={() => handlePrevSlide(act.id, images.length)}
-                                 style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 3 }}
-                               >
-                                 ‹
-                               </button>
-                               <button
-                                 type="button"
-                                 onClick={() => handleNextSlide(act.id, images.length)}
-                                 style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 3 }}
-                               >
-                                 ›
-                               </button>
-                             </>
-                           )}
-                         </div>
-                       )}
-
-                       {/* Non-image files */}
-                       {otherMedia.length > 0 && (
-                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                           {otherMedia.map((med, idx) => (
-                             <span key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', color: '#FFF', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                               {med.type === 'video' ? '🎥' : med.type === 'audio' ? '🎵' : '📎'} {med.name}
-                             </span>
-                           ))}
-                         </div>
-                       )}
-                     </div>
-                   );
-                 })()}
+                 {/* Anteprima foto (copertina leggera): UNA sola immagine lazy nel feed; al
+                     tocco apre lo slideshow con TUTTE le foto, caricate solo allora.
+                     Così il feed resta velocissimo (nessun download foto finché non serve). */}
+                 {act.cover_url && (
+                   <button
+                     type="button"
+                     onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
+                     aria-label="Apri le foto della serata"
+                     style={{ display: 'block', width: '100%', padding: 0, marginBottom: '15px', border: '1px solid var(--border-dark)', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-input-dark)', position: 'relative' }}
+                   >
+                     {/* eslint-disable-next-line @next/next/no-img-element */}
+                     <img
+                       src={act.cover_url}
+                       alt="Foto della serata"
+                       loading="lazy"
+                       decoding="async"
+                       style={{ display: 'block', width: '100%', height: '220px', objectFit: 'cover' }}
+                     />
+                     <span style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.65)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                       <Camera size={12} /> Foto
+                     </span>
+                   </button>
+                 )}
 
                 {renderCompanionsList(act)}
 
@@ -2663,7 +2625,7 @@ export default function FeedPage() {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {leaderboardData.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: item.name === currentUser?.display_name ? 'rgba(255, 32, 0, 0.08)' : 'rgba(255,255,255,0.01)', borderRadius: '8px', border: item.name === currentUser?.display_name ? '1px dashed var(--primary)' : '1px solid transparent' }}>
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: item.user_id === currentUser?.id ? 'rgba(255, 32, 0, 0.08)' : 'rgba(255,255,255,0.01)', borderRadius: '8px', border: item.user_id === currentUser?.id ? '1px dashed var(--primary)' : '1px solid transparent' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '14px', fontWeight: '800', width: '20px', color: idx === 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>
                     #{idx + 1}
@@ -2775,6 +2737,11 @@ export default function FeedPage() {
         </div>
       </div>
 
+      {/* Slideshow foto a tutto schermo (apribile da feed e dettaglio) */}
+      {lightbox && lightbox.images.length > 0 && (
+        <MediaLightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
+      )}
+
       {/* MODAL DETTAGLI ATTIVITA */}
       {selectedActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1400, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedActivity(null)}>
@@ -2786,7 +2753,7 @@ export default function FeedPage() {
                 <Avatar src={selectedActivity.profiles?.avatar_url} name={selectedActivity.profiles?.display_name || selectedActivity.profiles?.username} size={45} style={{ border: '2px solid var(--primary)' }} />
                 <div>
                   <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    {selectedActivity.profiles?.display_name || 'Atleta Strabar'}
+                    {publicName(selectedActivity.profiles)}
                     {isLiveAct(selectedActivity) && (
                       <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 32, 0, 0.1)', padding: '2px 7px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
@@ -3139,7 +3106,7 @@ export default function FeedPage() {
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
                   {selectedActivity.media.map((med, idx) => (
-                    <div key={idx} style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px', textAlign: 'center', position: 'relative', overflow: 'hidden', height: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                    <div key={idx} onClick={med.type === 'image' ? () => openSessionPhotos(selectedActivity, idx) : undefined} style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px', textAlign: 'center', position: 'relative', overflow: 'hidden', height: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: med.type === 'image' ? 'pointer' : 'default' }}>
                       {med.type === 'image' && (
                         <div style={{ width: '100%', height: '100%', backgroundSize: 'cover', backgroundImage: `url(${med.url})`, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
                       )}
@@ -3218,6 +3185,9 @@ export default function FeedPage() {
                       {preset.label}
                     </button>
                   ))}
+                </div>
+                <div style={{ marginTop: '12px' }}>
+                  <BeerPicker onPick={handleAddDrinkToSession} />
                 </div>
               </div>
             )}
@@ -3537,6 +3507,9 @@ export default function FeedPage() {
                     {preset.label}
                   </button>
                 ))}
+              </div>
+              <div style={{ marginTop: '12px' }}>
+                <BeerPicker onPick={handleAddTaskPresetToEdit} />
               </div>
               <button
                 type="button"

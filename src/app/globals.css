@@ -373,6 +373,17 @@ button, input, select, textarea {
   box-shadow: 0 0 8px rgba(255, 32, 0, 0.25);
 }
 
+/* SELECT: con appearance:none la freccia nativa sparisce e il testo dell'opzione
+   veniva TAGLIATO sul bordo destro (sembrava un campo rotto). Disegniamo una freccia
+   SVG e lasciamo spazio a destra così l'etichetta non viene mai troncata. */
+select.form-control {
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  text-overflow: ellipsis;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

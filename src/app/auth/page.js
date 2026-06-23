@@ -10,6 +10,7 @@ import { Beer, Mail, Lock, User, AtSign } from 'lucide-react';
 export default function AuthPage() {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
+  const [logoOk, setLogoOk] = useState(true); // logo ufficiale /logo.png, con fallback all'icona
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -108,9 +109,15 @@ export default function AuthPage() {
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 150px)', padding: '20px' }}>
       <div className="card" style={{ width: '100%', maxWidth: '450px', border: '1px solid var(--border-dark)' }}>
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
-            <Beer size={40} fill="var(--primary)" />
-          </div>
+          {logoOk ? (
+            // Logo ufficiale (stesso di /logo.png usato nella navbar).
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/logo.png" alt="Strabar" onError={() => setLogoOk(false)} style={{ height: '56px', width: 'auto', display: 'inline-block', marginBottom: '15px' }} />
+          ) : (
+            <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
+              <Beer size={40} fill="var(--primary)" />
+            </div>
+          )}
           <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>
             {isLogin ? 'Accedi a Strabar' : 'Registrati a Strabar'}
           </h1>

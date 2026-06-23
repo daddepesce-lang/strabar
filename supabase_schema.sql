@@ -349,6 +349,9 @@ ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS residual_grams NUMERIC(5,1)
 -- un nuovo drink (il confronto lato app è warned_at < ultimo drink).
 ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS inactivity_warned_at TIMESTAMPTZ DEFAULT NULL;
 
+-- MIGRAZIONE: copertina leggera per l'anteprima nel feed (URL della prima foto).
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS cover_url TEXT;
+
 -- MIGRAZIONE: nome dell'attore nelle notifiche (per chi ha creato la tabella prima)
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS actor_name TEXT;
 
@@ -369,6 +372,9 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS show_bac_public BOOLEAN DEF
 -- tos_accepted_at = quando (impostato dal server nel trigger handle_new_user).
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS consent_version TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMPTZ;
+
+-- MIGRAZIONE: preferenza nome pubblico (nome reale vs @username) in feed/classifiche/profilo.
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS use_username BOOLEAN DEFAULT FALSE;
 
 -- Ricarica la cache dello schema di PostgREST (Supabase) così le nuove colonne sono subito visibili
 NOTIFY pgrst, 'reload schema';

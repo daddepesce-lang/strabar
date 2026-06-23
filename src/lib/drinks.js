@@ -37,19 +37,8 @@ export const EXTRA_DRINKS = [
   { name: 'Prosecco / Spumante', abv: 11, units: 1.2, label: '🥂 Bollicine' },
   { name: 'Bellini / Mimosa', abv: 8, units: 1.0, label: '🍾 Bellini' },
   { name: 'Vino Dolce / Passito', abv: 15, units: 1.2, label: '🍷 Passito' },
-  // Birre — tipo + taglia espliciti (Lattina 0,33L · Piccola 0,2L · Media 0,4L · Grande 0,66L · Boccale 1L)
-  { name: 'Birra Bionda Piccola (0,2L)', abv: 5, units: 1.0, label: '🍺 Bionda Piccola 0,2L' },
-  { name: 'Birra Bionda Lattina/Bottiglia (0,33L)', abv: 5, units: 1.65, label: '🍺 Bionda 0,33L' },
-  { name: 'Birra Bionda Media (0,4L)', abv: 5, units: 2.0, label: '🍺 Bionda Media 0,4L' },
-  { name: 'Birra Bionda Grande (0,66L)', abv: 5, units: 3.3, label: '🍺 Bionda Grande 0,66L' },
-  { name: 'Birra Bionda Boccale (1L)', abv: 5, units: 5.0, label: '🍺 Bionda Boccale 1L' },
-  { name: 'Birra Rossa/Ambrata Media (0,4L)', abv: 5.5, units: 2.2, label: '🍺 Rossa Media 0,4L' },
-  { name: 'Doppio Malto Piccola (0,2L)', abv: 8, units: 1.6, label: '🍺 Doppio Malto Piccola 0,2L' },
-  { name: 'Doppio Malto Media (0,4L)', abv: 8, units: 3.2, label: '🍺 Doppio Malto Media 0,4L' },
-  { name: 'Doppio Malto Grande (0,66L)', abv: 8, units: 5.3, label: '🍺 Doppio Malto Grande 0,66L' },
-  { name: 'IPA/Artigianale Piccola (0,2L)', abv: 6.5, units: 1.3, label: '🍺 IPA Piccola 0,2L' },
-  { name: 'IPA/Artigianale Media (0,4L)', abv: 6.5, units: 2.6, label: '🍺 IPA Media 0,4L' },
-  { name: 'IPA/Artigianale Grande (0,5L)', abv: 6.5, units: 3.3, label: '🍺 IPA Grande 0,5L' },
+  // Le birre con varietà (Bionda/Rossa/IPA/Doppio Malto) NON stanno qui: hanno un
+  // selettore di TAGLIA dedicato (vedi BEER_FAMILIES + componente BeerPicker).
   { name: 'Birra Analcolica (0,4L)', abv: 0.4, units: 0.2, label: '🍺 Analcolica 0,4L' },
   { name: 'Sidro (0,33L)', abv: 4.5, units: 1.5, label: '🍏 Sidro 0,33L' },
   // Distillati / amari
@@ -61,4 +50,42 @@ export const EXTRA_DRINKS = [
   // Analcolici
   { name: 'Spritz Analcolico', abv: 0, units: 0, label: '🍹 Analcolico' },
   { name: 'Succo / Tè', abv: 0, units: 0, label: '🧃 Succo' },
+];
+
+// BIRRE CON VARIETÀ + TAGLIA: queste quattro famiglie si scelgono prima per TIPO e poi
+// per TAGLIA (Piccola 0,2L · Media 0,4L · Grande). Ogni taglia è un drink completo con le
+// sue U.A. (units ≈ litri × gradi%). Renderizzate dal componente <BeerPicker/>.
+export const BEER_FAMILIES = [
+  {
+    key: 'bionda', label: '🍺 Bionda', abv: 5,
+    sizes: [
+      { name: 'Birra Bionda Piccola (0,2L)', abv: 5, units: 1.0, label: '🍺 Bionda Piccola 0,2L', size: 'Piccola 0,2L' },
+      { name: 'Birra Bionda Media (0,4L)', abv: 5, units: 2.0, label: '🍺 Bionda Media 0,4L', size: 'Media 0,4L' },
+      { name: 'Birra Bionda Grande (0,66L)', abv: 5, units: 3.3, label: '🍺 Bionda Grande 0,66L', size: 'Grande 0,66L' },
+    ],
+  },
+  {
+    key: 'rossa', label: '🍺 Rossa', abv: 5.5,
+    sizes: [
+      { name: 'Birra Rossa/Ambrata Piccola (0,2L)', abv: 5.5, units: 1.1, label: '🍺 Rossa Piccola 0,2L', size: 'Piccola 0,2L' },
+      { name: 'Birra Rossa/Ambrata Media (0,4L)', abv: 5.5, units: 2.2, label: '🍺 Rossa Media 0,4L', size: 'Media 0,4L' },
+      { name: 'Birra Rossa/Ambrata Grande (0,66L)', abv: 5.5, units: 3.6, label: '🍺 Rossa Grande 0,66L', size: 'Grande 0,66L' },
+    ],
+  },
+  {
+    key: 'ipa', label: '🍺 IPA', abv: 6.5,
+    sizes: [
+      { name: 'IPA/Artigianale Piccola (0,2L)', abv: 6.5, units: 1.3, label: '🍺 IPA Piccola 0,2L', size: 'Piccola 0,2L' },
+      { name: 'IPA/Artigianale Media (0,4L)', abv: 6.5, units: 2.6, label: '🍺 IPA Media 0,4L', size: 'Media 0,4L' },
+      { name: 'IPA/Artigianale Grande (0,5L)', abv: 6.5, units: 3.3, label: '🍺 IPA Grande 0,5L', size: 'Grande 0,5L' },
+    ],
+  },
+  {
+    key: 'doppiomalto', label: '🍺 Doppio Malto', abv: 8,
+    sizes: [
+      { name: 'Doppio Malto Piccola (0,2L)', abv: 8, units: 1.6, label: '🍺 Doppio Malto Piccola 0,2L', size: 'Piccola 0,2L' },
+      { name: 'Doppio Malto Media (0,4L)', abv: 8, units: 3.2, label: '🍺 Doppio Malto Media 0,4L', size: 'Media 0,4L' },
+      { name: 'Doppio Malto Grande (0,66L)', abv: 8, units: 5.3, label: '🍺 Doppio Malto Grande 0,66L', size: 'Grande 0,66L' },
+    ],
+  },
 ];

@@ -87,6 +87,12 @@ export default function UsersAdmin() {
           ))}
           {filtered.length === 0 && <p style={{ color: 'var(--text-dark-secondary)', fontSize: 13 }}>Nessun utente trovato.</p>}
         </div>
+        {/* Legenda dei simboli accanto agli utenti */}
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-dark)', fontSize: 11, color: 'var(--text-dark-secondary)' }}>
+          <span><span style={{ color: 'var(--primary)', fontWeight: 800 }}>ADMIN</span> = amministratore</span>
+          <span><span style={{ color: 'var(--secondary)', fontWeight: 800 }}>PRO</span> = utente premium</span>
+          <span>⚠️ = consenso GDPR non registrato (iscritto prima del consenso o dato mancante)</span>
+        </div>
       </div>
     </div>
   );
