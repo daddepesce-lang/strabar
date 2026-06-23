@@ -2960,9 +2960,11 @@ export const db = {
   async pushNotification(recipientId, payload) {
     if (!recipientId) return;
 
-    // Preferenze notifiche. DEFAULT: solo "mi piace" (cheers) e commenti da altri verso di te.
-    // follow ed eventi sono OFF di default (l'utente può attivarli dalle Impostazioni).
-    const NOTIF_DEFAULTS = { follow: false, cheers: true, comment: true, events: false, tagged: true, inactivity: true };
+    // Preferenze notifiche. I DEFAULT devono combaciare con ciò che la pagina Impostazioni
+    // mostra acceso di default (tutti ON): altrimenti l'utente vede il flag ATTIVO ma, se non
+    // ha mai toccato i toggle, `notif_prefs` è vuoto sul DB e qui si bloccava (es. eventi e
+    // follow erano OFF di default → niente notifiche pur con flag verde). Ora coerenti.
+    const NOTIF_DEFAULTS = { follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true };
     const category = { cheers: 'cheers', comment: 'comment', follow: 'follow', event_invite: 'events', event_rsvp: 'events', session_tag: 'tagged', inactivity: 'inactivity' }[payload.type] || null;
     if (category && isSupabaseConfigured) {
       try {

@@ -2750,10 +2750,12 @@ export default function FeedPage() {
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Avatar src={selectedActivity.profiles?.avatar_url} name={selectedActivity.profiles?.display_name || selectedActivity.profiles?.username} size={45} style={{ border: '2px solid var(--primary)' }} />
+                <Link href={`/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)} aria-label="Apri profilo">
+                  <Avatar src={selectedActivity.profiles?.avatar_url} name={selectedActivity.profiles?.display_name || selectedActivity.profiles?.username} size={45} style={{ border: '2px solid var(--primary)', cursor: 'pointer' }} />
+                </Link>
                 <div>
                   <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    {publicName(selectedActivity.profiles)}
+                    <Link href={`/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)} style={{ color: 'inherit' }}>{publicName(selectedActivity.profiles)}</Link>
                     {isLiveAct(selectedActivity) && (
                       <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 32, 0, 0.1)', padding: '2px 7px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
