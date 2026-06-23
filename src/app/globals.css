@@ -204,9 +204,12 @@ button, input, select, textarea {
   right: 0;
   height: calc(70px + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
-  background: rgba(22, 24, 34, 0.85);
-  backdrop-filter: blur(12px);
+  /* Sfondo opaco + niente backdrop-filter: evita lo stesso bug iOS PWA della
+     barra in basso (layer fixed+blur che si stacca durante lo scroll inerziale). */
+  background: #161822;
   border-bottom: 1px solid var(--border-dark);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1132,10 +1135,16 @@ select.form-control {
     right: 0;
     height: calc(66px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: rgba(16, 18, 26, 0.96);
-    backdrop-filter: blur(14px);
+    /* Sfondo OPACO (niente backdrop-filter): su iOS standalone (PWA) un elemento
+       position:fixed con backdrop-filter crea un layer di compositing che durante
+       lo scroll inerziale non viene riposizionato → la barra "si stacca" e galleggia
+       a metà schermo. Lo sfondo era già al 96%: lo rendiamo solido e togliamo il blur. */
+    background: #101219;
     border-top: 1px solid var(--border-dark);
     z-index: 1200; /* sopra i controlli +/- di Leaflet (z-index 1000) */
+    /* Forza un layer stabile ancorato al viewport */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
   .mobile-nav a,
   .mobile-nav > button {

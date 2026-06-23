@@ -14,6 +14,7 @@ import { QUICK_DRINKS, EXTRA_DRINKS } from '@/lib/drinks';
 import { publicName } from '@/lib/names';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
+import InfoPopover from '@/components/InfoPopover';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
@@ -126,7 +127,6 @@ export default function FeedPage() {
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
   const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
-  const [showBacExplanation, setShowBacExplanation] = useState(false);
 
   // Stati social: filtro feed (amici/tutti) e gestione follow
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
@@ -2447,6 +2447,22 @@ export default function FeedPage() {
                    </button>
                  )}
 
+                 {/* Niente foto ma sessione geolocalizzata (anche "libera"): mostra la mappa
+                     del punto. Mappa NON interattiva: lo scroll del feed scorre sopra e il
+                     tap sulla mappa apre il dettaglio della sessione (dove c'è la mappa piena). */}
+                 {!act.cover_url && (() => {
+                   const loc = act.location;
+                   const lat = loc?.lat;
+                   const lng = loc?.lng ?? loc?.lon;
+                   if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+                   const wp = [{ name: loc.name || 'Qui', lat, lng, note: loc.name || '' }];
+                   return (
+                     <div style={{ height: '170px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: '15px', position: 'relative' }}>
+                       <RouteMap waypoints={wp} height="100%" connectLine={false} interactive={false} />
+                     </div>
+                   );
+                 })()}
+
                 {renderCompanionsList(act)}
 
                 {/* Chi ha messo Cheers (nel feed, senza aprire il dettaglio) */}
@@ -2946,22 +2962,12 @@ export default function FeedPage() {
 
             {/* TIMELINE CURVA BAC */}
             <div style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  📈 Curva d&apos;Ebbrezza (Assorbimento &amp; Smaltimento Widmark)
+                  📈 Curva d&apos;Ebbrezza
                 </h3>
-                <button
-                  onClick={() => setShowBacExplanation(v => !v)}
-                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: '700', textDecoration: 'underline', padding: 0, flexShrink: 0 }}
-                >
-                  {showBacExplanation ? '▲ Chiudi spiegazione' : '❓ Come viene calcolato?'}
-                </button>
-              </div>
-
-              {/* Pannello spiegazione calcolo BAC */}
-              {showBacExplanation && (
-                <div style={{ background: 'rgba(255,32,0,0.04)', border: '1px solid rgba(255,32,0,0.2)', borderRadius: '8px', padding: '12px 14px', marginBottom: '12px', fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.6 }}>
-                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '6px' }}>Formula di Widmark — come funziona</strong>
+                <InfoPopover size={16} label="Come viene calcolato il tasso alcolico">
+                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '6px', fontSize: '13px' }}>Come viene calcolato — formula di Widmark</strong>
                   <p style={{ margin: '0 0 8px 0' }}>
                     Il tasso alcolemico (BAC, g/l) è calcolato con la <strong style={{ color: 'var(--secondary)' }}>formula di Widmark</strong>:
                   </p>
@@ -2979,8 +2985,8 @@ export default function FeedPage() {
                   <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>
                     ⚠️ Stima indicativa a scopo informativo, non diagnostico. I valori reali variano in base a metabolismo, idratazione e altri fattori individuali.
                   </p>
-                </div>
-              )}
+                </InfoPopover>
+              </div>
 
               {/* Nota: curva della singola sessione */}
               <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(223, 255, 0,0.05)', border: '1px solid rgba(223, 255, 0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
@@ -3000,7 +3006,7 @@ export default function FeedPage() {
             {selectedActivity.location && (
               <div style={{ marginBottom: '25px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  📍 Sede del Brindisi (Mappe e Itinerario)
+                  📍 Sede del Brindisi
                 </h3>
                 <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>

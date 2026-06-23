@@ -7,6 +7,7 @@ import { Loader, Users, Beer, MapPin, TrendingUp, ShieldCheck, Crown } from 'luc
 import NotificationsAdmin from './NotificationsAdmin';
 import BannersAdmin from './BannersAdmin';
 import UsersAdmin from './UsersAdmin';
+import GdprAdmin from './GdprAdmin';
 
 function Kpi({ label, value, sub, color }) {
   return (
@@ -81,11 +82,13 @@ export default function AdminPage() {
       <div className="seg-tabs">
         <button onClick={() => setTab('dashboard')} className={`seg-tab ${tab === 'dashboard' ? 'active' : ''}`}>📊 Dashboard</button>
         <button onClick={() => setTab('utenti')} className={`seg-tab ${tab === 'utenti' ? 'active' : ''}`}>👥 Utenti</button>
+        <button onClick={() => setTab('gdpr')} className={`seg-tab ${tab === 'gdpr' ? 'active' : ''}`}>🔐 GDPR</button>
         <button onClick={() => setTab('notifiche')} className={`seg-tab ${tab === 'notifiche' ? 'active' : ''}`}>🔔 Notifiche</button>
         <button onClick={() => setTab('banner')} className={`seg-tab ${tab === 'banner' ? 'active' : ''}`}>📢 Banner</button>
       </div>
 
       {tab === 'utenti' && <UsersAdmin />}
+      {tab === 'gdpr' && <GdprAdmin />}
       {tab === 'notifiche' && <NotificationsAdmin />}
       {tab === 'banner' && <BannersAdmin />}
 
