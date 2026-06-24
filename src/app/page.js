@@ -116,6 +116,7 @@ export default function FeedPage() {
   const [profilesList, setProfilesList] = useState([]);
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [completedSession, setCompletedSession] = useState(null); // resoconto post-chiusura (modale congratulazioni)
+  const [shareSheet, setShareSheet] = useState(null); // { id, caption } → selettore "link o scheda social"
   const [editingActivity, setEditingActivity] = useState(null);
 
   // Stati per il tagging amici e upload foto nella sessione live
@@ -2103,9 +2104,9 @@ export default function FeedPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                   <button
-                    onClick={() => shareSessionLink(activeSession.id, `Sono in diretta su Strabar 🍻 — ${activeSession.total_units ? activeSession.total_units.toFixed(1) + ' U.A.' : 'segui la mia sessione'}!`)}
+                    onClick={() => setShareSheet({ id: activeSession.id, caption: `Sono in diretta su Strabar 🍻 — ${activeSession.total_units ? activeSession.total_units.toFixed(1) + ' U.A.' : 'segui la mia sessione'}!` })}
                     className="btn btn-primary"
-                    title="Condividi la diretta (link + card social)"
+                    title="Condividi la diretta (link o scheda social)"
                     style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   >
                     <Share2 size={12} /> Condividi
@@ -3930,6 +3931,52 @@ export default function FeedPage() {
               </button>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* SELETTORE CONDIVISIONE: scheda social (Instagram…) oppure link del live */}
+      {shareSheet && (
+        <div
+          onClick={() => setShareSheet(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1550, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0', backdropFilter: 'blur(6px)' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '22px 22px 0 0', padding: '20px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: '12px' }}
+          >
+            <div style={{ width: '40px', height: '4px', borderRadius: '4px', background: 'var(--border-dark)', margin: '0 auto 6px' }} />
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', textAlign: 'center' }}>Come vuoi condividere?</h3>
+
+            <button
+              onClick={() => { const id = shareSheet.id; setShareSheet(null); router.push(`/share/${id}`); }}
+              className="btn btn-primary lift"
+              style={{ width: '100%', padding: '14px', borderRadius: '16px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-start', textAlign: 'left' }}
+            >
+              <Sparkles size={20} style={{ flexShrink: 0 }} />
+              <span>Scheda per i social
+                <span style={{ display: 'block', fontSize: '12px', fontWeight: 500, opacity: 0.85 }}>Immagine pronta per Instagram, storie e WhatsApp</span>
+              </span>
+            </button>
+
+            <button
+              onClick={() => { const s = shareSheet; setShareSheet(null); shareSessionLink(s.id, s.caption); }}
+              className="btn btn-secondary"
+              style={{ width: '100%', padding: '14px', borderRadius: '16px', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-start', textAlign: 'left' }}
+            >
+              <Share2 size={20} style={{ flexShrink: 0 }} />
+              <span>Link del live
+                <span style={{ display: 'block', fontSize: '12px', fontWeight: 500, opacity: 0.75 }}>Invia il collegamento alla sessione</span>
+              </span>
+            </button>
+
+            <button
+              onClick={() => setShareSheet(null)}
+              className="btn btn-secondary"
+              style={{ width: '100%', padding: '11px', borderRadius: '16px', fontSize: '14px', marginTop: '2px' }}
+            >
+              Annulla
+            </button>
           </div>
         </div>
       )}
