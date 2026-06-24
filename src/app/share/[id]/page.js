@@ -76,8 +76,12 @@ export default function ShareActivityPage({ params }) {
     // (activity.bac_level / activity.duration) sono fermi al momento dell'ultimo salvataggio.
     const liveElapsedMin = Math.max(1, Math.round((Date.now() - new Date(activity.created_at).getTime()) / 60000));
     const displayDuration = isLive ? liveElapsedMin : (activity.duration || 0);
+    // Residuo alcolico CONGELATO sulla sessione (uguale per tutti): va incluso, altrimenti
+    // il BAC della card è 0,0 anche quando il pannello live mostra un residuo dalle sessioni
+    // precedenti. sessionResidualGrams preferisce activity.residual_grams.
+    const liveResidual = db.sessionResidualGrams(activity, [], activity.profiles?.weight, activity.profiles?.sex);
     const displayBac = isLive
-      ? db.calculateCurrentBAC(activity.drinks || [], activity.created_at, liveElapsedMin, undefined, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, 0)
+      ? db.calculateCurrentBAC(activity.drinks || [], activity.created_at, liveElapsedMin, undefined, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual)
       : parseFloat(activity.bac_level || 0);
 
     const drawStats = () => {
