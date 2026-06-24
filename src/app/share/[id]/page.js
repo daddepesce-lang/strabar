@@ -69,6 +69,9 @@ export default function ShareActivityPage({ params }) {
       ? (rawPhotoUrl.startsWith('http') ? `/api/img?url=${encodeURIComponent(rawPhotoUrl)}` : rawPhotoUrl)
       : undefined;
 
+    // Sessione ancora in diretta? (attiva e iniziata da meno di 5h)
+    const isLive = !!activity.is_active && (Date.now() - new Date(activity.created_at).getTime() < 5 * 60 * 60 * 1000);
+
     const drawStats = () => {
       // 1. Disegna lo sfondo
       if (usePhoto) {
@@ -134,9 +137,30 @@ export default function ShareActivityPage({ params }) {
       ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('LO SPORT DEL BRINDISI', 80, 160);
 
-      // Icona emoji
-      ctx.font = '70px Arial';
-      ctx.fillText('🍻', size - 160, 130);
+      // In alto a destra: badge "LIVE" se in diretta, altrimenti l'emoji brindisi.
+      if (isLive) {
+        const pw = 168, ph = 56, px = size - 80 - pw, py = 72;
+        ctx.fillStyle = '#FF2000';
+        ctx.beginPath();
+        ctx.roundRect(px, py, pw, ph, ph / 2);
+        ctx.fill();
+        // pallino bianco
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(px + 34, py + ph / 2, 10, 0, Math.PI * 2);
+        ctx.fill();
+        // testo LIVE
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '800 32px "DM Sans", -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('LIVE', px + 58, py + ph / 2 + 2);
+        ctx.textBaseline = 'alphabetic';
+        ctx.textAlign = 'left';
+      } else {
+        ctx.font = '70px Arial';
+        ctx.fillText('🍻', size - 160, 130);
+      }
 
       // Titolo Attività
       ctx.fillStyle = '#FFFFFF';
@@ -157,7 +181,7 @@ export default function ShareActivityPage({ params }) {
       // Riquadro per le statistiche principali (Centro)
       const boxY = 460;
       const boxW = 920;
-      const boxH = 320;
+      const boxH = 344;
       
       // Sfondo riquadro glassmorphic
       ctx.fillStyle = usePhoto ? 'rgba(11, 10, 9, 0.65)' : 'rgba(22, 24, 34, 0.85)';
@@ -216,7 +240,8 @@ export default function ShareActivityPage({ params }) {
       ctx.font = '700 26px "DM Sans", -apple-system, sans-serif';
       ctx.fillText('U.A.', col3Center, boxY + 232);
 
-      // BAC DI PICCO stimato — riga in fondo al riquadro, colore semaforico
+      // TASSO ALCOLICO stimato — riga in fondo al riquadro, colore semaforico.
+      // Su sessione live è il valore ATTUALE; su sessione chiusa è il PICCO.
       const peakBac = parseFloat(activity.bac_level || 0);
       const bacCol = peakBac >= 0.5 ? '#FF2000' : peakBac >= 0.2 ? '#DFFF00' : '#2ED573';
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -228,10 +253,10 @@ export default function ShareActivityPage({ params }) {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#9CA3AF';
       ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('TASSO ALCOLICO DI PICCO (STIMA)', 80 + boxW / 2, boxY + 285);
+      ctx.fillText(isLive ? 'TASSO ALCOLICO ATTUALE (STIMA)' : 'TASSO ALCOLICO DI PICCO (STIMA)', 80 + boxW / 2, boxY + 286);
       ctx.fillStyle = bacCol;
-      ctx.font = '800 42px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(`${peakBac.toFixed(2)} g/l`, 80 + boxW / 2, boxY + 305 + 0);
+      ctx.font = '800 40px "DM Sans", -apple-system, sans-serif';
+      ctx.fillText(`${peakBac.toFixed(2)} g/l`, 80 + boxW / 2, boxY + 326);
 
       // Reset allineamento a sinistra
       ctx.textAlign = 'left';
