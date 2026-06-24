@@ -1,5 +1,20 @@
+import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+
+// Self-hosting dei font (niente richieste a Google a runtime, zero layout shift).
+// Bebas Neue = font "display" del brand; DM Sans = corpo del testo.
+const bebasNeue = Bebas_Neue({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-bebas",
+  display: "swap",
+});
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm",
+  display: "swap",
+});
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 import PushReminderGate from "@/components/PushReminderGate";
@@ -51,7 +66,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="it" suppressHydrationWarning>
+    <html lang="it" className={`${bebasNeue.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <head>
         {/* Leaflet CSS per le mappe interattive */}
         <link 

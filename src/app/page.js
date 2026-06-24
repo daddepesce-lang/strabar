@@ -16,7 +16,7 @@ import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader } from 'lucide-react';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
@@ -294,6 +294,26 @@ export default function FeedPage() {
     return () => obs.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedHasMore, feedLoadingMore, activities.length]);
+
+  // Scroll-reveal della landing (solo per utenti non loggati): aggiunge .is-visible
+  // agli elementi .reveal quando entrano nel viewport.
+  useEffect(() => {
+    if (loading || currentUser) return;
+    const els = Array.from(document.querySelectorAll('.reveal'));
+    if (els.length === 0) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (reduce) { els.forEach((el) => el.classList.add('is-visible')); return; }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('is-visible'); obs.unobserve(e.target); }
+        });
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.12 }
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, [loading, currentUser]);
 
   useEffect(() => {
     loadFeed();
@@ -1477,48 +1497,66 @@ export default function FeedPage() {
   // SCHERMATA D'IMPATTO SE L'UTENTE NON E LOGGATO
   if (!currentUser) {
     return (
-      <div className="landing-section-gap" style={{ display: 'flex', flexDirection: 'column', gap: '90px', marginTop: '-30px', paddingBottom: '90px' }}>
-        
+      <div className="landing-section-gap" style={{ display: 'flex', flexDirection: 'column', gap: '96px', marginTop: '-30px', paddingBottom: '90px' }}>
+
         {/* HERO SECTION */}
-        <section className="r-grid-2-1" style={{ alignItems: 'center', minHeight: '80vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-            <span style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)', padding: '6px 14px', borderRadius: '30px', fontSize: '14px', fontWeight: '700', width: 'fit-content', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              🎖️ Il Social Network degli Atleti da Bar
+        <section className="r-grid-2-1" style={{ alignItems: 'center', minHeight: '82vh', padding: '40px 0', borderBottom: '1px solid var(--border-dark)', position: 'relative' }}>
+          <div className="glow-orb" style={{ top: '-40px', left: '-60px', width: '260px', height: '260px', background: 'var(--primary)' }} />
+          <div className="glow-orb" style={{ bottom: '-30px', right: '10%', width: '200px', height: '200px', background: 'var(--secondary)', opacity: 0.18, animationDelay: '1.5s' }} />
+
+          <div className="reveal is-visible" style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative', zIndex: 1 }}>
+            <span className="eyebrow-pill" style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)' }}>
+              <span className="live-dot" /> Il Social Network degli Atleti da Bar
             </span>
             <h1 className="hero-title">
-              Traccia le tue bevute. <br />
-              Sblocca <span style={{ background: 'var(--premium-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>nuovi record</span>.
+              Traccia ogni bevuta.<br />
+              Conosci il tuo <span className="gradient-text">tasso&nbsp;alcolico</span>.
             </h1>
             <p className="hero-para">
-              Unisciti a milioni di atleti del terzo tempo in tutto il mondo. Traccia le tue sessioni, analizza le unità alcoliche (U.A.) assunte e sfida gli amici nelle classifiche dei pub di tutto il mondo.
+              Strabar trasforma le tue serate in dati. Registra i drink, calcoliamo le <b style={{ color: '#FFF' }}>Unità Alcoliche</b> e il <b style={{ color: '#FFF' }}>tasso alcolico (BAC)</b> con la formula di Widmark, pianifichi i percorsi tra i locali e sfidi gli amici nelle classifiche. Bevi consapevole, non a caso.
             </p>
             <div className="hero-btns">
-              <Link href="/auth" className="btn btn-primary" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px', fontWeight: '700' }}>
-                Comincia Ora (Gratis)
+              <Link href="/auth" className="btn btn-primary lift" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                Inizia Gratis <ChevronRight size={18} />
               </Link>
-              <Link href="/routes" className="btn btn-secondary" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px' }}>
+              <Link href="/routes" className="btn btn-secondary lift" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px' }}>
                 Esplora i Percorsi
               </Link>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', color: 'var(--text-dark-secondary)', fontSize: '13px', fontWeight: 600 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Zap size={14} color="var(--secondary)" /> Nessuna app store</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Gauge size={14} color="var(--success)" /> 100% gratis</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>🔞 Solo 18+</span>
+            </div>
           </div>
 
-          {/* Grafica del telefono / mockup di performance */}
-          <div style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.9) 0%, rgba(255, 32, 0, 0.15) 100%)', border: '2px solid var(--primary)', borderRadius: '24px', padding: '30px', boxShadow: '0px 10px 40px rgba(255, 32, 0, 0.15)', display: 'flex', flexDirection: 'column', gap: '20px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', background: 'var(--primary)', filter: 'blur(80px)', borderRadius: '50%', opacity: 0.4 }}></div>
-            
+          {/* Mockup telefono fluttuante con BAC live */}
+          <div className="hero-mock reveal is-visible reveal-d2" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 32, 0, 0.14) 100%)', border: '1px solid var(--primary)', borderRadius: '24px', padding: '26px', boxShadow: '0px 18px 50px rgba(255, 32, 0, 0.18)', display: 'flex', flexDirection: 'column', gap: '18px', position: 'relative', overflow: 'hidden', zIndex: 1 }}>
+            <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', background: 'var(--primary)', filter: 'blur(80px)', borderRadius: '50%', opacity: 0.4 }} />
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div className="activity-avatar" style={{ border: '2px solid var(--primary)', width: '38px', height: '38px', fontSize: '14px' }}>S</div>
                 <div>
-                  <h4 style={{ fontSize: '14px', fontWeight: '700' }}>Atleta Strabar</h4>
-                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Esempio di sessione</span>
+                  <h4 style={{ fontSize: '14px', fontWeight: '700' }}>La tua sessione</h4>
+                  <span style={{ fontSize: '11px', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span className="live-dot" /> Live ora</span>
                 </div>
               </div>
               <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
             </div>
 
-            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Aperitivo Sforzo Massimo 🏆</h3>
-            
+            {/* Gauge BAC animato */}
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tasso alcolico stimato</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--primary)', lineHeight: 1 }}>0,68 <span style={{ fontSize: '12px', fontFamily: 'var(--font-sans)', color: 'var(--text-dark-secondary)' }}>g/l</span></span>
+              </div>
+              <div className="bac-track"><div className="bac-fill" /></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '7px', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
+                <span>Sobrio</span><span>Limite guida</span><span>Alto</span>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-dark)' }}>
               <div style={{ textAlign: 'center' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>Drink</span>
@@ -1539,73 +1577,109 @@ export default function FeedPage() {
               <span className="drink-tag" style={{ fontSize: '11px' }}>🍹 2x Spritz Campari</span>
             </div>
 
-            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
               <span>👥 Con Luca e Francesca</span>
               <span style={{ color: 'var(--primary)', fontWeight: '700' }}>Stato: Molto Caldo 🔥</span>
             </div>
           </div>
         </section>
 
-        {/* STATS SECTION */}
-        <section className="r-grid-stat-4" style={{ gap: '20px', textAlign: 'center' }}>
-          <div className="card" style={{ padding: '24px 16px' }}>
-            <div className="landing-stat-num" style={{ color: 'var(--primary)' }}>12+ Mln</div>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Brindisi Registrati</p>
+        {/* CAPABILITY CHIPS — sostituiscono le statistiche inventate con fatti reali */}
+        <section className="cap-grid reveal">
+          {[
+            { ico: <Gauge size={22} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Widmark', s: 'Calcolo BAC scientifico' },
+            { ico: <MapPin size={22} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'GPS reale', s: 'Mappe OpenStreetMap' },
+            { ico: <Zap size={22} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: 'Gratis', s: 'Nessun costo, niente store' },
+            { ico: <Bell size={22} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: 'PWA', s: 'Installabile + notifiche' },
+          ].map((x, i) => (
+            <div key={i} className={`cap-chip lift reveal reveal-d${(i % 3) + 1}`}>
+              <div className="cap-ico" style={{ color: x.c, background: x.bg }}>{x.ico}</div>
+              <div className="cap-title">{x.t}</div>
+              <div className="cap-sub">{x.s}</div>
+            </div>
+          ))}
+        </section>
+
+        {/* HOW IT WORKS */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+          <div className="reveal" style={{ textAlign: 'center' }}>
+            <span className="eyebrow-pill reveal" style={{ background: 'rgba(223,255,0,0.1)', color: 'var(--secondary)', margin: '0 auto' }}>Come funziona</span>
+            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF', marginTop: '14px' }}>Dalla prima birra al record, in 3 passi</h2>
           </div>
-          <div className="card" style={{ padding: '24px 16px' }}>
-            <div className="landing-stat-num" style={{ color: '#FFF' }}>380k</div>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Atleti Attivi</p>
-          </div>
-          <div className="card" style={{ padding: '24px 16px' }}>
-            <div className="landing-stat-num" style={{ color: 'var(--secondary)' }}>80+</div>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Paesi</p>
-          </div>
-          <div className="card" style={{ padding: '24px 16px' }}>
-            <div className="landing-stat-num" style={{ color: '#10B981' }}>0.0%</div>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '5px' }}>Giudizio Morale</p>
+          <div className="how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+            {[
+              { n: '01', t: 'Registra la sessione', d: 'Aggiungi i drink dal catalogo o crea il tuo. Tagga gli amici e fai check-in nel locale.' },
+              { n: '02', t: 'Analizza BAC & U.A.', d: 'Vediamo tasso alcolico, unità alcoliche, durata e curva di smaltimento in tempo reale.' },
+              { n: '03', t: 'Scala la classifica', d: 'Accumula U.A. nel tuo locale, diventa la Leggenda e ricevi le notifiche delle sfide.' },
+            ].map((s, i) => (
+              <div key={i} className={`how-step lift reveal reveal-d${i + 1}`}>
+                <div className="how-num">{s.n}</div>
+                <h4>{s.t}</h4>
+                <p>{s.d}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* DEFAULT VENICE ITINERARY PREVIEW SECTION */}
-        <section className="r-grid-1-2 landing-section-padded" style={{ borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
+        {/* FEATURES GRID — cosa fa davvero Strabar */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+          <div className="reveal" style={{ textAlign: 'center' }}>
+            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF' }}>Tutto quello che fa Strabar</h2>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '18px', marginTop: '10px', maxWidth: '620px', marginInline: 'auto' }}>
+              Non solo un diario delle bevute: un assistente completo per le tue serate.
+            </p>
+          </div>
+
+          <div className="feat-grid">
+            {[
+              { ico: <Gauge size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Tasso alcolico (BAC)', d: 'Stimiamo il tuo tasso alcolico con la formula di Widmark in base a peso, sesso, drink e tempo. Curva di smaltimento e momento stimato del ritorno a 0,0 g/l. Valore indicativo, mai medico o legale.' },
+              { ico: <Beer size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'Unità Alcoliche (U.A.)', d: 'Ogni drink pesa in U.A. reali, calcolate da gradazione (ABV) e volume del bicchiere. Capisci quanto stai realmente bevendo e quando è il caso di fermarti.' },
+              { ico: <Bell size={24} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: 'Notifiche push', d: 'Ricevi avvisi quando un amico ti tagga, commenta o brinda con te, quando perdi il trono di un locale o quando parte una nuova sfida. Anche ad app chiusa.' },
+              { ico: <Calendar size={24} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: 'Eventi', d: 'Crea o unisciti agli eventi: aperitivi, pub crawl e serate di gruppo. Vedi chi partecipa, ritrovati nel locale e fai partire la sessione condivisa con un tap.' },
+              { ico: <MapPin size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Percorsi & Pub Crawl', d: 'Pianifica itinerari tra bar reali con mappe OpenStreetMap. Coordinate GPS vere, distanze a piedi tra le tappe e itinerari pronti come il Giro dei Bacari a Venezia.' },
+              { ico: <Trophy size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'Classifiche & Leggenda', d: 'Ogni locale ha la sua classifica. Accumula visite e U.A. per diventare la Leggenda del Locale, sblocca badge e scala le classifiche settimanali con gli amici.' },
+            ].map((f, i) => (
+              <div key={i} className={`feat-card lift reveal reveal-d${(i % 3) + 1}`}>
+                <div className="feat-ico" style={{ color: f.c, background: f.bg }}>{f.ico}</div>
+                <h3>{f.t}</h3>
+                <p>{f.d}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* PERCORSI — preview mappa reale di Venezia */}
+        <section className="r-grid-1-2 landing-section-padded reveal" style={{ borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
           <div>
-            <span style={{ background: 'rgba(223, 255, 0, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              🗺️ Itinerario di Esempio di Default
+            <span className="eyebrow-pill" style={{ background: 'rgba(223, 255, 0, 0.1)', color: 'var(--secondary)' }}>
+              <MapPin size={14} /> Percorsi
             </span>
             <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', marginTop: '15px', marginBottom: '15px' }}>
               Giro dei Bacari Storico a Venezia 🛶
             </h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6', marginBottom: '25px' }}>
-              Esplora la laguna veneziana attraverso il nostro itinerario più celebre. Strabar ti permette di pianificare le tappe con coordinate reali del GPS dei pub, calcolare le calorie e le distanze, e tracciare le soste per l&apos;aperitivo.
+              Un esempio dei percorsi che puoi seguire o creare. Tappe con coordinate GPS reali, distanze a piedi calcolate e ordine ottimizzato per il tuo pub crawl perfetto.
             </p>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-                <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px' }}>1</span>
-                <div>
-                  <strong style={{ color: '#FFF' }}>Cantina Do Mori</strong>
-                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Il locale più antico di Venezia (fondato nel 1462). Famoso per i cicheti &quot;francobolli&quot;.</p>
+              {[
+                { t: 'Cantina Do Mori', d: 'Il locale più antico di Venezia (fondato nel 1462). Famoso per i cicheti "francobolli".' },
+                { t: "Osteria All'Arco", d: 'Tappa leggendaria per i cicheti caldi preparati al momento con ingredienti del mercato.' },
+                { t: 'Osteria Al Mercà', d: 'Famoso per lo spritz al Select o al Campari, servito al volo in piedi davanti a Rialto.' },
+              ].map((p, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                  <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px', flexShrink: 0 }}>{i + 1}</span>
+                  <div>
+                    <strong style={{ color: '#FFF' }}>{p.t}</strong>
+                    <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{p.d}</p>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-                <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px' }}>2</span>
-                <div>
-                  <strong style={{ color: '#FFF' }}>Osteria All&apos;Arco</strong>
-                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Tappa leggendaria per i cicheti caldi preparati al momento con ingredienti freschi del mercato.</p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-                <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px' }}>3</span>
-                <div>
-                  <strong style={{ color: '#FFF' }}>Osteria Al Mercà</strong>
-                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Famoso per lo spritz al Select o al Campari, servito al volo in piedi proprio davanti a Rialto.</p>
-                </div>
-              </div>
+              ))}
             </div>
-            
+
             <div style={{ marginTop: '30px' }}>
-              <Link href="/routes" className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '15px' }}>
-                Vedi Tutti i Percorsi Sulla Mappa
+              <Link href="/routes" className="btn btn-primary lift" style={{ padding: '12px 24px', fontSize: '15px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                Vedi tutti i percorsi <ChevronRight size={16} />
               </Link>
             </div>
           </div>
@@ -1619,17 +1693,17 @@ export default function FeedPage() {
           </div>
         </section>
 
-        {/* SEZIONE CLASSIFICA / LEGGENDA DEL LOCALE */}
-        <section className="r-grid-2" style={{ alignItems: 'center' }}>
-          <div style={{ background: 'linear-gradient(135deg, rgba(223, 255, 0, 0.05) 0%, rgba(22, 24, 34, 0.8) 100%)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '30px', boxShadow: 'var(--shadow)' }}>
+        {/* STATISTICHE & LEGGENDA DEL LOCALE */}
+        <section className="r-grid-2 reveal" style={{ alignItems: 'center' }}>
+          <div className="lift" style={{ background: 'linear-gradient(135deg, rgba(223, 255, 0, 0.05) 0%, rgba(22, 24, 34, 0.8) 100%)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '30px', boxShadow: 'var(--shadow)' }}>
             <div style={{ color: 'var(--secondary)', marginBottom: '15px' }}>
               <Trophy size={36} />
             </div>
-            <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Classifica: Diventa la &quot;Leggenda del Locale&quot; 👑</h3>
+            <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Diventa la &quot;Leggenda del Locale&quot; 👑</h3>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', lineHeight: '1.5', marginBottom: '20px' }}>
-              Su Strabar, ogni locale o bar reale ha la sua classifica e la sua leggenda del locale. Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
+              Ogni bar reale ha la sua classifica. Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
             </p>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
                 'Fai check-in in un locale ad ogni sessione',
@@ -1645,68 +1719,35 @@ export default function FeedPage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', padding: '6px 12px', borderRadius: '30px', fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', width: 'fit-content' }}>
-              📈 Statistiche & Analisi
+            <span className="eyebrow-pill" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981' }}>
+              <BarChart3 size={14} /> Statistiche & Analisi
             </span>
             <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF' }}>
               Non è alcolismo. È analisi statistica.
             </h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6' }}>
-              Analizziamo ogni sessione generando una heatmap mensile delle tue bevute, proprio come la mappa di calore dei tuoi allenamenti. Tieni traccia dell&apos;andamento del fegato, controlla la gradazione media di ogni bevuta e analizza i tempi spesi a tavola per ottimizzare le tue performance sociali nel tempo.
+              Ogni sessione diventa un grafico: heatmap mensile delle bevute, gradazione media, tempi a tavola e andamento del tasso alcolico nel tempo. Un radar live ti mostra anche chi sta bevendo vicino a te adesso. Le tue performance sociali, finalmente in numeri.
             </p>
-          </div>
-        </section>
-
-        {/* FEATURES GRID SECTION */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF' }}>Le Caratteristiche del Campione 🥇</h2>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '18px', marginTop: '10px' }}>Tutte le funzionalità di cui hai bisogno per tracciare le tue sessioni sociali.</p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '35px' }}>
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
-              <div style={{ color: 'var(--primary)', background: 'rgba(255, 32, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
-                <Beer size={28} />
-              </div>
-              <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Analizzatore del Carico (U.A.)</h3>
-              <p style={{ color: 'var(--text-dark-secondary)', lineHeight: '1.6', fontSize: '15px' }}>
-                Traccia l&apos;alcol in base alle Unità Alcoliche (U.A.) reali dei singoli drink, calcolate secondo gradazione (ABV) e volume del bicchiere. Monitora lo sforzo e capisci quando fermarti.
-              </p>
-            </div>
-
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
-              <div style={{ color: 'var(--secondary)', background: 'rgba(223, 255, 0, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
-                <Trophy size={28} />
-              </div>
-              <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Classifiche Club & Sfide</h3>
-              <p style={{ color: 'var(--text-dark-secondary)', lineHeight: '1.6', fontSize: '15px' }}>
-                Competi nelle classifiche settimanali del club. Guadagna badge digitali esclusivi completando le sfide del mese, proprio come i badge di rendimento degli atleti.
-              </p>
-            </div>
-
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
-              <div style={{ color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '50%', width: 'fit-content' }}>
-                <Flame size={28} />
-              </div>
-              <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Mappe & Ricerca Locali</h3>
-              <p style={{ color: 'var(--text-dark-secondary)', lineHeight: '1.6', fontSize: '15px' }}>
-                Crea itinerari personalizzati integrati con OpenStreetMap. Cerca bar reali ovunque ti trovi nel mondo, pianifica le tappe e calcola le distanze di camminata tra un cicchetto e l&apos;altro.
-              </p>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Radar size={13} /> Radar live</span>
+              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Flame size={13} /> Heatmap mensile</span>
+              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Users size={13} /> Tag amici</span>
             </div>
           </div>
         </section>
 
         {/* CTA CARD */}
-        <section className="card landing-cta-pad" style={{ background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', maxWidth: '600px' }}>
-            Pronto per il prossimo record personale al tavolo?
+        <section className="card landing-cta-pad reveal" style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+          <div className="glow-orb" style={{ top: '-60px', left: '50%', width: '240px', height: '240px', background: 'var(--primary)', opacity: 0.25 }} />
+          <Sparkles size={32} color="var(--secondary)" style={{ position: 'relative', zIndex: 1 }} />
+          <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', maxWidth: '600px', position: 'relative', zIndex: 1 }}>
+            Pronto per il prossimo record al tavolo?
           </h2>
-          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '17px', maxWidth: '500px', lineHeight: '1.5' }}>
-            Crea il tuo profilo atleta, tagga i tuoi compagni di brindisi e inizia subito ad analizzare le tue sessioni.
+          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '17px', maxWidth: '500px', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
+            Crea il tuo profilo atleta, tagga i compagni di brindisi e inizia subito ad analizzare le tue sessioni. Gratis, dal browser.
           </p>
-          <Link href="/auth" className="btn btn-primary" style={{ padding: '16px 36px', borderRadius: '30px', fontSize: '18px', fontWeight: '700', marginTop: '10px' }}>
-            Registrati Subito Gratis
+          <Link href="/auth" className="btn btn-primary lift" style={{ padding: '16px 36px', borderRadius: '30px', fontSize: '18px', fontWeight: '700', marginTop: '10px', position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            Registrati gratis <ChevronRight size={18} />
           </Link>
         </section>
 

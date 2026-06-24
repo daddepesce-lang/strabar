@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');
-
+/* I font sono self-hosted via next/font (vedi src/app/layout.js): le variabili
+   --font-bebas e --font-dm sono iniettate sull'elemento <html>. */
 :root {
   /* Strabar Design System Tokens — "Electric & Void" */
   --primary: #FF2000;         /* Strabar Red */
@@ -30,8 +30,8 @@
   --premium-gradient: linear-gradient(135deg, #FF2000 0%, #DFFF00 100%);
   --premium-neon: 0 0 15px rgba(255, 32, 0, 0.4);
 
-  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --font-display: 'Bebas Neue', 'DM Sans', sans-serif;
+  --font-sans: var(--font-dm), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-display: var(--font-bebas), var(--font-dm), sans-serif;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   --radius: 12px;
@@ -1055,6 +1055,194 @@ select.form-control {
   line-height: 1;
 }
 
+/* =========================================================================
+   LANDING 2.0 — animazioni, scroll-reveal e componenti moderni
+   ========================================================================= */
+
+/* Rivela gli elementi mentre entrano nel viewport (vedi useEffect in page.js) */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+              transform 0.7s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  will-change: opacity, transform;
+}
+.reveal.is-visible { opacity: 1; transform: none; }
+.reveal-d1 { transition-delay: 0.08s; }
+.reveal-d2 { transition-delay: 0.16s; }
+.reveal-d3 { transition-delay: 0.24s; }
+
+/* Hover "lift" per le card interattive */
+.lift { transition: transform 0.3s var(--ease-out, ease), box-shadow 0.3s ease, border-color 0.3s ease; }
+.lift:hover { transform: translateY(-6px); box-shadow: 0 18px 50px rgba(0,0,0,0.45); border-color: rgba(255,32,0,0.4); }
+
+/* Testo con gradiente brand */
+.gradient-text {
+  background: var(--premium-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Orbs luminosi di sfondo (decorativi) */
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+  animation: orb-float 9s ease-in-out infinite;
+}
+@keyframes orb-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -24px) scale(1.08); }
+}
+
+/* Badge "pill" eyebrow */
+.eyebrow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  width: fit-content;
+}
+
+/* Chip "capacità" oneste (sostituiscono le statistiche inventate) */
+.cap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.cap-chip {
+  position: relative;
+  background: var(--bg-card-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 16px;
+  padding: 22px 18px;
+  text-align: center;
+  overflow: hidden;
+}
+.cap-chip .cap-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  margin-bottom: 12px;
+}
+.cap-chip .cap-title { font-family: var(--font-display); font-size: 26px; line-height: 1; color: #FFF; }
+.cap-chip .cap-sub { font-size: 12.5px; color: var(--text-dark-secondary); margin-top: 6px; font-weight: 600; }
+
+/* Griglia funzionalità (BAC, notifiche, eventi, percorsi…) */
+.feat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 22px;
+}
+.feat-card {
+  position: relative;
+  background: var(--bg-card-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 18px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+.feat-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(255,32,0,0.08), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.feat-card:hover::after { opacity: 1; }
+.feat-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px; height: 50px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+.feat-card h3 { font-size: 19px; font-weight: 800; color: #FFF; line-height: 1.2; }
+.feat-card p { color: var(--text-dark-secondary); line-height: 1.55; font-size: 14.5px; }
+
+/* Gauge BAC animato nel mockup hero */
+.bac-track {
+  position: relative;
+  height: 12px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.bac-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #10B981 0%, var(--secondary) 45%, var(--primary) 100%);
+  transform-origin: left center;
+  animation: bac-fill 2.6s var(--ease-out, ease) infinite alternate;
+}
+@keyframes bac-fill {
+  0% { transform: scaleX(0.15); }
+  100% { transform: scaleX(0.92); }
+}
+.live-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 0 rgba(255,32,0,0.6);
+  animation: live-ping 1.6s ease-out infinite;
+}
+@keyframes live-ping {
+  0% { box-shadow: 0 0 0 0 rgba(255,32,0,0.55); }
+  70% { box-shadow: 0 0 0 9px rgba(255,32,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,32,0,0); }
+}
+
+/* Mockup telefono fluttuante */
+.hero-mock { animation: hero-float 6s ease-in-out infinite; }
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* Step numerati "come funziona" */
+.how-step {
+  position: relative;
+  background: var(--bg-card-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 16px;
+  padding: 24px 22px;
+  text-align: center;
+}
+.how-num {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--primary);
+  opacity: 0.9;
+}
+.how-step h4 { font-size: 16px; font-weight: 800; color: #FFF; margin: 10px 0 6px; }
+.how-step p { font-size: 13.5px; color: var(--text-dark-secondary); line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .glow-orb, .hero-mock, .bac-fill, .live-dot { animation: none; }
+}
+
 /* ---- TABLET ---- */
 @media (max-width: 900px) {
   .r-grid-sidebar,
@@ -1125,6 +1313,10 @@ select.form-control {
 
   .form-row { grid-template-columns: 1fr; }
   .r-grid-stat-4 { grid-template-columns: repeat(2, 1fr); }
+  .cap-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .cap-chip { padding: 18px 12px; }
+  .cap-chip .cap-title { font-size: 22px; }
+  .how-grid { grid-template-columns: 1fr !important; }
 
   /* Form drink personalizzato: da 5 colonne a 2, bottone a tutta larghezza */
   .custom-drink-grid { grid-template-columns: 1fr 1fr; }
