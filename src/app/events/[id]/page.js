@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
   Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
-  Edit3, Loader, Beer,
+  Edit3, Loader, Beer, Search,
 } from 'lucide-react';
 
 function formatEventDate(ds) {
@@ -49,11 +49,14 @@ export default function EventDetailPage({ params }) {
 
   const [currentUser, setCurrentUser] = useState(null);
   const [event, setEvent] = useState(null);
-  const [following, setFollowing] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [toInvite, setToInvite] = useState([]);
+  const [invitePeople, setInvitePeople] = useState([]); // [{id,name,username}] selezionati
+  const [inviteQuery, setInviteQuery] = useState('');
+  const [inviteResults, setInviteResults] = useState([]);
+  const [inviteSearching, setInviteSearching] = useState(false);
   const [copied, setCopied] = useState(false);
   const [startingSession, setStartingSession] = useState(false);
   const [responding, setResponding] = useState(false);
@@ -77,8 +80,7 @@ export default function EventDetailPage({ params }) {
       const ev = await db.getEvent(id);
       setEvent(ev);
       if (user) {
-        const [fol, rts] = await Promise.all([db.getFollowing(user.id), db.getRoutes()]);
-        setFollowing(fol);
+        const rts = await db.getRoutes();
         setRoutes(rts);
       }
       // Classifica/statistiche dell'evento (nomi coperti per i non-amici, privacy globale)
@@ -94,6 +96,21 @@ export default function EventDetailPage({ params }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Ricerca persone da invitare (server-side, debounced): niente caricamento di tutti i seguiti.
+  useEffect(() => {
+    const q = inviteQuery.trim();
+    if (q.length < 2) { setInviteResults([]); setInviteSearching(false); return; }
+    setInviteSearching(true);
+    const h = setTimeout(async () => {
+      try {
+        const res = (typeof db.searchProfiles === 'function') ? await db.searchProfiles(q) : [];
+        setInviteResults((res || []).filter((p) => p.id !== currentUser?.id).slice(0, 8));
+      } catch { setInviteResults([]); }
+      finally { setInviteSearching(false); }
+    }, 350);
+    return () => clearTimeout(h);
+  }, [inviteQuery, currentUser]);
 
   // Ricerca luoghi (locali, vie, indirizzi) durante la modifica
   useEffect(() => {
@@ -272,10 +289,20 @@ export default function EventDetailPage({ params }) {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText())}`, '_blank', 'noopener,noreferrer');
   };
 
+  const addInvitee = (p) => {
+    setToInvite((prev) => (prev.includes(p.id) ? prev : [...prev, p.id]));
+    setInvitePeople((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
+    setInviteQuery(''); setInviteResults([]);
+  };
+  const removeInvitee = (uid) => {
+    setToInvite((prev) => prev.filter((i) => i !== uid));
+    setInvitePeople((prev) => prev.filter((x) => x.id !== uid));
+  };
+
   const sendInvites = async () => {
     if (toInvite.length === 0) { setShowInvite(false); return; }
     await db.inviteToEvent(id, toInvite);
-    setToInvite([]);
+    setToInvite([]); setInvitePeople([]); setInviteQuery('');
     setShowInvite(false);
     await load();
   };
@@ -301,7 +328,6 @@ export default function EventDetailPage({ params }) {
   const grouped = { going: [], maybe: [], no: [] };
   (event.responses || []).forEach((r) => { if (grouped[r.status]) grouped[r.status].push(r); });
   const alreadyInvolved = new Set((event.responses || []).map((r) => r.user_id).concat(event.invited || []));
-  const invitable = following.filter((f) => !alreadyInvolved.has(f.id));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -537,31 +563,56 @@ export default function EventDetailPage({ params }) {
           </div>
 
           {showInvite && (
-            invitable.length === 0 ? (
-              <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>
-                Hai già coinvolto tutti i tuoi amici, oppure non segui ancora nessuno da invitare.
-              </p>
-            ) : (
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '150px', overflowY: 'auto', marginBottom: '10px' }}>
-                  {invitable.map((f) => {
-                    const sel = toInvite.includes(f.id);
-                    return (
-                      <button key={f.id} onClick={() => setToInvite((p) => sel ? p.filter((i) => i !== f.id) : [...p, f.id])}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px',
-                          border: `1px solid ${sel ? 'var(--primary)' : 'var(--border-dark)'}`,
-                          background: sel ? 'rgba(255, 32, 0,0.12)' : 'var(--bg-input-dark)',
-                          color: sel ? 'var(--primary)' : 'var(--text-dark-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
-                        {sel && <Check size={13} />}{f.display_name}
-                      </button>
-                    );
-                  })}
+            <div style={{ marginBottom: '16px' }}>
+              {/* Persone selezionate */}
+              {invitePeople.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                  {invitePeople.map((p) => (
+                    <button key={p.id} type="button" onClick={() => removeInvitee(p.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                      <Check size={13} /> {p.name} <X size={12} />
+                    </button>
+                  ))}
                 </div>
-                <button onClick={sendInvites} className="btn btn-primary" style={{ width: '100%', fontSize: '13px' }}>
-                  Invia {toInvite.length > 0 ? `(${toInvite.length})` : ''} inviti
-                </button>
+              )}
+
+              {/* Ricerca persone (server-side) */}
+              <div style={{ position: 'relative', marginBottom: '10px' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
+                <input className="form-control" placeholder="Cerca per nome o @username…" value={inviteQuery} onChange={(e) => setInviteQuery(e.target.value)} style={{ paddingLeft: 32 }} />
+                {(inviteSearching || inviteResults.length > 0) && (
+                  <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '220px', overflowY: 'auto' }}>
+                    {inviteSearching && (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco atleti…
+                      </div>
+                    )}
+                    {inviteResults.map((p) => {
+                      const involved = alreadyInvolved.has(p.id);
+                      const sel = toInvite.includes(p.id);
+                      return (
+                        <button key={p.id} type="button" disabled={involved}
+                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: p.display_name || p.username || 'Atleta', username: p.username || null }))}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,32,0,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: involved ? 'default' : 'pointer', opacity: involved ? 0.5 : 1 }}>
+                          <span style={{ minWidth: 0 }}>
+                            <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</span>
+                            {p.username && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
+                          </span>
+                          {involved ? <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>già coinvolto</span> : sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>+ Invita</span>}
+                        </button>
+                      );
+                    })}
+                    {!inviteSearching && inviteResults.length === 0 && inviteQuery.trim().length >= 2 && (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun atleta trovato.</div>
+                    )}
+                  </div>
+                )}
               </div>
-            )
+
+              <button onClick={sendInvites} disabled={toInvite.length === 0} className="btn btn-primary" style={{ width: '100%', fontSize: '13px', opacity: toInvite.length === 0 ? 0.6 : 1 }}>
+                Invia {toInvite.length > 0 ? `(${toInvite.length})` : ''} inviti
+              </button>
+            </div>
           )}
 
           {(event.invited || []).length === 0 ? (

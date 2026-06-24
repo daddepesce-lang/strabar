@@ -213,8 +213,25 @@ export default function ShareActivityPage({ params }) {
       setValueFont(uaValue, 80);
       ctx.fillText(uaValue, col3Center, boxY + 190);
       ctx.fillStyle = '#DFFF00';
-      ctx.font = '700 30px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('U.A.', col3Center, boxY + 240);
+      ctx.font = '700 26px "DM Sans", -apple-system, sans-serif';
+      ctx.fillText('U.A.', col3Center, boxY + 232);
+
+      // BAC DI PICCO stimato — riga in fondo al riquadro, colore semaforico
+      const peakBac = parseFloat(activity.bac_level || 0);
+      const bacCol = peakBac >= 0.5 ? '#FF2000' : peakBac >= 0.2 ? '#DFFF00' : '#2ED573';
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(80 + 40, boxY + 250);
+      ctx.lineTo(80 + boxW - 40, boxY + 250);
+      ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
+      ctx.fillText('TASSO ALCOLICO DI PICCO (STIMA)', 80 + boxW / 2, boxY + 285);
+      ctx.fillStyle = bacCol;
+      ctx.font = '800 42px "DM Sans", -apple-system, sans-serif';
+      ctx.fillText(`${peakBac.toFixed(2)} g/l`, 80 + boxW / 2, boxY + 305 + 0);
 
       // Reset allineamento a sinistra
       ctx.textAlign = 'left';

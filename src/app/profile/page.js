@@ -9,6 +9,7 @@ import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, Us
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
+import FollowsModal from '@/components/FollowsModal';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
@@ -24,8 +25,10 @@ export default function ProfilePage() {
   const [friendsSearchQuery, setFriendsSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
-  const [followingList, setFollowingList] = useState([]);
+  const [followingList, setFollowingList] = useState([]); // tenuto per compat (handleFollowToggle)
   const [followersList, setFollowersList] = useState([]);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [followsModal, setFollowsModal] = useState(null); // 'followers' | 'following' | null
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
 
   const [barRankings, setBarRankings] = useState([]);
@@ -106,13 +109,13 @@ export default function ProfilePage() {
 
   const loadSocialData = async (userId) => {
     try {
-      const following = await db.getFollowing(userId);
-      const followers = await db.getFollowers(userId);
-      setFollowingList(following);
-      setFollowersList(followers);
+      // EGRESS: solo i CONTEGGI follower/seguiti (le liste si aprono on-demand nel modale)
+      // e i suggerimenti (versione leggera). Niente più caricamento delle liste intere.
+      if (typeof db.getFollowCounts === 'function') {
+        setFollowCounts(await db.getFollowCounts(userId));
+      }
       if (typeof db.getSuggestedProfiles === 'function') {
-        const sugg = await db.getSuggestedProfiles(userId);
-        setSuggestions(sugg);
+        setSuggestions(await db.getSuggestedProfiles(userId));
       }
     } catch (err) {
       console.error("Errore nel caricamento dei dati social:", err);
@@ -1022,81 +1025,16 @@ export default function ProfilePage() {
 
           {/* Liste Seguiti e Seguaci */}
           <div className="r-grid-2">
-            {/* Persone Seguite */}
-            <div className="card">
-              <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={18} color="var(--primary)" />
-                Atleti Seguiti ({followingList.length})
-              </h3>
-              {followingList.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', padding: '20px 0', textAlign: 'center' }}>
-                  Non stai ancora seguendo nessun atleta. Usa la barra di ricerca sopra per trovare amici!
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {followingList.map((user) => (
-                    <div key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-dark)', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div className="activity-avatar" style={{ width: '32px', height: '32px', fontSize: '13px' }}>
-                          {user.display_name?.charAt(0) || 'U'}
-                        </div>
-                        <div>
-                          <Link href={`/u/${user.id}`} style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</Link>
-                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{user.username}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleFollowToggle(user)}
-                        className="btn btn-secondary"
-                        style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '15px' }}
-                      >
-                        Smetti di seguire
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Seguaci */}
-            <div className="card">
-              <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={18} color="var(--secondary)" />
-                I tuoi Seguaci ({followersList.length})
-              </h3>
-              {followersList.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', padding: '20px 0', textAlign: 'center' }}>
-                  Non hai ancora nessun seguace. Condividi le tue attività per farti notare!
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {followersList.map((user) => {
-                    const isFollowingBack = followingList.some(f => f.id === user.id);
-                    return (
-                      <div key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-dark)', borderRadius: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div className="activity-avatar" style={{ width: '32px', height: '32px', fontSize: '13px' }}>
-                            {user.display_name?.charAt(0) || 'U'}
-                          </div>
-                          <div>
-                            <Link href={`/u/${user.id}`} style={{ fontWeight: '600', fontSize: '13px', color: '#FFF', display: 'block' }}>{user.display_name}</Link>
-                            <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{user.username}</span>
-                          </div>
-                        </div>
-                        {!isFollowingBack && (
-                          <button
-                            onClick={() => handleFollowToggle(user)}
-                            className="btn btn-primary"
-                            style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '15px' }}
-                          >
-                            Ricambia il follow
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            {/* Seguiti / Seguaci — conteggi cliccabili, lista caricata ON-DEMAND nel modale */}
+            <div className="card" style={{ display: 'flex', gap: '12px' }}>
+              <button type="button" onClick={() => setFollowsModal('following')} style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '16px', cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--primary)' }}>{followCounts.following}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>Seguiti</div>
+              </button>
+              <button type="button" onClick={() => setFollowsModal('followers')} style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '16px', cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--secondary)' }}>{followCounts.followers}</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>Seguaci</div>
+              </button>
             </div>
           </div>
         </div>
@@ -1158,6 +1096,15 @@ export default function ProfilePage() {
             ⚙️ Tutte le impostazioni
           </Link>
         </div>
+      )}
+
+      {followsModal && currentUser && (
+        <FollowsModal
+          userId={currentUser.id}
+          initialTab={followsModal}
+          counts={followCounts}
+          onClose={() => setFollowsModal(null)}
+        />
       )}
     </div>
   );

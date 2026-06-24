@@ -1223,8 +1223,8 @@ export const db = {
           .select(`
             *,
             profiles(username, display_name, use_username, avatar_url, weight, sex),
-            cheers(user_id),
-            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
+            cheers(count),
+            comments(count)
           `)
           .eq('user_id', userId)
           .eq('is_active', true)
@@ -1279,16 +1279,16 @@ export const db = {
         if (warnedMs < lastDrinkMs) this._warnInactiveSession(data).catch(() => {});
       }
 
+      // EGRESS: la query principale porta solo i CONTEGGI di cheers/commenti (non gli
+      // elenchi: il pannello live non li mostra). Il fallback (getActivity) può invece
+      // avere già gli array: in quel caso li manteniamo. Gestiamo entrambe le forme.
+      const isCount = (arr) => Array.isArray(arr) && arr[0] && typeof arr[0] === 'object' && 'count' in arr[0];
       return {
         ...data,
-        cheers: data.cheers ? data.cheers.map(c => c.user_id) : [],
-        comments: data.comments ? data.comments.map(c => ({
-          id: c.id,
-          user_id: c.user_id,
-          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
-          text: c.text,
-          created_at: c.created_at
-        })) : []
+        cheer_count: data.cheer_count ?? (isCount(data.cheers) ? (data.cheers[0].count || 0) : (Array.isArray(data.cheers) ? data.cheers.length : 0)),
+        cheers: (Array.isArray(data.cheers) && typeof data.cheers[0] === 'string') ? data.cheers : [],
+        comment_count: data.comment_count ?? (isCount(data.comments) ? (data.comments[0].count || 0) : (Array.isArray(data.comments) ? data.comments.length : 0)),
+        comments: (Array.isArray(data.comments) && data.comments[0] && 'text' in data.comments[0]) ? data.comments : [],
       };
     } else {
       if (typeof window === 'undefined') return null;
@@ -1971,39 +1971,23 @@ export const db = {
   // Suggerimenti "Potresti conoscere": amici-di-amici che non segui ancora,
   // ordinati per numero di connessioni in comune. Se non ce ne sono, propone
   // altri atleti che non segui.
-  async getSuggestedProfiles(userId, limit = 8) {
-    if (!userId) return [];
+  // Suggerimenti "potresti conoscere" — versione LEGGERA (egress): 2 sole query, niente
+  // N+1 sui seguiti-dei-seguiti né getAllProfiles. Mostra atleti recenti non ancora seguiti.
+  async getSuggestedProfiles(userId, limit = 12) {
+    if (!userId || !isSupabaseConfigured) return [];
     try {
-      const myFollowing = await this.getFollowing(userId);
-      const excluded = new Set(myFollowing.map((f) => f.id));
+      const { data: fol } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
+      const excluded = new Set((fol || []).map((f) => f.following_id));
       excluded.add(userId);
-
-      const counts = {};
-      await Promise.all(
-        myFollowing.map(async (f) => {
-          const theirs = await this.getFollowing(f.id).catch(() => []);
-          theirs.forEach((t) => {
-            if (excluded.has(t.id)) return;
-            if (!counts[t.id]) counts[t.id] = { profile: t, mutual: 0 };
-            counts[t.id].mutual += 1;
-          });
-        })
-      );
-
-      let list = Object.values(counts).sort((a, b) => b.mutual - a.mutual);
-
-      // Fallback: nessun amico-di-amico → altri atleti non ancora seguiti
-      if (list.length < limit) {
-        const all = await this.getAllProfiles().catch(() => []);
-        const already = new Set(list.map((x) => x.profile.id));
-        all.forEach((p) => {
-          if (!excluded.has(p.id) && !already.has(p.id)) {
-            list.push({ profile: p, mutual: 0 });
-          }
-        });
-      }
-
-      return list.slice(0, limit).map((x) => ({ ...x.profile, mutualCount: x.mutual }));
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, is_premium')
+        .order('created_at', { ascending: false })
+        .limit(limit + excluded.size + 20);
+      return (profs || [])
+        .filter((p) => !excluded.has(p.id))
+        .slice(0, limit)
+        .map((p) => ({ ...p, mutualCount: 0 }));
     } catch (err) {
       console.error('Errore suggerimenti profili:', err);
       return [];
