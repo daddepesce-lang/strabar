@@ -195,6 +195,10 @@ button, input, select, textarea {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
+  /* Su mobile niente sidebar sotto il feed: classifica in /places, premi sul profilo. */
+  .home-sidebar {
+    display: none !important;
+  }
 }
 
 /* Navbar */

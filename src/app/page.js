@@ -2650,8 +2650,9 @@ export default function FeedPage() {
         )}
       </div>
 
-      {/* Colonna Destra: Sidebar Statistiche e Leaderboard */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Colonna Destra: Sidebar Statistiche e Leaderboard — NASCOSTA su mobile (le card
+          non hanno senso sotto il feed; la classifica è in /places, i premi sul profilo). */}
+      <div className="home-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Invita amici */}
         <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', textAlign: 'center' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '6px' }}>📲 Invita i tuoi amici</h3>

@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [followersList, setFollowersList] = useState([]);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [followsModal, setFollowsModal] = useState(null); // 'followers' | 'following' | null
+  const [showPastSessions, setShowPastSessions] = useState(false); // mostra solo l'ultima + pulsante
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
 
   const [barRankings, setBarRankings] = useState([]);
@@ -573,6 +574,43 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* SFIDE & PREMI (spostate qui dalla home: hanno più senso sul profilo) */}
+          {(() => {
+            const now = new Date();
+            const sameDay = (d) => { const x = new Date(d); return x.getDate() === now.getDate() && x.getMonth() === now.getMonth() && x.getFullYear() === now.getFullYear(); };
+            const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+            const todayUnits = activities.reduce((a, x) => a + (sameDay(x.created_at) ? parseFloat(x.total_units || 0) : 0), 0);
+            const weeklyUnits = activities.reduce((a, x) => a + (new Date(x.created_at) >= weekAgo ? parseFloat(x.total_units || 0) : 0), 0);
+            const uniqueBarsVisited = new Set(activities.map((x) => x.location?.name).filter(Boolean)).size;
+            const toursCompleted = activities.filter((x) => /percorso|tour/i.test(x.description || '')).length;
+            const Bar = ({ label, sub, value, max, color, valueText, reward, done }) => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{label}</strong>
+                  <span style={{ fontSize: '11px', color, fontWeight: 700 }}>{valueText}</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{sub}</div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min((value / max) * 100, 100)}%`, height: '100%', background: color, borderRadius: '3px' }} />
+                </div>
+                <div style={{ fontSize: '10px', color: done ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <Award size={10} /> Premio: {reward}{done ? ' (SBLOCCATO)' : ''}
+                </div>
+              </div>
+            );
+            return (
+              <div className="card" style={{ marginTop: '10px', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,32,0,0.05) 100%)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
+                  <TrendingUp size={18} color="var(--secondary)" /> Sfide & Premi 🏆
+                </h3>
+                <Bar label="🇮🇹 Giro d'Italia" sub="Completa 3 tour questo mese" value={toursCompleted} max={3} color="var(--secondary)" valueText={`${toursCompleted}/3 Tour`} reward="🏆 Gomito di Bronzo" done={toursCompleted >= 3} />
+                <Bar label="🏋️ Resistenza Settimanale" sub="Consuma 10 U.A. negli ultimi 7 giorni" value={weeklyUnits} max={10} color="var(--primary)" valueText={`${weeklyUnits.toFixed(1)}/10 U.A.`} reward="🏋️ Gomito d'Acciaio" done={weeklyUnits >= 10} />
+                <Bar label="🗺️ Esploratore di Locali" sub="Fai check-in in 5 diversi locali" value={uniqueBarsVisited} max={5} color="#10B981" valueText={`${uniqueBarsVisited}/5 Bar`} reward="🗺️ Bussola del Bevitore" done={uniqueBarsVisited >= 5} />
+                <Bar label="🛡️ Bere Responsabile" sub="Rimani sotto le 4.0 U.A. oggi" value={Math.min(todayUnits, 4)} max={4} color={todayUnits > 4 ? 'var(--error)' : 'var(--success)'} valueText={`${todayUnits.toFixed(1)}/4.0 U.A.`} reward={todayUnits > 4 ? '❌ Limite superato oggi' : '🛡️ Scudo del Moderatore'} done={todayUnits > 0 && todayUnits <= 4} />
+              </div>
+            );
+          })()}
+
           {/* TUTTE LE MIE SESSIONI (cronologico, ogni mese) */}
           <div className="card" style={{ marginTop: '10px' }}>
             <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -580,50 +618,64 @@ export default function ProfilePage() {
               Le mie sessioni ({activities.length})
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-              Tutte le tue sessioni registrate, dalla più recente. Tocca una sessione per aprirne il dettaglio.
+              {showPastSessions ? 'Tutte le tue sessioni, dalla più recente.' : 'La tua sessione più recente.'} Tocca per aprirne il dettaglio.
             </p>
 
             {activities.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '34px', color: 'var(--text-dark-secondary)', fontSize: '14px', border: '1px dashed var(--border-dark)', borderRadius: '10px' }}>
                 Non hai ancora registrato sessioni. 🍻
               </div>
-            ) : (
-              <div className="feed-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[...activities]
-                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                  .map((act) => (
-                    <Link key={act.id} href={`/?activity=${act.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                      <article className="card activity-card" style={{ cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
-                          <h4 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '15px' }}>{act.title}</h4>
-                          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>
-                            {new Date(act.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        </div>
-                        <div className="activity-stats">
-                          <div className="stat-box">
-                            <span className="stat-label">Drink</span>
-                            <span className="stat-value highlight">{(act.drinks || []).reduce((s, d) => s + (d.qty || 0), 0)}</span>
+            ) : (() => {
+              const sorted = [...activities].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              const visible = showPastSessions ? sorted : sorted.slice(0, 1);
+              return (
+                <>
+                  <div className="feed-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {visible.map((act) => (
+                      <Link key={act.id} href={`/?activity=${act.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                        <article className="card activity-card" style={{ cursor: 'pointer' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                            <h4 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '15px' }}>{act.title}</h4>
+                            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>
+                              {new Date(act.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
                           </div>
-                          <div className="stat-box">
-                            <span className="stat-label">Durata</span>
-                            <span className="stat-value">{Math.floor((act.duration || 0) / 60)}h {(act.duration || 0) % 60}m</span>
+                          <div className="activity-stats">
+                            <div className="stat-box">
+                              <span className="stat-label">Drink</span>
+                              <span className="stat-value highlight">{(act.drinks || []).reduce((s, d) => s + (d.qty || 0), 0)}</span>
+                            </div>
+                            <div className="stat-box">
+                              <span className="stat-label">Durata</span>
+                              <span className="stat-value">{Math.floor((act.duration || 0) / 60)}h {(act.duration || 0) % 60}m</span>
+                            </div>
+                            <div className="stat-box">
+                              <span className="stat-label">Carico</span>
+                              <span className="stat-value">{act.total_units} U.A.</span>
+                            </div>
                           </div>
-                          <div className="stat-box">
-                            <span className="stat-label">Carico</span>
-                            <span className="stat-value">{act.total_units} U.A.</span>
-                          </div>
-                        </div>
-                        {act.location && (
-                          <div style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <MapPin size={13} /> {act.location.name}
-                          </div>
-                        )}
-                      </article>
-                    </Link>
-                  ))}
-              </div>
-            )}
+                          {act.location && (
+                            <div style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <MapPin size={13} /> {act.location.name}
+                            </div>
+                          )}
+                        </article>
+                      </Link>
+                    ))}
+                  </div>
+                  {sorted.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPastSessions((v) => !v)}
+                      className="btn btn-secondary"
+                      style={{ width: '100%', marginTop: '12px', borderRadius: '20px', padding: '12px', fontSize: '14px', fontWeight: 700 }}
+                    >
+                      {showPastSessions ? '▴ Nascondi sessioni passate' : `▾ Sessioni passate (${sorted.length - 1})`}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* MAPPA DEI LUOGHI DEL BERE (Heatmap geografica) */}
