@@ -1973,21 +1973,51 @@ export const db = {
   // altri atleti che non segui.
   // Suggerimenti "potresti conoscere" — versione LEGGERA (egress): 2 sole query, niente
   // N+1 sui seguiti-dei-seguiti né getAllProfiles. Mostra atleti recenti non ancora seguiti.
-  async getSuggestedProfiles(userId, limit = 12) {
+  // Suggerimenti "Potresti conoscere": SOLO amici di amici (almeno 1 amico in comune).
+  // Un amico in comune M = qualcuno che IO seguo e che a sua volta segue il candidato P.
+  // Se non hai amici in comune con nessuno, la lista è vuota: si usa la barra di ricerca.
+  async getSuggestedProfiles(userId, limit = 24) {
     if (!userId || !isSupabaseConfigured) return [];
     try {
+      // 1. Chi seguo io (i miei "amici")
       const { data: fol } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
-      const excluded = new Set((fol || []).map((f) => f.following_id));
+      const myFollowing = (fol || []).map((f) => f.following_id);
+      if (myFollowing.length === 0) return []; // niente amici → niente amici in comune
+
+      // 2. Chi seguono i miei amici (archi amico → candidato)
+      const { data: fof } = await supabase
+        .from('follows')
+        .select('follower_id, following_id')
+        .in('follower_id', myFollowing);
+
+      // 3. Conta gli amici in comune per ogni candidato, escludendo me e chi già seguo
+      const excluded = new Set(myFollowing);
       excluded.add(userId);
+      const mutuals = new Map(); // candidateId -> Set di amici in comune
+      for (const edge of fof || []) {
+        const cand = edge.following_id;
+        if (excluded.has(cand)) continue;
+        if (!mutuals.has(cand)) mutuals.set(cand, new Set());
+        mutuals.get(cand).add(edge.follower_id);
+      }
+      if (mutuals.size === 0) return [];
+
+      // 4. Ordina per numero di amici in comune (decrescente) e prendi i migliori
+      const ranked = [...mutuals.entries()]
+        .map(([id, set]) => ({ id, mutualCount: set.size }))
+        .sort((a, b) => b.mutualCount - a.mutualCount)
+        .slice(0, limit);
+
+      // 5. Recupera i profili solo per i candidati selezionati
       const { data: profs } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url, is_premium')
-        .order('created_at', { ascending: false })
-        .limit(limit + excluded.size + 20);
-      return (profs || [])
-        .filter((p) => !excluded.has(p.id))
-        .slice(0, limit)
-        .map((p) => ({ ...p, mutualCount: 0 }));
+        .in('id', ranked.map((r) => r.id));
+      const byId = new Map((profs || []).map((p) => [p.id, p]));
+
+      return ranked
+        .map((r) => (byId.has(r.id) ? { ...byId.get(r.id), mutualCount: r.mutualCount } : null))
+        .filter(Boolean);
     } catch (err) {
       console.error('Errore suggerimenti profili:', err);
       return [];

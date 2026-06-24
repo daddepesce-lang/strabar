@@ -14,6 +14,7 @@ export default function SearchPage() {
   const [searching, setSearching] = useState(false);
   const [followingIds, setFollowingIds] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [busy, setBusy] = useState({});
   const inputRef = useRef(null);
 
@@ -154,10 +155,21 @@ export default function SearchPage() {
             <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Users size={16} color="var(--primary)" /> Potresti conoscere
             </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>Atleti che non segui ancora.</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>Atleti con amici in comune che non segui ancora.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {suggestions.map((u) => renderPersonRow(u, u.mutualCount > 0 ? `${u.mutualCount} ${u.mutualCount === 1 ? 'amico' : 'amici'} in comune` : `@${u.username}`))}
+              {(showAllSuggestions ? suggestions : suggestions.slice(0, 5)).map((u) =>
+                renderPersonRow(u, `${u.mutualCount} ${u.mutualCount === 1 ? 'amico' : 'amici'} in comune`)
+              )}
             </div>
+            {!showAllSuggestions && suggestions.length > 5 && (
+              <button
+                onClick={() => setShowAllSuggestions(true)}
+                className="btn btn-secondary"
+                style={{ width: '100%', marginTop: '10px', padding: '10px', fontSize: '13px', borderRadius: '12px' }}
+              >
+                Carica altri ({suggestions.length - 5})
+              </button>
+            )}
           </div>
         )
       )}
