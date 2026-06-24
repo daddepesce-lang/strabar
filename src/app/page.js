@@ -1509,11 +1509,11 @@ export default function FeedPage() {
               <span className="live-dot" /> Il Social Network degli Atleti da Bar
             </span>
             <h1 className="hero-title">
-              Traccia ogni bevuta.<br />
-              Conosci il tuo <span className="gradient-text">tasso&nbsp;alcolico</span>.
+              Bevi con gli amici.<br />
+              Sfidali. <span className="gradient-text">Condividi tutto.</span>
             </h1>
             <p className="hero-para">
-              Strabar trasforma le tue serate in dati. Registra i drink, calcoliamo le <b style={{ color: '#FFF' }}>Unità Alcoliche</b> e il <b style={{ color: '#FFF' }}>tasso alcolico (BAC)</b> con la formula di Widmark, pianifichi i percorsi tra i locali e sfidi gli amici nelle classifiche. Bevi consapevole, non a caso.
+              Strabar è il <b style={{ color: '#FFF' }}>social degli atleti da bar</b>: registra le sessioni, tagga gli amici e brindate insieme. Calcoliamo <b style={{ color: '#FFF' }}>Unità Alcoliche</b> e <b style={{ color: '#FFF' }}>tasso alcolico (BAC)</b>, scali le classifiche dei locali e condividi i tuoi record. Insieme è più divertente — e più consapevole.
             </p>
             <div className="hero-btns">
               <Link href="/auth" className="btn btn-primary lift" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
@@ -1598,6 +1598,62 @@ export default function FeedPage() {
               <div className="cap-sub">{x.s}</div>
             </div>
           ))}
+        </section>
+
+        {/* SOCIAL / COMMUNITY — è un social: si compete e si condivide */}
+        <section className="r-grid-2 reveal" style={{ alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <span className="eyebrow-pill" style={{ background: 'rgba(255,32,0,0.1)', color: 'var(--primary)' }}>
+              <Users size={14} /> Community
+            </span>
+            <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF' }}>
+              Non è un diario. È un <span className="gradient-text">social</span>.
+            </h2>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6' }}>
+              Segui gli amici, vedi le loro sessioni nel feed, taggali e mandate brindisi. Competete nelle classifiche dei locali per il titolo di Leggenda e condividete i record direttamente sui social. Bere diventa un gioco di squadra.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                { ico: <Users size={18} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Feed & amici', d: 'Segui gli atleti, tagga i compagni e segui le loro serate in tempo reale.' },
+                { ico: <Trophy size={18} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'Competi', d: 'Classifiche per locale e settimanali: scala la vetta e difendi il trono.' },
+                { ico: <Share2 size={18} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: 'Condividi', d: 'Esporta sessioni e record con una grafica pronta per Instagram e WhatsApp.' },
+              ].map((x, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
+                  <span className="feat-ico" style={{ color: x.c, background: x.bg, width: '38px', height: '38px', borderRadius: '10px' }}>{x.ico}</span>
+                  <div>
+                    <strong style={{ color: '#FFF', fontSize: '15px' }}>{x.t}</strong>
+                    <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: 1.45 }}>{x.d}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mock di un post del feed: tag, brindisi, commenti, condivisione */}
+          <div className="lift" style={{ background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '18px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: 'var(--shadow)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="activity-avatar" style={{ width: '40px', height: '40px', fontSize: '15px' }}>L</div>
+              <div style={{ flex: 1 }}>
+                <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>Luca M.</strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>con <b style={{ color: 'var(--primary)' }}>@francy</b> e altri 2 • 2h fa</span>
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span className="live-dot" /> Live</span>
+            </div>
+
+            <h3 className="activity-title" style={{ fontSize: '18px' }}>Aperitivo Sforzo Massimo 🏆</h3>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              <span className="drink-tag" style={{ fontSize: '11px' }}>🍺 3x Birra</span>
+              <span className="drink-tag" style={{ fontSize: '11px' }}>🍹 2x Spritz</span>
+              <span className="drink-tag" style={{ fontSize: '11px' }}>📍 Bar Centrale</span>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px', display: 'flex', alignItems: 'center', gap: '18px', fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: 700 }}>🍻 12 brindisi</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><MessageSquare size={15} /> 4</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700 }}><Share2 size={15} /> Condividi</span>
+            </div>
+          </div>
         </section>
 
         {/* HOW IT WORKS */}

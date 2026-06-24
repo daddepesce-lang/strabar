@@ -196,21 +196,25 @@ export default function Navbar() {
           />
         )}
 
-        <div className="nav-links">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const isReg = href === '/log';
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={isReg ? `nav-link-register` : `nav-link ${isActive(href) ? 'active' : ''}`}
-              >
-                <Icon size={18} />
-                {label}
-              </Link>
-            );
-          })}
-        </div>
+        {/* Menu app completo solo per utenti loggati. Sulla landing (visitatore)
+            la barra resta pulita: logo + Accedi/Registrati. */}
+        {user && (
+          <div className="nav-links">
+            {navItems.map(({ href, label, icon: Icon }) => {
+              const isReg = href === '/log';
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={isReg ? `nav-link-register` : `nav-link ${isActive(href) ? 'active' : ''}`}
+                >
+                  <Icon size={18} />
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         <div className="nav-actions">
           {/* Cerca atleti: tendina con anteprima + pagina /search */}
@@ -297,10 +301,15 @@ export default function Navbar() {
               </div>
             </>
           ) : (
-            <Link href="/auth" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px', borderRadius: '20px' }}>
-              <LogIn size={16} />
-              Accedi
-            </Link>
+            <>
+              <Link href="/auth" className="nav-link" style={{ fontWeight: 600 }}>
+                <LogIn size={16} />
+                Accedi
+              </Link>
+              <Link href="/auth" className="btn btn-primary" style={{ padding: '8px 18px', fontSize: '14px', borderRadius: '20px' }}>
+                Registrati
+              </Link>
+            </>
           )}
         </div>
       </nav>
