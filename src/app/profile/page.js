@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
-import { Calendar, User, Beer, Award, Heart, Shield, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
+import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
@@ -314,47 +314,39 @@ export default function ProfilePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
       {/* Intestazione Profilo */}
-      <div className="card profile-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.05) 100%)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <Avatar src={currentUser?.avatar_url} name={currentUser?.display_name || currentUser?.username} size={80} style={{ border: '3px solid var(--primary)' }} />
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {currentUser?.display_name}
-              {currentUser?.is_premium && (
-                <span className="badge-premium">
-                  <Award size={14} /> Premium
-                </span>
-              )}
-            </h1>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px' }}>
-              @{currentUser?.username} • Iscritto a Strabar da {new Date(currentUser?.created_at).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Lente: cerca altri atleti */}
+      <div className="card profile-header" style={{ position: 'relative', textAlign: 'center', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.05) 100%)' }}>
+        {/* Azioni in alto a destra */}
+        <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: '8px' }}>
           <button
             onClick={() => setActiveTab('friends')}
             title="Cerca atleti"
             className="btn btn-secondary"
-            style={{ borderRadius: '50%', width: '42px', height: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+            style={{ borderRadius: '50%', width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             <Search size={18} />
           </button>
-          {/* Impostazioni profilo */}
           <Link
             href="/settings"
             title="Impostazioni profilo"
             className="btn btn-secondary"
-            style={{ borderRadius: '50%', width: '42px', height: '42px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}
+            style={{ borderRadius: '50%', width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}
           >
             ⚙️
           </Link>
-          {/* Badge stato compatto */}
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: '700', fontSize: '12px', background: 'rgba(223, 255, 0, 0.1)', padding: '8px 12px', borderRadius: '30px', border: '1px solid var(--secondary)', whiteSpace: 'nowrap' }}>
-            <Shield size={14} /> Beta gratis
-          </span>
+        </div>
+
+        {/* Avatar + nome centrati */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+          <Avatar src={currentUser?.avatar_url} name={currentUser?.display_name || currentUser?.username} size={84} style={{ border: '3px solid var(--primary)' }} />
+          <h1 style={{ fontSize: '26px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', margin: 0 }}>
+            {currentUser?.display_name}
+            {currentUser?.is_premium && (
+              <span className="badge-premium"><Award size={14} /> Premium</span>
+            )}
+          </h1>
+          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: 0 }}>
+            @{currentUser?.username} • dal {new Date(currentUser?.created_at).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+          </p>
         </div>
       </div>
 
@@ -390,71 +382,7 @@ export default function ProfilePage() {
         );
       })()}
 
-      {/* Peso corporeo per BAC preciso */}
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-          <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
-          <div style={{ minWidth: 0 }}>
-            <strong style={{ fontSize: '15px', display: 'block' }}>Peso corporeo</strong>
-            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-              Rende il calcolo del tasso alcolico (BAC) e la curva d&apos;ebbrezza più precisi. Se non impostato usiamo 70&nbsp;kg.
-            </span>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          <input
-            type="number"
-            inputMode="numeric"
-            min="30"
-            max="250"
-            value={weightInput}
-            onChange={(e) => setWeightInput(e.target.value)}
-            placeholder="70"
-            className="form-control"
-            style={{ width: '90px', height: '42px', textAlign: 'center', fontSize: '15px' }}
-          />
-          <span style={{ fontSize: '14px', color: 'var(--text-dark-secondary)' }}>kg</span>
-          <button
-            onClick={handleSaveWeight}
-            disabled={savingWeight}
-            className="btn btn-primary"
-            style={{ borderRadius: '20px', padding: '10px 16px', fontSize: '14px', fontWeight: 700 }}
-          >
-            {weightSaved ? '✓ Salvato' : savingWeight ? '...' : 'Salva'}
-          </button>
-        </div>
-      </div>
-
-      {/* Sesso per BAC/curva precisi (coefficiente di Widmark) */}
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-          <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚧️</span>
-          <div style={{ minWidth: 0 }}>
-            <strong style={{ fontSize: '15px', display: 'block' }}>Sesso biologico</strong>
-            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-              Migliora la stima del BAC e della curva (la distribuzione dell&apos;alcol nel corpo differisce). Opzionale.
-            </span>
-          </div>
-        </div>
-        <div className="seg-tabs" style={{ flexShrink: 0, width: 'auto', opacity: savingSex ? 0.6 : 1 }}>
-          <div className={`seg-tab ${currentUser?.sex === 'm' ? 'active' : ''}`} onClick={() => handleSaveSex('m')}>♂ Uomo</div>
-          <div className={`seg-tab ${currentUser?.sex === 'f' ? 'active' : ''}`} onClick={() => handleSaveSex('f')}>♀ Donna</div>
-        </div>
-      </div>
-
-      {/* Invita amici su Strabar */}
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-          <span style={{ background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
-          <div style={{ minWidth: 0 }}>
-            <strong style={{ fontSize: '15px', display: 'block' }}>Invita i tuoi amici</strong>
-            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-              Più siete, più è divertente: sfidatevi in classifica e taggatevi nelle sessioni!
-            </span>
-          </div>
-        </div>
-        <ShareAppButton style={{ borderRadius: '20px', padding: '10px 18px', fontSize: '14px', flexShrink: 0 }} />
-      </div>
+      {/* Peso/sesso e invito si trovano ora nella scheda "Dati" (vedi sotto). */}
 
       {/* Menu di Navigazione Tab */}
       <div style={{ display: 'flex', gap: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', flexWrap: 'wrap' }}>
@@ -498,9 +426,23 @@ export default function ProfilePage() {
           <Users size={16} color={activeTab === 'friends' ? 'var(--primary)' : 'currentColor'} />
           Social & Amici
         </button>
+        <button
+          onClick={() => setActiveTab('data')}
+          style={{
+            background: activeTab === 'data' ? 'rgba(255, 32, 0, 0.1)' : 'transparent',
+            border: 'none',
+            borderBottom: activeTab === 'data' ? '2px solid var(--primary)' : 'none',
+            color: activeTab === 'data' ? '#FFF' : 'var(--text-dark-secondary)',
+            padding: '10px 20px', fontSize: '15px', fontWeight: '700', cursor: 'pointer',
+            borderRadius: '6px 6px 0 0', display: 'flex', alignItems: 'center', gap: '8px',
+          }}
+        >
+          <User size={16} color={activeTab === 'data' ? 'var(--primary)' : 'currentColor'} />
+          Dati
+        </button>
       </div>
 
-      {activeTab === 'stats' ? (
+      {activeTab === 'stats' && (
         <>
           {/* Grid delle Statistiche (Performance Dashboard) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px' }}>
@@ -964,7 +906,9 @@ export default function ProfilePage() {
 
           </div>
         </>
-      ) : (
+      )}
+
+      {activeTab === 'friends' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
           {/* Ricerca Amici */}
           <div className="card">
@@ -1155,6 +1099,64 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'data' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+            Questi dati servono a calcolare il tuo <strong style={{ color: '#FFF' }}>tasso alcolico</strong> e la curva d&apos;ebbrezza in modo preciso. Restano privati.
+          </p>
+
+          {/* Peso corporeo */}
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
+              <div style={{ minWidth: 0 }}>
+                <strong style={{ fontSize: '15px', display: 'block' }}>Peso corporeo</strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Se non impostato usiamo 70&nbsp;kg.</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <input type="number" inputMode="numeric" min="30" max="250" value={weightInput} onChange={(e) => setWeightInput(e.target.value)} placeholder="70" className="form-control" style={{ width: '90px', height: '42px', textAlign: 'center', fontSize: '16px' }} />
+              <span style={{ fontSize: '14px', color: 'var(--text-dark-secondary)' }}>kg</span>
+              <button onClick={handleSaveWeight} disabled={savingWeight} className="btn btn-primary" style={{ borderRadius: '20px', padding: '10px 16px', fontSize: '14px', fontWeight: 700 }}>
+                {weightSaved ? '✓ Salvato' : savingWeight ? '...' : 'Salva'}
+              </button>
+            </div>
+          </div>
+
+          {/* Sesso biologico */}
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚧️</span>
+              <div style={{ minWidth: 0 }}>
+                <strong style={{ fontSize: '15px', display: 'block' }}>Sesso biologico</strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Migliora la stima del BAC. Opzionale.</span>
+              </div>
+            </div>
+            <div className="seg-tabs" style={{ flexShrink: 0, width: 'auto', opacity: savingSex ? 0.6 : 1 }}>
+              <div className={`seg-tab ${currentUser?.sex === 'm' ? 'active' : ''}`} onClick={() => handleSaveSex('m')}>♂ Uomo</div>
+              <div className={`seg-tab ${currentUser?.sex === 'f' ? 'active' : ''}`} onClick={() => handleSaveSex('f')}>♀ Donna</div>
+            </div>
+          </div>
+
+          {/* Invita amici */}
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <span style={{ background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
+              <div style={{ minWidth: 0 }}>
+                <strong style={{ fontSize: '15px', display: 'block' }}>Invita i tuoi amici</strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Sfidatevi in classifica e taggatevi nelle sessioni!</span>
+              </div>
+            </div>
+            <ShareAppButton style={{ borderRadius: '20px', padding: '10px 18px', fontSize: '14px', flexShrink: 0 }} />
+          </div>
+
+          {/* Impostazioni complete */}
+          <Link href="/settings" className="btn btn-secondary" style={{ borderRadius: '20px', padding: '12px', fontSize: '14px', justifyContent: 'center' }}>
+            ⚙️ Tutte le impostazioni
+          </Link>
         </div>
       )}
     </div>

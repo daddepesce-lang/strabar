@@ -24,7 +24,6 @@ export default function EventsPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [routes, setRoutes] = useState([]);
-  const [following, setFollowing] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('upcoming'); // upcoming | mine | invites
 
@@ -36,6 +35,10 @@ export default function EventsPage() {
   const [locationName, setLocationName] = useState('');
   const [routeId, setRouteId] = useState('');
   const [invited, setInvited] = useState([]);
+  const [invitedPeople, setInvitedPeople] = useState([]); // [{id,name,username}] mostrati come chip
+  const [inviteQuery, setInviteQuery] = useState('');
+  const [inviteResults, setInviteResults] = useState([]);
+  const [inviteSearching, setInviteSearching] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Selettore luogo: cerca locali/indirizzi reali (OSM) oppure usa testo libero.
@@ -51,10 +54,6 @@ export default function EventsPage() {
       const [evs, rts] = await Promise.all([db.getEvents(), db.getRoutes()]);
       setEvents(evs);
       setRoutes(rts);
-      if (user) {
-        const fol = await db.getFollowing(user.id);
-        setFollowing(fol);
-      }
     } catch (err) {
       console.error('Errore caricamento eventi:', err);
     } finally {
@@ -66,20 +65,47 @@ export default function EventsPage() {
     load();
   }, []);
 
-  // Preselezione amico da invitare via ?invite=<id>
+  const addInvitee = (p) => {
+    setInvited((prev) => (prev.includes(p.id) ? prev : [...prev, p.id]));
+    setInvitedPeople((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
+    setInviteQuery(''); setInviteResults([]);
+  };
+  const removeInvitee = (id) => {
+    setInvited((prev) => prev.filter((i) => i !== id));
+    setInvitedPeople((prev) => prev.filter((x) => x.id !== id));
+  };
+
+  // Preselezione amico da invitare via ?invite=<id>: carica solo QUEL profilo (no lista intera).
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !currentUser) return;
     const inviteId = new URLSearchParams(window.location.search).get('invite');
-    if (inviteId && currentUser) {
+    if (!inviteId) return;
+    setShowForm(true);
+    if (typeof db.getUserProfile === 'function') {
+      db.getUserProfile(inviteId).then((p) => {
+        if (p) addInvitee({ id: p.id, name: p.display_name || p.username || 'Atleta', username: p.username || null });
+      }).catch(() => setInvited((prev) => (prev.includes(inviteId) ? prev : [...prev, inviteId])));
+    } else {
       setInvited((prev) => (prev.includes(inviteId) ? prev : [...prev, inviteId]));
-      setShowForm(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
-  const toggleInvite = (uid) => {
-    setInvited((prev) => (prev.includes(uid) ? prev.filter((i) => i !== uid) : [...prev, uid]));
-  };
+  // Ricerca persone da invitare (server-side, debounced): NON carica tutti i seguiti, così
+  // regge anche con migliaia di contatti. Cerca per nome o @username.
+  useEffect(() => {
+    const q = inviteQuery.trim();
+    if (q.length < 2) { setInviteResults([]); setInviteSearching(false); return; }
+    setInviteSearching(true);
+    const h = setTimeout(async () => {
+      try {
+        const res = (typeof db.searchProfiles === 'function') ? await db.searchProfiles(q) : [];
+        setInviteResults((res || []).filter((p) => p.id !== currentUser?.id).slice(0, 8));
+      } catch { setInviteResults([]); }
+      finally { setInviteSearching(false); }
+    }, 350);
+    return () => clearTimeout(h);
+  }, [inviteQuery, currentUser]);
 
   // Ricerca luoghi (locali, vie, indirizzi) su OpenStreetMap mentre l'utente scrive.
   useEffect(() => {
@@ -134,7 +160,7 @@ export default function EventsPage() {
         invited,
       });
       setShowForm(false);
-      setTitle(''); setDesc(''); setDate(''); setLocationName(''); setRouteId(''); setInvited([]);
+      setTitle(''); setDesc(''); setDate(''); setLocationName(''); setRouteId(''); setInvited([]); setInvitedPeople([]); setInviteQuery('');
       setLocQuery(''); setLocResults([]); setSelectedLoc(null);
       router.push(`/events/${ev.id}`);
     } catch (err) {
@@ -341,32 +367,61 @@ export default function EventsPage() {
 
             <div className="form-group">
               <label className="form-label">Invita amici ({invited.length} selezionati)</label>
-              {following.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
-                  Segui altri atleti dal <Link href="/profile" style={{ color: 'var(--primary)' }}>tuo profilo</Link> per poterli invitare.
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '160px', overflowY: 'auto' }}>
-                  {following.map((f) => {
-                    const sel = invited.includes(f.id);
-                    return (
-                      <button
-                        key={f.id}
-                        onClick={() => toggleInvite(f.id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px',
-                          border: `1px solid ${sel ? 'var(--primary)' : 'var(--border-dark)'}`,
-                          background: sel ? 'rgba(255, 32, 0,0.12)' : 'var(--bg-input-dark)',
-                          color: sel ? 'var(--primary)' : 'var(--text-dark-primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-                        }}
-                      >
-                        {sel && <Check size={13} />}
-                        {f.display_name}
-                      </button>
-                    );
-                  })}
+
+              {/* Persone già selezionate (chip rimovibili) */}
+              {invitedPeople.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                  {invitedPeople.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => removeInvitee(p.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                    >
+                      <Check size={13} /> {p.name} <X size={12} />
+                    </button>
+                  ))}
                 </div>
               )}
+
+              {/* Ricerca persone (server-side): niente caricamento di tutta la lista */}
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="form-control"
+                  placeholder="Cerca per nome o @username…"
+                  value={inviteQuery}
+                  onChange={(e) => setInviteQuery(e.target.value)}
+                />
+                {(inviteSearching || inviteResults.length > 0) && (
+                  <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '220px', overflowY: 'auto' }}>
+                    {inviteSearching && (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco atleti…
+                      </div>
+                    )}
+                    {inviteResults.map((p) => {
+                      const sel = invited.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: p.display_name || p.username || 'Atleta', username: p.username || null }))}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,32,0,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}
+                        >
+                          <span style={{ minWidth: 0 }}>
+                            <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</span>
+                            {p.username && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
+                          </span>
+                          {sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>+ Invita</span>}
+                        </button>
+                      );
+                    })}
+                    {!inviteSearching && inviteResults.length === 0 && inviteQuery.trim().length >= 2 && (
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun atleta trovato.</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <button onClick={handleCreate} disabled={saving} className="btn btn-primary" style={{ width: '100%', marginTop: '6px' }}>

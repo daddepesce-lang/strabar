@@ -50,7 +50,7 @@ export default function BeerPicker({ onPick, disabled = false }) {
               style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'wait' : 'pointer' }}
               title={`${preset.units.toFixed(1)} U.A. · ${preset.abv}%`}
             >
-              {open.label.replace(/^🍺\s*/, '🍺 ')} {preset.size} <span style={{ color: 'var(--text-dark-secondary)' }}>· {preset.units.toFixed(1)} U.A.</span>
+              {open.label.replace(/^🍺\s*/, '🍺 ')} {preset.size} <span style={{ color: 'var(--secondary)', fontWeight: 700 }}>· {preset.abv}°</span> <span style={{ color: 'var(--text-dark-secondary)' }}>· {preset.units.toFixed(1)} U.A.</span>
             </button>
           ))}
         </div>

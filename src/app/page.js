@@ -911,7 +911,7 @@ export default function FeedPage() {
       await db.updateActivity(activeSession.id, { drank_with: updated });
       // Se ho taggato un utente reale (@username), avvisalo: può aprire la SUA sessione
       // nello stesso luogo (link con il locale; conta per la classifica se è sul posto).
-      const m = String(value).match(/\(@([\w-]+)\)/);
+      const m = String(value).match(/\(@([^)]+)\)/);
       if (m && m[1] && currentUser && typeof db._notifyTaggedCompanions === 'function') {
         db._notifyTaggedCompanions(currentUser, { ...activeSession, drank_with: updated }, [m[1]]).catch(() => {});
       }
@@ -1241,9 +1241,9 @@ export default function FeedPage() {
     const finalCompanions = [];
 
     drankWith.forEach(nameStr => {
-      let usernameMatch = nameStr.match(/@([\w-]+)/);
+      let usernameMatch = nameStr.match(/@([\w.-]+)/);
       let username = usernameMatch ? usernameMatch[1] : null;
-      let displayName = nameStr.replace(/\s*\(@?[\w-]+\)/g, '').trim();
+      let displayName = nameStr.replace(/\s*\(@?[\w.-]+\)/g, '').trim();
       
       const matchedProfile = profilesList.find(p => {
         if (username) {
@@ -2065,9 +2065,12 @@ export default function FeedPage() {
                       onClick={() => handleAddDrinkToActiveSession(preset)}
                       disabled={addingDrink}
                       className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer' }}
+                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                     >
                       {preset.label}
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: preset.abv > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)', background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '1px 5px' }}>
+                        {preset.abv > 0 ? `${preset.abv}°` : 'analc.'}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -2088,9 +2091,12 @@ export default function FeedPage() {
                         onClick={() => handleAddDrinkToActiveSession(preset)}
                         disabled={addingDrink}
                         className="btn btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer' }}
+                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                       >
                         {preset.label}
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: preset.abv > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)', background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '1px 5px' }}>
+                          {preset.abv > 0 ? `${preset.abv}°` : 'analc.'}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -2518,8 +2524,8 @@ export default function FeedPage() {
 
                 {renderCompanionsList(act)}
 
-                {/* Chi ha messo Cheers — nel feed mostriamo solo il CONTEGGIO; l'elenco
-                    di chi ha cheerato si carica ON-DEMAND toccando "vedi chi". */}
+                {/* Chi ha messo Cheers — mostriamo il CONTEGGIO cliccabile: toccandolo si
+                    apre l'elenco, caricato ON-DEMAND (getCheerers). */}
                 {(act.cheer_count || 0) > 0 && (
                   <button
                     type="button"
@@ -2527,7 +2533,7 @@ export default function FeedPage() {
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '4px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                   >
                     <Beer size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} fill="var(--primary)" />
-                    <span><strong style={{ color: '#FFF' }}>{act.cheer_count}</strong> cheers · <span style={{ color: 'var(--primary)', fontWeight: 700 }}>vedi chi</span></span>
+                    <span><strong style={{ color: '#FFF' }}>{act.cheer_count}</strong> cheers</span>
                   </button>
                 )}
 

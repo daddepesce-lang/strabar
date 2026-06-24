@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3 } from 'lucide-react';
 import Link from 'next/link';
 import RequireAuth from '@/components/RequireAuth';
+import { siteUrl } from '@/lib/site';
 
 export default function RoutesPage() {
   const router = useRouter();
@@ -1244,7 +1245,7 @@ out body;`;
                 <button
                   type="button"
                   onClick={() => {
-                    const shareUrl = `${window.location.origin}/routes?routeId=${selectedRoute.id}`;
+                    const shareUrl = siteUrl(`/routes?routeId=${selectedRoute.id}`);
                     navigator.clipboard.writeText(shareUrl);
                     alert("Link del percorso copiato negli appunti! Ora puoi condividerlo.");
                   }}

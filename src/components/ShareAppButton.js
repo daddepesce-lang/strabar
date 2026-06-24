@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Share2, Check, Copy } from 'lucide-react';
+import { siteUrl } from '@/lib/site';
 
 // Pulsante riutilizzabile per invitare amici su Strabar.
 // Usa il foglio di condivisione nativo del telefono (WhatsApp, Instagram, SMS…)
@@ -9,7 +10,8 @@ import { Share2, Check, Copy } from 'lucide-react';
 export default function ShareAppButton({ style, className, label = 'Invita amici', compact = false }) {
   const [copied, setCopied] = useState(false);
 
-  const getUrl = () => (typeof window !== 'undefined' ? `${window.location.origin}/install` : '/install');
+  // Link canonico: punta sempre a strabar.app/install, indipendentemente dal dominio aperto.
+  const getUrl = () => siteUrl('/install');
   const text =
     'Unisciti a me su Strabar 🍻 — il social network degli atleti da bar! Traccia le tue bevute, taggami e sfidami in classifica:';
 

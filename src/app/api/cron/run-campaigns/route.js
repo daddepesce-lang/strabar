@@ -89,5 +89,19 @@ export async function GET(req) {
     console.error('Errore chiusura sessioni stale', err);
   }
 
-  return NextResponse.json({ ok: true, processed: (due || []).length, sent, closedStale });
+  // Pulizia periodica notifiche: cancella quelle GIÀ LETTE più vecchie di 60 giorni e quelle
+  // NON lette più vecchie di 120 giorni. Tiene la tabella leggera man mano che si scala,
+  // senza perdere lo storico recente. (Gira una volta al giorno col cron.)
+  let prunedNotifs = 0;
+  try {
+    const d60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    const d120 = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+    const { count: c1 } = await admin.from('notifications').delete({ count: 'exact' }).eq('read', true).lt('created_at', d60);
+    const { count: c2 } = await admin.from('notifications').delete({ count: 'exact' }).lt('created_at', d120);
+    prunedNotifs = (c1 || 0) + (c2 || 0);
+  } catch (err) {
+    console.error('Errore pulizia notifiche', err);
+  }
+
+  return NextResponse.json({ ok: true, processed: (due || []).length, sent, closedStale, prunedNotifs });
 }

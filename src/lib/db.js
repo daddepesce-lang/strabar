@@ -641,8 +641,10 @@ export const db = {
   async _notifyTaggedCompanions(actor, session, onlyUsernames = null) {
     let usernames = [];
     (session.drank_with || []).forEach((t) => {
-      const m = String(t).match(/\(@([\w-]+)\)/);
-      if (m && m[1]) usernames.push(m[1]);
+      // [^)]+ così cattura username con punti/altri caratteri (es. "anna.sartori1995"),
+      // che con [\w-] venivano IGNORATI → niente notifica di tag a quegli utenti.
+      const m = String(t).match(/\(@([^)]+)\)/);
+      if (m && m[1]) usernames.push(m[1].trim());
     });
     if (onlyUsernames) {
       const allow = new Set(onlyUsernames.map((u) => u.toLowerCase()));
@@ -1762,6 +1764,33 @@ export const db = {
       setStored('sb_follows', follows);
       return true;
     }
+  },
+
+  // Conteggi follower/seguiti SENZA scaricare le liste (due query count leggere).
+  async getFollowCounts(userId) {
+    if (!isSupabaseConfigured || !userId) return { followers: 0, following: 0 };
+    try {
+      const [a, b] = await Promise.all([
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+      ]);
+      return { followers: a.count || 0, following: b.count || 0 };
+    } catch { return { followers: 0, following: 0 }; }
+  },
+
+  // Stato di follow tra l'utente loggato e `targetId`, con due check a riga singola
+  // (niente caricamento di liste intere). Ritorna { iFollow, followsMe }.
+  async getFollowStatus(targetId) {
+    if (!isSupabaseConfigured || !targetId) return { iFollow: false, followsMe: false };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { iFollow: false, followsMe: false };
+      const [a, b] = await Promise.all([
+        supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', targetId).limit(1),
+        supabase.from('follows').select('follower_id').eq('follower_id', targetId).eq('following_id', user.id).limit(1),
+      ]);
+      return { iFollow: !!(a.data && a.data.length), followsMe: !!(b.data && b.data.length) };
+    } catch { return { iFollow: false, followsMe: false }; }
   },
 
   async getFollowing(userId) {

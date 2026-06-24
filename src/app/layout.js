@@ -9,10 +9,21 @@ import OnboardingGate from "@/components/OnboardingGate";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
+  // Dominio canonico: le anteprime dei link condivisi (OG) si risolvono su strabar.app.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://strabar.app"),
   title: "Strabar | Il Social Network degli Atleti da Bar",
   description: "Traccia le tue sessioni alcoliche, tagga gli amici, pianifica percorsi (Pub Crawl) ed esporta le tue performance per i social media.",
   keywords: "strabar, atleti da bar, pub crawl, bar crawl, alcol tracker, social drinking",
   applicationName: "Strabar",
+  openGraph: {
+    title: "Strabar | Il Social Network degli Atleti da Bar",
+    description: "Traccia le tue bevute, tagga gli amici e sfidali nelle classifiche dei locali. 🍻",
+    url: "/",
+    siteName: "Strabar",
+    images: [{ url: "/icon-512.png", width: 512, height: 512 }],
+    locale: "it_IT",
+    type: "website",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

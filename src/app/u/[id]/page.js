@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { publicName } from '@/lib/names';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
+import FollowsModal from '@/components/FollowsModal';
 import {
   Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus, Users,
   ArrowLeft, CalendarPlus, MapPin, Sparkles,
@@ -19,12 +20,13 @@ export default function AthleteProfilePage({ params }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [activities, setActivities] = useState([]);
-  const [followers, setFollowers] = useState([]);
-  const [following, setFollowing] = useState([]);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [followsMe, setFollowsMe] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFriend, setIsFriend] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [followsModal, setFollowsModal] = useState(null); // 'followers' | 'following' | null
 
   // Orario corrente: aggiornato ogni minuto per tenere "vivo" il tasso alcolico mostrato.
   const [now, setNow] = useState(() => Date.now());
@@ -43,23 +45,23 @@ export default function AthleteProfilePage({ params }) {
         return;
       }
 
-      const [prof, acts, fol, fers] = await Promise.all([
+      // EGRESS: niente liste intere di follower/seguiti. Solo i CONTEGGI (count query) e,
+      // se loggato, lo stato di follow reciproco con 2 check a riga singola. Le liste si
+      // caricano on-demand aprendo il modale.
+      const [prof, acts, counts] = await Promise.all([
         db.getUserProfile(id),
         db.getUserActivities(id),
-        db.getFollowing(id),
-        db.getFollowers(id),
+        typeof db.getFollowCounts === 'function' ? db.getFollowCounts(id) : Promise.resolve({ followers: 0, following: 0 }),
       ]);
       setProfile(prof);
       setActivities(acts);
-      setFollowing(fol);
-      setFollowers(fers);
+      setFollowCounts(counts);
 
-      if (me) {
-        const followingMe = await db.getFollowing(me.id);
-        const amFollowing = followingMe.some((f) => f.id === id);
-        setIsFollowing(amFollowing);
-        // amico = follow reciproco
-        setIsFriend(amFollowing && fers.some((f) => f.id === me.id));
+      if (me && typeof db.getFollowStatus === 'function') {
+        const st = await db.getFollowStatus(id);
+        setIsFollowing(st.iFollow);
+        setFollowsMe(st.followsMe);
+        setIsFriend(st.iFollow && st.followsMe); // amico = follow reciproco
       }
     } catch (err) {
       console.error('Errore caricamento profilo atleta:', err);
@@ -118,7 +120,7 @@ export default function AthleteProfilePage({ params }) {
   // SOLO le sessioni create da questo atleta (non quelle in cui è taggato),
   // e filtrate per PRIVACY: pubbliche sempre; "amici" solo se c'è un collegamento di
   // follow (io seguo lui o lui segue me); private mai (qui è sempre un altro utente).
-  const theyFollowMe = !!(currentUser && followers.some((f) => f.id === currentUser.id));
+  const theyFollowMe = !!(currentUser && followsMe);
   const canSeeFriends = isFollowing || theyFollowMe;
   const combinedActivities = activities
     .filter((a) => {
@@ -190,7 +192,14 @@ export default function AthleteProfilePage({ params }) {
               )}
             </h1>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '2px' }}>
-              @{profile.username} • {following.length} seguiti • {followers.length} seguaci
+              @{profile.username} •{' '}
+              <button type="button" onClick={() => setFollowsModal('following')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontSize: '14px' }}>
+                <strong style={{ color: '#FFF' }}>{followCounts.following}</strong> seguiti
+              </button>
+              {' • '}
+              <button type="button" onClick={() => setFollowsModal('followers')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontSize: '14px' }}>
+                <strong style={{ color: '#FFF' }}>{followCounts.followers}</strong> seguaci
+              </button>
             </p>
           </div>
 
@@ -313,6 +322,15 @@ export default function AthleteProfilePage({ params }) {
           </div>
         )}
       </div>
+
+      {followsModal && (
+        <FollowsModal
+          userId={id}
+          initialTab={followsModal}
+          counts={followCounts}
+          onClose={() => setFollowsModal(null)}
+        />
+      )}
     </div>
   );
 }

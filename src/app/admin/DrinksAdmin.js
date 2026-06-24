@@ -15,12 +15,16 @@ const bacColor = (b) => (b >= 0.5 ? 'var(--bac-high)' : b >= 0.2 ? 'var(--bac-mi
 
 const DEFAULT_CATALOG = () => JSON.parse(JSON.stringify({ quick: QUICK_DRINKS, extra: EXTRA_DRINKS, beerFamilies: BEER_FAMILIES }));
 
+// Nome "pulito" dal label (toglie l'emoji/simbolo iniziale): es. "🍺 Birra Media" → "Birra Media".
+const cleanName = (label) => String(label || '').replace(/^[^\p{L}\d]+/u, '').trim();
+
 function Inp({ value, onChange, type = 'text', w = 70, step, placeholder }) {
   return (
     <input
       className="form-control" type={type} value={value ?? ''} step={step} placeholder={placeholder}
       onChange={(e) => onChange(type === 'number' ? (e.target.value === '' ? '' : parseFloat(e.target.value)) : e.target.value)}
-      style={{ height: 32, fontSize: 12, padding: '4px 8px', width: w }}
+      // fontSize 16 = niente zoom automatico su iOS quando tocchi il campo; height 40 = comodo su PWA
+      style={{ height: 40, fontSize: 16, padding: '8px 10px', width: w, minWidth: 0, maxWidth: '100%' }}
     />
   );
 }
@@ -57,6 +61,13 @@ export default function DrinksAdmin() {
   // Helpers di mutazione immutabile
   const updItem = (section, i, field, val) => setCat((c) => {
     const arr = [...c[section]]; arr[i] = { ...arr[i], [field]: val }; return { ...c, [section]: arr };
+  });
+  // Modifica l'etichetta e ricava da essa il "nome" (senza emoji): l'admin scrive un solo campo.
+  const updLabel = (section, i, val) => setCat((c) => {
+    const arr = [...c[section]]; arr[i] = { ...arr[i], label: val, name: cleanName(val) }; return { ...c, [section]: arr };
+  });
+  const updSizeLabel = (fi, si, val) => setCat((c) => {
+    const f = [...c.beerFamilies]; const sizes = [...f[fi].sizes]; sizes[si] = { ...sizes[si], label: val, name: cleanName(val) }; f[fi] = { ...f[fi], sizes }; return { ...c, beerFamilies: f };
   });
   const delItem = (section, i) => setCat((c) => ({ ...c, [section]: c[section].filter((_, k) => k !== i) }));
   const addItem = (section) => setCat((c) => ({ ...c, [section]: [...c[section], { name: 'Nuovo drink', abv: 0, units: 0, label: '🍸 Nuovo' }] }));
@@ -164,18 +175,20 @@ export default function DrinksAdmin() {
             <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{title} ({cat[section].length})</h3>
             <button type="button" onClick={() => addItem(section)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 12, borderRadius: 14 }}><Plus size={13} /> Aggiungi</button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 700, padding: '0 4px' }}>
-              <span style={{ width: 110 }}>Etichetta</span><span style={{ flex: 1 }}>Nome completo</span><span style={{ width: 60 }}>ABV%</span><span style={{ width: 60 }}>U.A.</span><span style={{ width: 64, textAlign: 'right' }}>BAC</span><span style={{ width: 28 }} />
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {cat[section].map((d, i) => matches(d) && (
-              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', borderTop: '1px solid var(--border-dark)', paddingTop: 8 }}>
-                <Inp value={d.label} onChange={(v) => updItem(section, i, 'label', v)} w={110} />
-                <div style={{ flex: 1 }}><Inp value={d.name} onChange={(v) => updItem(section, i, 'name', v)} w="100%" /></div>
-                <Inp type="number" step="0.1" value={d.abv} onChange={(v) => updItem(section, i, 'abv', v)} w={60} />
-                <Inp type="number" step="0.1" value={d.units} onChange={(v) => updItem(section, i, 'units', v)} w={60} />
-                <span style={{ width: 64, textAlign: 'right', fontWeight: 800, fontSize: 13, color: bacColor(rowBac(d)) }}>{rowBac(d).toFixed(2)}</span>
-                <button type="button" onClick={() => delItem(section, i)} title="Elimina" style={{ width: 28, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)' }}><Trash2 size={15} /></button>
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-dark)', paddingTop: 12 }}>
+                <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>
+                  Nome drink
+                  <Inp value={d.label} onChange={(v) => updLabel(section, i, v)} w="100%" placeholder="es. 🍷 Vino Rosso" />
+                </label>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Gradi °<br /><Inp type="number" step="0.1" value={d.abv} onChange={(v) => updItem(section, i, 'abv', v)} w={84} /></label>
+                  <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>U.A.<br /><Inp type="number" step="0.1" value={d.units} onChange={(v) => updItem(section, i, 'units', v)} w={84} /></label>
+                  <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>BAC<br /><span style={{ fontSize: 18, fontWeight: 800, color: bacColor(rowBac(d)) }}>{rowBac(d).toFixed(2)}</span></div>
+                  <div style={{ flex: 1 }} />
+                  <button type="button" onClick={() => delItem(section, i)} title="Elimina" className="btn btn-secondary" style={{ padding: '8px 12px', borderRadius: 12, color: 'var(--error)' }}><Trash2 size={16} /></button>
+                </div>
               </div>
             ))}
           </div>
@@ -207,14 +220,16 @@ export default function DrinksAdmin() {
                 {open && (
                   <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {f.sizes.map((s, si) => (
-                      <div key={si} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--border-dark)', paddingTop: 8 }}>
-                        <Inp value={s.size} onChange={(v) => updSize(fi, si, 'size', v)} w={100} placeholder="Taglia" />
-                        <div style={{ flex: 1, minWidth: 140 }}><Inp value={s.name} onChange={(v) => updSize(fi, si, 'name', v)} w="100%" placeholder="Nome completo" /></div>
-                        <Inp value={s.label} onChange={(v) => updSize(fi, si, 'label', v)} w={120} placeholder="Etichetta" />
-                        <Inp type="number" step="0.1" value={s.abv} onChange={(v) => updSize(fi, si, 'abv', v)} w={56} />
-                        <Inp type="number" step="0.1" value={s.units} onChange={(v) => updSize(fi, si, 'units', v)} w={56} />
-                        <span style={{ width: 56, textAlign: 'right', fontWeight: 800, fontSize: 13, color: bacColor(rowBac(s)) }}>{rowBac(s).toFixed(2)}</span>
-                        <button type="button" onClick={() => delSize(fi, si)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)' }}><Trash2 size={14} /></button>
+                      <div key={si} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-dark)', paddingTop: 10 }}>
+                        <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Nome taglia<Inp value={s.label} onChange={(v) => updSizeLabel(fi, si, v)} w="100%" placeholder="es. 🍺 Bionda Media 0,4L" /></label>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Taglia<br /><Inp value={s.size} onChange={(v) => updSize(fi, si, 'size', v)} w={120} placeholder="Media 0,4L" /></label>
+                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Gradi °<br /><Inp type="number" step="0.1" value={s.abv} onChange={(v) => updSize(fi, si, 'abv', v)} w={80} /></label>
+                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>U.A.<br /><Inp type="number" step="0.1" value={s.units} onChange={(v) => updSize(fi, si, 'units', v)} w={80} /></label>
+                          <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>BAC<br /><span style={{ fontSize: 17, fontWeight: 800, color: bacColor(rowBac(s)) }}>{rowBac(s).toFixed(2)}</span></div>
+                          <div style={{ flex: 1 }} />
+                          <button type="button" onClick={() => delSize(fi, si)} className="btn btn-secondary" style={{ padding: '8px 12px', borderRadius: 12, color: 'var(--error)' }}><Trash2 size={15} /></button>
+                        </div>
                       </div>
                     ))}
                     <button type="button" onClick={() => addSize(fi)} className="btn btn-secondary" style={{ alignSelf: 'flex-start', padding: '5px 10px', fontSize: 12, borderRadius: 12 }}><Plus size={12} /> Taglia</button>

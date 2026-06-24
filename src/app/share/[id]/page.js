@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { Download, Share2, ArrowLeft, Beer, MessageCircle, Send, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
+import { siteUrl, SITE_HOST } from '@/lib/site';
 
 export default function ShareActivityPage({ params }) {
   const router = useRouter();
@@ -248,7 +249,7 @@ export default function ShareActivityPage({ params }) {
       ctx.textAlign = 'left';
 
       // Footer branding — URL reale di installazione
-      const installHost = (typeof window !== 'undefined' ? window.location.host : 'strabar-delta.vercel.app');
+      const installHost = SITE_HOST; // dominio canonico (strabar.app) sulla card social
       ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
       ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
       ctx.fillText(`📲 Installa: ${installHost}/install`, 80, size - 70);
@@ -308,7 +309,7 @@ export default function ShareActivityPage({ params }) {
 
   const shareCaption = () => {
     const drinks = activity.drinks.reduce((acc, d) => acc + d.qty, 0);
-    const installUrl = typeof window !== 'undefined' ? `${window.location.origin}/install` : 'https://strabar-delta.vercel.app/install';
+    const installUrl = siteUrl('/install');
     return `🍻 ${activity.title}\n${drinks} drink • ${activity.total_units} U.A. • Stato: ${activity.feeling}\n\nUnisciti a me su Strabar 👉 ${installUrl}`;
   };
 
@@ -338,7 +339,8 @@ export default function ShareActivityPage({ params }) {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareCaption())}`, '_blank', 'noopener,noreferrer');
   };
 
-  const shareUrl = () => (typeof window !== 'undefined' ? window.location.href : '');
+  // Link canonico alla sessione condivisa: punta sempre a strabar.app/share/<id>.
+  const shareUrl = () => siteUrl(`/share/${activityId}`);
 
   const handleTelegram = () => {
     window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl())}&text=${encodeURIComponent(shareCaption())}`, '_blank', 'noopener,noreferrer');
