@@ -72,6 +72,14 @@ export default function ShareActivityPage({ params }) {
     // Sessione ancora in diretta? (attiva e iniziata da meno di 5h)
     const isLive = !!activity.is_active && (Date.now() - new Date(activity.created_at).getTime() < 5 * 60 * 60 * 1000);
 
+    // Per le sessioni live, BAC e durata vanno calcolati ADESSO: i valori salvati
+    // (activity.bac_level / activity.duration) sono fermi al momento dell'ultimo salvataggio.
+    const liveElapsedMin = Math.max(1, Math.round((Date.now() - new Date(activity.created_at).getTime()) / 60000));
+    const displayDuration = isLive ? liveElapsedMin : (activity.duration || 0);
+    const displayBac = isLive
+      ? db.calculateCurrentBAC(activity.drinks || [], activity.created_at, liveElapsedMin, undefined, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, 0)
+      : parseFloat(activity.bac_level || 0);
+
     const drawStats = () => {
       // 1. Disegna lo sfondo
       if (usePhoto) {
@@ -216,13 +224,13 @@ export default function ShareActivityPage({ params }) {
       setValueFont(totalDrinks.toString(), 96);
       ctx.fillText(totalDrinks.toString(), 80 + colWidth / 2, boxY + 200);
 
-      // Stat 2: Tempo
-      const hrs = Math.floor(activity.duration / 60);
-      const mins = activity.duration % 60;
+      // Stat 2: Tempo (per i live = minuti trascorsi da inizio sessione, calcolati ora)
+      const hrs = Math.floor(displayDuration / 60);
+      const mins = displayDuration % 60;
       const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
       ctx.fillStyle = '#9CA3AF';
       ctx.font = '600 24px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('DURATA SFORZO', 80 + colWidth + colWidth / 2, boxY + 80);
+      ctx.fillText(isLive ? 'TEMPO A TAVOLA' : 'DURATA SFORZO', 80 + colWidth + colWidth / 2, boxY + 80);
       ctx.fillStyle = '#FFFFFF';
       setValueFont(timeStr, 70);
       ctx.fillText(timeStr, 80 + colWidth + colWidth / 2, boxY + 185);
@@ -242,7 +250,7 @@ export default function ShareActivityPage({ params }) {
 
       // TASSO ALCOLICO stimato — riga in fondo al riquadro, colore semaforico.
       // Su sessione live è il valore ATTUALE; su sessione chiusa è il PICCO.
-      const peakBac = parseFloat(activity.bac_level || 0);
+      const peakBac = displayBac;
       const bacCol = peakBac >= 0.5 ? '#FF2000' : peakBac >= 0.2 ? '#DFFF00' : '#2ED573';
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 2;
