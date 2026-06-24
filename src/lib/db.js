@@ -3287,13 +3287,22 @@ export const db = {
   _validCatalog(c) {
     return !!(c && Array.isArray(c.quick) && Array.isArray(c.extra) && Array.isArray(c.beerFamilies));
   },
-  async getDrinkCatalog() {
+  // Legge la cache locale del catalogo (sincrono). Ritorna { t, v } oppure null.
+  _cachedDrinkCatalog() {
+    if (typeof window === 'undefined') return null;
+    try {
+      const c = JSON.parse(localStorage.getItem('sb_drink_catalog') || 'null');
+      if (c && this._validCatalog(c.v)) return c;
+    } catch { /* noop */ }
+    return null;
+  },
+  // Con { force:true } ignora la cache e va sempre in rete (usato per la rivalidazione
+  // stale-while-revalidate dell'hook, così i drink aggiunti dall'admin compaiono a TUTTI).
+  async getDrinkCatalog({ force = false } = {}) {
     const DEFAULT = this.DEFAULT_DRINK_CATALOG;
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = JSON.parse(localStorage.getItem('sb_drink_catalog') || 'null');
-        if (cached && Date.now() - cached.t < 24 * 60 * 60 * 1000 && this._validCatalog(cached.v)) return cached.v;
-      } catch { /* noop */ }
+    if (typeof window !== 'undefined' && !force) {
+      const cached = this._cachedDrinkCatalog();
+      if (cached && Date.now() - cached.t < 24 * 60 * 60 * 1000) return cached.v;
     }
     if (!isSupabaseConfigured) return DEFAULT;
     try {

@@ -12,6 +12,7 @@ import BacInfo from '@/components/BacInfo';
 import BacCurve from '@/components/BacCurve';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import { publicName } from '@/lib/names';
+import { siteUrl } from '@/lib/site';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
 import InfoPopover from '@/components/InfoPopover';
@@ -114,6 +115,7 @@ export default function FeedPage() {
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [profilesList, setProfilesList] = useState([]);
   const [showCloseForm, setShowCloseForm] = useState(false);
+  const [completedSession, setCompletedSession] = useState(null); // resoconto post-chiusura (modale congratulazioni)
   const [editingActivity, setEditingActivity] = useState(null);
 
   // Stati per il tagging amici e upload foto nella sessione live
@@ -1109,6 +1111,25 @@ export default function FeedPage() {
     }
   };
 
+  // Condivide una sessione tramite il foglio nativo (WhatsApp/Instagram/SMS…) con il
+  // link alla card social /share/<id>. Fallback desktop: copia il link negli appunti.
+  const shareSessionLink = async (sessionId, caption) => {
+    const url = siteUrl(`/share/${sessionId}`);
+    const text = caption || 'Guarda la mia sessione su Strabar 🍻';
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Strabar 🍻', text, url });
+        return;
+      }
+    } catch { return; /* condivisione annullata */ }
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      alert('Link copiato negli appunti!');
+    } catch {
+      alert(`Condividi questo link: ${url}`);
+    }
+  };
+
   const handleCloseActiveSession = async (e) => {
     e.preventDefault();
     if (!activeSession) return;
@@ -1131,11 +1152,36 @@ export default function FeedPage() {
       duration: elapsedMinutes
     };
 
+    const sess = activeSession; // cattura prima di azzerare lo stato (serve per il resoconto)
     try {
-      await db.closeSession(activeSession.id, finalData);
+      await db.closeSession(sess.id, finalData);
       // Niente notifica all'utente per la propria chiusura sessione (azione volontaria).
+
+      // Resoconto per il modale di congratulazioni (picco BAC deterministico a sessione chiusa).
+      const peakBac = db.calculatePeakBAC(
+        sess.drinks || [],
+        sess.created_at,
+        finalData.duration || sess.duration || 120,
+        currentUser?.weight,
+        sess.full_stomach,
+        currentUser?.sex,
+        priorResidualFor(sess)
+      );
+      const drinkCount = (sess.drinks || []).reduce((n, d) => n + (d.qty || 1), 0);
+      setCompletedSession({
+        id: sess.id,
+        title: sess.title || 'Brindisi Live 🍻',
+        units: parseFloat(sess.total_units || 0),
+        drinkCount,
+        peakBac,
+        duration: finalData.duration,
+        feeling,
+        locationName: sess.location?.name || null,
+      });
+
       setActiveSession(null);
       setShowLivePanel(false);
+      setShowCloseForm(false);
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('strabar:live-changed'));
       await loadFeed();
     } catch (err) {
@@ -2055,13 +2101,23 @@ export default function FeedPage() {
                     <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{activeSession.description}</p>
                   )}
                 </div>
-                <button
-                  onClick={() => handleEditActivity(activeSession)}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}
-                >
-                  <Edit size={12} /> Modifica info
-                </button>
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  <button
+                    onClick={() => shareSessionLink(activeSession.id, `Sono in diretta su Strabar 🍻 — ${activeSession.total_units ? activeSession.total_units.toFixed(1) + ' U.A.' : 'segui la mia sessione'}!`)}
+                    className="btn btn-primary"
+                    title="Condividi la diretta (link + card social)"
+                    style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Share2 size={12} /> Condividi
+                  </button>
+                  <button
+                    onClick={() => handleEditActivity(activeSession)}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Edit size={12} /> Modifica
+                  </button>
+                </div>
               </div>
 
               {/* Statistiche Live */}
@@ -3874,6 +3930,77 @@ export default function FeedPage() {
               </button>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* MODALE CONGRATULAZIONI: resoconto post-sessione + condivisione social */}
+      {completedSession && (
+        <div
+          onClick={() => setCompletedSession(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(8px)' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card reveal is-visible"
+            style={{ maxWidth: '440px', width: '100%', background: 'linear-gradient(135deg, rgba(255,32,0,0.16) 0%, rgba(22,24,34,0.98) 60%)', border: '1px solid var(--border-dark)', borderRadius: '24px', padding: '28px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}
+          >
+            <div className="glow-orb" style={{ top: '-50px', left: '50%', width: '200px', height: '200px', background: 'var(--primary)', opacity: 0.3 }} />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ fontSize: '52px', lineHeight: 1 }}>🎉</div>
+              <div>
+                <h2 style={{ fontSize: '30px', fontWeight: 900, color: '#FFF' }}>Allenamento completato!</h2>
+                <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>
+                  {completedSession.title}{completedSession.locationName ? ` · 📍 ${completedSession.locationName}` : ''}
+                </p>
+              </div>
+
+              {/* Resoconto */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                {[
+                  { label: 'Durata', value: completedSession.duration >= 60 ? `${Math.floor(completedSession.duration / 60)}h ${completedSession.duration % 60}m` : `${completedSession.duration || 0}m`, color: '#FFF' },
+                  { label: 'Drink', value: completedSession.drinkCount, color: 'var(--primary)' },
+                  { label: 'Carico', value: `${completedSession.units.toFixed(1)} U.A.`, color: 'var(--secondary)' },
+                  { label: 'Picco BAC', value: `${completedSession.peakBac.toFixed(2)} g/l`, color: completedSession.peakBac > 0.5 ? 'var(--error)' : 'var(--success)' },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: '14px', padding: '14px 10px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>{s.label}</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: s.color, marginTop: '2px', lineHeight: 1 }}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
+                Stato finale: <b style={{ color: '#FFF' }}>{completedSession.feeling}</b>
+              </div>
+
+              {/* Azioni */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+                <button
+                  onClick={() => { const id = completedSession.id; setCompletedSession(null); router.push(`/share/${id}`); }}
+                  className="btn btn-primary lift"
+                  style={{ width: '100%', padding: '13px', borderRadius: '30px', fontSize: '15px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <Sparkles size={17} /> Crea card e condividi
+                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => shareSessionLink(completedSession.id, `Sessione finita su Strabar 🍻 — ${completedSession.units.toFixed(1)} U.A., picco ${completedSession.peakBac.toFixed(2)} g/l!`)}
+                    className="btn btn-secondary"
+                    style={{ flex: 1, padding: '11px', borderRadius: '30px', fontSize: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  >
+                    <Share2 size={15} /> Condividi link
+                  </button>
+                  <button
+                    onClick={() => setCompletedSession(null)}
+                    className="btn btn-secondary"
+                    style={{ flex: 1, padding: '11px', borderRadius: '30px', fontSize: '14px' }}
+                  >
+                    Chiudi
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -213,8 +213,8 @@ button, input, select, textarea {
      barra in basso (layer fixed+blur che si stacca durante lo scroll inerziale). */
   background: #161822;
   border-bottom: 1px solid var(--border-dark);
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* Niente translateZ/transform: vedi nota su .mobile-nav — su iOS promuovere una
+     barra fixed a layer GPU la fa "staccare" durante lo scroll inerziale. */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1340,9 +1340,9 @@ select.form-control {
     background: #101219;
     border-top: 1px solid var(--border-dark);
     z-index: 1200; /* sopra i controlli +/- di Leaflet (z-index 1000) */
-    /* Forza un layer stabile ancorato al viewport */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
+    /* NIENTE transform/translateZ qui: promuovere una barra position:fixed a layer
+       GPU separato su iOS la fa "staccare" durante lo scroll inerziale (galleggia a
+       metà schermo e poi scatta indietro). Lasciamo che Safari la ancori in modo nativo. */
   }
   .mobile-nav a,
   .mobile-nav > button {
