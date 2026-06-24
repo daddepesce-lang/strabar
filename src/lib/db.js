@@ -384,8 +384,8 @@ export const db = {
           .select(`
             ${cols},
             profiles(username, display_name, use_username, avatar_url, weight, sex),
-            cheers(user_id),
-            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
+            cheers(count),
+            comments(count)
           `)
           .order('created_at', { ascending: false });
         if (limit != null) query = query.range(offset, offset + limit - 1);
@@ -393,16 +393,17 @@ export const db = {
       });
       if (error) throw error;
 
+      // EGRESS: nel feed scarichiamo solo i CONTEGGI di cheers e commenti (non gli elenchi
+      // con i profili annidati). Chi ha messo cheers / i commenti veri si caricano on-demand
+      // (getCheerers / getComments) o aprendo il dettaglio (getActivity). `cheered_by_me`
+      // viene valorizzato a parte con getMyCheers (una sola query batch per pagina).
       return data.map(act => ({
         ...act,
-        cheers: act.cheers ? act.cheers.map(c => c.user_id) : [],
-        comments: act.comments ? act.comments.map(c => ({
-          id: c.id,
-          user_id: c.user_id,
-          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
-          text: c.text,
-          created_at: c.created_at
-        })) : []
+        cheer_count: Array.isArray(act.cheers) ? (act.cheers[0]?.count ?? 0) : 0,
+        cheers: [], // elenco caricato on-demand
+        cheered_by_me: false, // valorizzato da getMyCheers lato pagina
+        comment_count: Array.isArray(act.comments) ? (act.comments[0]?.count ?? 0) : 0,
+        comments: [], // caricati on-demand
       }));
     } else {
       const activities = getStored('sb_activities');
@@ -426,6 +427,65 @@ export const db = {
     }
   },
 
+  // Commenti di una singola sessione, caricati ON-DEMAND (quando si espande la sezione
+  // commenti nel feed). Tiene il feed leggero: la lista scarica solo il conteggio.
+  async getComments(activityId) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight)')
+        .eq('session_id', activityId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(c => ({
+        id: c.id,
+        user_id: c.user_id,
+        user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+        text: c.text,
+        created_at: c.created_at,
+      }));
+    }
+    if (typeof window === 'undefined') return [];
+    const all = getStored('sb_comments') || [];
+    return all.filter((c) => c.session_id === activityId);
+  },
+
+  // Quali delle sessioni passate ha "cheerato" l'utente corrente. UNA query leggera per
+  // pagina del feed (solo le mie righe tra gli id dati) → imposta `cheered_by_me` senza
+  // scaricare TUTTI gli elenchi cheers. Ritorna un Set di session_id.
+  async getMyCheers(sessionIds = []) {
+    if (!isSupabaseConfigured || !sessionIds.length) return new Set();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return new Set();
+      const { data } = await supabase
+        .from('cheers')
+        .select('session_id')
+        .eq('user_id', user.id)
+        .in('session_id', sessionIds);
+      return new Set((data || []).map((r) => r.session_id));
+    } catch { return new Set(); }
+  },
+
+  // Chi ha messo cheers a una sessione, caricato ON-DEMAND (apertura elenco "Cheers").
+  async getCheerers(activityId) {
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('cheers')
+        .select('user_id, profiles(username, display_name)')
+        .eq('session_id', activityId);
+      if (error) throw error;
+      return (data || []).map((c) => ({
+        id: c.user_id,
+        name: c.profiles?.display_name || c.profiles?.username || 'Atleta Strabar',
+        username: c.profiles?.username || null,
+      }));
+    }
+    if (typeof window === 'undefined') return [];
+    const all = getStored('sb_cheers') || [];
+    return all.filter((c) => c.session_id === activityId).map((c) => ({ id: c.user_id, name: 'Atleta', username: null }));
+  },
+
   async getActivity(activityId) {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
@@ -443,6 +503,7 @@ export const db = {
       return {
         ...data,
         cheers: data.cheers ? data.cheers.map(c => c.user_id) : [],
+        cheer_count: data.cheers ? data.cheers.length : 0,
         comments: data.comments ? data.comments.map(c => ({
           id: c.id,
           user_id: c.user_id,
@@ -799,10 +860,13 @@ export const db = {
   // --- ROUTES (PUB CRAWLS) ---
   async getRoutes() {
     if (isSupabaseConfigured) {
+      // Cap di sicurezza: i 100 percorsi più recenti. Evita di scansionare l'intera tabella
+      // man mano che si scala (egress limitato). Più che sufficienti per la lista pubblica.
       const { data, error } = await supabase
         .from('routes')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
       if (error) throw error;
       return data;
     } else {
@@ -1706,7 +1770,7 @@ export const db = {
         .from('follows')
         .select(`
           following_id,
-          profiles:following_id (*)
+          profiles:following_id (id, username, display_name, use_username, avatar_url, is_premium, weight, sex)
         `)
         .eq('follower_id', userId);
       if (error) throw error;
@@ -1730,7 +1794,7 @@ export const db = {
         .from('follows')
         .select(`
           follower_id,
-          profiles:follower_id (*)
+          profiles:follower_id (id, username, display_name, use_username, avatar_url, is_premium, weight, sex)
         `)
         .eq('following_id', userId);
       if (error) throw error;
@@ -2609,10 +2673,15 @@ export const db = {
   async getEvents() {
     const user = await this.getCurrentUser();
     if (isSupabaseConfigured) {
+      // Cap di sicurezza: solo eventi da ieri in poi (gli eventi passati non servono nella
+      // lista) e max 100. Riduce molto l'egress quando lo storico cresce.
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from('events')
         .select(`*, event_responses(user_id, status)`)
-        .order('date', { ascending: true });
+        .gte('date', since)
+        .order('date', { ascending: true })
+        .limit(100);
       if (error) throw error;
       const hostMap = await this._profilesByIds((data || []).map((e) => e.host_id));
       return (data || []).map((e) => {

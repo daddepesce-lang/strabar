@@ -71,7 +71,7 @@ export default function FeedPage() {
   // Catalogo drink dinamico (gestito da admin), con fallback statico immediato.
   const { quick: QUICK_DRINKS, extra: EXTRA_DRINKS } = useDrinkCatalog();
   const router = useRouter();
-  const FEED_PAGE_SIZE = 10;
+  const FEED_PAGE_SIZE = 5;
   const [currentUser, setCurrentUser] = useState(null);
   const [activities, setActivities] = useState([]);
   const [feedHasMore, setFeedHasMore] = useState(false);
@@ -130,6 +130,8 @@ export default function FeedPage() {
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
   const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
+  const [cheersListPeople, setCheersListPeople] = useState([]); // chi ha cheerato (caricato on-demand)
+  const [cheersListLoading, setCheersListLoading] = useState(false);
 
   // Stati social: filtro feed (amici/tutti) e gestione follow
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
@@ -178,6 +180,16 @@ export default function FeedPage() {
     notify(title, body);
   };
 
+  // EGRESS: il feed scarica solo il CONTEGGIO cheers. Qui, con UNA query batch, segniamo
+  // quali post ha già "cheerato" l'utente corrente (per evidenziare il pulsante).
+  const hydrateMyCheers = async (acts) => {
+    if (!acts?.length || typeof db.getMyCheers !== 'function') return;
+    try {
+      const set = await db.getMyCheers(acts.map((a) => a.id));
+      if (set && set.size) setActivities((prev) => prev.map((a) => (set.has(a.id) ? { ...a, cheered_by_me: true } : a)));
+    } catch { /* noop */ }
+  };
+
   const loadFeed = async () => {
     try {
       if (!db || typeof db.getCurrentUser !== 'function') return;
@@ -195,6 +207,7 @@ export default function FeedPage() {
 
       setActivities(acts);
       setFeedHasMore(acts.length >= FEED_PAGE_SIZE);
+      if (user) hydrateMyCheers(acts);
 
       // Banner pubblicitari (best effort, non blocca il feed)
       if (typeof db.getActiveBanners === 'function') {
@@ -260,6 +273,7 @@ export default function FeedPage() {
         return [...prev, ...next.filter((a) => !seen.has(a.id))];
       });
       setFeedHasMore(next.length >= FEED_PAGE_SIZE);
+      if (currentUser) hydrateMyCheers(next);
     } catch (err) {
       console.error('Errore caricamento altre attività:', err);
     } finally {
@@ -400,28 +414,55 @@ export default function FeedPage() {
       router.push('/auth');
       return;
     }
-    // Aggiornamento ottimistico immediato (niente reload completo del feed)
-    const had = activities.find((a) => a.id === activityId)?.cheers?.includes(currentUser.id);
-    patchActivity(activityId, (a) => {
-      const cheers = a.cheers || [];
+    // Modello unificato: nel feed conosciamo solo il CONTEGGIO (cheer_count) e se ho cheerato
+    // io (cheered_by_me); nel dettaglio c'è anche l'elenco (cheers). L'update ottimistico
+    // tiene coerenti tutti e tre. `others` = cheers degli altri, stabile per il rollback.
+    const target = activities.find((a) => a.id === activityId) || (selectedActivity?.id === activityId ? selectedActivity : null);
+    const had = !!(target?.cheered_by_me || target?.cheers?.includes(currentUser.id));
+    const origCount = target?.cheer_count != null ? target.cheer_count : (target?.cheers?.length || 0);
+    const others = Math.max(0, origCount - (had ? 1 : 0));
+    const applyMine = (mine) => patchActivity(activityId, (a) => {
+      const base = (a.cheers || []).filter((id) => id !== currentUser.id);
       return {
         ...a,
-        cheers: had ? cheers.filter((id) => id !== currentUser.id) : [...cheers, currentUser.id],
+        cheers: mine ? [...base, currentUser.id] : base,
+        cheered_by_me: mine,
+        cheer_count: others + (mine ? 1 : 0),
       };
     });
+    applyMine(!had); // ottimistico
     try {
       await db.toggleCheers(activityId);
     } catch (err) {
       console.error(err);
-      // Rollback
-      patchActivity(activityId, (a) => {
-        const cheers = a.cheers || [];
-        return {
-          ...a,
-          cheers: had ? [...cheers, currentUser.id] : cheers.filter((id) => id !== currentUser.id),
-        };
-      });
+      applyMine(had); // rollback allo stato iniziale
     }
+  };
+
+  // Apre l'elenco "Chi ha messo cheers". Nel feed il post ha solo il conteggio, quindi
+  // l'elenco si carica ON-DEMAND (getCheerers). Nel dettaglio l'elenco uid c'è già.
+  const openCheersList = async (act) => {
+    setCheersListActivity(act);
+    setShowCheersList(true);
+    // Usa l'elenco già in memoria SOLO se è COMPLETO (nel dettaglio: cheers.length combacia
+    // col conteggio). Nel feed l'array è parziale (al più il mio) → carica da DB.
+    const arr = Array.isArray(act.cheers) ? act.cheers : [];
+    const complete = arr.length > 0 && (act.cheer_count == null || arr.length === act.cheer_count);
+    if (complete) {
+      setCheersListPeople(arr.map((uid) => {
+        const p = profilesList.find((pr) => pr.id === uid);
+        return { id: uid, name: uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta Strabar'), username: p?.username || null };
+      }));
+      setCheersListLoading(false);
+      return;
+    }
+    setCheersListPeople([]);
+    setCheersListLoading(true);
+    try {
+      const people = (typeof db.getCheerers === 'function') ? await db.getCheerers(act.id) : [];
+      setCheersListPeople(people.map((p) => (p.id === currentUser?.id ? { ...p, name: 'Tu' } : p)));
+    } catch { setCheersListPeople([]); }
+    finally { setCheersListLoading(false); }
   };
 
   // Segui / smetti di seguire un atleta direttamente dal feed
@@ -495,10 +536,19 @@ export default function FeedPage() {
   };
 
   const toggleCommentsSection = (activityId) => {
-    setActiveCommentsSection(prev => ({
-      ...prev,
-      [activityId]: !prev[activityId]
-    }));
+    const opening = !activeCommentsSection[activityId];
+    setActiveCommentsSection(prev => ({ ...prev, [activityId]: !prev[activityId] }));
+    // EGRESS: il feed scarica solo il CONTEGGIO dei commenti. Alla prima espansione
+    // carichiamo i commenti veri SOLO per quel post, on-demand.
+    if (opening) {
+      const act = activities.find((a) => a.id === activityId);
+      const needLoad = act && (!Array.isArray(act.comments) || act.comments.length === 0) && (act.comment_count || 0) > 0;
+      if (needLoad && typeof db.getComments === 'function') {
+        db.getComments(activityId)
+          .then((list) => patchActivity(activityId, (a) => ({ ...a, comments: list })))
+          .catch(() => {});
+      }
+    }
   };
 
   const handleCommentSubmit = async (e, activityId) => {
@@ -2277,7 +2327,7 @@ export default function FeedPage() {
           </div>
         ) : (
           visibleActivities.map((act) => {
-            const hasCheered = act.cheers?.includes(currentUser?.id);
+            const hasCheered = act.cheered_by_me || act.cheers?.includes(currentUser?.id);
             const isReallyActive = act.is_active && (new Date().getTime() - new Date(act.created_at).getTime() < 5 * 60 * 60 * 1000);
             return (
               <article 
@@ -2468,40 +2518,18 @@ export default function FeedPage() {
 
                 {renderCompanionsList(act)}
 
-                {/* Chi ha messo Cheers (nel feed, senza aprire il dettaglio) */}
-                {act.cheers && act.cheers.length > 0 && (() => {
-                  const people = act.cheers.map((uid) => {
-                    const p = profilesList.find((pr) => pr.id === uid);
-                    return { id: uid, name: uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta') };
-                  });
-                  const shown = people.slice(0, 3);
-                  const extra = people.length - shown.length;
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <Beer size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} fill="var(--primary)" />
-                      <span>
-                        Cheers di{' '}
-                        {shown.map((p, i) => (
-                          <span key={p.id}>
-                            <Link href={`/u/${p.id}`} style={{ color: '#FFF', fontWeight: 600 }}>{p.name}</Link>
-                            {i < shown.length - 1 ? ', ' : ''}
-                          </span>
-                        ))}
-                        {extra > 0 && (
-                          <>
-                            {' '}e{' '}
-                            <button
-                              onClick={() => { setCheersListActivity(act); setShowCheersList(true); }}
-                              style={{ color: 'var(--primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px' }}
-                            >
-                              altri {extra}
-                            </button>
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })()}
+                {/* Chi ha messo Cheers — nel feed mostriamo solo il CONTEGGIO; l'elenco
+                    di chi ha cheerato si carica ON-DEMAND toccando "vedi chi". */}
+                {(act.cheer_count || 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => openCheersList(act)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '4px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    <Beer size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} fill="var(--primary)" />
+                    <span><strong style={{ color: '#FFF' }}>{act.cheer_count}</strong> cheers · <span style={{ color: 'var(--primary)', fontWeight: 700 }}>vedi chi</span></span>
+                  </button>
+                )}
 
                 {/* Actions (Cheers, Commenta, Condividi) */}
                 <div className="activity-actions">
@@ -2510,12 +2538,12 @@ export default function FeedPage() {
                     className={`action-btn ${hasCheered ? 'active' : ''}`}
                   >
                     <Beer size={18} fill={hasCheered ? 'var(--primary)' : 'none'} />
-                    <span>Cheers ({act.cheers?.length || 0})</span>
+                    <span>Cheers ({act.cheer_count ?? act.cheers?.length ?? 0})</span>
                   </button>
 
                   <button onClick={() => toggleCommentsSection(act.id)} className="action-btn">
                     <MessageSquare size={18} />
-                    <span>Commenta ({act.comments?.length || 0})</span>
+                    <span>Commenta ({act.comments?.length || act.comment_count || 0})</span>
                   </button>
 
                   <Link href={`/share/${act.id}`} className="action-btn">
@@ -3317,7 +3345,7 @@ export default function FeedPage() {
                         <>
                           {' '}e{' '}
                           <button
-                            onClick={() => { setCheersListActivity(selectedActivity); setShowCheersList(true); }}
+                            onClick={() => openCheersList(selectedActivity)}
                             style={{ color: 'var(--primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px' }}
                           >
                             altri {extra}
@@ -3380,31 +3408,33 @@ export default function FeedPage() {
           <div className="card" style={{ width: '100%', maxWidth: '420px', maxHeight: '70vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-dark)', padding: '0', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--border-dark)' }}>
               <strong style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Beer size={18} color="var(--primary)" fill="var(--primary)" /> Cheers ({cheersListActivity.cheers.length})
+                <Beer size={18} color="var(--primary)" fill="var(--primary)" /> Cheers ({cheersListActivity.cheer_count ?? cheersListActivity.cheers?.length ?? cheersListPeople.length})
               </strong>
               <button onClick={() => setShowCheersList(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }}>×</button>
             </div>
             <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-              {cheersListActivity.cheers.map((uid) => {
-                const p = profilesList.find((pr) => pr.id === uid);
-                const name = uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta Strabar');
-                return (
-                  <Link
-                    key={uid}
-                    href={`/u/${uid}`}
-                    onClick={() => { setShowCheersList(false); setSelectedActivity(null); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 18px', borderBottom: '1px solid var(--border-dark)', textDecoration: 'none' }}
-                  >
-                    <div className="activity-avatar" style={{ width: 40, height: 40, fontSize: 16, flexShrink: 0 }}>
-                      {name.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>{name}</strong>
-                      {p?.username && <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
-                    </div>
-                  </Link>
-                );
-              })}
+              {cheersListLoading ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-dark-secondary)' }}>
+                  <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : cheersListPeople.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: 13 }}>Nessuno per ora.</div>
+              ) : cheersListPeople.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/u/${p.id}`}
+                  onClick={() => { setShowCheersList(false); setSelectedActivity(null); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 18px', borderBottom: '1px solid var(--border-dark)', textDecoration: 'none' }}
+                >
+                  <div className="activity-avatar" style={{ width: 40, height: 40, fontSize: 16, flexShrink: 0 }}>
+                    {(p.name || 'A').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>{p.name}</strong>
+                    {p.username && <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
