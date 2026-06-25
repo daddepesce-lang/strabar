@@ -20,12 +20,20 @@ export default function AuthPage() {
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Destinazione dopo il login: il parametro ?next= (es. un itinerario condiviso), se è un
+  // path interno sicuro; altrimenti il feed. Evita open-redirect verso URL esterni.
+  const nextDest = () => {
+    if (typeof window === 'undefined') return '/';
+    const n = new URLSearchParams(window.location.search).get('next');
+    return n && n.startsWith('/') && !n.startsWith('//') ? n : '/';
+  };
+
   useEffect(() => {
-    // Se l'utente è già loggato, reindirizza al feed
+    // Se l'utente è già loggato, reindirizza alla destinazione richiesta (o al feed)
     const checkLogged = async () => {
       const user = await db.getCurrentUser();
       if (user) {
-        router.push('/');
+        router.push(nextDest());
       }
     };
     checkLogged();
@@ -96,7 +104,7 @@ export default function AuthPage() {
       await new Promise((resolve) => setTimeout(resolve, 600));
       // Notifica la navbar dell'avvenuto accesso
       window.dispatchEvent(new Event('auth-change'));
-      router.push('/');
+      router.push(nextDest());
       router.refresh();
     } catch (err) {
       setError(err.message || "Qualcosa è andato storto. Riprova!");
@@ -255,10 +263,10 @@ export default function AuthPage() {
             }
             setLoading(true);
             try {
-              await db.loginWithGoogle();
+              await db.loginWithGoogle(nextDest());
               await new Promise((resolve) => setTimeout(resolve, 600));
               window.dispatchEvent(new Event('auth-change'));
-              router.push('/');
+              router.push(nextDest());
               router.refresh();
             } catch (err) {
               setError(err.message || "Errore con l'autenticazione Google.");

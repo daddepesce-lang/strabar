@@ -7,6 +7,11 @@ export default function manifest() {
     start_url: '/',
     scope: '/',
     display: 'standalone',
+    // Best-effort (Android/Chrome): preferisci aprire i link in-scope nella PWA installata
+    // e riusa la finestra già aperta invece di crearne una nuova. Su iOS non ha effetto
+    // (le web-app da Home non catturano i link esterni: è un limite di Apple).
+    handle_links: 'preferred',
+    launch_handler: { client_mode: ['focus-existing', 'navigate-existing', 'auto'] },
     orientation: 'portrait',
     background_color: '#0D0D0D',
     theme_color: '#FF2000',

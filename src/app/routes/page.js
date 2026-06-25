@@ -202,12 +202,24 @@ export default function RoutesPage() {
   }, [loading]);
 
   // Entrando nel dettaglio/creazione la mappa torna visibile (era nascosta in lista):
-  // Leaflet va ridimensionato, altrimenti resta grigia/parziale finché non si interagisce.
+  // Leaflet va ridimensionato E reinquadrato sulle tappe, altrimenti la mappa resta
+  // centrata altrove (geolocalizzazione) e l'itinerario finisce fuori dalla vista.
   useEffect(() => {
     if (loading || (!selectedRoute && !isCreating) || !mapInstance.current) return;
-    const t = setTimeout(() => mapInstance.current && mapInstance.current.invalidateSize(), 60);
+    const t = setTimeout(() => {
+      const map = mapInstance.current;
+      const L = leafletRef.current;
+      if (!map || !L) return;
+      map.invalidateSize();
+      const wps = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
+      const pts = wps
+        .map((w) => [w.lat, w.lng ?? w.lon])
+        .filter(([la, ln]) => la != null && ln != null);
+      if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [50, 50] });
+      else if (pts.length === 1) map.setView(pts[0], 15);
+    }, 120);
     return () => clearTimeout(t);
-  }, [selectedRoute, isCreating, loading]);
+  }, [selectedRoute, isCreating, loading, newRouteWaypoints]);
 
   // Tracciato del percorso: linee dritte tra le tappe (in ordine), tratteggiate.
   // NIENTE routing stradale OSRM: su zone come Venezia (canali, ZTL, isole pedonali)
@@ -222,7 +234,7 @@ export default function RoutesPage() {
       setRouteCoordsState([]);
       return;
     }
-    setRouteCoordsState(activeWaypoints.map((wp) => [wp.lat, wp.lng]));
+    setRouteCoordsState(activeWaypoints.map((wp) => [wp.lat, wp.lng ?? wp.lon]));
   }, [newRouteWaypoints, selectedRoute, isCreating, travelMode]);
 
   // Icona tappa (rossa di default, oro+glow se è la tappa attiva)
@@ -276,13 +288,15 @@ export default function RoutesPage() {
     const coords = [];
 
     activeWaypoints.forEach((wp, idx) => {
-      const marker = L.marker([wp.lat, wp.lng], { icon: makeWaypointIcon(L, idx, idx === activeWaypointIndex) })
+      const lng = wp.lng ?? wp.lon;
+      if (wp.lat == null || lng == null) return;
+      const marker = L.marker([wp.lat, lng], { icon: makeWaypointIcon(L, idx, idx === activeWaypointIndex) })
         .addTo(mapInstance.current)
         .bindPopup(`<strong>Tappa ${idx + 1}: ${wp.name}</strong>${wp.note ? `<br/>${wp.note}` : ''}`);
       marker.on('click', () => setActiveWaypointIndex(idx));
 
       markersRef.current.push(marker);
-      coords.push([wp.lat, wp.lng]);
+      coords.push([wp.lat, lng]);
     });
 
     // Draw dashed polyline connecting tour stops

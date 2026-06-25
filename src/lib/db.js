@@ -236,13 +236,19 @@ export const db = {
     }
   },
 
-  async loginWithGoogle() {
+  async loginWithGoogle(next = '/') {
     if (isSupabaseConfigured) {
+      // Propaga la destinazione (next) al callback OAuth, così dopo il login con Google
+      // si torna alla pagina richiesta (es. un itinerario condiviso) e non al feed.
+      const safeNext = (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) ? next : '/';
+      const cb = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
+        : '';
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           // Reindirizza al route handler che scambia il code per una sessione (flusso PKCE)
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : ''
+          redirectTo: cb
         }
       });
       if (error) throw error;

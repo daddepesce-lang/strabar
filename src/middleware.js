@@ -17,6 +17,8 @@ export async function middleware(request) {
     url.protocol = "https:";
     url.host = CANONICAL_HOST;
     url.port = "";
+    // Segnala l'arrivo dal vecchio dominio: il client mostra un avviso "reinstalla l'app".
+    url.searchParams.set("legacy", "1");
     // 308 = redirect permanente che preserva il metodo e (qui) path + query string.
     return NextResponse.redirect(url, 308);
   }

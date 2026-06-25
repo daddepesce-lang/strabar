@@ -1,8 +1,19 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Beer, Lock } from 'lucide-react';
 
 // Schermata mostrata quando una sezione richiede la registrazione.
 export default function RequireAuth({ feature = 'questa sezione' }) {
+  // Ricorda la pagina corrente (es. un itinerario condiviso) così dopo il login si torna qui.
+  const [authHref, setAuthHref] = useState('/auth');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const next = window.location.pathname + window.location.search;
+    if (next && next !== '/') setAuthHref(`/auth?next=${encodeURIComponent(next)}`);
+  }, []);
+
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center' }}>
       <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', padding: '40px 28px' }}>
@@ -20,10 +31,10 @@ export default function RequireAuth({ feature = 'questa sezione' }) {
           Crea un account gratuito per tracciare le bevute, sfidare gli amici e scalare le classifiche! 🍻
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <Link href="/auth" className="btn btn-primary" style={{ padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
+          <Link href={authHref} className="btn btn-primary" style={{ padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
             Crea un account gratuito
           </Link>
-          <Link href="/auth" className="btn btn-secondary" style={{ padding: '12px', borderRadius: '30px', fontSize: '14px' }}>
+          <Link href={authHref} className="btn btn-secondary" style={{ padding: '12px', borderRadius: '30px', fontSize: '14px' }}>
             Ho già un account · Accedi
           </Link>
         </div>

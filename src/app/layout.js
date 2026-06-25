@@ -17,6 +17,7 @@ const dmSans = DM_Sans({
 });
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
+import LegacyMigrationBanner from "@/components/LegacyMigrationBanner";
 import PushReminderGate from "@/components/PushReminderGate";
 import Footer from "@/components/Footer";
 import AgeGate from "@/components/AgeGate";
@@ -81,6 +82,7 @@ export default function RootLayout({ children }) {
         <AgeGate />
         <OnboardingGate />
         <PwaInstallBanner />
+        <LegacyMigrationBanner />
         <PushReminderGate />
         <div className="app-container">
           <Navbar />
