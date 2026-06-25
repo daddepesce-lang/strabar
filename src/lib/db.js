@@ -288,10 +288,9 @@ export const db = {
             // Consenso GDPR a Termini/Privacy: il trigger handle_new_user lo registra
             // sul profilo (consent_version + tos_accepted_at = ora del server).
             consent_version: consentVersion || null,
-            // Consenso marketing (facoltativo, opt-in). Il trigger lo scrive su
-            // marketing_consent + marketing_consent_at. Così i nuovi utenti non
-            // rivedono il banner marketing nel gate post-login.
-            marketing_consent: marketingConsent === true ? 'true' : 'false'
+            // Consenso marketing: incluso SOLO se passato esplicitamente. Se omesso resta
+            // NULL → il banner-patto lo chiede nel gate post-login (a nuovi e vecchi utenti).
+            ...(typeof marketingConsent === 'boolean' ? { marketing_consent: marketingConsent ? 'true' : 'false' } : {})
           }
         }
       });

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { CONSENT_VERSION } from '@/lib/consent';
-import { ShieldCheck, Scale, Megaphone } from 'lucide-react';
+import { ShieldCheck, Scale, Handshake } from 'lucide-react';
 
 // Gate post-login: se nel profilo manca qualcosa di obbligatorio, lo chiede PRIMA
 // di usare l'app. Copre tre casi con un'unica soluzione:
@@ -115,21 +115,21 @@ export default function OnboardingGate() {
         {step === 'marketing' ? (
           <>
             <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
-              <Megaphone size={32} />
+              <Handshake size={32} />
             </div>
-            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Sblocca le offerte dei partner 🎁</h2>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '8px' }}>
-              Attiva le offerte dei <strong style={{ color: 'var(--text-dark-primary)' }}>locali partner</strong>: sconti dedicati, eventi e le serate migliori nei posti vicino a te.
+            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Facciamo un patto? 🤝</h2>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', lineHeight: 1.55, marginBottom: '10px' }}>
+              Tu ci dai l&apos;ok alle offerte. Noi ti troviamo <strong style={{ color: 'var(--text-dark-primary)' }}>sconti, eventi e le scuse perfette per uscire</strong> nei locali vicino a te. 🍻
             </p>
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '18px' }}>
-              I tuoi dati di consumo restano <strong style={{ color: 'var(--text-dark-primary)' }}>anonimi e aggregati</strong> — non il tuo nome, non il tuo profilo. Puoi revocare quando vuoi da Impostazioni.
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', lineHeight: 1.5, marginBottom: '18px' }}>
+              I tuoi dati di consumo restano <strong style={{ color: 'var(--text-dark-primary)' }}>anonimi e aggregati</strong> — niente nome, niente profilo. Cambi idea quando vuoi dalle impostazioni.
             </p>
             {error && <p style={{ color: '#FF7D7D', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
             <button onClick={() => acceptMarketing(true)} disabled={busy} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
-              {busy ? 'Attendi...' : 'Sblocca le offerte 🎁'}
+              {busy ? 'Attendi...' : 'Ci sto 🤝'}
             </button>
             <button onClick={() => acceptMarketing(false)} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', marginTop: '12px', width: '100%' }}>
-              No grazie, preferisco di no
+              No grazie
             </button>
           </>
         ) : step === 'consent' ? (

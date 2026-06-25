@@ -16,7 +16,6 @@ export default function AuthPage() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [marketingOptIn, setMarketingOptIn] = useState(false); // opt-in marketing, NON pre-flaggato (GDPR)
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -82,7 +81,9 @@ export default function AuthPage() {
         if (!acceptedTerms) {
           throw new Error("Per registrarti devi accettare i Termini di Servizio e la Privacy Policy.");
         }
-        const result = await db.signup(email, password, displayName, username, CONSENT_VERSION, marketingOptIn);
+        // Niente consenso marketing qui: resta NULL e il banner-patto lo chiede
+        // a tutti (nuovi e vecchi) una volta sola, nel gate post-login.
+        const result = await db.signup(email, password, displayName, username, CONSENT_VERSION);
 
         // Email di benvenuto (best-effort, via Resend) — non blocca la registrazione
         fetch('/api/welcome', {
@@ -230,20 +231,6 @@ export default function AuthPage() {
                 <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Termini di Servizio</Link>
                 {' '}e la{' '}
                 <Link href="/privacy" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Privacy Policy</Link>.
-              </span>
-            </label>
-          )}
-
-          {!isLogin && (
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '20px', fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.5', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={marketingOptIn}
-                onChange={(e) => setMarketingOptIn(e.target.checked)}
-                style={{ width: '18px', height: '18px', marginTop: '1px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <span>
-                <strong>Sblocca le offerte dei locali partner 🎁</strong> — sconti dedicati e le serate migliori vicino a te. I tuoi dati di consumo restano anonimi e aggregati. Facoltativo, revocabile quando vuoi.
               </span>
             </label>
           )}
