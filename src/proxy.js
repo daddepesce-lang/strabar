@@ -1,36 +1,42 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { updateSession } from "@/utils/supabase/middleware";
 
-// Redirect al dominio CANONICO (Next 16: convenzione `proxy`, non più `middleware`).
-// Dopo il cambio dominio: chi apre un vecchio link (o www) finisce su strabar.app,
-// mantenendo path e query. Esclude localhost e le preview *.vercel.app.
-// Il dominio si prende da NEXT_PUBLIC_SITE_URL (come metadataBase in layout.js).
-const CANONICAL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://strabar.app')
-  .replace(/^https?:\/\//, '')
-  .replace(/\/.*$/, '')
-  .toLowerCase();
+// Next 16: convenzione `proxy` (il vecchio `middleware` è deprecato). Runtime nodejs.
+// Due compiti: 1) redirect dai vecchi domini al canonico; 2) refresh sessione Supabase.
 
-export function proxy(request) {
-  const bareHost = (request.headers.get('host') || '').split(':')[0].toLowerCase();
+// Host canonico dell'app (es. "strabar.app"). I link condivisi puntano qui.
+const CANONICAL_HOST = (process.env.NEXT_PUBLIC_SITE_URL || "https://strabar.app")
+  .replace(/^https?:\/\//, "")
+  .replace(/\/+$/, "");
 
-  if (
-    !bareHost ||
-    bareHost === CANONICAL ||
-    bareHost === 'localhost' ||
-    bareHost === '127.0.0.1' ||
-    bareHost.endsWith('.vercel.app')
-  ) {
-    return NextResponse.next();
+// Vecchi domini da reindirizzare al canonico: così i link già condivisi (es. su WhatsApp)
+// che puntano al vecchio dominio aprono sul nuovo e vengono catturati dalla PWA installata.
+const LEGACY_HOSTS = new Set(["strabar-delta.vercel.app"]);
+
+export async function proxy(request) {
+  const host = request.headers.get("host") || "";
+  if (LEGACY_HOSTS.has(host) && host !== CANONICAL_HOST) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = CANONICAL_HOST;
+    url.port = "";
+    // Segnala l'arrivo dal vecchio dominio: il client mostra un avviso "reinstalla l'app".
+    url.searchParams.set("legacy", "1");
+    // 308 = redirect permanente che preserva il metodo e (qui) path + query string.
+    return NextResponse.redirect(url, 308);
   }
-
-  // Qualsiasi altro host (vecchio dominio, www, ecc.) → dominio canonico, 308 permanente.
-  const url = request.nextUrl.clone();
-  url.protocol = 'https:';
-  url.host = CANONICAL;
-  url.port = '';
-  return NextResponse.redirect(url, 308);
+  return await updateSession(request);
 }
 
 export const config = {
-  // Solo le navigazioni: esclude api, asset statici Next e file con estensione.
-  matcher: ['/((?!api|_next/static|_next/image|.*\\..*).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 };
