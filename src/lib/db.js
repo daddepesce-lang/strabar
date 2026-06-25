@@ -1814,6 +1814,24 @@ export const db = {
     } catch { return { iFollow: false, followsMe: false }; }
   },
 
+  // Solo gli ID di chi seguo (egress minimo): serve a sapere lo stato "Segui/Segui già"
+  // nei risultati di ricerca e nei suggerimenti, senza scaricare i profili interi.
+  async getFollowingIds(userId) {
+    if (!userId) return [];
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId);
+      if (error) throw error;
+      return (data || []).map((r) => r.following_id).filter(Boolean);
+    }
+    if (typeof window === 'undefined') return [];
+    return getStored('sb_follows')
+      .filter((f) => f.follower_id === userId)
+      .map((f) => f.following_id);
+  },
+
   async getFollowing(userId) {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase

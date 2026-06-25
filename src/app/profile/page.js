@@ -116,6 +116,12 @@ export default function ProfilePage() {
       if (typeof db.getFollowCounts === 'function') {
         setFollowCounts(await db.getFollowCounts(userId));
       }
+      // Stato "Segui/Segui già" nei risultati di ricerca e nei suggerimenti: carichiamo
+      // SOLO gli ID dei seguiti (egress minimo), tenuti in followingList come {id}.
+      if (typeof db.getFollowingIds === 'function') {
+        const ids = await db.getFollowingIds(userId);
+        setFollowingList(ids.map((id) => ({ id })));
+      }
       if (typeof db.getSuggestedProfiles === 'function') {
         setSuggestions(await db.getSuggestedProfiles(userId));
       }
