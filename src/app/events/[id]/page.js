@@ -73,6 +73,14 @@ export default function EventDetailPage({ params }) {
   const [selectedLoc, setSelectedLoc] = useState(null); // { name, lat, lng } se reale; null = testo libero
   const [editLocName, setEditLocName] = useState('');
   const [board, setBoard] = useState(null); // classifica + statistiche dell'evento
+  const [now, setNow] = useState(0); // orologio (per la finestra di avvio "2 ore prima")
+
+  // Aggiorna l'orologio: così il pulsante si abilita da solo quando si apre la finestra.
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   const load = async () => {
     try {
@@ -183,8 +191,20 @@ export default function EventDetailPage({ params }) {
   };
 
   // Avvia una sessione live pre-compilata con luogo dell'evento e amici pre-taggati
+  // Avvio consentito solo da 2 ore prima dell'inizio (guardia anche lato logica, non solo UI).
+  const startWindowClosed = () => {
+    const ms = event?.date ? new Date(event.date).getTime() : null;
+    if (ms == null || isNaN(ms)) return false;
+    if (Date.now() < ms - 2 * 60 * 60 * 1000) {
+      alert('Potrai avviare il brindisi/tour solo a partire da 2 ore prima dell\'inizio dell\'evento.');
+      return true;
+    }
+    return false;
+  };
+
   const handleStartEventSession = async () => {
     if (!currentUser) { router.push('/auth'); return; }
+    if (startWindowClosed()) return;
     setStartingSession(true);
     try {
       const active = await db.getActiveSession(currentUser.id);
@@ -252,6 +272,7 @@ export default function EventDetailPage({ params }) {
   // e la sessione conta comunque per la classifica dell'evento.
   const handleStartEventTour = async () => {
     if (!currentUser) { router.push('/auth'); return; }
+    if (startWindowClosed()) return;
     setStartingSession(true);
     try {
       const active = await db.getActiveSession(currentUser.id);
@@ -288,6 +309,10 @@ export default function EventDetailPage({ params }) {
           unverified: true,
           event_id: event.id,
           event_title: event.title,
+          // Anche a livello "location" (oltre che dentro tour): così la classifica
+          // dell'evento riconosce il nome dell'itinerario collegato.
+          route_id: route.id,
+          route_name: route.name,
           tour: {
             route_id: route.id,
             route_name: route.name,
@@ -394,6 +419,14 @@ export default function EventDetailPage({ params }) {
   }
 
   const isHost = currentUser && currentUser.id === event.host_id;
+  // Avvio brindisi/tour consentito solo a partire da 2 ore prima dell'inizio dell'evento.
+  const START_WINDOW_MS = 2 * 60 * 60 * 1000;
+  const eventStartMs = event.date ? new Date(event.date).getTime() : null;
+  const startOpensAtMs = eventStartMs != null && !isNaN(eventStartMs) ? eventStartMs - START_WINDOW_MS : null;
+  const canStart = startOpensAtMs == null || (now > 0 && now >= startOpensAtMs);
+  const startOpensLabel = startOpensAtMs != null
+    ? new Date(startOpensAtMs).toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null;
   const grouped = { going: [], maybe: [], no: [] };
   (event.responses || []).forEach((r) => { if (grouped[r.status]) grouped[r.status].push(r); });
   const alreadyInvolved = new Set((event.responses || []).map((r) => r.user_id).concat(event.invited || []));
@@ -508,9 +541,9 @@ export default function EventDetailPage({ params }) {
             </div>
             <button
               onClick={event.route_id ? handleStartEventTour : handleStartEventSession}
-              disabled={startingSession}
+              disabled={startingSession || !canStart}
               className="btn btn-primary"
-              style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: canStart ? 1 : 0.55, cursor: canStart ? 'pointer' : 'not-allowed' }}
             >
               {startingSession ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : event.route_id ? <RouteIcon size={16} /> : <Beer size={16} />}
               {event.route_id ? 'Avvia tour guidato' : 'Registra brindisi all’evento'}
@@ -519,9 +552,11 @@ export default function EventDetailPage({ params }) {
         )}
         {currentUser && (isHost || event.isInvited || event.myResponse) && (
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '6px' }}>
-            {event.route_id
-              ? 'Avvia il tour guidato sulle tappe dell’itinerario, con i partecipanti pre-taggati. Conta per la classifica dell’evento.'
-              : 'Avvia una sessione live già con il luogo dell’evento e i partecipanti pre-taggati.'}
+            {!canStart
+              ? `⏳ Potrai avviare ${event.route_id ? 'il tour' : 'il brindisi'} da 2 ore prima dell’inizio${startOpensLabel ? ` — dalle ${startOpensLabel}` : ''}.`
+              : event.route_id
+                ? 'Avvia il tour guidato sulle tappe dell’itinerario, con i partecipanti pre-taggati. Conta per la classifica dell’evento.'
+                : 'Avvia una sessione live già con il luogo dell’evento e i partecipanti pre-taggati.'}
           </p>
         )}
       </div>

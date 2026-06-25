@@ -1719,10 +1719,21 @@ export const db = {
     if (user.id === followingId) throw new Error("Non puoi seguire te stesso!");
 
     if (isSupabaseConfigured) {
+      // Se già lo segui, non fare nulla (idempotente): evita l'errore di chiave duplicata
+      // "follows_follower_id_following_id_key" su doppio click / stato UI disallineato.
+      const { data: existing } = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', user.id)
+        .eq('following_id', followingId)
+        .maybeSingle();
+      if (existing) return true;
       const { error } = await supabase
         .from('follows')
         .insert({ follower_id: user.id, following_id: followingId });
-      if (error) throw error;
+      // 23505 = unique_violation: c'è stata una race, ma il follow esiste → ok comunque.
+      if (error && error.code !== '23505') throw error;
+      if (error) return true; // già seguito per race: niente notifica doppia
       this.pushNotification(followingId, {
         type: 'follow',
         actor_id: user.id,

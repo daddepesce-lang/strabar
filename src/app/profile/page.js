@@ -25,6 +25,7 @@ export default function ProfilePage() {
   const [friendsSearchQuery, setFriendsSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsShown, setSuggestionsShown] = useState(5); // "Potresti conoscere": 5 + carica altri
   const [followingList, setFollowingList] = useState([]); // tenuto per compat (handleFollowToggle)
   const [followersList, setFollowersList] = useState([]);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
@@ -1043,7 +1044,7 @@ export default function ProfilePage() {
                   Atleti che non segui ancora, magari amici dei tuoi amici.
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '12px' }}>
-                  {suggestions.map((user) => {
+                  {suggestions.slice(0, suggestionsShown).map((user) => {
                     const isFollowing = followingList.some((f) => f.id === user.id);
                     return (
                       <div key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
@@ -1071,6 +1072,16 @@ export default function ProfilePage() {
                     );
                   })}
                 </div>
+                {suggestions.length > suggestionsShown && (
+                  <button
+                    type="button"
+                    onClick={() => setSuggestionsShown((n) => n + 5)}
+                    className="btn btn-secondary"
+                    style={{ marginTop: '12px', borderRadius: '20px', padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', marginRight: 'auto' }}
+                  >
+                    <UserPlus size={14} /> Carica altri ({suggestions.length - suggestionsShown})
+                  </button>
+                )}
               </div>
             )}
           </div>
