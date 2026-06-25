@@ -117,17 +117,16 @@ export default function OnboardingGate() {
             <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <Megaphone size={32} />
             </div>
-            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Promozioni dai locali partner</h2>
+            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Sblocca le offerte dei partner 🎁</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '8px' }}>
-              Strabar è <strong style={{ color: 'var(--text-dark-primary)' }}>gratuita</strong>. Per sostenerla, inviamo occasionalmente notifiche promozionali dai locali partner — offerte, eventi, serate in posti che potrebbero piacerti.
+              Attiva le offerte dei <strong style={{ color: 'var(--text-dark-primary)' }}>locali partner</strong>: sconti dedicati, eventi e le serate migliori nei posti vicino a te.
             </p>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '18px' }}>
-              I dati di consumo vengono condivisi con i locali in <strong style={{ color: 'var(--text-dark-primary)' }}>forma aggregata e anonima</strong> (es. &ldquo;il venerdì sera lo Spritz è il drink più ordinato&rdquo;) — non il tuo nome, non il tuo profilo.
-              Puoi revocare il consenso in qualsiasi momento da Impostazioni.
+              I tuoi dati di consumo restano <strong style={{ color: 'var(--text-dark-primary)' }}>anonimi e aggregati</strong> — non il tuo nome, non il tuo profilo. Puoi revocare quando vuoi da Impostazioni.
             </p>
             {error && <p style={{ color: '#FF7D7D', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
             <button onClick={() => acceptMarketing(true)} disabled={busy} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
-              {busy ? 'Attendi...' : 'Sì, ricevo le promozioni'}
+              {busy ? 'Attendi...' : 'Sblocca le offerte 🎁'}
             </button>
             <button onClick={() => acceptMarketing(false)} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', marginTop: '12px', width: '100%' }}>
               No grazie, preferisco di no

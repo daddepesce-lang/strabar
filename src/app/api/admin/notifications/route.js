@@ -7,12 +7,16 @@ import { requireAdmin } from '@/utils/supabase/admin';
 //   POST                → crea una campagna programmata/bozza (scheduled_at)
 //   DELETE ?id=         → elimina una campagna
 
-// Risolve gli ID dei destinatari secondo il target, escludendo chi ha disattivato le promo.
-export async function resolveRecipients(admin, target) {
+// Risolve gli ID dei destinatari secondo il target.
+// Per le campagne commerciali esclude chi non ha dato consenso marketing esplicito;
+// per quelle di servizio (transazionali) non applica il filtro marketing.
+export async function resolveRecipients(admin, target, kind = 'commercial') {
   const { data: profiles } = await admin.from('profiles').select('id, is_premium, marketing_consent');
-  // NULL = utente pre-consenso (legacy), trattato come opt-in per non perdere copertura.
-  // FALSE = ha esplicitamente rifiutato → escluso.
-  let ids = (profiles || []).filter((p) => p.marketing_consent !== false);
+  // Commerciale → solo marketing_consent = true (NULL/false esclusi). GDPR: senza consenso valido NON si invia.
+  // Servizio → tutti (non è marketing): manutenzione, sicurezza, novità funzionali, avvisi account.
+  let ids = kind === 'service'
+    ? (profiles || [])
+    : (profiles || []).filter((p) => p.marketing_consent === true);
 
   if (target === 'premium') ids = ids.filter((p) => p.is_premium);
   if (target === 'active7d') {
@@ -26,12 +30,14 @@ export async function resolveRecipients(admin, target) {
 
 // Esegue l'invio: inserisce una notifica per ogni destinatario + invia il push. Best effort.
 export async function sendCampaign(admin, campaign) {
-  const recipients = await resolveRecipients(admin, campaign.target || 'all');
+  const kind = campaign.kind === 'service' ? 'service' : 'commercial';
+  const recipients = await resolveRecipients(admin, campaign.target || 'all', kind);
   if (recipients.length > 0) {
     const rows = recipients.map((uid) => ({
       user_id: uid,
       actor_name: 'Strabar',
-      type: 'promo',
+      // 'promo' resta soggetto all'opt-out marketing lato preferenze; 'system' è di servizio.
+      type: kind === 'service' ? 'system' : 'promo',
       message: campaign.message,
       link: campaign.link || '/',
     }));
@@ -64,7 +70,7 @@ export async function POST(req) {
   const gate = await requireAdmin();
   if (gate.error) return NextResponse.json({ error: gate.error }, { status: gate.status });
   const body = await req.json().catch(() => ({}));
-  const { action, title, message, link, target, scheduledAt, repeat } = body;
+  const { action, title, message, link, target, scheduledAt, repeat, kind } = body;
   if (!message || !message.trim()) return NextResponse.json({ error: 'Il messaggio è obbligatorio' }, { status: 400 });
 
   const base = {
@@ -72,6 +78,7 @@ export async function POST(req) {
     message: message.trim(),
     link: link || null,
     target: target || 'all',
+    kind: kind === 'service' ? 'service' : 'commercial',
     created_by: gate.user.id,
   };
 

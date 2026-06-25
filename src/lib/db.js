@@ -276,7 +276,7 @@ export const db = {
     }
   },
 
-  async signup(email, password, displayName, username, consentVersion) {
+  async signup(email, password, displayName, username, consentVersion, marketingConsent) {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -287,7 +287,11 @@ export const db = {
             display_name: displayName,
             // Consenso GDPR a Termini/Privacy: il trigger handle_new_user lo registra
             // sul profilo (consent_version + tos_accepted_at = ora del server).
-            consent_version: consentVersion || null
+            consent_version: consentVersion || null,
+            // Consenso marketing (facoltativo, opt-in). Il trigger lo scrive su
+            // marketing_consent + marketing_consent_at. Così i nuovi utenti non
+            // rivedono il banner marketing nel gate post-login.
+            marketing_consent: marketingConsent === true ? 'true' : 'false'
           }
         }
       });

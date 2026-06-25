@@ -471,11 +471,11 @@ export default function SettingsPage() {
       {/* Comunicazioni commerciali */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          <Megaphone size={16} color="var(--primary)" /> Comunicazioni commerciali
+          <Megaphone size={16} color="var(--primary)" /> Offerte dei locali partner
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-          Strabar è gratuita. Per sostenerla inviamo promozioni dai <strong>locali partner</strong> — eventi, offerte, serate in posti che potrebbero piacerti.
-          I dati di consumo sono condivisi con i locali in <strong>forma aggregata e anonima</strong>: nessun dato personale identificabile.
+          Attiva per ricevere <strong>sconti dedicati</strong>, eventi e le serate migliori nei <strong>locali partner</strong> vicino a te.
+          I tuoi dati di consumo restano <strong>anonimi e aggregati</strong>: nessun dato personale identificabile.
         </p>
         <button
           type="button"
@@ -486,7 +486,7 @@ export default function SettingsPage() {
             padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
           }}
         >
-          <span>Ricevi promozioni dai locali partner</span>
+          <span>Sblocca le offerte dei locali partner</span>
           <span style={{
             width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
             background: marketingConsent ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',

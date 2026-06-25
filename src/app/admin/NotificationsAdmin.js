@@ -14,7 +14,7 @@ export default function NotificationsAdmin() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [form, setForm] = useState({ title: '', message: '', link: '', target: 'all', scheduledAt: '', repeat: 'none' });
+  const [form, setForm] = useState({ title: '', message: '', link: '', target: 'all', scheduledAt: '', repeat: 'none', kind: 'commercial' });
   const [cfg, setCfg] = useState(null);
   const [cfgMsg, setCfgMsg] = useState('');
 
@@ -64,7 +64,7 @@ export default function NotificationsAdmin() {
       const j = await res.json();
       if (!res.ok) { setMsg('Errore: ' + (j.error || '')); return; }
       setMsg(action === 'send' ? `Inviata a ${j.recipients} utenti ✅` : 'Campagna programmata ✅');
-      setForm({ title: '', message: '', link: '', target: 'all', scheduledAt: '', repeat: 'none' });
+      setForm({ title: '', message: '', link: '', target: 'all', scheduledAt: '', repeat: 'none', kind: 'commercial' });
       load();
     } catch (err) { setMsg('Errore: ' + (err.message || err)); } finally { setBusy(false); }
   };
@@ -119,6 +119,28 @@ export default function NotificationsAdmin() {
         <input className="form-control" style={inputStyle} placeholder="Titolo (opzionale, es. Aperitivo? 🍹)" value={form.title} onChange={(e) => set('title', e.target.value)} />
         <textarea className="form-control" placeholder="Messaggio (es. È venerdì! Registra il tuo aperitivo su Strabar 🍻)" rows={2} value={form.message} onChange={(e) => set('message', e.target.value)} style={{ fontSize: 14, resize: 'vertical' }} />
         <input className="form-control" style={inputStyle} placeholder="Link (opzionale, es. /log)" value={form.link} onChange={(e) => set('link', e.target.value)} />
+
+        {/* Tipo di campagna: determina chi la riceve (consenso marketing o no) */}
+        <div>
+          <label className="form-label" style={{ fontSize: 10 }}>Tipo di notifica</label>
+          <select className="form-control" style={inputStyle} value={form.kind} onChange={(e) => set('kind', e.target.value)}>
+            <option value="commercial">Offerta commerciale (promo, sconti, partner)</option>
+            <option value="service">Comunicazione di servizio (manutenzione, sicurezza, novità app)</option>
+          </select>
+          <div style={{
+            fontSize: 11, lineHeight: 1.5, marginTop: 6, padding: '8px 10px', borderRadius: 8,
+            background: form.kind === 'commercial' ? 'rgba(255,32,0,0.08)' : 'rgba(16,185,129,0.08)',
+            border: `1px solid ${form.kind === 'commercial' ? 'rgba(255,32,0,0.25)' : 'rgba(16,185,129,0.25)'}`,
+            color: 'var(--text-dark-secondary)',
+          }}>
+            {form.kind === 'commercial' ? (
+              <>📣 <strong>Solo agli utenti che hanno dato il consenso marketing.</strong> Usalo per offerte, promozioni e contenuti dei locali partner.</>
+            ) : (
+              <>🛠️ <strong>A tutti gli utenti del target</strong>, anche senza consenso marketing. Usalo <strong>solo</strong> per comunicazioni di servizio reali (manutenzione, sicurezza, account, novità funzionali). Non inserirci contenuti commerciali: sarebbe una violazione.</>
+            )}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ flex: '1 1 180px' }}>
             <label className="form-label" style={{ fontSize: 10 }}>Destinatari</label>
@@ -150,7 +172,7 @@ export default function NotificationsAdmin() {
           </button>
         </div>
         <p style={{ fontSize: 11, color: 'var(--text-dark-secondary)', margin: 0 }}>
-          Le notifiche rispettano l&apos;opt-out promozionale degli utenti. <strong>Invia ora</strong> parte subito.
+          Le campagne <strong>commerciali</strong> arrivano solo a chi ha dato il consenso marketing; quelle <strong>di servizio</strong> a tutti. <strong>Invia ora</strong> parte subito.
           Le <strong>programmate</strong> partono alla corsa giornaliera del cron (~18:00). Scegli la <strong>ricorrenza</strong>:
           <em>Non si ripete</em> = parte una volta sola alla data scelta; <em>Ogni settimana</em> = si ripete ogni settimana nello stesso giorno. Per orari diversi usa &quot;Invia ora&quot;.
         </p>
@@ -167,7 +189,8 @@ export default function NotificationsAdmin() {
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: '#FFF', fontWeight: 600 }}>{c.title ? `${c.title} — ` : ''}{c.message}</div>
               <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 2 }}>
-                {TARGETS.find((t) => t.key === c.target)?.label || c.target}
+                {c.kind === 'service' ? '🛠️ Servizio' : '📣 Commerciale'}
+                {' · '}{TARGETS.find((t) => t.key === c.target)?.label || c.target}
                 {c.repeat && c.repeat !== 'none' ? ` · 🔁 ${({ daily: 'ogni giorno', weekly: 'ogni settimana', monthly: 'ogni mese' })[c.repeat] || c.repeat}` : ''}
                 {c.sent_at ? ` · inviata a ${c.recipients} il ${new Date(c.sent_at).toLocaleString('it-IT')}` : c.scheduled_at ? ` · ${c.repeat && c.repeat !== 'none' ? 'prossimo invio' : 'programmata per'} ${new Date(c.scheduled_at).toLocaleString('it-IT')}` : ' · bozza'}
               </div>
