@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3 } from 'lucide-react';
+import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import RequireAuth from '@/components/RequireAuth';
 import { siteUrl } from '@/lib/site';
@@ -91,9 +91,8 @@ export default function RoutesPage() {
           }
         }
 
-        if (data.length > 0) {
-          setSelectedRoute(data[0]);
-        }
+        // Vista predefinita: la LISTA (nessun percorso pre-selezionato). Il dettaglio
+        // si apre cliccando un itinerario (o via ?routeId= condiviso/da evento).
       } catch (err) {
         console.error('Error loading routes:', err);
       } finally {
@@ -201,6 +200,14 @@ export default function RoutesPage() {
 
     initLeaflet();
   }, [loading]);
+
+  // Entrando nel dettaglio/creazione la mappa torna visibile (era nascosta in lista):
+  // Leaflet va ridimensionato, altrimenti resta grigia/parziale finché non si interagisce.
+  useEffect(() => {
+    if (loading || (!selectedRoute && !isCreating) || !mapInstance.current) return;
+    const t = setTimeout(() => mapInstance.current && mapInstance.current.invalidateSize(), 60);
+    return () => clearTimeout(t);
+  }, [selectedRoute, isCreating, loading]);
 
   // Tracciato del percorso: linee dritte tra le tappe (in ordine), tratteggiate.
   // NIENTE routing stradale OSRM: su zone come Venezia (canali, ZTL, isole pedonali)
@@ -672,10 +679,8 @@ out body;`;
     setDiscoveredBars([]);
     setSearchQuery('');
     setSearchResults([]);
-    // Re-select first route if available
-    if (routes.length > 0) {
-      setSelectedRoute(routes[0]);
-    }
+    // Torna alla LISTA dopo aver annullato la creazione.
+    setSelectedRoute(null);
   };
 
   const handleSaveRoute = async () => {
@@ -717,6 +722,12 @@ out body;`;
   const handleRemoveWaypoint = (index) => {
     setNewRouteWaypoints((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // Modalità della pagina: LISTA (nessun percorso aperto) vs DETTAGLIO (percorso selezionato)
+  // vs CREAZIONE. In lista mostriamo solo l'elenco a tutta larghezza; il dettaglio (mappa,
+  // tappe, statistiche, azioni) si apre cliccando un itinerario.
+  const listMode = !isCreating && !selectedRoute;
+  const detailMode = !isCreating && !!selectedRoute;
 
   // Computed values
   const currentActiveWaypoints = isCreating ? newRouteWaypoints : (selectedRoute?.waypoints || []);
@@ -804,10 +815,37 @@ out body;`;
         </div>
       </div>
 
-      {/* Main Grid: Sidebar + Map */}
-      <div className="r-grid-sidebar">
+      {/* In LISTA il grid diventa a piena larghezza (block) e la colonna mappa è nascosta;
+          in DETTAGLIO/CREAZIONE torna a due colonne (sidebar + mappa). */}
+      <div className="r-grid-sidebar" style={listMode ? { display: 'block' } : undefined}>
         {/* LEFT SIDEBAR */}
-        <div className="routes-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+        <div className="routes-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: listMode ? 'none' : 'calc(100vh - 200px)', overflowY: listMode ? 'visible' : 'auto' }}>
+
+          {/* Intestazione dettaglio: torna alla lista + nome/descrizione/autore */}
+          {detailMode && (
+            <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button onClick={() => { setSelectedRoute(null); setActiveWaypointIndex(null); setDiscoveredBars([]); }} className="action-btn" style={{ fontSize: '13px', width: 'fit-content' }}>
+                <ArrowLeft size={15} /> Torna alla lista
+              </button>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {selectedRoute?.name}
+                {selectedRoute?.user_id === currentUser?.id && (
+                  <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 5px' }}>I MIEI</span>
+                )}
+              </h2>
+              {selectedRoute?.description && (
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>{selectedRoute.description}</p>
+              )}
+              {selectedRoute?.user_id !== currentUser?.id && (selectedRoute?.creator?.display_name || selectedRoute?.creator?.username) && (
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {(selectedRoute.creator.display_name || selectedRoute.creator.username).charAt(0).toUpperCase()}
+                  </span>
+                  Creato da {selectedRoute.creator.display_name || `@${selectedRoute.creator.username}`}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Tour Details Form (during creation) */}
           {isCreating && currentUser?.is_premium && (
@@ -1049,8 +1087,8 @@ out body;`;
             </div>
           )}
 
-          {/* Saved Routes List (when not creating) */}
-          {!isCreating && (
+          {/* Saved Routes List (vista LISTA: solo elenco a piena larghezza) */}
+          {listMode && (
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
                 Itinerari Disponibili 🍺
@@ -1164,7 +1202,7 @@ out body;`;
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto', paddingRight: '2px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '2px' }}>
                 {filteredRoutes.length === 0 ? (
                   <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
                     {routes.length === 0 ? 'Nessun tour salvato al momento. Crea il tuo primo itinerario!' : 'Nessun itinerario corrisponde alla ricerca.'}
@@ -1241,8 +1279,8 @@ out body;`;
             </div>
           )}
 
-          {/* Route Statistics */}
-          <div className="card" style={{ padding: '16px' }}>
+          {/* Route Statistics (solo in dettaglio/creazione, non nella lista) */}
+          <div className="card" style={{ padding: '16px', display: listMode ? 'none' : undefined }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               📊 Dati del Percorso
             </h3>
@@ -1409,7 +1447,7 @@ out body;`;
         </div>
 
         {/* RIGHT SIDE: MAP */}
-        <div className="routes-map-wrap" style={{ position: 'relative' }}>
+        <div className="routes-map-wrap" style={{ position: 'relative', display: listMode ? 'none' : undefined }}>
           <div
             id="map-container"
             className="map-container routes-map"
