@@ -246,6 +246,70 @@ export default function EventDetailPage({ params }) {
     }
   };
 
+  // Se l'evento ha un itinerario collegato, avvia un TOUR GUIDATO (come dalla pagina percorsi)
+  // ma "legato" all'evento (event_id), così la live parte sulla prima tappa con le indicazioni
+  // e la sessione conta comunque per la classifica dell'evento.
+  const handleStartEventTour = async () => {
+    if (!currentUser) { router.push('/auth'); return; }
+    setStartingSession(true);
+    try {
+      const active = await db.getActiveSession(currentUser.id);
+      if (active) {
+        alert('Hai già una sessione live attiva. Chiudila prima di iniziarne una nuova.');
+        setStartingSession(false);
+        return;
+      }
+      const route = await db.getRoute(event.route_id);
+      const stopsRaw = route?.waypoints || [];
+      if (stopsRaw.length === 0) {
+        alert('L\'itinerario collegato non ha tappe: avvia un brindisi semplice.');
+        setStartingSession(false);
+        return;
+      }
+      const stops = stopsRaw.map((w) => ({ name: w.name, lat: w.lat, lng: w.lng ?? w.lon, note: w.note || '' }));
+      const first = stops[0];
+      // Compagni = chi partecipa ("going"), escluso me, pre-taggati come "Nome (@username)"
+      const companions = (event.responses || [])
+        .filter((r) => r.status === 'going' && r.user_id !== currentUser.id)
+        .map((r) => {
+          const dn = r.profile?.display_name || r.user_name || 'Atleta';
+          const un = r.profile?.username;
+          return un ? `${dn} (@${un})` : dn;
+        });
+      await db.createActivity({
+        title: `Tour: ${route.name} · ${event.title}`,
+        location: {
+          name: first.name,
+          address: '',
+          lat: first.lat,
+          lng: first.lng,
+          share: eventShare,
+          unverified: true,
+          event_id: event.id,
+          event_title: event.title,
+          tour: {
+            route_id: route.id,
+            route_name: route.name,
+            target: 2,
+            current: 0,
+            stops,
+            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0, verified: false }],
+          },
+        },
+        drank_with: companions,
+        drinks: [],
+        is_active: true,
+        bac_level: 0,
+        total_units: 0,
+        duration: 1,
+      });
+      window.location.href = '/';
+    } catch (err) {
+      alert('Errore nell\'avvio del tour: ' + (err.message || err));
+      setStartingSession(false);
+    }
+  };
+
   const respond = async (status) => {
     if (!currentUser) { router.push('/auth'); return; }
     if (responding) return;                    // evita doppi invii ravvicinati
@@ -372,9 +436,18 @@ export default function EventDetailPage({ params }) {
             </div>
           )}
           {event.route_name && (
-            <Link href={event.route_id ? `/routes?routeId=${event.route_id}` : '/routes'} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
-              <RouteIcon size={16} /> Itinerario: <strong style={{ color: 'var(--primary)' }}>{event.route_name}</strong>
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RouteIcon size={16} /> Itinerario: <strong style={{ color: 'var(--primary)' }}>{event.route_name}</strong>
+              </span>
+              <Link
+                href={event.route_id ? `/routes?routeId=${event.route_id}` : '/routes'}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RouteIcon size={14} /> Vedi itinerario
+              </Link>
+            </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
             <Crown size={16} color="var(--secondary)" /> Organizzato da{' '}
@@ -429,19 +502,21 @@ export default function EventDetailPage({ params }) {
               </div>
             </div>
             <button
-              onClick={handleStartEventSession}
+              onClick={event.route_id ? handleStartEventTour : handleStartEventSession}
               disabled={startingSession}
               className="btn btn-primary"
               style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-              {startingSession ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Beer size={16} />}
-              Registra brindisi all&apos;evento
+              {startingSession ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : event.route_id ? <RouteIcon size={16} /> : <Beer size={16} />}
+              {event.route_id ? 'Avvia tour guidato' : 'Registra brindisi all’evento'}
             </button>
           </>
         )}
         {currentUser && (isHost || event.isInvited || event.myResponse) && (
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '6px' }}>
-            Avvia una sessione live già con il luogo dell&apos;evento e i partecipanti pre-taggati.
+            {event.route_id
+              ? 'Avvia il tour guidato sulle tappe dell’itinerario, con i partecipanti pre-taggati. Conta per la classifica dell’evento.'
+              : 'Avvia una sessione live già con il luogo dell’evento e i partecipanti pre-taggati.'}
           </p>
         )}
       </div>
