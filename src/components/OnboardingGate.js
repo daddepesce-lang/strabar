@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { CONSENT_VERSION } from '@/lib/consent';
-import { ShieldCheck, Scale } from 'lucide-react';
+import { ShieldCheck, Scale, Megaphone } from 'lucide-react';
 
 // Gate post-login: se nel profilo manca qualcosa di obbligatorio, lo chiede PRIMA
 // di usare l'app. Copre tre casi con un'unica soluzione:
@@ -16,7 +16,7 @@ const SNOOZE_KEY = 'strabar_profile_setup_snoozed';
 
 export default function OnboardingGate() {
   const [user, setUser] = useState(null);
-  const [step, setStep] = useState(null); // null | 'consent' | 'profile'
+  const [step, setStep] = useState(null); // null | 'consent' | 'marketing' | 'profile'
   const [accepted, setAccepted] = useState(false);
   const [sex, setSex] = useState('');
   const [weight, setWeight] = useState('');
@@ -26,6 +26,7 @@ export default function OnboardingGate() {
   const evaluate = (u) => {
     if (!u || !u.id) { setStep(null); return; }
     if (!u.consent_version) { setStep('consent'); return; }
+    if (u.marketing_consent === null || u.marketing_consent === undefined) { setStep('marketing'); return; }
     const missingProfile = !u.weight || !u.sex;
     let snoozed = false;
     try { snoozed = sessionStorage.getItem(SNOOZE_KEY) === '1'; } catch { /* noop */ }
@@ -51,6 +52,22 @@ export default function OnboardingGate() {
     return () => window.removeEventListener('auth-change', onAuth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const acceptMarketing = async (value) => {
+    if (!user) return;
+    setBusy(true);
+    setError('');
+    try {
+      await db.recordMarketingConsent(user.id, value);
+      const u = { ...user, marketing_consent: value };
+      setUser(u);
+      evaluate(u);
+    } catch (err) {
+      setError(err.message || 'Errore nel salvataggio. Riprova.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const acceptConsent = async () => {
     if (!accepted || !user) return;
@@ -95,7 +112,28 @@ export default function OnboardingGate() {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1900, background: 'rgba(8, 9, 13, 0.97)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div className="card" style={{ maxWidth: '440px', width: '100%', border: '1px solid var(--primary)', boxShadow: '0 0 30px rgba(255, 32, 0,0.2)' }}>
-        {step === 'consent' ? (
+        {step === 'marketing' ? (
+          <>
+            <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
+              <Megaphone size={32} />
+            </div>
+            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Promozioni dai locali partner</h2>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '8px' }}>
+              Strabar è <strong style={{ color: 'var(--text-dark-primary)' }}>gratuita</strong>. Per sostenerla, inviamo occasionalmente notifiche promozionali dai locali partner — offerte, eventi, serate in posti che potrebbero piacerti.
+            </p>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '18px' }}>
+              I dati di consumo vengono condivisi con i locali in <strong style={{ color: 'var(--text-dark-primary)' }}>forma aggregata e anonima</strong> (es. &ldquo;il venerdì sera lo Spritz è il drink più ordinato&rdquo;) — non il tuo nome, non il tuo profilo.
+              Puoi revocare il consenso in qualsiasi momento da Impostazioni.
+            </p>
+            {error && <p style={{ color: '#FF7D7D', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
+            <button onClick={() => acceptMarketing(true)} disabled={busy} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
+              {busy ? 'Attendi...' : 'Sì, ricevo le promozioni'}
+            </button>
+            <button onClick={() => acceptMarketing(false)} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', marginTop: '12px', width: '100%' }}>
+              No grazie, preferisco di no
+            </button>
+          </>
+        ) : step === 'consent' ? (
           <>
             <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <ShieldCheck size={32} />

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { User, AtSign, Camera, Lock, Loader, Check, Bell } from 'lucide-react';
+import { User, AtSign, Camera, Lock, Loader, Check, Bell, Megaphone } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 import { ensureNotificationPermission } from '@/lib/notify';
 
@@ -40,9 +40,9 @@ export default function SettingsPage() {
     { key: 'tagged', label: 'Tag in una sessione live ("Vuoi avviare la tua?")' },
     { key: 'inactivity', label: 'Promemoria sessione live inattiva (prima della chiusura)' },
     { key: 'driving', label: 'Avviso superamento limite di guida (0,5 g/L)' },
-    { key: 'promo', label: 'Novità e promozioni da Strabar' },
   ];
-  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true, driving: true, promo: true });
+  const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true, driving: true });
+  const [marketingConsent, setMarketingConsent] = useState(true);
 
   // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
   const [showBacPublic, setShowBacPublic] = useState(false);
@@ -80,6 +80,12 @@ export default function SettingsPage() {
     const next = !publicLeaderboard;
     setPublicLeaderboard(next);
     try { await db.updateProfile(currentUser.id, { public_leaderboard: next }); } catch (err) { console.error(err); }
+  };
+
+  const toggleMarketingConsent = async () => {
+    const next = !marketingConsent;
+    setMarketingConsent(next);
+    try { await db.recordMarketingConsent(currentUser.id, next); } catch (err) { console.error(err); }
   };
 
   // Sceglie come comparire agli altri (nome reale o @username). value=true → username.
@@ -159,6 +165,7 @@ export default function SettingsPage() {
         setUsername(user.username || '');
         setAvatarUrl(user.avatar_url || '');
         if (user.notif_prefs) setNotifPrefs((p) => ({ ...p, ...user.notif_prefs }));
+        if (user.marketing_consent !== null && user.marketing_consent !== undefined) setMarketingConsent(!!user.marketing_consent);
         setShowBacPublic(!!user.show_bac_public);
         setUseUsername(!!user.use_username);
         setPublicLeaderboard(user.public_leaderboard !== false); // default: visibile
@@ -455,6 +462,37 @@ export default function SettingsPage() {
           }}>
             <span style={{
               position: 'absolute', top: 2, left: publicLeaderboard ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
+              background: '#fff', transition: 'left .2s',
+            }} />
+          </span>
+        </button>
+      </div>
+
+      {/* Comunicazioni commerciali */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          <Megaphone size={16} color="var(--primary)" /> Comunicazioni commerciali
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+          Strabar è gratuita. Per sostenerla inviamo promozioni dai <strong>locali partner</strong> — eventi, offerte, serate in posti che potrebbero piacerti.
+          I dati di consumo sono condivisi con i locali in <strong>forma aggregata e anonima</strong>: nessun dato personale identificabile.
+        </p>
+        <button
+          type="button"
+          onClick={toggleMarketingConsent}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+            background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px',
+            padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
+          }}
+        >
+          <span>Ricevi promozioni dai locali partner</span>
+          <span style={{
+            width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
+            background: marketingConsent ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
+          }}>
+            <span style={{
+              position: 'absolute', top: 2, left: marketingConsent ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
               background: '#fff', transition: 'left .2s',
             }} />
           </span>

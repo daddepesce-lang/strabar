@@ -990,6 +990,16 @@ export const db = {
     });
   },
 
+  // Registra il consenso (o rifiuto) alle comunicazioni commerciali.
+  // Separato da recordConsent: GDPR richiede consenso marketing granulare e revocabile.
+  async recordMarketingConsent(userId, value) {
+    if (!userId) return false;
+    return this.updateProfile(userId, {
+      marketing_consent: value,
+      marketing_consent_at: new Date().toISOString(),
+    });
+  },
+
   // GDPR — Portabilità (art. 20): raccoglie TUTTI i dati personali dell'utente
   // in un unico oggetto (poi scaricato come JSON dalle impostazioni). Ogni query è
   // protetta: se una tabella non esiste o fallisce, restituisce lista vuota.

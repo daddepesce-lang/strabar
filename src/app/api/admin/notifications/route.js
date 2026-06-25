@@ -9,8 +9,10 @@ import { requireAdmin } from '@/utils/supabase/admin';
 
 // Risolve gli ID dei destinatari secondo il target, escludendo chi ha disattivato le promo.
 export async function resolveRecipients(admin, target) {
-  const { data: profiles } = await admin.from('profiles').select('id, is_premium, notif_prefs');
-  let ids = (profiles || []).filter((p) => (p.notif_prefs?.promo ?? true) !== false);
+  const { data: profiles } = await admin.from('profiles').select('id, is_premium, marketing_consent');
+  // NULL = utente pre-consenso (legacy), trattato come opt-in per non perdere copertura.
+  // FALSE = ha esplicitamente rifiutato → escluso.
+  let ids = (profiles || []).filter((p) => p.marketing_consent !== false);
 
   if (target === 'premium') ids = ids.filter((p) => p.is_premium);
   if (target === 'active7d') {
