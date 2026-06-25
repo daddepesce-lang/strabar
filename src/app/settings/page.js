@@ -50,6 +50,9 @@ export default function SettingsPage() {
   // Come compaio agli altri: nome reale (false) o @username (true)
   const [useUsername, setUseUsername] = useState(false);
 
+  // Comparire col proprio nome nelle classifiche pubbliche (globale + evento). Default: sì.
+  const [publicLeaderboard, setPublicLeaderboard] = useState(true);
+
   // GDPR: esportazione dati (portabilità) e cancellazione account (oblio)
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -71,6 +74,12 @@ export default function SettingsPage() {
     const next = !showBacPublic;
     setShowBacPublic(next);
     try { await db.updateProfile(currentUser.id, { show_bac_public: next }); } catch (err) { console.error(err); }
+  };
+
+  const togglePublicLeaderboard = async () => {
+    const next = !publicLeaderboard;
+    setPublicLeaderboard(next);
+    try { await db.updateProfile(currentUser.id, { public_leaderboard: next }); } catch (err) { console.error(err); }
   };
 
   // Sceglie come comparire agli altri (nome reale o @username). value=true → username.
@@ -152,6 +161,7 @@ export default function SettingsPage() {
         if (user.notif_prefs) setNotifPrefs((p) => ({ ...p, ...user.notif_prefs }));
         setShowBacPublic(!!user.show_bac_public);
         setUseUsername(!!user.use_username);
+        setPublicLeaderboard(user.public_leaderboard !== false); // default: visibile
       } catch (err) {
         console.error(err);
       } finally {
@@ -415,6 +425,36 @@ export default function SettingsPage() {
           }}>
             <span style={{
               position: 'absolute', top: 2, left: showBacPublic ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
+              background: '#fff', transition: 'left .2s',
+            }} />
+          </span>
+        </button>
+      </div>
+
+      {/* Privacy: nome nelle classifiche pubbliche */}
+      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          🏆 Nome nelle classifiche
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+          Se attivo, compari col tuo nome nelle <strong>classifiche pubbliche</strong> (globale ed eventi). Se lo disattivi, agli estranei appari come &quot;Atleta riservato&quot; — chi vi seguite vede comunque il tuo nome. Di default è attivo.
+        </p>
+        <button
+          type="button"
+          onClick={togglePublicLeaderboard}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+            background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px',
+            padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
+          }}
+        >
+          <span>Mostra il mio nome nelle classifiche pubbliche</span>
+          <span style={{
+            width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
+            background: publicLeaderboard ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
+          }}>
+            <span style={{
+              position: 'absolute', top: 2, left: publicLeaderboard ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
               background: '#fff', transition: 'left .2s',
             }} />
           </span>

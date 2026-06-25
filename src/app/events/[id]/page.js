@@ -372,7 +372,7 @@ export default function EventDetailPage({ params }) {
             </div>
           )}
           {event.route_name && (
-            <Link href="/routes" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
+            <Link href={event.route_id ? `/routes?routeId=${event.route_id}` : '/routes'} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
               <RouteIcon size={16} /> Itinerario: <strong style={{ color: 'var(--primary)' }}>{event.route_name}</strong>
             </Link>
           )}
@@ -618,9 +618,32 @@ export default function EventDetailPage({ params }) {
           {(event.invited || []).length === 0 ? (
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Nessun invitato. Usa &quot;Invita amici&quot; per coinvolgere il gruppo.</p>
           ) : (
-            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
-              {(event.invited || []).length} persone invitate • {grouped.going.length} hanno confermato.
-            </p>
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {(event.invitedProfiles || []).map((p) => {
+                  const status = (event.responses || []).find((r) => r.user_id === p.id)?.status;
+                  const badge = status === 'going' ? { t: 'Partecipa', c: 'var(--success)' }
+                    : status === 'maybe' ? { t: 'Forse', c: 'var(--secondary)' }
+                    : status === 'no' ? { t: 'Non può', c: 'var(--error)' }
+                    : { t: 'In attesa', c: 'var(--text-dark-secondary)' };
+                  return (
+                    <Link key={p.id} href={`/u/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: 'var(--bg-input-dark)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
+                      <div className="activity-avatar" style={{ width: 30, height: 30, fontSize: 12 }}>
+                        {(p.display_name || p.username || 'U').charAt(0)}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username || 'utente'}</div>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: badge.c, flexShrink: 0 }}>{badge.t}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '10px' }}>
+                {(event.invited || []).length} persone invitate • {grouped.going.length} hanno confermato.
+              </p>
+            </>
           )}
         </div>
       </div>

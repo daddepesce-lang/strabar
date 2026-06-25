@@ -383,7 +383,7 @@ export const db = {
           .from('sessions')
           .select(`
             ${cols},
-            profiles(username, display_name, use_username, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, public_leaderboard, avatar_url, weight, sex),
             cheers(count),
             comments(count)
           `)
@@ -870,7 +870,11 @@ export const db = {
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
-      return data;
+      // Attacca il profilo di chi ha creato il percorso, così la lista può
+      // mostrare l'autore (richiesta: i percorsi caricati dagli utenti devono
+      // essere contrassegnati da chi li ha creati).
+      const creators = await this._profilesByIds((data || []).map((r) => r.user_id));
+      return (data || []).map((r) => ({ ...r, creator: creators[r.user_id] || null }));
     } else {
       return getStored('sb_routes');
     }
@@ -1896,18 +1900,25 @@ export const db = {
   // nel database; se la RPC non è ancora installata (vedi supabase_scale.sql) ricade
   // sul calcolo lato client. Con tante sessioni la RPC evita di scaricare tutto.
   async getTopDrinkers(limit = 5) {
+    // Nome coperto per chi ha fatto opt-out dalle classifiche pubbliche, salvo che lo segui.
+    const revealIds = await this._revealIdsFor();
+    const nameFor = (p, revealed) => (revealed ? publicName(p) : 'Atleta riservato');
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.rpc('get_top_drinkers', { lim: limit });
         if (error) throw error;
         if (Array.isArray(data)) {
-          return data.map((r, i) => ({
-            rank: i + 1,
-            user_id: r.user_id,
-            name: publicName(r),
-            units: parseFloat(Number(r.total_units || 0).toFixed(1)),
-            isPremium: !!r.is_premium,
-          }));
+          return data.map((r, i) => {
+            const revealed = r.public_leaderboard !== false || revealIds.has(r.user_id);
+            return {
+              rank: i + 1,
+              user_id: r.user_id,
+              revealed,
+              name: nameFor(r, revealed),
+              units: parseFloat(Number(r.total_units || 0).toFixed(1)),
+              isPremium: !!r.is_premium,
+            };
+          });
         }
       } catch (err) {
         console.warn('RPC get_top_drinkers non disponibile, fallback lato client:', err.message || err);
@@ -1935,17 +1946,21 @@ export const db = {
         if (top.length === 0) return [];
         const { data: profs } = await supabase
           .from('profiles')
-          .select('id, username, display_name, use_username, is_premium')
+          .select('id, username, display_name, use_username, public_leaderboard, is_premium')
           .in('id', top.map((t) => t.user_id));
         const pmap = {};
         (profs || []).forEach((p) => { pmap[p.id] = p; });
-        return top.map((t, i) => ({
-          rank: i + 1,
-          user_id: t.user_id,
-          name: publicName(pmap[t.user_id]),
-          units: t.units,
-          isPremium: !!pmap[t.user_id]?.is_premium,
-        }));
+        return top.map((t, i) => {
+          const revealed = pmap[t.user_id]?.public_leaderboard !== false || revealIds.has(t.user_id);
+          return {
+            rank: i + 1,
+            user_id: t.user_id,
+            revealed,
+            name: nameFor(pmap[t.user_id], revealed),
+            units: t.units,
+            isPremium: !!pmap[t.user_id]?.is_premium,
+          };
+        });
       } catch (err) {
         console.warn('Fallback classifica fallito:', err.message || err);
         return [];
@@ -1957,8 +1972,9 @@ export const db = {
     acts.forEach((a) => {
       const uid = a.user_id;
       if (!uid) return;
-      const name = a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar';
-      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, units: 0, isPremium: a.profiles?.is_premium || false };
+      const revealed = a.profiles?.public_leaderboard !== false || revealIds.has(uid);
+      const name = revealed ? (a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar') : 'Atleta riservato';
+      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, revealed, units: 0, isPremium: a.profiles?.is_premium || false };
       byUser[uid].units += parseFloat(a.total_units || 0);
     });
     return Object.values(byUser)
@@ -2442,16 +2458,19 @@ export const db = {
   // non contano: la classifica è la stessa per tutti (la RLS lascia leggere tutto).
   _countsForVenue(a) {
     const loc = a && a.location;
+    // Conta ogni check-in GEOLOCALIZZATO e verificato presso il locale, A PRESCINDERE
+    // dalla privacy: anche le sessioni 'private' concorrono ai totali/classifiche, ma il
+    // NOME viene coperto ("Atleta riservato"). La privacy nasconde l'identità, non rimuove
+    // la sessione dai conteggi. (Esclude solo testo libero e check-in non verificati.)
     return !!(loc && loc.name && !loc.freeform && !loc.unverified &&
-      typeof loc.lat === 'number' && typeof loc.lng === 'number' &&
-      loc.share !== 'private');
+      typeof loc.lat === 'number' && typeof loc.lng === 'number');
   },
 
   // Una sessione concorre alla CLASSIFICA GENERALE con la STESSA identica regola della
-  // classifica del locale (_countsForVenue): check-in geolocalizzato, verificato, non libero
-  // e non privato. Così i numeri RICONCILIANO: il totale generale di un atleta è la somma
-  // delle stesse sessioni che lo fanno comparire nelle classifiche dei locali — non può più
-  // risultare inferiore a una sua singola sessione presso un locale.
+  // classifica del locale (_countsForVenue): check-in geolocalizzato e verificato, non libero
+  // (private incluse, col nome coperto). Così i numeri RICONCILIANO: il totale generale di un
+  // atleta è la somma delle stesse sessioni che lo fanno comparire nelle classifiche dei
+  // locali — non può più risultare inferiore a una sua singola sessione presso un locale.
   _countsForGlobalBoard(a) {
     return this._countsForVenue(a);
   },
@@ -2465,11 +2484,18 @@ export const db = {
     sessions.forEach((s) => {
       const uid = s.user_id;
       const name = s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar';
-      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0 };
+      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: s.profiles?.public_leaderboard === false };
       byUser[uid].visits += 1;
       byUser[uid].units += parseFloat(s.total_units || 0);
+      if (s.location?.share !== 'private') byUser[uid].hasPublic = true;
     });
-    return Object.values(byUser).map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }));
+    // Nome coperto se l'utente ha fatto opt-out o se ha SOLO sessioni private qui.
+    return Object.values(byUser).map((u) => ({
+      user_id: u.user_id,
+      name: (u.optedOut || !u.hasPublic) ? 'Atleta riservato' : u.name,
+      visits: u.visits,
+      units: parseFloat(u.units.toFixed(1)),
+    }));
   },
 
   // FONTE UNICA della "Classifica del Locale" mostrata nel dettaglio sessione e altrove.
@@ -2486,18 +2512,29 @@ export const db = {
     sessions.forEach((s) => {
       const uid = s.user_id;
       const name = s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar';
-      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0 };
+      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: s.profiles?.public_leaderboard === false };
       byUser[uid].visits += 1;
       byUser[uid].units += parseFloat(s.total_units || 0);
+      if (s.location?.share !== 'private') byUser[uid].hasPublic = true;
     });
+    // Nome coperto se l'utente ha fatto opt-out o se ha SOLO sessioni private qui.
     const byUnits = Object.values(byUser)
-      .map((u) => ({ ...u, units: parseFloat(u.units.toFixed(1)) }))
+      .map((u) => ({
+        user_id: u.user_id,
+        name: (u.optedOut || !u.hasPublic) ? 'Atleta riservato' : u.name,
+        visits: u.visits,
+        units: parseFloat(u.units.toFixed(1)),
+      }))
       .sort((a, b) => b.units - a.units || b.visits - a.visits);
     const topBac = sessions
-      .map((s) => ({
-        name: s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar',
-        bac: this.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex),
-      }))
+      .map((s) => {
+        // Picco BAC è per-sessione: una sessione privata (o di chi è in opt-out) resta anonima.
+        const revealed = s.location?.share !== 'private' && s.profiles?.public_leaderboard !== false;
+        return {
+          name: revealed ? (s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar') : 'Atleta riservato',
+          bac: this.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex),
+        };
+      })
       .sort((a, b) => b.bac - a.bac)
       .slice(0, 3);
     return {
@@ -2531,17 +2568,17 @@ export const db = {
   },
 
   // Classifica globale degli atleti Strabar (per U.A. totali, sessioni, drink, locali).
-  // I TOTALI sono identici per tutti (solo sessioni pubbliche geolocalizzate, vedi
-  // _countsForGlobalBoard). Il NOME è visibile solo per te stesso e per chi segui / ti segue;
-  // gli altri restano "coperti" (revealed=false) per privacy.
+  // I TOTALI sono identici per tutti (le private concorrono, vedi _countsForGlobalBoard). Il
+  // NOME è visibile col proprio nome se l'utente è pubblico (default) o se vi seguite; chi ha
+  // fatto opt-out resta "coperto" (revealed=false) per gli estranei.
   // includeAll = false → solo check-in geolocalizzati verificati (classifica VERIFICATA).
-  // includeAll = true  → tutte le sessioni non private, anche libere (classifica ATTIVITÀ TOTALE,
+  // includeAll = true  → tutte le sessioni, anche libere/private (classifica ATTIVITÀ TOTALE,
   //                      non verificata: solo statistica, niente premi/valore competitivo).
   async getUserLeaderboard(viewerId, includeAll = false) {
     const activities = await this.getActivities();
     const counts = (a) => includeAll
-      ? (a.location?.share !== 'private') // tutte tranne le private
-      : this._countsForGlobalBoard(a);    // solo geolocalizzate verificate
+      ? true                              // tutte le sessioni (anche libere e private)
+      : this._countsForGlobalBoard(a);    // solo geolocalizzate verificate (private incluse)
     const byUser = {};
     activities.forEach((a) => {
       const uid = a.user_id;
@@ -2553,6 +2590,7 @@ export const db = {
           name: a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar',
           username: a.profiles?.username || 'atleta',
           is_premium: a.profiles?.is_premium || false,
+          public_leaderboard: a.profiles?.public_leaderboard !== false, // default: visibile
           sessions: 0,
           units: 0,
           drinks: 0,
@@ -2571,7 +2609,8 @@ export const db = {
 
     return Object.values(byUser)
       .map((u) => {
-        const revealed = revealIds.has(u.user_id);
+        // Nome visibile se l'utente è pubblico (default) o se vi seguite.
+        const revealed = u.public_leaderboard || revealIds.has(u.user_id);
         return {
           user_id: u.user_id,
           revealed,
@@ -2606,6 +2645,7 @@ export const db = {
           name: s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar',
           username: s.profiles?.username || 'atleta',
           is_premium: s.profiles?.is_premium || false,
+          public_leaderboard: s.profiles?.public_leaderboard !== false, // default: visibile
           sessions: 0, units: 0, drinks: 0,
         };
       }
@@ -2616,9 +2656,27 @@ export const db = {
     });
 
     const revealIds = await this._revealIdsFor(viewerId);
+    // In un evento i partecipanti si vedono tra loro: svela i nomi di host,
+    // invitati e di chi ha risposto, a prescindere dal rapporto di follow.
+    try {
+      let host_id = null, invited = [], responders = [];
+      if (isSupabaseConfigured) {
+        const { data: ev } = await supabase
+          .from('events')
+          .select('host_id, invited, event_responses(user_id)')
+          .eq('id', eventId)
+          .maybeSingle();
+        if (ev) { host_id = ev.host_id; invited = ev.invited || []; responders = (ev.event_responses || []).map((r) => r.user_id); }
+      } else {
+        const ev = this.getEventsRaw().find((e) => e.id === eventId);
+        if (ev) { host_id = ev.host_id; invited = ev.invited || []; responders = (ev.responses || []).map((r) => r.user_id); }
+      }
+      [host_id, ...invited, ...responders].forEach((uid) => uid && revealIds.add(uid));
+    } catch { /* noop */ }
     const board = Object.values(byUser)
       .map((u) => {
-        const revealed = revealIds.has(u.user_id);
+        // Nome visibile se l'utente è pubblico (default), se vi seguite o se è un partecipante.
+        const revealed = u.public_leaderboard || revealIds.has(u.user_id);
         return {
           user_id: u.user_id,
           revealed,
@@ -2637,7 +2695,7 @@ export const db = {
     const participants = board.length;
     const topBac = sessions
       .map((s) => {
-        const revealed = revealIds.has(s.user_id);
+        const revealed = s.profiles?.public_leaderboard !== false || revealIds.has(s.user_id);
         return {
           name: revealed ? (s.profiles?.display_name || s.profiles?.username || 'Atleta') : 'Atleta riservato',
           revealed,
@@ -2765,7 +2823,8 @@ export const db = {
       if (error) throw error;
       if (!e) return null;
       const responses = e.event_responses || [];
-      const pmap = await this._profilesByIds([e.host_id, ...responses.map((r) => r.user_id)]);
+      const invitedIds = e.invited || [];
+      const pmap = await this._profilesByIds([e.host_id, ...responses.map((r) => r.user_id), ...invitedIds]);
       const host = pmap[e.host_id] || { display_name: 'Organizzatore', username: 'host' };
       return {
         ...e,
@@ -2773,11 +2832,13 @@ export const db = {
         host_name: host.display_name || host.username,
         goingCount: responses.filter((r) => r.status === 'going').length,
         myResponse: user ? (responses.find((r) => r.user_id === user.id)?.status || null) : null,
-        isInvited: user ? (e.host_id === user.id || (e.invited || []).includes(user.id)) : false,
+        isInvited: user ? (e.host_id === user.id || invitedIds.includes(user.id)) : false,
         responses: responses.map((r) => ({
           ...r,
           profile: pmap[r.user_id] || { display_name: 'Atleta', username: 'utente' },
         })),
+        // Profili degli invitati (per mostrarne la lista nella scheda evento).
+        invitedProfiles: invitedIds.map((uid) => pmap[uid] || { id: uid, display_name: 'Atleta', username: 'utente' }),
       };
     }
     // localStorage
@@ -2789,7 +2850,9 @@ export const db = {
       ...r,
       profile: profiles.find((p) => p.id === r.user_id) || { display_name: r.user_name, username: 'utente' },
     }));
-    return { ...ev, responses };
+    const invitedProfiles = (ev.invited || []).map((uid) =>
+      profiles.find((p) => p.id === uid) || { id: uid, display_name: 'Atleta', username: 'utente' });
+    return { ...ev, responses, invitedProfiles };
   },
 
   async createEvent(data) {

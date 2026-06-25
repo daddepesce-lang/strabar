@@ -30,7 +30,14 @@ export default function RoutesPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeSearchQuery, setRouteSearchQuery] = useState(''); // Filtro lista itinerari
+  const [routeSearchQuery, setRouteSearchQuery] = useState(''); // Filtro lista itinerari per titolo
+  // Filtro lista itinerari per LUOGO + raggio (km): cerca un luogo e mostra
+  // solo i percorsi con almeno una tappa entro il raggio scelto.
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState([]);
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [placeFilter, setPlaceFilter] = useState(null); // { name, lat, lng }
+  const [radiusKm, setRadiusKm] = useState(5);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingBars, setIsLoadingBars] = useState(false);
@@ -117,6 +124,35 @@ export default function RoutesPage() {
     }
     return total.toFixed(2);
   };
+
+  // Distanza in km tra due punti (Haversine) — per il filtro "per luogo + raggio".
+  const distanceKm = (lat1, lng1, lat2, lng2) => {
+    const toRad = (x) => (x * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  // Ricerca luogo per il filtro a raggio (debounced). Non aggiungiamo tappe: serve
+  // solo a fissare un centro su cui filtrare la lista degli itinerari.
+  useEffect(() => {
+    const q = placeQuery.trim();
+    if (q.length < 2 || (placeFilter && placeFilter.name === q)) {
+      setPlaceResults([]); setPlaceSearching(false);
+      return;
+    }
+    setPlaceSearching(true);
+    const h = setTimeout(async () => {
+      try { setPlaceResults((await db.searchVenues(q) || []).slice(0, 6)); }
+      catch { setPlaceResults([]); }
+      finally { setPlaceSearching(false); }
+    }, 450);
+    return () => clearTimeout(h);
+  }, [placeQuery, placeFilter]);
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -692,12 +728,22 @@ out body;`;
   const routeTotalUnits = currentActiveWaypoints.reduce((s, wp) => s + (parseFloat(wp.units) || 0), 0);
 
   const filteredRoutes = routes.filter(route => {
+    // Filtro per luogo + raggio: tieni i percorsi con almeno una tappa entro il raggio.
+    if (placeFilter) {
+      const near = (route.waypoints || []).some(wp => {
+        const lng = wp.lng ?? wp.lon;
+        if (wp.lat == null || lng == null) return false;
+        return distanceKm(placeFilter.lat, placeFilter.lng, wp.lat, lng) <= radiusKm;
+      });
+      if (!near) return false;
+    }
+    // Filtro per titolo (o descrizione / nome tappa).
     const q = routeSearchQuery.toLowerCase().trim();
     if (!q) return true;
     const nameMatch = route.name?.toLowerCase().includes(q);
     const descMatch = route.description?.toLowerCase().includes(q);
-    const waypointMatch = route.waypoints?.some(wp => 
-      wp.name?.toLowerCase().includes(q) || 
+    const waypointMatch = route.waypoints?.some(wp =>
+      wp.name?.toLowerCase().includes(q) ||
       wp.address?.toLowerCase().includes(q)
     );
     return nameMatch || descMatch || waypointMatch;
@@ -1010,13 +1056,13 @@ out body;`;
                 Itinerari Disponibili 🍺
               </h3>
 
-              {/* Barra di ricerca per area/città/nome */}
-              <div style={{ position: 'relative', marginBottom: '15px' }}>
+              {/* Ricerca per TITOLO */}
+              <div style={{ position: 'relative', marginBottom: '10px' }}>
                 <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Cerca per città, area o nome..."
+                  placeholder="Cerca per titolo..."
                   value={routeSearchQuery}
                   onChange={(e) => setRouteSearchQuery(e.target.value)}
                   style={{
@@ -1047,6 +1093,74 @@ out body;`;
                   >
                     <X size={14} />
                   </button>
+                )}
+              </div>
+
+              {/* Ricerca per LUOGO + raggio */}
+              <div style={{ position: 'relative', marginBottom: '15px' }}>
+                {placeFilter ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,32,0,0.08)', border: '1px solid var(--primary)', borderRadius: '8px', padding: '7px 10px' }}>
+                    <MapPin size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+                    <span style={{ flex: 1, minWidth: 0, fontSize: '12px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {placeFilter.name}
+                    </span>
+                    <select
+                      value={radiusKm}
+                      onChange={(e) => setRadiusKm(Number(e.target.value))}
+                      style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '6px', color: '#FFF', fontSize: '11px', padding: '2px 4px', flexShrink: 0 }}
+                    >
+                      {[1, 2, 5, 10, 25, 50].map((r) => <option key={r} value={r}>{r} km</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => { setPlaceFilter(null); setPlaceQuery(''); setPlaceResults([]); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+                      title="Rimuovi filtro luogo"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <MapPin size={14} style={{ position: 'absolute', left: '10px', top: '17px', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Cerca per luogo (città, via, locale)..."
+                      value={placeQuery}
+                      onChange={(e) => setPlaceQuery(e.target.value)}
+                      style={{
+                        paddingLeft: '32px',
+                        height: '34px',
+                        fontSize: '12px',
+                        background: 'var(--bg-input-dark)',
+                        border: '1px solid var(--border-dark)',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    {(placeSearching || placeResults.length > 0) && (
+                      <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                        {placeSearching && (
+                          <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco luoghi…
+                          </div>
+                        )}
+                        {placeResults.map((v, i) => (
+                          <button key={i} type="button"
+                            onClick={() => { setPlaceFilter({ name: v.name, lat: v.lat, lng: v.lng }); setPlaceQuery(v.name); setPlaceResults([]); }}
+                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}>
+                            <span style={{ display: 'block', fontSize: '12px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <MapPin size={11} style={{ marginRight: '4px', color: 'var(--primary)' }} />{v.name}
+                            </span>
+                            {v.address && <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.address}</span>}
+                          </button>
+                        ))}
+                        {!placeSearching && placeResults.length === 0 && placeQuery.trim().length >= 2 && (
+                          <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun luogo trovato.</div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1104,9 +1218,21 @@ out body;`;
                         }}>
                           {route.description}
                         </p>
-                        <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>
-                          {route.waypoints?.length || 0} tappe
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px', marginTop: '4px' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
+                            {route.waypoints?.length || 0} tappe
+                          </span>
+                          {route.user_id !== currentUser?.id && (route.creator?.display_name || route.creator?.username) && (
+                            <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+                              <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '8px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {(route.creator.display_name || route.creator.username).charAt(0).toUpperCase()}
+                              </span>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {route.creator.display_name || `@${route.creator.username}`}
+                              </span>
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })
