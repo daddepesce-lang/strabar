@@ -1,6 +1,25 @@
+import { NextResponse } from "next/server";
 import { updateSession } from "@/utils/supabase/middleware";
 
+// Host canonico dell'app (es. "strabar.app"). I link condivisi puntano qui.
+const CANONICAL_HOST = (process.env.NEXT_PUBLIC_SITE_URL || "https://strabar.app")
+  .replace(/^https?:\/\//, "")
+  .replace(/\/+$/, "");
+
+// Vecchi domini da reindirizzare al canonico: così i link già condivisi (es. su WhatsApp)
+// che puntano al vecchio dominio aprono sul nuovo e vengono catturati dalla PWA installata.
+const LEGACY_HOSTS = new Set(["strabar-delta.vercel.app"]);
+
 export async function middleware(request) {
+  const host = request.headers.get("host") || "";
+  if (LEGACY_HOSTS.has(host) && host !== CANONICAL_HOST) {
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = CANONICAL_HOST;
+    url.port = "";
+    // 308 = redirect permanente che preserva il metodo e (qui) path + query string.
+    return NextResponse.redirect(url, 308);
+  }
   return await updateSession(request);
 }
 

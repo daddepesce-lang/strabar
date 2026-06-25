@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
+import { siteUrl } from '@/lib/site';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
   Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
@@ -331,13 +332,17 @@ export default function EventDetailPage({ params }) {
     router.push('/events');
   };
 
+  // URL CANONICO dell'evento (sempre sul dominio ufficiale), così il link condiviso
+  // funziona e viene catturato dalla PWA anche se l'app è aperta da un altro dominio.
+  const eventUrl = () => siteUrl(`/events/${id}`);
+
   const shareText = () => {
     const d = event?.date ? formatEventDate(event.date) : '';
-    return `🍻 ${event?.title || 'Evento Strabar'}\n📅 ${d}${event?.location_name ? `\n📍 ${event.location_name}` : ''}\n\nUnisciti a me su Strabar! ${window.location.href}`;
+    return `🍻 ${event?.title || 'Evento Strabar'}\n📅 ${d}${event?.location_name ? `\n📍 ${event.location_name}` : ''}\n\nUnisciti a me su Strabar! ${eventUrl()}`;
   };
 
   const shareEvent = async () => {
-    const url = window.location.href;
+    const url = eventUrl();
     if (navigator.share) {
       try {
         await navigator.share({ title: event?.title, text: shareText() });
