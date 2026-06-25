@@ -9,6 +9,7 @@ import BannersAdmin from './BannersAdmin';
 import UsersAdmin from './UsersAdmin';
 import GdprAdmin from './GdprAdmin';
 import DrinksAdmin from './DrinksAdmin';
+import VenuesAdmin from './VenuesAdmin';
 
 function Kpi({ label, value, sub, color }) {
   return (
@@ -80,11 +81,12 @@ export default function AdminPage() {
       </div>
 
       {/* Schede */}
-      <div className="seg-tabs">
+      <div className="seg-tabs admin-tabs">
         <button onClick={() => setTab('dashboard')} className={`seg-tab ${tab === 'dashboard' ? 'active' : ''}`}>📊 Dashboard</button>
         <button onClick={() => setTab('utenti')} className={`seg-tab ${tab === 'utenti' ? 'active' : ''}`}>👥 Utenti</button>
         <button onClick={() => setTab('gdpr')} className={`seg-tab ${tab === 'gdpr' ? 'active' : ''}`}>🔐 GDPR</button>
         <button onClick={() => setTab('drink')} className={`seg-tab ${tab === 'drink' ? 'active' : ''}`}>🍺 Drink</button>
+        <button onClick={() => setTab('locali')} className={`seg-tab ${tab === 'locali' ? 'active' : ''}`}>📍 Locali</button>
         <button onClick={() => setTab('notifiche')} className={`seg-tab ${tab === 'notifiche' ? 'active' : ''}`}>🔔 Notifiche</button>
         <button onClick={() => setTab('banner')} className={`seg-tab ${tab === 'banner' ? 'active' : ''}`}>📢 Banner</button>
       </div>
@@ -92,6 +94,7 @@ export default function AdminPage() {
       {tab === 'utenti' && <UsersAdmin />}
       {tab === 'gdpr' && <GdprAdmin />}
       {tab === 'drink' && <DrinksAdmin />}
+      {tab === 'locali' && <VenuesAdmin />}
       {tab === 'notifiche' && <NotificationsAdmin />}
       {tab === 'banner' && <BannersAdmin />}
 

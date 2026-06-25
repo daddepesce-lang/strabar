@@ -94,6 +94,7 @@ export default function UsersAdmin() {
     if (filter === 'admin' && !u.admin) return false;
     if (filter === 'premium' && !u.premium) return false;
     if (filter === 'noconsent' && u.consent) return false;
+    if (filter === 'marketing' && u.marketing !== true) return false;
     if (!s) return true;
     return (u.username || '').toLowerCase().includes(s)
       || (u.display_name || '').toLowerCase().includes(s)
@@ -159,6 +160,7 @@ export default function UsersAdmin() {
             ['admin', `Admin (${adminCount})`],
             ['premium', 'Premium'],
             ['noconsent', `Senza consenso (${data.gdpr?.withoutConsent ?? 0})`],
+            ['marketing', `Consenso commerciale (${data.marketing?.yes ?? 0})`],
           ].map(([key, label]) => (
             <button key={key} type="button" onClick={() => setFilter(key)}
               className="btn btn-secondary"
@@ -183,6 +185,7 @@ export default function UsersAdmin() {
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                     {u.admin && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 6, padding: '1px 5px' }}>ADMIN</span>}
                     {u.premium && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--secondary)' }}>PRO</span>}
+                    {u.marketing === true && <span title="Ha dato il consenso commerciale" style={{ fontSize: 11 }}>📣</span>}
                     {!u.consent && <span title="Consenso GDPR non registrato" style={{ fontSize: 11 }}>⚠️</span>}
                     <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{ago(u.created_at)}</span>
                     <ChevronDown size={15} style={{ color: 'var(--text-dark-secondary)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -202,6 +205,14 @@ export default function UsersAdmin() {
                         {u.consent
                           ? <span style={{ color: 'var(--success)' }}>✓ v{u.consent_version} · {fmtDate(u.tos_accepted_at)}</span>
                           : <span style={{ color: 'var(--error)' }}>Non registrato</span>}
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-dark-secondary)' }}>Consenso commerciale</span><br />
+                        {u.marketing === true
+                          ? <span style={{ color: 'var(--success)' }}>📣 Sì{u.marketing_at ? ` · ${fmtDate(u.marketing_at)}` : ''}</span>
+                          : u.marketing === false
+                            ? <span style={{ color: 'var(--error)' }}>Rifiutato</span>
+                            : <span style={{ color: 'var(--text-dark-secondary)' }}>Mai chiesto</span>}
                       </div>
                     </div>
 
@@ -259,6 +270,7 @@ export default function UsersAdmin() {
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-dark)', fontSize: 11, color: 'var(--text-dark-secondary)' }}>
           <span><span style={{ color: 'var(--primary)', fontWeight: 800 }}>ADMIN</span> = amministratore</span>
           <span><span style={{ color: 'var(--secondary)', fontWeight: 800 }}>PRO</span> = premium</span>
+          <span>📣 = consenso commerciale</span>
           <span>⚠️ = consenso GDPR non registrato</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={11} /> Tocca un utente per le azioni</span>
         </div>

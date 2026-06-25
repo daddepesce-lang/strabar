@@ -59,7 +59,19 @@ export async function GET() {
 
     // Sessioni
     const totalSessions = sess.length;
-    const activeSessions = sess.filter((s) => s.is_active).length;
+    // "Live ora": come la scheda Utenti e getActiveSession — non basta is_active,
+    // serve un drink negli ultimi 4h (le sessioni stantie si auto-chiudono ma il
+    // flag resta finché non vengono riaperte). Evita il sovra-conteggio.
+    const AUTOCLOSE_MS = 4 * 60 * 60 * 1000;
+    const lastDrinkMs = (s) => {
+      let last = new Date(s.created_at).getTime();
+      (s.drinks || []).forEach((d) => {
+        const times = Array.isArray(d.added_times) && d.added_times.length ? d.added_times : (d.added_at ? [d.added_at] : []);
+        times.forEach((t) => { const ms = new Date(t).getTime(); if (Number.isFinite(ms) && ms > last) last = ms; });
+      });
+      return last;
+    };
+    const activeSessions = sess.filter((s) => s.is_active && (now - lastDrinkMs(s)) < AUTOCLOSE_MS).length;
     const sessions7d = sess.filter((s) => new Date(s.created_at).getTime() >= since(7)).length;
     const totalUnits = sess.reduce((acc, s) => acc + parseFloat(s.total_units || 0), 0);
     const totalDrinks = sess.reduce((acc, s) => acc + (s.drinks || []).reduce((a, d) => a + (d.qty || 0), 0), 0);

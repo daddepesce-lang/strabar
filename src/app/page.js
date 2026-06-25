@@ -667,6 +667,13 @@ export default function FeedPage() {
         baseActivity.duration || 120
       );
 
+      // Attribuisci il drink al locale della sessione (statistiche bar).
+      if (baseActivity.location?.name) {
+        newDrink.place_key = baseActivity.location.placeKey || null;
+        newDrink.place_name = baseActivity.location.name;
+        newDrink.added_places = [{ key: baseActivity.location.placeKey || null, name: baseActivity.location.name }];
+      }
+
       // existingDrinks è già espanso in unità con orario distinto: aggiungiamo la nuova
       // unità con il suo orario (così la curva fa lo scalino). Il display raggruppa per
       // nome con groupDrinks(), quindi non serve più accorpare qui sul campo qty.
@@ -756,6 +763,17 @@ export default function FeedPage() {
       const base = freshSession || activeSession;
       const currentDrinks = base.drinks || [];
 
+      // LOCALE CORRENTE per attribuire il drink (statistiche bar per-tappa).
+      // Con un tour attivo → la tappa corrente; altrimenti → il locale della sessione.
+      const tourForPlace = base.location?.tour;
+      const curStopForPlace = tourForPlace ? (tourForPlace.stops || [])[tourForPlace.current || 0] : null;
+      const curPlace = curStopForPlace
+        ? { key: curStopForPlace.placeKey || null, name: curStopForPlace.name || null }
+        : (base.location?.name ? { key: base.location.placeKey || null, name: base.location.name } : null);
+      newDrink.place_key = curPlace?.key || null;
+      newDrink.place_name = curPlace?.name || null;
+      newDrink.added_places = [curPlace || null];
+
       // VERIFICA POSIZIONE (solo Tour): quando registri un drink alcolico, controlla
       // che tu sia davvero alla tappa corrente. Solo allora la tappa conta per le
       // classifiche (leggenda del locale e atleti). Niente gate all'avvio del tour.
@@ -794,7 +812,17 @@ export default function FeedPage() {
         const exTimes = Array.isArray(ex.added_times) && ex.added_times.length > 0
           ? ex.added_times
           : (ex.added_at ? [ex.added_at] : []);
-        updatedDrinks[dupIdx] = { ...ex, qty: (ex.qty || 1) + 1, added_times: [...exTimes, nowStr] };
+        // Allinea added_places a added_times (i drink vecchi non ce l'hanno: ricostruisce
+        // dalla place_name dell'entry così le aggiunte storiche restano attribuite).
+        const exPlaces = Array.isArray(ex.added_places) && ex.added_places.length === exTimes.length
+          ? ex.added_places
+          : exTimes.map(() => (ex.place_name ? { key: ex.place_key || null, name: ex.place_name } : null));
+        updatedDrinks[dupIdx] = {
+          ...ex,
+          qty: (ex.qty || 1) + 1,
+          added_times: [...exTimes, nowStr],
+          added_places: [...exPlaces, curPlace || null],
+        };
       } else {
         updatedDrinks = [...currentDrinks, newDrink];
       }

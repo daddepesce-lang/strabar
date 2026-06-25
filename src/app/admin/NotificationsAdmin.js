@@ -75,7 +75,9 @@ export default function NotificationsAdmin() {
     load();
   };
 
-  const inputStyle = { width: '100%', height: 40, fontSize: 14 };
+  // Niente height fissa: i <select> nativi iOS taglierebbero il testo. Lasciamo
+  // che padding/line-height di .form-control diano l'altezza naturale.
+  const inputStyle = { width: '100%', fontSize: 14 };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

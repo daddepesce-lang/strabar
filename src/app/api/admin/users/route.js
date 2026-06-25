@@ -33,7 +33,7 @@ export async function GET() {
 
   const [{ data: profiles }, { data: live }, authIndex] = await Promise.all([
     gate.admin.from('profiles')
-      .select('id, username, display_name, created_at, is_premium, is_admin, consent_version, tos_accepted_at, sex, weight')
+      .select('id, username, display_name, created_at, is_premium, is_admin, consent_version, tos_accepted_at, sex, weight, marketing_consent, marketing_consent_at')
       .order('created_at', { ascending: false }),
     gate.admin.from('sessions')
       .select('id, user_id, title, location, total_units, drinks, created_at')
@@ -83,12 +83,16 @@ export async function GET() {
       consent: !!p.consent_version,
       consent_version: p.consent_version || null,
       tos_accepted_at: p.tos_accepted_at || null,
+      // Consenso commerciale: true = sì, false = rifiutato, null = mai chiesto (legacy/Google)
+      marketing: p.marketing_consent === true ? true : p.marketing_consent === false ? false : null,
+      marketing_at: p.marketing_consent_at || null,
       profileDone: !!(p.sex || p.weight),
       protected: PROTECTED_EMAILS.includes((auth.email || '').toLowerCase()),
     };
   });
 
   const withConsent = users.filter((u) => u.consent).length;
+  const marketingYes = users.filter((u) => u.marketing === true).length;
 
   return NextResponse.json({
     users,
@@ -97,6 +101,7 @@ export async function GET() {
     liveCount: liveSessions.length,
     me: gate.user.id,
     gdpr: { withConsent, withoutConsent: users.length - withConsent },
+    marketing: { yes: marketingYes, no: users.length - marketingYes },
   });
 }
 
