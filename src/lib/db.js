@@ -3134,17 +3134,39 @@ export const db = {
     const user = await this.getCurrentUser();
     if (!user) return false;
 
+    const toUint8 = (b64) => {
+      const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+      const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(base64);
+      const arr = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr;
+    };
+    // Base64url della chiave server di una subscription esistente, per confrontarla con
+    // la VAPID corrente: se non combaciano (chiavi ruotate o residuo del vecchio dominio)
+    // la subscription è inutilizzabile e va rifatta.
+    const keyB64url = (ab) => {
+      if (!ab) return null;
+      const bytes = new Uint8Array(ab);
+      let s = '';
+      for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    };
+
     const reg = await this._swReady();
     let sub = await reg.pushManager.getSubscription();
+    // Se la chiave della subscription esistente non corrisponde alla VAPID attuale,
+    // annullala (e rimuovi la riga orfana dal DB) così se ne crea una valida.
+    if (sub) {
+      const existingKey = keyB64url(sub.options?.applicationServerKey);
+      if (existingKey && existingKey !== vapid.replace(/=+$/, '')) {
+        const oldEndpoint = sub.endpoint;
+        try { await sub.unsubscribe(); } catch { /* noop */ }
+        try { await supabase.from('push_subscriptions').delete().eq('endpoint', oldEndpoint); } catch { /* noop */ }
+        sub = null;
+      }
+    }
     if (!sub) {
-      const toUint8 = (b64) => {
-        const padding = '='.repeat((4 - (b64.length % 4)) % 4);
-        const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const raw = atob(base64);
-        const arr = new Uint8Array(raw.length);
-        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-        return arr;
-      };
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toUint8(vapid) });
     }
     const { error } = await supabase.from('push_subscriptions').upsert(

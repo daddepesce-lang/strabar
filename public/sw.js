@@ -1,7 +1,9 @@
 // Service worker minimale per Strabar PWA.
 // Strategia: network-first per le navigazioni (così i dati restano freschi),
 // cache-first per gli asset statici, con fallback offline.
-const CACHE = 'strabar-v1';
+// v2: bump dopo il cambio dominio — forza ogni dispositivo a installare un SW
+// fresco e a svuotare la cache vecchia (legata al dominio precedente).
+const CACHE = 'strabar-v2';
 const OFFLINE_ASSETS = ['/', '/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
