@@ -486,7 +486,7 @@ export const db = {
       if (error) throw error;
       return (data || []).map((c) => ({
         id: c.user_id,
-        name: c.profiles?.display_name || c.profiles?.username || 'Atleta Strabar',
+        name: publicName(c.profiles, 'Atleta Strabar'),
         username: c.profiles?.username || null,
       }));
     }
@@ -2038,7 +2038,7 @@ export const db = {
       const uid = a.user_id;
       if (!uid) return;
       const revealed = a.profiles?.public_leaderboard !== false || revealIds.has(uid);
-      const name = revealed ? (a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar') : 'Atleta riservato';
+      const name = revealed ? publicName(a.profiles, 'Atleta Strabar') : 'Atleta riservato';
       if (!byUser[uid]) byUser[uid] = { user_id: uid, name, revealed, units: 0, isPremium: a.profiles?.is_premium || false };
       byUser[uid].units += parseFloat(a.total_units || 0);
     });
@@ -2677,7 +2677,7 @@ export const db = {
       if (!byUser[uid]) {
         byUser[uid] = {
           user_id: uid,
-          name: a.profiles?.display_name || a.profiles?.username || 'Atleta Strabar',
+          name: publicName(a.profiles, 'Atleta Strabar'),
           username: a.profiles?.username || 'atleta',
           is_premium: a.profiles?.is_premium || false,
           public_leaderboard: a.profiles?.public_leaderboard !== false, // default: visibile
@@ -2732,7 +2732,7 @@ export const db = {
       if (!byUser[uid]) {
         byUser[uid] = {
           user_id: uid,
-          name: s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar',
+          name: publicName(s.profiles, 'Atleta Strabar'),
           username: s.profiles?.username || 'atleta',
           is_premium: s.profiles?.is_premium || false,
           public_leaderboard: s.profiles?.public_leaderboard !== false, // default: visibile
@@ -2787,7 +2787,7 @@ export const db = {
       .map((s) => {
         const revealed = s.profiles?.public_leaderboard !== false || revealIds.has(s.user_id);
         return {
-          name: revealed ? (s.profiles?.display_name || s.profiles?.username || 'Atleta') : 'Atleta riservato',
+          name: revealed ? publicName(s.profiles, 'Atleta') : 'Atleta riservato',
           revealed,
           bac: this.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex),
         };
