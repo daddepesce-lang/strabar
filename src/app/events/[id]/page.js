@@ -584,6 +584,21 @@ export default function EventDetailPage({ params }) {
       {/* RSVP */}
       <div className="card">
         <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Ci sarai?</h3>
+        {!currentUser && (
+          <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'rgba(255,32,0,0.06)', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-dark-primary)', lineHeight: 1.5, marginBottom: '12px' }}>
+              👋 Sei stato invitato! Per <strong>partecipare</strong> ti basta un account gratuito.
+            </p>
+            <button
+              onClick={() => router.push(`/auth?next=${encodeURIComponent(`/events/${id}${shareToken ? `?t=${shareToken}` : ''}`)}`)}
+              className="btn btn-primary"
+              style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700 }}
+            >
+              Accedi o registrati per partecipare
+            </button>
+          </div>
+        )}
+        {currentUser && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           {RSVP.map(({ key, label, icon: Icon, color }) => {
             const active = event.myResponse === key;
@@ -608,6 +623,7 @@ export default function EventDetailPage({ params }) {
             );
           })}
         </div>
+        )}
 
         {/* Avvia una sessione live pre-compilata per questo evento */}
         {currentUser && (isHost || event.isInvited || event.myResponse) && (
