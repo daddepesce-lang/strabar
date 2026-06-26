@@ -16,18 +16,33 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Supabase, arrivando dal link email, crea una sessione di recupero.
-    // L'evento PASSWORD_RECOVERY conferma che possiamo impostare la nuova password.
     let supabase;
     try {
       supabase = createClient();
     } catch {
       return;
     }
+
+    // Flusso token_hash (robusto cross-dispositivo / cross-dominio): il link email
+    // contiene ?token_hash=...&type=recovery. verifyOtp NON richiede il code verifier
+    // PKCE (che vive solo nel browser dove hai CHIESTO il reset), quindi funziona anche
+    // aprendo il link su un altro dispositivo o sul nuovo dominio dopo il cambio.
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get('token_hash');
+    const type = params.get('type') || 'recovery';
+    if (tokenHash) {
+      supabase.auth.verifyOtp({ type, token_hash: tokenHash })
+        .then(({ error }) => {
+          if (error) setError('Link non valido o scaduto. Richiedi un nuovo reset password.');
+          else setReady(true);
+        });
+    }
+
+    // Fallback: PKCE (?code, stesso browser) e implicito (#access_token) — @supabase/ssr
+    // li rileva da solo ed emette PASSWORD_RECOVERY / SIGNED_IN.
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') setReady(true);
     });
-    // Controllo immediato: se c'è già una sessione valida
     supabase.auth.getSession().then(({ data }) => {
       if (data?.session) setReady(true);
     });
