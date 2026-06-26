@@ -219,14 +219,23 @@ export default function ShareActivityPage({ params }) {
         if (line) lines.push(line);
         return lines;
       };
-      const fitSize = (text, weight, base, min) => {
+      // Riduce il font finché entra; se al minimo è ancora troppo lungo, tronca con ellissi.
+      // Garantisce che NIENTE esca dalla card (es. nomi di drink lunghi).
+      const fitText = (text, weight, base, min) => {
         let s = base;
-        do { ctx.font = `${weight} ${s}px "DM Sans", sans-serif`; if (ctx.measureText(text).width <= maxW) break; s -= 4; } while (s > min);
-        return s;
+        ctx.font = `${weight} ${s}px "DM Sans", sans-serif`;
+        while (ctx.measureText(text).width > maxW && s > min) { s -= 4; ctx.font = `${weight} ${s}px "DM Sans", sans-serif`; }
+        let t = text;
+        if (ctx.measureText(t).width > maxW) {
+          while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+          t = t.trimEnd() + '…';
+        }
+        return { text: t, size: s };
       };
 
       const titleSize = compact ? 58 : 74;
-      const statSize = fitSize(mainStat, '800', compact ? 104 : 148, 56);
+      const stat = fitText(mainStat, '800', compact ? 104 : 148, 44);
+      const statSize = stat.size;
       let titleLines = wrap(activity.title || 'Brindisi', `800 ${titleSize}px "DM Sans", sans-serif`, maxW);
       if (titleLines.length > 2) { titleLines = titleLines.slice(0, 2); titleLines[1] = titleLines[1].slice(0, -1) + '…'; }
 
@@ -281,10 +290,10 @@ export default function ShareActivityPage({ params }) {
       ctx.fillText(meta, M, y);
       y += hMeta + gapMeta;
 
-      // STATISTICA PRINCIPALE (eroe)
+      // STATISTICA PRINCIPALE (eroe) — testo già adattato/troncato per non sforare.
       ctx.fillStyle = '#FFFFFF';
       ctx.font = `800 ${statSize}px "DM Sans", sans-serif`;
-      ctx.fillText(mainStat, M, y);
+      ctx.fillText(stat.text, M, y);
       y += hStat + gapStat;
 
       // Statistiche secondarie
@@ -302,15 +311,16 @@ export default function ShareActivityPage({ params }) {
       // Performance (lista pulita, max 3 tipi)
       if (perf) {
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        const ps = fitSize(perf, '600', 32, 22);
-        ctx.font = `600 ${ps}px "DM Sans", sans-serif`;
-        ctx.fillText(perf, M, y);
+        const pf = fitText(perf, '600', 32, 20);
+        ctx.font = `600 ${pf.size}px "DM Sans", sans-serif`;
+        ctx.fillText(pf.text, M, y);
       }
 
       ctx.textBaseline = 'alphabetic';
       ctx.textAlign = 'left';
     };
 
+    const render = () => {
     if (usePhoto) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -337,6 +347,11 @@ export default function ShareActivityPage({ params }) {
     } else {
       drawStats();
     }
+    };
+    // Disegna SOLO dopo che i font sono pronti: così measureText combacia col render
+    // (i nomi lunghi venivano misurati col font di fallback e poi sforavano).
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+    else render();
   }, [activity, sharingTheme, cardFormat, selectedPhotoIdx, logoReady]);
 
   const handleDownload = () => {
