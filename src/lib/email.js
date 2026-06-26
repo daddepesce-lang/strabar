@@ -54,6 +54,10 @@ export async function sendPasswordResetEmail(to, link) {
   }
   const resend = new Resend(apiKey);
 
+  // Data/ora della richiesta: info utile di sicurezza E rende ogni email unica,
+  // così Gmail non collassa i messaggi identici dietro "..." (contenuto ritagliato).
+  const when = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome', dateStyle: 'long', timeStyle: 'short' });
+
   const { data, error } = await resend.emails.send({
     from: FROM,
     to,
@@ -70,7 +74,8 @@ export async function sendPasswordResetEmail(to, link) {
         <p style="line-height:1.6;color:#9CA3AF;font-size:13px">
           Il link è valido per un'ora. Se non hai richiesto tu il reset, ignora questa email: la password resta invariata.
         </p>
-        <p style="font-size:12px;color:#6b7280;margin-top:24px">18+ · Bevi responsabilmente.</p>
+        <p style="line-height:1.6;color:#6b7280;font-size:12px;margin-top:20px">Richiesta ricevuta il ${when}.</p>
+        <p style="font-size:12px;color:#6b7280;margin-top:8px">18+ · Bevi responsabilmente.</p>
       </div>
     `,
   });
