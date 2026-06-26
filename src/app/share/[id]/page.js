@@ -39,8 +39,12 @@ export default function ShareActivityPage({ params }) {
         const found = await db.getActivity(activityId);
         if (found) {
           setActivity(found);
-          // Foto protagonista: se la sessione ha immagini, parti dallo sfondo foto.
-          if ((found.media || []).some((m) => m.type === 'image')) setSharingTheme('photo');
+          // Default: foto se c'è, altrimenti mappa (se geolocalizzata e non nascosta), altrimenti gradiente.
+          const hasImg = (found.media || []).some((m) => m.type === 'image');
+          const l = found.location;
+          const geo = l && typeof l.lat === 'number' && typeof (l.lng ?? l.lon) === 'number' && !l.hidden;
+          if (hasImg) setSharingTheme('photo');
+          else if (geo) setSharingTheme('map');
         }
       } catch (err) {
         console.error("Errore caricamento attività per condivisione:", err);
@@ -61,12 +65,22 @@ export default function ShareActivityPage({ params }) {
     // 'story' 1080x1920 (9:16) o 'post' 1080x1080 (1:1).
     const W = 1080;
     const H = cardFormat === 'post' ? 1080 : 1920;
-    canvas.width = W;
-    canvas.height = H;
+    // Super-sampling: render a risoluzione maggiore → testo/grafica più nitidi.
+    // NESSUN egress in più: la foto sorgente è la stessa, qui solo upscaling locale.
+    const S = 1.5;
+    canvas.width = Math.round(W * S);
+    canvas.height = Math.round(H * S);
+    ctx.setTransform(S, 0, 0, S, 0, 0); // si disegna sempre in coordinate "design" W×H
 
     const images = activity.media?.filter(m => m.type === 'image') || [];
     const hasPhoto = images.length > 0;
     const usePhoto = sharingTheme === 'photo' && hasPhoto;
+    // Sfondo-mappa (CARTO dark, gratis senza chiave) quando non c'è foto ma c'è la posizione.
+    const loc = activity.location;
+    const geoLat = loc && typeof loc.lat === 'number' ? loc.lat : null;
+    const geoLng = loc && typeof (loc.lng ?? loc.lon) === 'number' ? (loc.lng ?? loc.lon) : null;
+    const hasGeo = geoLat !== null && geoLng !== null && !loc?.hidden;
+    const useMap = sharingTheme === 'map' && hasGeo;
     const rawPhotoUrl = (images[selectedPhotoIdx] || images[0])?.url;
     // I media stanno su R2 (*.r2.dev) senza header CORS: caricarli direttamente con
     // crossOrigin fallisce e la foto non compare. Li facciamo passare dal proxy
@@ -108,8 +122,8 @@ export default function ShareActivityPage({ params }) {
       const M = 90;                 // margine laterale
       const compact = H <= 1200;    // formato post (1:1) più compatto della storia (9:16)
 
-      // --- Sfondo / overlay (foto protagonista) ---
-      if (usePhoto) {
+      // --- Sfondo / overlay (foto o mappa protagonista) ---
+      if (usePhoto || useMap) {
         const top = ctx.createLinearGradient(0, 0, 0, 380);
         top.addColorStop(0, 'rgba(0,0,0,0.7)');
         top.addColorStop(1, 'rgba(0,0,0,0)');
@@ -320,8 +334,50 @@ export default function ShareActivityPage({ params }) {
       ctx.textAlign = 'left';
     };
 
+    // Disegna lo sfondo-mappa (CARTO dark) componendo i tile, poi le statistiche.
+    // Egress contenuto: la mappa copre solo il quadrato in alto (W×W); il resto è scuro
+    // perché il gradiente in basso lo coprirebbe comunque. Tile immutabili → cache lunga.
+    const drawMapThenStats = () => {
+      const Z = 15, TS = 512; // tile @2x: meno tile a parità di copertura
+      const n = 2 ** Z;
+      const latRad = geoLat * Math.PI / 180;
+      const cxPx = ((geoLng + 180) / 360 * n) * TS;
+      const cyPx = ((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2 * n) * TS;
+      const mapH = W; // la mappa occupa il quadrato superiore W×W, locale al centro
+      const originX = cxPx - W / 2;
+      const originY = cyPx - mapH / 2;
+      const x0 = Math.floor(originX / TS), x1 = Math.floor((originX + W) / TS);
+      const y0 = Math.floor(originY / TS), y1 = Math.floor((originY + mapH) / TS);
+      const tiles = [];
+      for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) tiles.push({ tx, ty });
+      const store = {}; let done = 0;
+      const finish = () => {
+        ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
+        tiles.forEach(({ tx, ty }) => {
+          const im = store[`${tx}_${ty}`];
+          if (im) ctx.drawImage(im, tx * TS - originX, ty * TS - originY, TS, TS);
+        });
+        // Pin del locale al centro della mappa
+        const px = W / 2, py = mapH / 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(px, py + 18, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#FF2000'; ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+        drawStats();
+      };
+      tiles.forEach(({ tx, ty }) => {
+        const im = new Image(); im.crossOrigin = 'anonymous';
+        const xn = ((tx % n) + n) % n;
+        const url = `https://basemaps.cartocdn.com/dark_all/${Z}/${xn}/${ty}@2x.png`;
+        im.onload = () => { store[`${tx}_${ty}`] = im; if (++done === tiles.length) finish(); };
+        im.onerror = () => { if (++done === tiles.length) finish(); };
+        im.src = `/api/img?url=${encodeURIComponent(url)}`;
+      });
+    };
+
     const render = () => {
-    if (usePhoto) {
+    if (useMap) {
+      drawMapThenStats();
+    } else if (usePhoto) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
@@ -451,49 +507,42 @@ export default function ShareActivityPage({ params }) {
         La tua serata in una card: foto a tutto schermo, perfetta per le storie di Instagram o i post. Scegli formato e sfondo, poi condividi.
       </p>
 
-      {/* Selettore Stile Condivisione (solo se ci sono foto) */}
-      {activity.media?.filter(m => m.type === 'image').length > 0 && (
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-          <button 
-            type="button"
-            onClick={() => setSharingTheme('gradient')} 
-            className="btn" 
-            style={{ 
-              flex: 1, 
-              borderRadius: '20px', 
-              fontSize: '13px', 
-              padding: '10px',
-              fontWeight: 'bold',
-              background: sharingTheme === 'gradient' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
-              color: sharingTheme === 'gradient' ? '#FFF' : 'var(--text-dark-secondary)',
-              border: sharingTheme === 'gradient' ? 'none' : '1px solid var(--border-dark)',
-              cursor: 'pointer',
-              transition: 'var(--transition)'
-            }}
-          >
-            🎨 Sfondo Gradiente
-          </button>
-          <button
-            type="button"
-            onClick={() => setSharingTheme('photo')}
-            className="btn"
-            style={{
-              flex: 1,
-              borderRadius: '20px',
-              fontSize: '13px',
-              padding: '10px',
-              fontWeight: 'bold',
-              background: sharingTheme === 'photo' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
-              color: sharingTheme === 'photo' ? '#FFF' : 'var(--text-dark-secondary)',
-              border: sharingTheme === 'photo' ? 'none' : '1px solid var(--border-dark)',
-              cursor: 'pointer',
-              transition: 'var(--transition)'
-            }}
-          >
-            📸 La tua foto
-          </button>
-        </div>
-      )}
+      {/* Selettore sfondo: Foto (se c'è) · Mappa (se geolocalizzata) · Gradiente */}
+      {(() => {
+        const hasImg = activity.media?.some((m) => m.type === 'image');
+        const l = activity.location;
+        const geo = l && typeof l.lat === 'number' && typeof (l.lng ?? l.lon) === 'number' && !l.hidden;
+        const opts = [
+          ...(hasImg ? [{ v: 'photo', label: '📸 Foto' }] : []),
+          ...(geo ? [{ v: 'map', label: '🗺️ Mappa' }] : []),
+          { v: 'gradient', label: '🎨 Gradiente' },
+        ];
+        if (opts.length < 2) return null; // nessuna scelta utile → niente selettore
+        return (
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {opts.map((o) => {
+              const on = sharingTheme === o.v;
+              return (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setSharingTheme(o.v)}
+                  className="btn"
+                  style={{
+                    flex: 1, borderRadius: '20px', fontSize: '13px', padding: '10px', fontWeight: 'bold',
+                    background: on ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
+                    color: on ? '#FFF' : 'var(--text-dark-secondary)',
+                    border: on ? 'none' : '1px solid var(--border-dark)',
+                    cursor: 'pointer', transition: 'var(--transition)',
+                  }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Scelta della foto da usare come sfondo della card */}
       {sharingTheme === 'photo' && activity.media?.filter(m => m.type === 'image').length > 0 && (
