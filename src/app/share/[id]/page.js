@@ -81,9 +81,12 @@ export default function ShareActivityPage({ params }) {
     // il BAC della card è 0,0 anche quando il pannello live mostra un residuo dalle sessioni
     // precedenti. sessionResidualGrams preferisce activity.residual_grams.
     const liveResidual = db.sessionResidualGrams(activity, [], activity.profiles?.weight, activity.profiles?.sex);
+    // Live → BAC attuale (come il pannello live). Sessione chiusa → BAC di PICCO
+    // (come il feed): activity.bac_level è lo snapshot dell'ultimo salvataggio e a
+    // sessione finita è quasi sempre 0,0 (alcol ormai smaltito) → la card mostrava 0.
     const displayBac = isLive
       ? db.calculateCurrentBAC(activity.drinks || [], activity.created_at, liveElapsedMin, undefined, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual)
-      : parseFloat(activity.bac_level || 0);
+      : db.calculatePeakBAC(activity.drinks || [], activity.created_at, activity.duration || displayDuration, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual);
 
     const drawStats = () => {
       // 1. Disegna lo sfondo
