@@ -2664,8 +2664,34 @@ export const db = {
   // includeAll = false → solo check-in geolocalizzati verificati (classifica VERIFICATA).
   // includeAll = true  → tutte le sessioni, anche libere/private (classifica ATTIVITÀ TOTALE,
   //                      non verificata: solo statistica, niente premi/valore competitivo).
-  async getUserLeaderboard(viewerId, includeAll = false) {
+  // Intervallo temporale per le classifiche a periodo.
+  //  • 'week'    = settimana corrente (da lunedì 00:00).
+  //  • 'weekend' = venerdì→domenica: se è ven/sab/dom il weekend in corso, altrimenti l'ultimo passato.
+  //  • 'all'     = sempre (nessun limite).
+  _periodRange(period) {
+    if (period !== 'week' && period !== 'weekend') return { from: -Infinity, to: Infinity };
+    const d = new Date();
+    const day = d.getDay(); // 0=dom, 1=lun, ... 5=ven, 6=sab
+    d.setHours(0, 0, 0, 0);
+    if (period === 'week') {
+      const toMonday = day === 0 ? 6 : day - 1;
+      const from = new Date(d); from.setDate(d.getDate() - toMonday);
+      return { from: from.getTime(), to: Infinity };
+    }
+    // weekend: trova il venerdì di riferimento
+    let backToFriday;
+    if (day === 5) backToFriday = 0;          // venerdì
+    else if (day === 6) backToFriday = 1;     // sabato
+    else if (day === 0) backToFriday = 2;     // domenica
+    else backToFriday = day + 2;              // lun→3, mar→4, mer→5, gio→6 (ultimo weekend)
+    const fri = new Date(d); fri.setDate(d.getDate() - backToFriday);
+    const end = new Date(fri); end.setDate(fri.getDate() + 3); // lunedì 00:00 = fine domenica (esclusivo)
+    return { from: fri.getTime(), to: end.getTime() };
+  },
+
+  async getUserLeaderboard(viewerId, includeAll = false, period = 'all') {
     const activities = await this.getActivities();
+    const { from, to } = this._periodRange(period);
     const counts = (a) => includeAll
       ? true                              // tutte le sessioni (anche libere e private)
       : this._countsForGlobalBoard(a);    // solo geolocalizzate verificate (private incluse)
@@ -2674,6 +2700,8 @@ export const db = {
       const uid = a.user_id;
       if (!uid) return;
       if (!counts(a)) return;
+      const t = new Date(a.created_at).getTime();
+      if (t < from || t >= to) return; // fuori dal periodo selezionato
       if (!byUser[uid]) {
         byUser[uid] = {
           user_id: uid,

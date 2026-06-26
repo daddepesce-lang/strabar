@@ -47,6 +47,7 @@ export default function ClassifichePage() {
   // Atleti
   const [users, setUsers] = useState([]);
   const [boardMode, setBoardMode] = useState('verified'); // 'verified' | 'all'
+  const [period, setPeriod] = useState('week'); // 'week' | 'weekend' | 'all' — default: race settimanale
   const [userSort, setUserSort] = useState('units');
 
   // Locali
@@ -277,8 +278,8 @@ export default function ClassifichePage() {
   // Classifica atleti: ricarica quando cambia modalità (Verificata / Totale) o spettatore.
   useEffect(() => {
     if (typeof db.getUserLeaderboard !== 'function') return;
-    db.getUserLeaderboard(currentUser?.id, boardMode === 'all').then(setUsers).catch(() => {});
-  }, [boardMode, currentUser?.id]);
+    db.getUserLeaderboard(currentUser?.id, boardMode === 'all', period).then(setUsers).catch(() => {});
+  }, [boardMode, period, currentUser?.id]);
 
   useEffect(() => {
     loadAll();
@@ -358,6 +359,13 @@ export default function ClassifichePage() {
 
       {tab === 'atleti' && (
         <>
+          {/* Periodo: race settimanale (default), weekend (ven→dom) o di sempre */}
+          <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '480px' }}>
+            <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>📅 Settimana</div>
+            <div className={`seg-tab ${period === 'weekend' ? 'active' : ''}`} onClick={() => setPeriod('weekend')}>🎉 Weekend</div>
+            <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>♾️ Sempre</div>
+          </div>
+
           {/* Modalità classifica: Verificata (locali) vs Attività totale (anche libere) */}
           <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '420px' }}>
             <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>🏆 Verificata</div>
@@ -407,7 +415,11 @@ export default function ClassifichePage() {
           {sortedUsers.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-                Nessun atleta in classifica. Registra la prima sessione! 🍺
+                {period === 'week'
+                  ? 'Nessuna sessione questa settimana. Aprila tu la race! 🍺'
+                  : period === 'weekend'
+                  ? 'Nessuna sessione nel weekend. Sii il primo a brindare! 🍺'
+                  : 'Nessun atleta in classifica. Registra la prima sessione! 🍺'}
               </p>
               <Link href="/log" className="btn btn-primary">Registra una sessione</Link>
             </div>
