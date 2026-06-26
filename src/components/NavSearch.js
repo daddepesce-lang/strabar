@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import { publicName } from '@/lib/names';
 import { Search, Loader } from 'lucide-react';
 
 // Lente in navbar: apre una tendina con anteprima risultati; "Vedi tutti" → /search
@@ -86,10 +87,10 @@ export default function NavSearch() {
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 6px', borderRadius: '8px', textDecoration: 'none' }}
                   >
                     <div className="activity-avatar" style={{ width: 34, height: 34, fontSize: 14, flexShrink: 0 }}>
-                      {u.display_name?.charAt(0)?.toUpperCase() || 'U'}
+                      {publicName(u).replace(/^@/, '').charAt(0)?.toUpperCase() || 'U'}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.display_name}</strong>
+                      <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(u)}</strong>
                       <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{u.username}</span>
                     </div>
                   </Link>
