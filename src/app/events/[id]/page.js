@@ -66,7 +66,7 @@ export default function EventDetailPage({ params }) {
   // Modifica evento (solo organizzatore)
   const [showEdit, setShowEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [edit, setEdit] = useState({ title: '', description: '', date: '', routeId: '' });
+  const [edit, setEdit] = useState({ title: '', description: '', date: '', routeId: '', visibility: 'public' });
   const [locQuery, setLocQuery] = useState('');
   const [locResults, setLocResults] = useState([]);
   const [locSearching, setLocSearching] = useState(false);
@@ -143,6 +143,7 @@ export default function EventDetailPage({ params }) {
       description: event.description || '',
       date: event.date ? toLocalInput(event.date) : '',
       routeId: event.route_id || '',
+      visibility: event.visibility || 'public',
     });
     setEditLocName(event.location_name || '');
     setLocQuery(event.location_name || '');
@@ -180,6 +181,7 @@ export default function EventDetailPage({ params }) {
         location: selectedLoc && selectedLoc.lat != null ? selectedLoc : null,
         route_id: edit.routeId || null,
         route_name: selectedRoute?.name || null,
+        visibility: edit.visibility || 'public',
       });
       setShowEdit(false);
       await load();
@@ -440,7 +442,22 @@ export default function EventDetailPage({ params }) {
       {/* Intestazione evento */}
       <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.06) 100%)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: 800 }}>{event.title}</h1>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 800 }}>{event.title}</h1>
+            {(() => {
+              const v = event.visibility || 'public';
+              const meta = v === 'private'
+                ? { icon: '🔒', label: 'Solo invitati', color: 'var(--error)' }
+                : v === 'friends'
+                ? { icon: '👥', label: 'Solo amici', color: 'var(--secondary)' }
+                : { icon: '🌍', label: 'Pubblico', color: 'var(--success)' };
+              return (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '6px', fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${meta.color}`, color: meta.color }}>
+                  {meta.icon} {meta.label}
+                </span>
+              );
+            })()}
+          </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button onClick={shareWhatsApp} className="btn" style={{ padding: '8px 14px', fontSize: '13px', background: '#25D366', color: '#fff', fontWeight: 700 }}>
               <MessageCircle size={15} /> WhatsApp
@@ -460,6 +477,12 @@ export default function EventDetailPage({ params }) {
             )}
           </div>
         </div>
+
+        {isHost && (event.visibility || 'public') !== 'public' && (
+          <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+            🔗 Questo evento {(event.visibility === 'private') ? 'è privato' : 'è solo per amici'}: il link che condividi si apre <strong style={{ color: 'var(--text-dark-primary)' }}>solo per {(event.visibility === 'private') ? 'le persone che inviti' : 'i tuoi amici e gli invitati'}</strong>. Per chi non ne ha diritto risulterà introvabile.
+          </p>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: 'var(--primary)', fontWeight: 600 }}>
@@ -835,6 +858,30 @@ export default function EventDetailPage({ params }) {
                   <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Chi può vedere questo evento</label>
+              <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { v: 'public', t: '🌍 Tutti' },
+                  { v: 'friends', t: '👥 Amici' },
+                  { v: 'private', t: '🔒 Solo invitati' },
+                ].map((o) => (
+                  <div
+                    key={o.v}
+                    onClick={() => setEdit((p) => ({ ...p, visibility: o.v }))}
+                    style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '9px 4px', borderRadius: '10px', fontWeight: 700, fontSize: '13px', border: edit.visibility === o.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: edit.visibility === o.v ? 'var(--primary)' : 'var(--text-dark-primary)', background: 'var(--bg-input-dark)' }}
+                  >{o.t}</div>
+                ))}
+              </div>
+              <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
+                {edit.visibility === 'public'
+                  ? '🌍 Visibile a tutti e apribile da chiunque abbia il link.'
+                  : edit.visibility === 'friends'
+                  ? '👥 Visibile solo ai tuoi amici e agli invitati. Il link funziona solo per loro.'
+                  : '🔒 Visibile solo a te e agli invitati. Il link funziona solo per gli invitati.'}
+              </p>
             </div>
 
             <div className="form-group">

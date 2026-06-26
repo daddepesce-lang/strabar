@@ -740,7 +740,7 @@ export default function LogActivityPage() {
       {/* MODAL 2: Selettore Locale (ricerca reale OpenStreetMap) */}
       {showLocaleSelector && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '20px' }}>
-          <div className="card" style={{ maxWidth: '500px', width: '100%', border: '1px solid var(--border-dark)', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative' }}>
+          <div className="card" style={{ maxWidth: '500px', width: '100%', border: '1px solid var(--border-dark)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative' }}>
             <button
               onClick={() => setShowLocaleSelector(false)}
               style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}
@@ -808,7 +808,7 @@ export default function LogActivityPage() {
             )}
 
             {/* Lista Locali */}
-            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px', minHeight: '120px' }}>
+            <div style={{ overflowY: 'auto', flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
               {loadingVenues && localeSearchQuery.trim().length < 2 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '30px 0', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>
                   <Loader size={26} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />

@@ -2425,27 +2425,52 @@ export const db = {
         )
         .join('') +
       `);out center 60;`;
-    try {
-      const res = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(body),
-      });
-      if (!res.ok) throw new Error('Overpass ' + res.status);
-      const data = await res.json();
-      const venues = (data.elements || [])
-        .map((el) => this._normalizeOsmVenue(el))
-        .filter(Boolean)
-        .map((v) => ({
-          ...v,
-          distance: this.checkGeofencing(v.lat, v.lng, lat, lng, Infinity).distance,
-        }))
-        .sort((a, b) => (a.distance || 0) - (b.distance || 0));
-      return this._dedupeVenues(venues);
-    } catch (err) {
-      console.warn('Ricerca locali vicini (Overpass) fallita:', err.message || err);
+    // Overpass è notoriamente lento/instabile: un singolo endpoint spesso va in timeout
+    // o risponde 429 al primo colpo (per questo "rifacendo la ricerca poi li trova").
+    // Proviamo più mirror in sequenza con un timeout per tentativo: il primo che risponde vince.
+    const MIRRORS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    ];
+    const fetchOverpass = async (url) => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(body),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) throw new Error('Overpass ' + res.status);
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+    let data = null;
+    for (const url of MIRRORS) {
+      try {
+        data = await fetchOverpass(url);
+        break;
+      } catch (err) {
+        console.warn('Mirror Overpass fallito (' + url + '):', err.message || err);
+      }
+    }
+    if (!data) {
+      console.warn('Tutti i mirror Overpass hanno fallito.');
       return [];
     }
+    const venues = (data.elements || [])
+      .map((el) => this._normalizeOsmVenue(el))
+      .filter(Boolean)
+      .map((v) => ({
+        ...v,
+        distance: this.checkGeofencing(v.lat, v.lng, lat, lng, Infinity).distance,
+      }))
+      .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    return this._dedupeVenues(venues);
   },
 
   // Locali reali entro un raggio dalla posizione GPS (default 200m, come da geofencing),
@@ -2923,6 +2948,7 @@ export const db = {
           location: data.location || null,
           route_id: data.route_id || null,
           route_name: data.route_name || null,
+          visibility: data.visibility || 'public', // public | friends | private
           invited,
         })
         .select()
@@ -2954,6 +2980,7 @@ export const db = {
       location: data.location || null,
       route_id: data.route_id || null,
       route_name: data.route_name || null,
+      visibility: data.visibility || 'public',
       invited,
       responses: [{ user_id: user.id, user_name: user.display_name || user.username, status: 'going', created_at: new Date().toISOString() }],
       created_at: new Date().toISOString(),
@@ -3058,7 +3085,7 @@ export const db = {
   async updateEvent(eventId, fields) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato!');
-    const allowed = ['title', 'description', 'date', 'location_name', 'location', 'route_id', 'route_name'];
+    const allowed = ['title', 'description', 'date', 'location_name', 'location', 'route_id', 'route_name', 'visibility'];
     const patch = {};
     allowed.forEach((k) => { if (k in fields) patch[k] = fields[k]; });
 

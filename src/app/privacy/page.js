@@ -47,6 +47,13 @@ export default function PrivacyPage() {
         <section>
           <h2 style={s.h2}>Visibilità dei contenuti</h2>
           <p>{APP_NAME} è un social: profilo, sessioni, classifiche, commenti e &quot;cheers&quot; sono <strong>visibili agli altri utenti</strong>. Non pubblicare ciò che vuoi mantenere privato.</p>
+          <p style={{ marginTop: '10px' }}><strong>Eventi e itinerari (tour)</strong> hanno una privacy che scegli tu, per singolo elemento, tra tre livelli:</p>
+          <ul style={s.ul}>
+            <li><strong>🌍 Pubblico:</strong> visibile a tutti gli utenti e apribile da chiunque abbia il link di condivisione.</li>
+            <li><strong>👥 Amici:</strong> visibile solo a chi è collegato a te da un follow (e, per gli eventi, alle persone che inviti). Il link funziona solo per loro.</li>
+            <li><strong>🔒 Privato / Solo invitati:</strong> visibile solo a te e — per gli eventi — alle persone che inviti. Anche il link di condivisione si apre solo per chi ne ha diritto; per gli altri l&apos;elemento risulta introvabile.</li>
+          </ul>
+          <p style={{ marginTop: '10px' }}>Gli eventi e gli itinerari creati prima dell&apos;introduzione di questi controlli restano <strong>pubblici</strong> come in precedenza, ma il proprietario può modificarne la visibilità in qualsiasi momento dalle rispettive schermate. Un evento può includere un itinerario: la sua visibilità segue le impostazioni dell&apos;itinerario stesso, quindi un itinerario privato resta protetto anche se collegato a un evento pubblico (di quest&apos;ultimo viene mostrato al più il nome scelto dall&apos;organizzatore).</p>
         </section>
 
         <section>
