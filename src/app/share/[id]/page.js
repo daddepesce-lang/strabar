@@ -202,6 +202,11 @@ export default function ShareActivityPage({ params }) {
         ? grouped.slice(0, 3).map((d) => `${drinkEmoji(d.name)} ${d.name} ×${d.qty}`).join('    ')
         : '';
 
+      // CTA variabile ma STABILE per sessione (hash dell'id → stessa frase a ogni render).
+      const ctaPool = ['E tu quanto fai?', 'Batti questa prestazione.', 'Registra il tuo brindisi.', 'Tocca a te.', 'Reggi il confronto?'];
+      const idHash = String(activity.id || '').split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+      const ctaText = ctaPool[idHash % ctaPool.length];
+
       // --- helper layout ---
       const maxW = W - M * 2;
       const wrap = (text, font, mw) => {
@@ -242,7 +247,7 @@ export default function ShareActivityPage({ params }) {
       ctx.textAlign = 'left';
       ctx.font = '700 30px "DM Sans", sans-serif';
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.fillText('E tu quanto fai?', M, ctaTop);
+      ctx.fillText(ctaText, M, ctaTop);
       ctx.textAlign = 'right';
       ctx.font = '800 30px "DM Sans", sans-serif';
       ctx.fillStyle = '#FFFFFF';

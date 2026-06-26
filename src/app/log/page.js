@@ -43,6 +43,8 @@ export default function LogActivityPage() {
   // 'private' = nascosta a tutti finché è live (riappare nel feed solo a chiusura).
   const [liveShare, setLiveShare] = useState('public'); // 'private' | 'friends' | 'public'
   const [fullStomach, setFullStomach] = useState(false); // stomaco pieno → BAC più preciso
+  // Sessione libera: nascondi la posizione (niente GPS → non compari sul radar/mappa).
+  const [hideLocation, setHideLocation] = useState(false);
 
   // Stati per registrazione a posteriori
   const [showRetroForm, setShowRetroForm] = useState(false);
@@ -351,7 +353,10 @@ export default function LogActivityPage() {
       // Visibilità: salviamo sempre lo stato; per Tutti/Amici proviamo a prendere il GPS per il radar
       // freeform: sessione senza locale reale → esclusa da locali/classifiche dei locali.
       const location = { name: 'Sessione Libera', share: liveShare, freeform: true };
-      if (liveShare !== 'private') {
+      // Niente GPS se la sessione è privata O se l'utente ha scelto di nascondere la posizione:
+      // senza coordinate non compare sul radar/mappa.
+      if (hideLocation) location.hidden = true;
+      if (liveShare !== 'private' && !hideLocation) {
         const loc = await requestUserLocation();
         if (loc.coords) {
           location.lat = loc.coords.lat;
@@ -629,6 +634,24 @@ export default function LogActivityPage() {
             <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
             <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>🔒 Privata</div>
           </div>
+
+          {/* Sessione libera: nascondi posizione (no GPS → niente radar/mappa) */}
+          <div style={{ marginTop: '12px' }}>
+            <button
+              type="button"
+              onClick={() => setHideLocation((v) => !v)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', width: '100%', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)' }}
+            >
+              <span style={{ textAlign: 'left' }}>
+                <span style={{ display: 'block', fontSize: '13px', fontWeight: 700 }}>📍 Nascondi la mia posizione</span>
+                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Sessione libera: non comparirai sul radar/mappa</span>
+              </span>
+              <span style={{ width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative', background: hideLocation ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s' }}>
+                <span style={{ position: 'absolute', top: 2, left: hideLocation ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+              </span>
+            </button>
+          </div>
+
           <div style={{ marginTop: '12px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>🍽️ Hai mangiato? (stima BAC più precisa)</span>
             <div className="seg-tabs">
