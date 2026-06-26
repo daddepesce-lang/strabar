@@ -10,6 +10,10 @@ const apiKey = process.env.RESEND_API_KEY;
 // Override possibile con RESEND_FROM (es. "Strabar <ciao@strabar.app>").
 const FROM = process.env.RESEND_FROM || 'Strabar <noreply@strabar.app>';
 
+// Logo: nelle email serve un URL ASSOLUTO e pubblico (no percorsi locali).
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://strabar.app';
+const LOGO_IMG = `<img src="${SITE_URL}/logo.png" alt="Strabar" width="150" style="display:block;width:150px;max-width:60%;height:auto;margin:0 0 20px" />`;
+
 export async function sendWelcomeEmail(to, name) {
   if (!apiKey) {
     console.warn('RESEND_API_KEY non impostata: email di benvenuto saltata.');
@@ -24,6 +28,7 @@ export async function sendWelcomeEmail(to, name) {
     subject: 'Benvenuto su Strabar! 🍻',
     html: `
       <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0D0D0D;color:#F3F4F6;padding:32px;border-radius:16px;max-width:520px;margin:auto">
+        ${LOGO_IMG}
         <h1 style="color:#FF2000;margin:0 0 12px">Benvenuto, ${safeName}! 🍻</h1>
         <p style="line-height:1.6;color:#9CA3AF">
           Sei ufficialmente un atleta di <strong style="color:#fff">Strabar</strong>.
@@ -55,6 +60,7 @@ export async function sendPasswordResetEmail(to, link) {
     subject: 'Reimposta la tua password Strabar 🔑',
     html: `
       <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0D0D0D;color:#F3F4F6;padding:32px;border-radius:16px;max-width:520px;margin:auto">
+        ${LOGO_IMG}
         <h1 style="color:#FF2000;margin:0 0 12px">Reimposta la password 🔑</h1>
         <p style="line-height:1.6;color:#9CA3AF">
           Hai chiesto di reimpostare la password del tuo account <strong style="color:#fff">Strabar</strong>.
