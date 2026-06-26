@@ -18,6 +18,7 @@ export default function ShareActivityPage({ params }) {
   const [loading, setLoading] = useState(true);
   const canvasRef = useRef(null);
   const [sharingTheme, setSharingTheme] = useState('gradient');
+  const [cardFormat, setCardFormat] = useState('story'); // 'story' 9:16 | 'post' 1:1
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
   const [copied, setCopied] = useState(false);
   const logoRef = useRef(null);
@@ -38,6 +39,8 @@ export default function ShareActivityPage({ params }) {
         const found = await db.getActivity(activityId);
         if (found) {
           setActivity(found);
+          // Foto protagonista: se la sessione ha immagini, parti dallo sfondo foto.
+          if ((found.media || []).some((m) => m.type === 'image')) setSharingTheme('photo');
         }
       } catch (err) {
         console.error("Errore caricamento attività per condivisione:", err);
@@ -54,10 +57,12 @@ export default function ShareActivityPage({ params }) {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // Pulisci canvas (Dimensioni: 1080x1080 per risoluzione ottimale Instagram)
-    const size = 1080;
-    canvas.width = size;
-    canvas.height = size;
+    // Foto protagonista a tutto schermo (stile Strava/BeReal). Formato scelto dall'utente:
+    // 'story' 1080x1920 (9:16) o 'post' 1080x1080 (1:1).
+    const W = 1080;
+    const H = cardFormat === 'post' ? 1080 : 1920;
+    canvas.width = W;
+    canvas.height = H;
 
     const images = activity.media?.filter(m => m.type === 'image') || [];
     const hasPhoto = images.length > 0;
@@ -88,271 +93,246 @@ export default function ShareActivityPage({ params }) {
       ? db.calculateCurrentBAC(activity.drinks || [], activity.created_at, liveElapsedMin, undefined, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual)
       : db.calculatePeakBAC(activity.drinks || [], activity.created_at, activity.duration || displayDuration, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual);
 
+    // Emoji indicativa del drink per la riga "Performance".
+    const drinkEmoji = (name) => {
+      const n = (name || '').toLowerCase();
+      if (/birra|beer|lager|ipa|weiss|stout|malto|bionda|rossa/.test(n)) return '🍺';
+      if (/vino|wine|rosso|bianco|prosecco|spumante|bollicine|champagne/.test(n)) return '🍷';
+      if (/spritz|aperol|hugo|mojito|margarita|daiquiri|cocktail|americano/.test(n)) return '🍹';
+      if (/shot|tequila|vodka|rum|gin|whisky|whiskey|grappa|amaro|negroni|sambuca|liquore/.test(n)) return '🥃';
+      if (/acqua|water|soda|cola|succo|analc|tè|the|caff/.test(n)) return '🥤';
+      return '🍸';
+    };
+
     const drawStats = () => {
-      // 1. Disegna lo sfondo
+      const M = 90;                 // margine laterale
+      const compact = H <= 1200;    // formato post (1:1) più compatto della storia (9:16)
+
+      // --- Sfondo / overlay (foto protagonista) ---
       if (usePhoto) {
-        // Vignettatura scura in alto
-        const topGrad = ctx.createLinearGradient(0, 0, 0, 300);
-        topGrad.addColorStop(0, 'rgba(0,0,0,0.85)');
-        topGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = topGrad;
-        ctx.fillRect(0, 0, size, 300);
-
-        // Vignettatura scura in basso
-        const bottomGrad = ctx.createLinearGradient(0, size - 450, 0, size);
-        bottomGrad.addColorStop(0, 'rgba(0,0,0,0)');
-        bottomGrad.addColorStop(1, 'rgba(0,0,0,0.9)');
-        ctx.fillStyle = bottomGrad;
-        ctx.fillRect(0, size - 450, size, 450);
-
-        // Bordo neon leggero
-        ctx.strokeStyle = '#FF2000';
-        ctx.lineWidth = 14;
-        ctx.strokeRect(7, 7, size - 14, size - 14);
+        const top = ctx.createLinearGradient(0, 0, 0, 380);
+        top.addColorStop(0, 'rgba(0,0,0,0.7)');
+        top.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = top; ctx.fillRect(0, 0, W, 380);
+        const bStart = H * 0.40;
+        const bot = ctx.createLinearGradient(0, bStart, 0, H);
+        bot.addColorStop(0, 'rgba(0,0,0,0)');
+        bot.addColorStop(0.5, 'rgba(0,0,0,0.72)');
+        bot.addColorStop(1, 'rgba(0,0,0,0.97)');
+        ctx.fillStyle = bot; ctx.fillRect(0, bStart, W, H - bStart);
       } else {
-        // Gradiente classico Strabar
-        const gradient = ctx.createLinearGradient(0, 0, size, size);
-        gradient.addColorStop(0, '#1E1B18'); // Grigio scuro caldo
-        gradient.addColorStop(0.5, '#0B0A09'); // Quasi nero
-        gradient.addColorStop(1, '#FF2000'); // Arancio neon Strabar
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, size, size);
-
-        // Disegna Cerchi Decorativi sfumati
-        ctx.fillStyle = 'rgba(255, 32, 0, 0.08)';
-        ctx.beginPath();
-        ctx.arc(size / 2, size / 2, 400, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(223, 255, 0, 0.05)';
-        ctx.beginPath();
-        ctx.arc(size, 0, 300, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Bordi Neon Orange
-        ctx.strokeStyle = '#FF2000';
-        ctx.lineWidth = 20;
-        ctx.strokeRect(10, 10, size - 20, size - 20);
+        const g = ctx.createLinearGradient(0, 0, W, H);
+        g.addColorStop(0, '#17181B');
+        g.addColorStop(0.55, '#0B0A09');
+        g.addColorStop(1, '#2A0A05');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        const glow = ctx.createRadialGradient(W / 2, H * 0.92, 60, W / 2, H * 0.92, 760);
+        glow.addColorStop(0, 'rgba(255,32,0,0.20)');
+        glow.addColorStop(1, 'rgba(255,32,0,0)');
+        ctx.fillStyle = glow; ctx.fillRect(0, H * 0.45, W, H * 0.55);
       }
 
-      // LOGO ufficiale Strabar (immagine). Fallback al testo se non ancora caricato.
+      // --- Logo in alto a sinistra ---
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       if (logoReady && logoRef.current && logoRef.current.naturalWidth) {
-        const lh = 72;
-        const lw = lh * (logoRef.current.naturalWidth / logoRef.current.naturalHeight);
-        ctx.drawImage(logoRef.current, 80, 64, lw, lh);
+        const lh = 58; const lw = lh * (logoRef.current.naturalWidth / logoRef.current.naturalHeight);
+        ctx.drawImage(logoRef.current, M, 74, lw, lh);
       } else {
-        ctx.fillStyle = '#FF2000';
-        ctx.font = 'bold 50px "DM Sans", -apple-system, sans-serif';
-        ctx.fillText('STRA', 80, 120);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText('BAR', 215, 120);
+        ctx.fillStyle = '#FF2000'; ctx.font = '800 48px "DM Sans", sans-serif';
+        ctx.fillText('strabar', M, 120);
       }
 
-      // Sottotitolo
-      ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
-      ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('LO SPORT DEL BRINDISI', 80, 160);
-
-      // In alto a destra: badge "LIVE" se in diretta, altrimenti l'emoji brindisi.
+      // --- LIVE badge in alto a destra ---
       if (isLive) {
-        const pw = 168, ph = 56, px = size - 80 - pw, py = 72;
-        ctx.fillStyle = '#FF2000';
-        ctx.beginPath();
-        ctx.roundRect(px, py, pw, ph, ph / 2);
-        ctx.fill();
-        // pallino bianco
-        ctx.fillStyle = '#FFFFFF';
-        ctx.beginPath();
-        ctx.arc(px + 34, py + ph / 2, 10, 0, Math.PI * 2);
-        ctx.fill();
-        // testo LIVE
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '800 32px "DM Sans", -apple-system, sans-serif';
-        ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText('LIVE', px + 58, py + ph / 2 + 2);
+        ctx.font = '800 32px "DM Sans", sans-serif';
+        const tw = ctx.measureText('LIVE').width;
+        const pw = tw + 84, ph = 56, px = W - M - pw, py = 76;
+        ctx.fillStyle = '#FF2000'; ctx.beginPath(); ctx.roundRect(px, py, pw, ph, ph / 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px + 30, py + ph / 2, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillText('LIVE', px + 50, py + ph / 2 + 1);
         ctx.textBaseline = 'alphabetic';
-        ctx.textAlign = 'left';
-      } else {
-        ctx.font = '70px Arial';
-        ctx.fillText('🍻', size - 160, 130);
       }
 
-      // Titolo Attività
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 64px "DM Sans", -apple-system, sans-serif';
-      const title = activity.title || 'Sessione Alcolica';
-      ctx.fillText(title.length > 25 ? title.substring(0, 25) + '...' : title, 80, 280);
-
-      // Nome Autore e data
-      const author = publicName(activity.profiles, 'Utente Strabar');
-      const dateStr = new Date(activity.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
-      ctx.fillStyle = '#DFFF00';
-      ctx.font = '600 32px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(`Registrato da: ${author}`, 80, 340);
-      ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
-      ctx.font = '400 24px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(dateStr, 80, 380);
-
-      // Riquadro per le statistiche principali (Centro)
-      const boxY = 460;
-      const boxW = 920;
-      const boxH = 344;
-      
-      // Sfondo riquadro glassmorphic
-      ctx.fillStyle = usePhoto ? 'rgba(11, 10, 9, 0.65)' : 'rgba(22, 24, 34, 0.85)';
-      ctx.strokeStyle = 'rgba(255, 32, 0, 0.4)';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.roundRect(80, boxY, boxW, boxH, 24);
-      ctx.fill();
-      ctx.stroke();
-
-      // 3 Colonne per le Statistiche
-      const colWidth = boxW / 3;
-      const maxValW = colWidth - 36; // margine interno per non sforare la cornice
-
-      // Imposta il font del valore riducendolo finché entra nella colonna
-      const setValueFont = (text, baseSize) => {
-        let s = baseSize;
-        do {
-          ctx.font = `800 ${s}px "DM Sans", -apple-system, sans-serif`;
-          if (ctx.measureText(text).width <= maxValW) break;
-          s -= 4;
-        } while (s > 26);
-      };
-
-      // Stat 1: Drink Totali
-      const totalDrinks = activity.drinks ? activity.drinks.reduce((acc, d) => acc + d.qty, 0) : 0;
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#9CA3AF';
-      ctx.font = '600 24px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('DRINK TOTALI', 80 + colWidth / 2, boxY + 80);
-      ctx.fillStyle = '#FF2000';
-      setValueFont(totalDrinks.toString(), 96);
-      ctx.fillText(totalDrinks.toString(), 80 + colWidth / 2, boxY + 200);
-
-      // Stat 2: Tempo (per i live = minuti trascorsi da inizio sessione, calcolati ora)
-      const hrs = Math.floor(displayDuration / 60);
-      const mins = displayDuration % 60;
-      const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
-      ctx.fillStyle = '#9CA3AF';
-      ctx.font = '600 24px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(isLive ? 'TEMPO A TAVOLA' : 'DURATA SFORZO', 80 + colWidth + colWidth / 2, boxY + 80);
-      ctx.fillStyle = '#FFFFFF';
-      setValueFont(timeStr, 70);
-      ctx.fillText(timeStr, 80 + colWidth + colWidth / 2, boxY + 185);
-
-      // Stat 3: Unità Alcoliche (numero grande + "U.A." piccolo sotto, così non sfora mai)
-      const col3Center = 80 + colWidth * 2 + colWidth / 2;
-      ctx.fillStyle = '#9CA3AF';
-      ctx.font = '600 24px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('UNITÀ ALCOLICHE', col3Center, boxY + 80);
-      ctx.fillStyle = '#DFFF00';
-      const uaValue = `${activity.total_units}`;
-      setValueFont(uaValue, 80);
-      ctx.fillText(uaValue, col3Center, boxY + 190);
-      ctx.fillStyle = '#DFFF00';
-      ctx.font = '700 26px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('U.A.', col3Center, boxY + 232);
-
-      // TASSO ALCOLICO stimato — riga in fondo al riquadro, colore semaforico.
-      // Su sessione live è il valore ATTUALE; su sessione chiusa è il PICCO.
-      const peakBac = displayBac;
-      const bacCol = peakBac >= 0.5 ? '#FF2000' : peakBac >= 0.2 ? '#DFFF00' : '#2ED573';
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(80 + 40, boxY + 250);
-      ctx.lineTo(80 + boxW - 40, boxY + 250);
-      ctx.stroke();
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#9CA3AF';
-      ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(isLive ? 'TASSO ALCOLICO ATTUALE (STIMA)' : 'TASSO ALCOLICO DI PICCO (STIMA)', 80 + boxW / 2, boxY + 286);
-      ctx.fillStyle = bacCol;
-      ctx.font = '800 40px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(`${peakBac.toFixed(2)} g/l`, 80 + boxW / 2, boxY + 326);
-
-      // Reset allineamento a sinistra
-      ctx.textAlign = 'left';
-
-      // Lista Drink consumati in basso
-      ctx.fillStyle = '#E5E7EB';
-      ctx.font = '600 28px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText('LISTA PRESTAZIONI:', 80, 850);
-
-      // Raggruppa i drink uguali sommando le quantità
-      const groupedForTags = (() => {
+      // ====== DATI ======
+      const totalDrinks = (activity.drinks || []).reduce((a, d) => a + (d.qty || 1), 0);
+      const grouped = (() => {
         const m = {};
         (activity.drinks || []).forEach((d) => {
-          const k = `${(d.name || '').trim()}|${d.abv ?? ''}`;
-          if (!m[k]) m[k] = { name: d.name, qty: 0 };
+          const k = (d.name || '').trim().toLowerCase();
+          if (!m[k]) m[k] = { name: d.name || 'Drink', qty: 0 };
           m[k].qty += (d.qty || 1);
         });
-        return Object.values(m);
+        return Object.values(m).sort((a, b) => b.qty - a.qty);
       })();
-      let drinkTags = groupedForTags.map((d) => `${d.qty}x ${d.name}`).join('  •  ');
-      if (drinkTags.length > 55) drinkTags = drinkTags.substring(0, 52) + '...';
-      
-      ctx.fillStyle = usePhoto ? '#E5E7EB' : '#9CA3AF';
-      ctx.font = '400 26px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(drinkTags, 80, 900);
 
-      // Livello Ebbrezza in basso a destra
+      // Badge della serata: derivato dall'intensità (displayBac) ma SENZA mostrare il numero.
+      const badge = (() => {
+        if (totalDrinks === 0) return { t: 'PRIMO SORSO', e: '🍸', c: '#9CA3AF' };
+        if (displayBac < 0.2) return { t: 'SOBRIO', e: '🟢', c: '#2ED573' };
+        if (displayBac < 0.5) return { t: 'IN RISCALDAMENTO', e: '🟡', c: '#DFFF00' };
+        if (displayBac < 0.8) return { t: 'IN PARTITA', e: '🟠', c: '#FF9F1C' };
+        return { t: 'FUORI CATEGORIA', e: '🔴', c: '#FF2000' };
+      })();
+
+      // Frase automatica in base alla prestazione (deterministica per sessione).
+      const phrasePool = (() => {
+        if (totalDrinks === 0) return ['La serata è appena iniziata.', 'Si comincia.'];
+        if (displayBac < 0.2) return ['Partenza prudente.', 'Tutto sotto controllo.'];
+        if (displayBac < 0.5) return ['Ottimo riscaldamento.', 'Il motore si scalda.'];
+        if (displayBac < 0.8) return ['Bella gestione.', 'Sei in partita.', 'Hai dato spettacolo.'];
+        return ['Domani rileggi le chat.', 'Leggenda della serata.'];
+      })();
+      const phrase = phrasePool[totalDrinks % phrasePool.length];
+
+      // Statistica principale: "1 SPRITZ" se un solo tipo, altrimenti "N DRINK".
+      const mainStat = grouped.length === 1
+        ? `${grouped[0].qty} ${grouped[0].name.toUpperCase()}`
+        : `${totalDrinks} DRINK`;
+
+      const hrs = Math.floor(displayDuration / 60), mins = displayDuration % 60;
+      const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+      const secondary = `⏱ ${timeStr}      🍺 ${activity.total_units} UA`;
+
+      const author = publicName(activity.profiles, 'Atleta Strabar');
+      const dateStr = new Date(activity.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+      const meta = `Registrato da ${author} · ${dateStr}`;
+
+      const perf = grouped.length
+        ? grouped.slice(0, 3).map((d) => `${drinkEmoji(d.name)} ${d.name} ×${d.qty}`).join('    ')
+        : '';
+
+      // --- helper layout ---
+      const maxW = W - M * 2;
+      const wrap = (text, font, mw) => {
+        ctx.font = font;
+        const words = (text || '').split(' '); const lines = []; let line = '';
+        words.forEach((w) => {
+          const test = line ? line + ' ' + w : w;
+          if (ctx.measureText(test).width > mw && line) { lines.push(line); line = w; } else line = test;
+        });
+        if (line) lines.push(line);
+        return lines;
+      };
+      const fitSize = (text, weight, base, min) => {
+        let s = base;
+        do { ctx.font = `${weight} ${s}px "DM Sans", sans-serif`; if (ctx.measureText(text).width <= maxW) break; s -= 4; } while (s > min);
+        return s;
+      };
+
+      const titleSize = compact ? 58 : 74;
+      const statSize = fitSize(mainStat, '800', compact ? 104 : 148, 56);
+      let titleLines = wrap(activity.title || 'Brindisi', `800 ${titleSize}px "DM Sans", sans-serif`, maxW);
+      if (titleLines.length > 2) { titleLines = titleLines.slice(0, 2); titleLines[1] = titleLines[1].slice(0, -1) + '…'; }
+
+      // altezze blocchi (per ancorare il contenuto in basso, sopra la CTA)
+      const gBadge = 62, gapBadge = compact ? 20 : 30;
+      const lhTitle = titleSize + 8, gapTitle = compact ? 12 : 18;
+      const hMeta = 34, gapMeta = compact ? 16 : 26;
+      const hStat = statSize, gapStat = compact ? 12 : 20;
+      const hSec = 40, gapSec = compact ? 16 : 28;
+      const hPhrase = compact ? 44 : 52, gapPhrase = compact ? 14 : 22;
+      const hPerf = perf ? 42 : 0;
+      const totalH = gBadge + gapBadge + titleLines.length * lhTitle + gapTitle
+        + hMeta + gapMeta + hStat + gapStat + hSec + gapSec + hPhrase + gapPhrase + hPerf;
+
+      // --- CTA in fondo (stimola la condivisione, non "installa") ---
+      const ctaTop = H - (compact ? 60 : 92);
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
+      ctx.font = '700 30px "DM Sans", sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText('E tu quanto fai?', M, ctaTop);
       ctx.textAlign = 'right';
+      ctx.font = '800 30px "DM Sans", sans-serif';
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 28px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(`Ebbrezza: ${activity.feeling}`, size - 80, 850);
+      ctx.fillText(SITE_HOST, W - M, ctaTop);
       ctx.textAlign = 'left';
 
-      // Footer branding — URL reale di installazione
-      const installHost = SITE_HOST; // dominio canonico (strabar.app) sulla card social
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-      ctx.font = '600 22px "DM Sans", -apple-system, sans-serif';
-      ctx.fillText(`📲 Installa: ${installHost}/install`, 80, size - 70);
+      // cursore: parte sopra la CTA, ancorato al fondo
+      let y = ctaTop - (compact ? 30 : 52) - totalH;
 
-      ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.fillText('#StraBarAthletes', size - 80, size - 70);
+      // Badge pill
+      ctx.font = '800 32px "DM Sans", sans-serif';
+      const bl = `${badge.e} ${badge.t}`;
+      const blw = ctx.measureText(bl).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.strokeStyle = badge.c; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.roundRect(M, y, blw + 56, gBadge, gBadge / 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = badge.c; ctx.textBaseline = 'middle';
+      ctx.fillText(bl, M + 28, y + gBadge / 2 + 1);
+      ctx.textBaseline = 'top';
+      y += gBadge + gapBadge;
+
+      // Titolo (grande)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `800 ${titleSize}px "DM Sans", sans-serif`;
+      titleLines.forEach((ln) => { ctx.fillText(ln, M, y); y += lhTitle; });
+      y += gapTitle - 8;
+
+      // Autore · data (piccolo)
+      ctx.fillStyle = 'rgba(255,255,255,0.72)';
+      ctx.font = '600 30px "DM Sans", sans-serif';
+      ctx.fillText(meta, M, y);
+      y += hMeta + gapMeta;
+
+      // STATISTICA PRINCIPALE (eroe)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `800 ${statSize}px "DM Sans", sans-serif`;
+      ctx.fillText(mainStat, M, y);
+      y += hStat + gapStat;
+
+      // Statistiche secondarie
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.font = '700 36px "DM Sans", sans-serif';
+      ctx.fillText(secondary, M, y);
+      y += hSec + gapSec;
+
+      // Frase automatica (colore del badge)
+      ctx.fillStyle = badge.c;
+      ctx.font = `700 italic ${compact ? 36 : 42}px "DM Sans", sans-serif`;
+      ctx.fillText(phrase, M, y);
+      y += hPhrase + gapPhrase;
+
+      // Performance (lista pulita, max 3 tipi)
+      if (perf) {
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        const ps = fitSize(perf, '600', 32, 22);
+        ctx.font = `600 ${ps}px "DM Sans", sans-serif`;
+        ctx.fillText(perf, M, y);
+      }
+
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left';
     };
 
     if (usePhoto) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
+        // Cover: la foto riempie tutto il canvas (qualunque formato) senza deformarsi.
         const imgRatio = img.width / img.height;
-        let drawWidth = size;
-        let drawHeight = size;
-        let offsetX = 0;
-        let offsetY = 0;
-
-        if (imgRatio > 1) {
-          drawWidth = size * imgRatio;
-          offsetX = -(drawWidth - size) / 2;
-        } else {
-          drawHeight = size / imgRatio;
-          offsetY = -(drawHeight - size) / 2;
-        }
-
-        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        const canvasRatio = W / H;
+        let dw, dh, ox, oy;
+        if (imgRatio > canvasRatio) { dh = H; dw = H * imgRatio; ox = -(dw - W) / 2; oy = 0; }
+        else { dw = W; dh = W / imgRatio; ox = 0; oy = -(dh - H) / 2; }
+        ctx.drawImage(img, ox, oy, dw, dh);
         drawStats();
       };
       img.onerror = () => {
-        // Fallback gradiente classico in caso di errore caricamento foto
-        const gradient = ctx.createLinearGradient(0, 0, size, size);
-        gradient.addColorStop(0, '#1E1B18');
-        gradient.addColorStop(0.5, '#0B0A09');
-        gradient.addColorStop(1, '#FF2000');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, size, size);
+        const g = ctx.createLinearGradient(0, 0, W, H);
+        g.addColorStop(0, '#17181B');
+        g.addColorStop(0.55, '#0B0A09');
+        g.addColorStop(1, '#2A0A05');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
         drawStats();
       };
       img.src = photoUrl;
     } else {
       drawStats();
     }
-  }, [activity, sharingTheme, selectedPhotoIdx, logoReady]);
+  }, [activity, sharingTheme, cardFormat, selectedPhotoIdx, logoReady]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -448,7 +428,7 @@ export default function ShareActivityPage({ params }) {
 
       <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '10px' }}>Esporta Card Social</h1>
       <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginBottom: '25px' }}>
-        Abbiamo generato una card grafica quadrata perfetta per le tue storie di Instagram o post su WhatsApp/Twitter. Scaricala con il pulsante qui sotto.
+        La tua serata in una card: foto a tutto schermo, perfetta per le storie di Instagram o i post. Scegli formato e sfondo, poi condividi.
       </p>
 
       {/* Selettore Stile Condivisione (solo se ci sono foto) */}
@@ -521,10 +501,36 @@ export default function ShareActivityPage({ params }) {
         </div>
       )}
 
-      {/* Canvas nascosto o mostrato a dimensione ridotta per preview responsiva */}
-      <div style={{ width: '100%', border: '2px solid var(--border-dark)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)', marginBottom: '25px', aspectRatio: '1' }}>
-        <canvas 
-          ref={canvasRef} 
+      {/* Selettore formato: Storia 9:16 o Post 1:1 */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        {[
+          { v: 'story', label: '📱 Storia', sub: '9:16' },
+          { v: 'post', label: '⬛ Post', sub: '1:1' },
+        ].map((f) => {
+          const on = cardFormat === f.v;
+          return (
+            <button
+              key={f.v}
+              type="button"
+              onClick={() => setCardFormat(f.v)}
+              className="btn"
+              style={{
+                flex: 1, borderRadius: '20px', fontSize: '13px', padding: '10px', fontWeight: 'bold',
+                background: on ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
+                color: on ? '#FFF' : 'var(--text-dark-secondary)',
+                border: on ? 'none' : '1px solid var(--border-dark)', cursor: 'pointer',
+              }}
+            >
+              {f.label} <span style={{ opacity: 0.7, fontWeight: 600 }}>{f.sub}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Preview della card (proporzioni reali del formato scelto) */}
+      <div style={{ width: '100%', maxWidth: cardFormat === 'post' ? '100%' : '340px', margin: cardFormat === 'post' ? '0 0 25px' : '0 auto 25px', border: '2px solid var(--border-dark)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)', aspectRatio: cardFormat === 'post' ? '1 / 1' : '9 / 16' }}>
+        <canvas
+          ref={canvasRef}
           style={{ width: '100%', height: '100%', display: 'block' }}
         />
       </div>
