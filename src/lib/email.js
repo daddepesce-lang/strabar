@@ -39,3 +39,36 @@ export async function sendWelcomeEmail(to, name) {
   if (error) throw new Error(error.message || 'Invio email fallito');
   return { id: data?.id };
 }
+
+// Email di reset password brandizzata Strabar (inviata da noi via Resend, non da Supabase).
+// `link` è già pronto: SITE_URL/auth/reset?token_hash=...&type=recovery
+export async function sendPasswordResetEmail(to, link) {
+  if (!apiKey) {
+    console.warn('RESEND_API_KEY non impostata: email di reset saltata.');
+    return { skipped: true };
+  }
+  const resend = new Resend(apiKey);
+
+  const { data, error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: 'Reimposta la tua password Strabar 🔑',
+    html: `
+      <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0D0D0D;color:#F3F4F6;padding:32px;border-radius:16px;max-width:520px;margin:auto">
+        <h1 style="color:#FF2000;margin:0 0 12px">Reimposta la password 🔑</h1>
+        <p style="line-height:1.6;color:#9CA3AF">
+          Hai chiesto di reimpostare la password del tuo account <strong style="color:#fff">Strabar</strong>.
+          Clicca il pulsante qui sotto per sceglierne una nuova.
+        </p>
+        <a href="${link}" style="display:inline-block;margin:16px 0;background:#FF2000;color:#fff;text-decoration:none;padding:12px 22px;border-radius:30px;font-weight:700">Reimposta password</a>
+        <p style="line-height:1.6;color:#9CA3AF;font-size:13px">
+          Il link è valido per un'ora. Se non hai richiesto tu il reset, ignora questa email: la password resta invariata.
+        </p>
+        <p style="font-size:12px;color:#6b7280;margin-top:24px">18+ · Bevi responsabilmente.</p>
+      </div>
+    `,
+  });
+
+  if (error) throw new Error(error.message || 'Invio email di reset fallito');
+  return { id: data?.id };
+}

@@ -56,7 +56,17 @@ export default function AuthPage() {
     }
     setLoading(true);
     try {
-      await db.resetPassword(email);
+      // Email di reset brandizzata Strabar, generata e inviata dal nostro server (Resend),
+      // non dal mailer di Supabase. Link con token_hash → funziona cross-dispositivo.
+      const res = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || 'Impossibile inviare l\'email di reset.');
+      }
       setInfo('📧 Ti abbiamo inviato un\'email per reimpostare la password. Controlla la posta (anche lo spam).');
     } catch (err) {
       setError(err.message || 'Impossibile inviare l\'email di reset.');
