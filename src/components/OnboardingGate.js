@@ -20,6 +20,8 @@ export default function OnboardingGate() {
   const [accepted, setAccepted] = useState(false);
   const [sex, setSex] = useState('');
   const [weight, setWeight] = useState('');
+  const [nameMode, setNameMode] = useState('name'); // 'name' | 'username' | 'alias'
+  const [alias, setAlias] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -39,6 +41,8 @@ export default function OnboardingGate() {
       setUser(u);
       setSex(u?.sex || '');
       setWeight(u?.weight ? String(u.weight) : '');
+      setNameMode(u?.name_mode || (u?.use_username ? 'username' : 'name'));
+      setAlias(u?.alias || '');
       evaluate(u);
     } catch {
       setStep(null);
@@ -89,10 +93,16 @@ export default function OnboardingGate() {
     const w = parseInt(weight, 10);
     if (!sex) { setError('Seleziona il sesso biologico.'); return; }
     if (!(w >= 30 && w <= 250)) { setError('Inserisci un peso valido (30–250 kg).'); return; }
+    if (nameMode === 'alias' && !alias.trim()) { setError('Scrivi il nome di fantasia o scegli un\'altra opzione.'); return; }
     setBusy(true);
     setError('');
     try {
-      await db.updateProfile(user.id, { sex, weight: w });
+      await db.updateProfile(user.id, {
+        sex, weight: w,
+        name_mode: nameMode,
+        use_username: nameMode === 'username',
+        alias: alias.trim() || null,
+      });
       setStep(null);
       window.dispatchEvent(new Event('auth-change'));
     } catch (err) {
@@ -190,6 +200,30 @@ export default function OnboardingGate() {
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
               />
+            </div>
+
+            <div style={{ marginBottom: '18px', textAlign: 'left' }}>
+              <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>Come vuoi apparire agli altri</label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { v: 'name', t: 'Nome' },
+                  { v: 'username', t: '@username' },
+                  { v: 'alias', t: 'Fantasia' },
+                ].map((o) => (
+                  <div key={o.v} onClick={() => setNameMode(o.v)} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '9px 4px', borderRadius: '10px', fontWeight: 700, fontSize: '13px', border: nameMode === o.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: nameMode === o.v ? 'var(--primary)' : 'var(--text-dark-primary)', background: 'var(--bg-input-dark)' }}>{o.t}</div>
+                ))}
+              </div>
+              {nameMode === 'alias' && (
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Il tuo nome di fantasia"
+                  value={alias}
+                  maxLength={40}
+                  onChange={(e) => setAlias(e.target.value)}
+                  style={{ marginTop: '8px' }}
+                />
+              )}
             </div>
 
             {error && <p style={{ color: '#FF7D7D', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
