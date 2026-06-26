@@ -433,16 +433,23 @@ export default function LogActivityPage() {
   // Nessun blocco GPS rigido: l'utente ha scelto attivamente il locale dalla lista reale.
   const startSessionAtVenue = async (venue) => {
     if (!venue || !venue.name) return;
-    // Se il GPS dice che sei lontano (>300m), puoi registrare lo stesso ma la sessione
-    // NON conterà per le classifiche (del locale e degli atleti). Avvisiamo l'utente.
+    // Verifica posizione = serve una prova GPS che tu sia sul posto.
+    //  • Sei lontano (>300m): registri lo stesso ma "non verificata" (non conta in classifica).
+    //  • Nessuna distanza GPS (GPS negato / locale cercato per nome): NON possiamo verificare
+    //    la posizione → registrabile ma "non verificata". Prima poteva contare in classifica
+    //    senza alcuna prova: era un buco di integrità.
     let unverified = false;
-    if (!isAppendingToSession && venue.distance != null && venue.distance > 300) {
-      const dist = venue.distance >= 1000 ? `${(venue.distance / 1000).toFixed(1)} km` : `${venue.distance} m`;
-      const ok = window.confirm(
-        `Sei a circa ${dist} da "${venue.name}".\n\nPuoi registrare comunque, ma la sessione verrà segnata come "non verificata" e NON conterà per le classifiche (del locale e degli atleti).\n\nProcedere?`
-      );
-      if (!ok) return;
-      unverified = true;
+    if (!isAppendingToSession) {
+      if (venue.distance == null) {
+        unverified = true;
+      } else if (venue.distance > 300) {
+        const dist = venue.distance >= 1000 ? `${(venue.distance / 1000).toFixed(1)} km` : `${venue.distance} m`;
+        const ok = window.confirm(
+          `Sei a circa ${dist} da "${venue.name}".\n\nPuoi registrare comunque, ma la sessione verrà segnata come "non verificata" e NON conterà per le classifiche (del locale e degli atleti).\n\nProcedere?`
+        );
+        if (!ok) return;
+        unverified = true;
+      }
     }
     setShowLocaleSelector(false);
     setCheckingGps(true);
@@ -743,12 +750,12 @@ export default function LogActivityPage() {
           <div className="card" style={{ maxWidth: '500px', width: '100%', border: '1px solid var(--border-dark)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative' }}>
             <button
               onClick={() => setShowLocaleSelector(false)}
-              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}
+              style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}
               aria-label="Chiudi"
             >
-              <X size={20} />
+              <X size={22} />
             </button>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '8px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '8px', paddingRight: '36px' }}>
               {isAppendingToSession ? 'Aggiungi Tappa 📍' : 'Dove stai bevendo? 📍'}
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
@@ -808,7 +815,7 @@ export default function LogActivityPage() {
             )}
 
             {/* Lista Locali */}
-            <div style={{ overflowY: 'auto', flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
               {loadingVenues && localeSearchQuery.trim().length < 2 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '30px 0', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>
                   <Loader size={26} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />

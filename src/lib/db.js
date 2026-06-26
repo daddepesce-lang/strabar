@@ -585,6 +585,16 @@ export const db = {
       // (Prima venivano azzerati tutti i campi opzionali insieme — incluso `location` —
       // e questo faceva sparire i dati del Tour guidato dalla sessione live.)
       // Esegui comunque la MIGRAZIONE in supabase_schema.sql per non perdere questi dati.
+
+      // UNA SOLA LIVE PER UTENTE: prima di aprirne una nuova chiudi quelle eventualmente
+      // rimaste attive (es. sei stato taggato e apri /log mentre ne hai già una in corso).
+      // Senza questo si accumulavano più sessioni live contemporanee per lo stesso utente.
+      if (newActivity.is_active) {
+        try {
+          await supabase.from('sessions').update({ is_active: false }).eq('user_id', user.id).eq('is_active', true);
+        } catch { /* best effort */ }
+      }
+
       const insertRow = { ...newActivity, user_id: user.id };
       let data = null;
       let error = null;
@@ -595,6 +605,13 @@ export const db = {
           .select()
           .single());
         if (!error) break;
+
+        // Indice unico "una live per utente": se per una race è rimasta un'altra live
+        // attiva, chiudila e riprova (non è un errore da mostrare all'utente).
+        if (error.code === '23505') {
+          try { await supabase.from('sessions').update({ is_active: false }).eq('user_id', user.id).eq('is_active', true); } catch { /* noop */ }
+          continue;
+        }
 
         const isMissingColumn =
           error.code === 'PGRST204' ||

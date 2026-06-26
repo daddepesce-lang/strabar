@@ -410,15 +410,28 @@ export default function ShareActivityPage({ params }) {
     else render();
   }, [activity, sharingTheme, cardFormat, selectedPhotoIdx, logoReady]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    // Su iOS un <a download> salva l'immagine nell'app "File", NON in "Foto".
+    // Il foglio di condivisione nativo, invece, offre "Salva immagine" → va in Foto
+    // (e da lì è subito condivisibile su IG/WhatsApp). Quindi: se il dispositivo sa
+    // condividere file, usiamo quello; altrimenti (desktop) download classico.
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
+    if (blob && navigator.canShare) {
+      const file = new File([blob], 'strabar.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); } catch { /* annullato dall'utente */ }
+        return;
+      }
+    }
+    const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/jpeg', 0.95);
     const link = document.createElement('a');
     link.download = `strabar_${activity.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.jpg`;
-    link.href = dataUrl;
+    link.href = url;
     link.click();
+    if (blob) setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const shareCaption = () => {

@@ -14,6 +14,14 @@ import { ShieldCheck, Scale, Handshake } from 'lucide-react';
 // Il consenso è bloccante (obbligo di legge); sesso/peso si possono rimandare.
 const SNOOZE_KEY = 'strabar_profile_setup_snoozed';
 
+// Evita che una chiamata di rete impallata lasci i pulsanti disabilitati (busy) per sempre:
+// se non risponde entro ms, rigetta così il finally riabilita i pulsanti e mostra un errore.
+const withTimeout = (p, ms = 12000) =>
+  Promise.race([
+    p,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Connessione lenta: riprova.')), ms)),
+  ]);
+
 export default function OnboardingGate() {
   const [user, setUser] = useState(null);
   const [step, setStep] = useState(null); // null | 'consent' | 'marketing' | 'profile'
@@ -62,7 +70,7 @@ export default function OnboardingGate() {
     setBusy(true);
     setError('');
     try {
-      await db.recordMarketingConsent(user.id, value);
+      await withTimeout(db.recordMarketingConsent(user.id, value));
       const u = { ...user, marketing_consent: value };
       setUser(u);
       evaluate(u);
@@ -78,7 +86,7 @@ export default function OnboardingGate() {
     setBusy(true);
     setError('');
     try {
-      await db.recordConsent(user.id, CONSENT_VERSION);
+      await withTimeout(db.recordConsent(user.id, CONSENT_VERSION));
       const u = { ...user, consent_version: CONSENT_VERSION };
       setUser(u);
       evaluate(u);
@@ -97,12 +105,12 @@ export default function OnboardingGate() {
     setBusy(true);
     setError('');
     try {
-      await db.updateProfile(user.id, {
+      await withTimeout(db.updateProfile(user.id, {
         sex, weight: w,
         name_mode: nameMode,
         use_username: nameMode === 'username',
         alias: alias.trim() || null,
-      });
+      }));
       setStep(null);
       window.dispatchEvent(new Event('auth-change'));
     } catch (err) {

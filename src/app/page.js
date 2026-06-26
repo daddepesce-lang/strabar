@@ -391,6 +391,20 @@ export default function FeedPage() {
       const mins = Math.max(1, Math.round(diffMs / (60 * 1000)));
       setElapsedMinutes(mins);
 
+      // Avviso 0,5 g/L: il BAC sale per ASSORBIMENTO nei minuti dopo il drink, non solo
+      // quando aggiungi un drink. Quindi ricontrolliamo la soglia anche qui (ogni 15s),
+      // una volta sola per sessione (guardia in localStorage condivisa con l'add-drink).
+      try {
+        const dKey = 'sb_driving_warned_' + activeSession.id;
+        if (!localStorage.getItem(dKey) && currentUser?.notif_prefs?.driving !== false) {
+          const liveBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, mins, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
+          if (liveBac >= 0.5) {
+            localStorage.setItem(dKey, '1');
+            triggerLocalNotification('⚠️ Limite di guida superato', 'Hai superato 0,5 g/L: NON metterti alla guida. Smaltisci con calma o chiama un taxi/NCC. 🚕');
+          }
+        }
+      } catch { /* noop */ }
+
       // A 4 ore: avviso (una volta sola) che si chiuderà tra ~1 ora
       if (mins >= 240 && mins < 300) {
         const key = 'sb_live_warned_' + activeSession.id;
@@ -852,10 +866,14 @@ export default function FeedPage() {
       // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default; peso reale se impostato)
       const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
 
-      // Avviso superamento limite legale di guida (0,5 g/L) — solo al momento del sorpasso
-      // della soglia, e disattivabile dall'utente (preferenza 'driving', default ON).
-      const prevBac = parseFloat(activeSession.bac_level || 0);
-      if (newBac >= 0.5 && prevBac < 0.5 && currentUser?.notif_prefs?.driving !== false) {
+      // Avviso superamento limite legale di guida (0,5 g/L). Una volta sola per sessione:
+      // guardia in localStorage condivisa col controllo periodico (tick), così non parte
+      // doppia notifica se l'utente supera 0,5 aggiungendo un drink.
+      const dKey = 'sb_driving_warned_' + activeSession.id;
+      let drivingWarned = false;
+      try { drivingWarned = localStorage.getItem(dKey) === '1'; } catch { /* noop */ }
+      if (newBac >= 0.5 && !drivingWarned && currentUser?.notif_prefs?.driving !== false) {
+        try { localStorage.setItem(dKey, '1'); } catch { /* noop */ }
         triggerLocalNotification('⚠️ Limite di guida superato', 'Hai superato 0,5 g/L: NON metterti alla guida. Smaltisci con calma o chiama un taxi/NCC. 🚕');
       }
 
