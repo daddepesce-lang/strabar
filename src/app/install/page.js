@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Download, Share, Plus, Check, Wifi, Bell } from 'lucide-react';
+import { Download, Share, Plus, Check, Wifi, Bell, ShieldCheck } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 
 function isStandalone() {
@@ -119,6 +119,14 @@ export default function InstallPage() {
               Se il pulsante resta in attesa, apri il menu <strong>⋮</strong> del browser e scegli <strong>&quot;Installa app&quot;</strong> / <strong>&quot;Aggiungi a schermata Home&quot;</strong>.
             </p>
           )}
+
+          {/* Avviso Play Protect: capita con alcuni browser, l'app è sicura. Spieghiamo come superarlo. */}
+          <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', textAlign: 'left', background: 'rgba(255,255,255,0.03)', padding: '12px 14px' }}>
+            <span style={{ color: 'var(--secondary)', flexShrink: 0, marginTop: '1px' }}><ShieldCheck size={18} /></span>
+            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+              Se compare <strong>&quot;App non sicura bloccata&quot;</strong> di Google Play Protect, niente paura: controlla solo l&apos;<em>involucro</em> di installazione, non Strabar. Tocca <strong>&quot;Altri dettagli&quot; → &quot;Installa comunque&quot;</strong>. Per non vederlo affatto, installa da <strong>Google Chrome</strong>.
+            </p>
+          </div>
         </div>
       )}
 
