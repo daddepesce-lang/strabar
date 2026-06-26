@@ -206,6 +206,7 @@ export default function Navbar() {
                 <Link
                   key={href}
                   href={href}
+                  prefetch={false}
                   className={isReg ? `nav-link-register` : `nav-link ${isActive(href) ? 'active' : ''}`}
                 >
                   <Icon size={18} />
@@ -221,13 +222,13 @@ export default function Navbar() {
           {user && <NavSearch />}
 
           {/* Invita amici: sempre raggiungibile dalla barra in alto */}
-          <Link href="/install" className={`action-btn ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
+          <Link href="/install" prefetch={false} className={`action-btn ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
             <Share2 size={20} />
           </Link>
 
           {/* Admin: visibile solo agli amministratori */}
           {user?.is_admin && (
-            <Link href="/admin" className={`action-btn ${isActive('/admin') ? 'active' : ''}`} title="Dashboard amministratore">
+            <Link href="/admin" prefetch={false} className={`action-btn ${isActive('/admin') ? 'active' : ''}`} title="Dashboard amministratore">
               <ShieldCheck size={20} />
             </Link>
           )}

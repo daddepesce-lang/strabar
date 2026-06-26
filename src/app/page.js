@@ -2567,12 +2567,12 @@ export default function FeedPage() {
                 }}
               >
                 <div className="activity-header" style={{ gap: '12px' }}>
-                  <Link href={`/u/${act.user_id}`} style={{ flexShrink: 0 }}>
+                  <Link href={`/u/${act.user_id}`} prefetch={false} style={{ flexShrink: 0 }}>
                     <Avatar src={act.profiles?.avatar_url} name={act.profiles?.display_name || act.profiles?.username} size={44} />
                   </Link>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="activity-author">
-                      <Link href={`/u/${act.user_id}`} style={{ color: 'inherit' }}>
+                      <Link href={`/u/${act.user_id}`} prefetch={false} style={{ color: 'inherit' }}>
                         {publicName(act.profiles, 'Utente Strabar')}
                       </Link>
                       {act.profiles?.is_premium && (
@@ -2764,7 +2764,7 @@ export default function FeedPage() {
                     <span>Commenta ({act.comments?.length || act.comment_count || 0})</span>
                   </button>
 
-                  <Link href={`/share/${act.id}`} className="action-btn">
+                  <Link href={`/share/${act.id}`} prefetch={false} className="action-btn">
                     <Share2 size={18} />
                     <span className="action-btn-label-long">Esporta Social</span>
                     <span className="action-btn-label-short" style={{ display: 'none' }}>Esporta</span>

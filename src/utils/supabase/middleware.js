@@ -33,9 +33,13 @@ export const updateSession = async (request) => {
     }
   );
 
-  // This will refresh session if expired - required for Server Components
-  // and middleware route protection.
-  await supabase.auth.getUser();
+  // Aggiorna la sessione solo se il token è scaduto. getSession() valida/rinnova
+  // il JWT leggendo i cookie (rete solo se serve il refresh), mentre getUser()
+  // faceva una chiamata di rete a Supabase Auth ad OGNI richiesta — costo inutile
+  // dato che qui il proxy NON prende decisioni di autorizzazione (nessuna route
+  // protetta lato server: le pagine sono client-component e le API route
+  // verificano l'utente da sole). Taglia traffico sia su Vercel che su Supabase.
+  await supabase.auth.getSession();
 
   return supabaseResponse;
 };

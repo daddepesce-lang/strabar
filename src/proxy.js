@@ -25,6 +25,15 @@ export async function proxy(request) {
     // 308 = redirect permanente che preserva il metodo e (qui) path + query string.
     return NextResponse.redirect(url, 308);
   }
+
+  // I prefetch RSC di Next (speculativi, scattano per ogni <Link> nel viewport)
+  // non hanno bisogno di rinfrescare la sessione: ci pensa la navigazione vera.
+  // Chiamare Supabase su ogni prefetch moltiplicava Edge Request + Origin Transfer
+  // su Vercel e le chiamate Auth su Supabase. Per i prefetch lasciamo passare liscio.
+  if (request.headers.get("next-router-prefetch") === "1") {
+    return NextResponse.next();
+  }
+
   return await updateSession(request);
 }
 
@@ -32,11 +41,13 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (le API route verificano l'utente da sole: niente refresh sessione)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * - favicon.ico / sw.js / manifest (asset PWA serviti statici)
+     * Escludendo /api evitiamo di invocare il proxy (e Supabase) due volte per ogni
+     * chiamata API.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

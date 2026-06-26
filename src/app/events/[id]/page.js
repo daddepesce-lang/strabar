@@ -955,7 +955,7 @@ export default function EventDetailPage({ params }) {
 
             {/* ACCESSO — due concetti distinti */}
             <div className="form-group" style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
-              <label className="form-label">Chi lo vede nella lista eventi</label>
+              <label className="form-label">Rendi visibile a:</label>
               <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
                 {[
                   { v: 'public', t: '🌍 Tutti' },
