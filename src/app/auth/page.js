@@ -157,6 +157,8 @@ export default function AuthPage() {
                   <User size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
                   <input
                     type="text"
+                    name="name"
+                    autoComplete="name"
                     className="form-control"
                     placeholder="Mario Rossi"
                     value={displayName}
@@ -173,6 +175,10 @@ export default function AuthPage() {
                   <AtSign size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
                   <input
                     type="text"
+                    name="username"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     className="form-control"
                     placeholder="mario_rossi"
                     value={username}
@@ -191,6 +197,11 @@ export default function AuthPage() {
               <Mail size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
               <input
                 type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
                 className="form-control"
                 placeholder="mario.rossi@email.com"
                 value={email}
@@ -207,6 +218,8 @@ export default function AuthPage() {
               <Lock size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
               <input
                 type="password"
+                name="password"
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 className="form-control"
                 placeholder="••••••••"
                 value={password}
