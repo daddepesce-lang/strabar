@@ -392,7 +392,7 @@ export const db = {
           .from('sessions')
           .select(`
             ${cols},
-            profiles(username, display_name, use_username, public_leaderboard, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, alias, name_mode, public_leaderboard, avatar_url, weight, sex),
             cheers(count),
             comments(count)
           `)
@@ -442,7 +442,7 @@ export const db = {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
         .from('comments')
-        .select('id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight)')
+        .select('id, text, created_at, user_id, profiles(username, display_name, alias, name_mode, avatar_url, weight)')
         .eq('session_id', activityId)
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -481,7 +481,7 @@ export const db = {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
         .from('cheers')
-        .select('user_id, profiles(username, display_name)')
+        .select('user_id, profiles(username, display_name, alias, name_mode)')
         .eq('session_id', activityId);
       if (error) throw error;
       return (data || []).map((c) => ({
@@ -501,9 +501,9 @@ export const db = {
         .from('sessions')
         .select(`
           *,
-          profiles(username, display_name, use_username, avatar_url, weight, sex),
+          profiles(username, display_name, use_username, alias, name_mode, avatar_url, weight, sex),
           cheers(user_id),
-          comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
+          comments(id, text, created_at, user_id, profiles(username, display_name, alias, name_mode, avatar_url, weight))
         `)
         .eq('id', activityId)
         .maybeSingle();
@@ -1245,7 +1245,7 @@ export const db = {
           .from('sessions')
           .select(`
             *,
-            profiles(username, display_name, use_username, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, alias, name_mode, avatar_url, weight, sex),
             cheers(count),
             comments(count)
           `)
@@ -1851,7 +1851,7 @@ export const db = {
         .from('follows')
         .select(`
           following_id,
-          profiles:following_id (id, username, display_name, use_username, avatar_url, is_premium, weight, sex)
+          profiles:following_id (id, username, display_name, use_username, alias, name_mode, avatar_url, is_premium, weight, sex)
         `)
         .eq('follower_id', userId);
       if (error) throw error;
@@ -1875,7 +1875,7 @@ export const db = {
         .from('follows')
         .select(`
           follower_id,
-          profiles:follower_id (id, username, display_name, use_username, avatar_url, is_premium, weight, sex)
+          profiles:follower_id (id, username, display_name, use_username, alias, name_mode, avatar_url, is_premium, weight, sex)
         `)
         .eq('following_id', userId);
       if (error) throw error;
@@ -1920,9 +1920,9 @@ export const db = {
           .from('sessions')
           .select(`
             ${cols},
-            profiles(username, display_name, use_username, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, alias, name_mode, avatar_url, weight, sex),
             cheers(user_id),
-            comments(id, text, created_at, user_id, profiles(username, display_name, avatar_url, weight))
+            comments(id, text, created_at, user_id, profiles(username, display_name, alias, name_mode, avatar_url, weight))
           `)
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
@@ -1994,7 +1994,7 @@ export const db = {
         if (top.length === 0) return [];
         const { data: profs } = await supabase
           .from('profiles')
-          .select('id, username, display_name, use_username, public_leaderboard, is_premium')
+          .select('id, username, display_name, use_username, alias, name_mode, public_leaderboard, is_premium')
           .in('id', top.map((t) => t.user_id));
         const pmap = {};
         (profs || []).forEach((p) => { pmap[p.id] = p; });
@@ -2100,7 +2100,7 @@ export const db = {
       try {
         const { data, error } = await supabase
           .from('sessions')
-          .select('id, user_id, location, created_at, bac_level, drinks, is_active, full_stomach, duration, residual_grams, profiles(username, display_name, use_username, weight, sex)')
+          .select('id, user_id, location, created_at, bac_level, drinks, is_active, full_stomach, duration, residual_grams, profiles(username, display_name, use_username, alias, name_mode, weight, sex)')
           .eq('is_active', true)
           .gte('created_at', since)
           .order('created_at', { ascending: false });

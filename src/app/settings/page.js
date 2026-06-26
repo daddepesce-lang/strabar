@@ -47,8 +47,10 @@ export default function SettingsPage() {
   // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
   const [showBacPublic, setShowBacPublic] = useState(false);
 
-  // Come compaio agli altri: nome reale (false) o @username (true)
-  const [useUsername, setUseUsername] = useState(false);
+  // Come compaio agli altri: 'name' (nome reale) | 'username' (@username) | 'alias' (nome di fantasia)
+  const [nameMode, setNameMode] = useState('name');
+  const [alias, setAlias] = useState('');
+  const [aliasMsg, setAliasMsg] = useState('');
 
   // Comparire col proprio nome nelle classifiche pubbliche (globale + evento). Default: sì.
   const [publicLeaderboard, setPublicLeaderboard] = useState(true);
@@ -88,10 +90,24 @@ export default function SettingsPage() {
     try { await db.recordMarketingConsent(currentUser.id, next); } catch (err) { console.error(err); }
   };
 
-  // Sceglie come comparire agli altri (nome reale o @username). value=true → username.
-  const setNamePref = async (value) => {
-    setUseUsername(value);
-    try { await db.updateProfile(currentUser.id, { use_username: value }); } catch (err) { console.error(err); }
+  // Sceglie come comparire agli altri: 'name' | 'username' | 'alias'.
+  // Scrive anche use_username per retro-compatibilità con i percorsi non ancora migrati.
+  const setNamePref = async (mode) => {
+    setNameMode(mode);
+    setAliasMsg('');
+    try { await db.updateProfile(currentUser.id, { name_mode: mode, use_username: mode === 'username' }); } catch (err) { console.error(err); }
+  };
+
+  // Salva il nome di fantasia (alias). Se vuoto e modalità 'alias', torna al nome reale.
+  const saveAlias = async () => {
+    const value = alias.trim();
+    setAliasMsg('');
+    try {
+      await db.updateProfile(currentUser.id, { alias: value || null });
+      if (!value && nameMode === 'alias') { setNameMode('name'); await db.updateProfile(currentUser.id, { name_mode: 'name', use_username: false }); }
+      setAliasMsg('Salvato ✅');
+      setTimeout(() => setAliasMsg(''), 2000);
+    } catch (err) { setAliasMsg('Errore: ' + (err.message || err)); }
   };
 
   const handleExportData = async () => {
@@ -167,7 +183,8 @@ export default function SettingsPage() {
         if (user.notif_prefs) setNotifPrefs((p) => ({ ...p, ...user.notif_prefs }));
         if (user.marketing_consent !== null && user.marketing_consent !== undefined) setMarketingConsent(!!user.marketing_consent);
         setShowBacPublic(!!user.show_bac_public);
-        setUseUsername(!!user.use_username);
+        setNameMode(user.name_mode || (user.use_username ? 'username' : 'name'));
+        setAlias(user.alias || '');
         setPublicLeaderboard(user.public_leaderboard !== false); // default: visibile
       } catch (err) {
         console.error(err);
@@ -378,13 +395,14 @@ export default function SettingsPage() {
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {[
-            { value: false, title: `Nome${displayName ? ` (${displayName})` : ''}`, sub: 'Il tuo nome reale' },
-            { value: true, title: username ? `@${username}` : 'Username', sub: 'Solo il tuo username' },
+            { value: 'name', title: `Nome${displayName ? ` (${displayName})` : ''}`, sub: 'Il tuo nome reale' },
+            { value: 'username', title: username ? `@${username}` : 'Username', sub: 'Solo il tuo username' },
+            { value: 'alias', title: alias ? alias : 'Nome di fantasia', sub: 'Un nickname a tua scelta' },
           ].map((opt) => {
-            const active = useUsername === opt.value;
+            const active = nameMode === opt.value;
             return (
               <button
-                key={String(opt.value)}
+                key={opt.value}
                 type="button"
                 onClick={() => setNamePref(opt.value)}
                 style={{
@@ -405,6 +423,27 @@ export default function SettingsPage() {
               </button>
             );
           })}
+        </div>
+
+        {/* Campo nome di fantasia */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label className="form-label" style={{ margin: 0 }}>Nome di fantasia</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Es. Il Barone, Spritz Master…"
+              value={alias}
+              maxLength={40}
+              onChange={(e) => setAlias(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button type="button" onClick={saveAlias} className="btn btn-secondary" style={{ borderRadius: '10px', padding: '0 16px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              Salva
+            </button>
+          </div>
+          {aliasMsg && <span style={{ fontSize: '12px', color: aliasMsg.startsWith('Errore') ? 'var(--error)' : '#6EE7B7' }}>{aliasMsg}</span>}
+          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Salva un nickname, poi selezionalo qui sopra per usarlo al posto del nome o dello username.</span>
         </div>
       </div>
 

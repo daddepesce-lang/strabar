@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { Download, Share2, ArrowLeft, Beer, MessageCircle, Send, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
 import { siteUrl, SITE_HOST } from '@/lib/site';
+import { publicName } from '@/lib/names';
 
 export default function ShareActivityPage({ params }) {
   const router = useRouter();
@@ -181,7 +182,7 @@ export default function ShareActivityPage({ params }) {
       ctx.fillText(title.length > 25 ? title.substring(0, 25) + '...' : title, 80, 280);
 
       // Nome Autore e data
-      const author = activity.profiles?.display_name || 'Utente Strabar';
+      const author = publicName(activity.profiles, 'Utente Strabar');
       const dateStr = new Date(activity.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
       ctx.fillStyle = '#DFFF00';
       ctx.font = '600 32px "DM Sans", -apple-system, sans-serif';

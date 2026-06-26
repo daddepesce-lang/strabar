@@ -1387,7 +1387,7 @@ export default function FeedPage() {
     return (
       <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
         <span>🍻</span>
-        <strong style={{ color: '#FFF' }}>{act.profiles?.display_name || 'Atleta'}</strong>
+        <strong style={{ color: '#FFF' }}>{publicName(act.profiles, 'Atleta')}</strong>
         <span>ha bevuto con</span>
         {finalCompanions.map((c, i) => {
           const isLast = i === finalCompanions.length - 1;
@@ -2348,7 +2348,7 @@ export default function FeedPage() {
                       {friendResults.map((p) => (
                         <button
                           key={p.id}
-                          onClick={() => addCompanion(`${p.display_name || p.username} (@${p.username})`)}
+                          onClick={() => addCompanion(`${(p.name_mode === 'alias' && p.alias) || p.display_name || p.username} (@${p.username})`)}
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 32, 0,0.08)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
@@ -2357,7 +2357,7 @@ export default function FeedPage() {
                             {(p.display_name || p.username || 'U').charAt(0).toUpperCase()}
                           </span>
                           <span style={{ display: 'flex', flexDirection: 'column' }}>
-                            <strong style={{ fontSize: '12px' }}>{p.display_name || p.username}</strong>
+                            <strong style={{ fontSize: '12px' }}>{publicName(p)}</strong>
                             <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>
                           </span>
                         </button>
@@ -3859,7 +3859,7 @@ export default function FeedPage() {
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => addEditCompanion(`${p.display_name || p.username} (@${p.username})`)}
+                        onClick={() => addEditCompanion(`${(p.name_mode === 'alias' && p.alias) || p.display_name || p.username} (@${p.username})`)}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
                       >
                         <span className="activity-avatar" style={{ width: '26px', height: '26px', fontSize: '12px', flexShrink: 0 }}>

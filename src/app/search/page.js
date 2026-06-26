@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { Search, UserPlus, UserMinus, Loader, Users } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
+import { publicName } from '@/lib/names';
 
 export default function SearchPage() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -100,10 +101,10 @@ export default function SearchPage() {
       <div key={user.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
         <Link href={`/u/${user.id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1, textDecoration: 'none' }}>
           <div className="activity-avatar" style={{ width: '42px', height: '42px', fontSize: '17px', flexShrink: 0 }}>
-            {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
+            {publicName(user).replace(/^@/, '').charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div style={{ minWidth: 0 }}>
-            <strong style={{ fontSize: '14px', color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.display_name}</strong>
+            <strong style={{ fontSize: '14px', color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(user)}</strong>
             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{subtitle || `@${user.username}`}</span>
           </div>
         </Link>
