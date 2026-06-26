@@ -82,11 +82,17 @@ export default function EventDetailPage({ params }) {
     return () => clearInterval(t);
   }, []);
 
+  // Token del link di condivisione (?t=...): chi ce l'ha è "invitato" e può vedere/partecipare
+  // anche senza account o senza essere amico.
+  const shareToken = (typeof window !== 'undefined')
+    ? new URLSearchParams(window.location.search).get('t')
+    : null;
+
   const load = async () => {
     try {
       const user = await db.getCurrentUser();
       setCurrentUser(user);
-      const ev = await db.getEvent(id);
+      const ev = await db.getEventShared(id, shareToken);
       setEvent(ev);
       if (user) {
         const rts = await db.getRoutes();
@@ -344,7 +350,7 @@ export default function EventDetailPage({ params }) {
     if (event?.myResponse === status) return;  // stessa risposta → niente da fare
     setResponding(true);
     try {
-      await db.respondToEvent(id, status);
+      await db.respondToEvent(id, status, shareToken);
       await load();
     } catch (err) {
       alert(err.message || 'Errore');
@@ -361,7 +367,7 @@ export default function EventDetailPage({ params }) {
 
   // URL CANONICO dell'evento (sempre sul dominio ufficiale), così il link condiviso
   // funziona e viene catturato dalla PWA anche se l'app è aperta da un altro dominio.
-  const eventUrl = () => siteUrl(`/events/${id}`);
+  const eventUrl = () => siteUrl(`/events/${id}${event?.share_token ? `?t=${event.share_token}` : ''}`);
 
   const shareText = () => {
     const d = event?.date ? formatEventDate(event.date) : '';
@@ -480,7 +486,12 @@ export default function EventDetailPage({ params }) {
 
         {isHost && (event.visibility || 'public') !== 'public' && (
           <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-            🔗 Questo evento {(event.visibility === 'private') ? 'è privato' : 'è solo per amici'}: il link che condividi si apre <strong style={{ color: 'var(--text-dark-primary)' }}>solo per {(event.visibility === 'private') ? 'le persone che inviti' : 'i tuoi amici e gli invitati'}</strong>. Per chi non ne ha diritto risulterà introvabile.
+            🔗 {(event.visibility === 'private') ? 'Privato' : 'Solo amici'}: non compare nella lista pubblica. Ma <strong style={{ color: 'var(--text-dark-primary)' }}>chiunque riceva il link qui sotto può aprirlo e partecipare — anche senza account</strong>. Condividilo solo con chi vuoi invitare.
+          </p>
+        )}
+        {!isHost && event.viaLink && (event.visibility || 'public') !== 'public' && (
+          <p style={{ fontSize: '12px', color: 'var(--secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+            👋 Sei qui tramite un <strong>link condiviso</strong>: l&apos;organizzatore ti ha invitato a questo evento {(event.visibility === 'private') ? 'privato' : 'riservato agli amici'}.
           </p>
         )}
 
@@ -501,13 +512,48 @@ export default function EventDetailPage({ params }) {
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <RouteIcon size={16} /> Itinerario: <strong style={{ color: 'var(--primary)' }}>{event.route_name}</strong>
               </span>
-              <Link
-                href={event.route_id ? `/routes?routeId=${event.route_id}` : '/routes'}
-                className="btn btn-secondary"
-                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <RouteIcon size={14} /> Vedi itinerario
-              </Link>
+              {/* Link al tour solo se NON è mostrato inline (cioè non è il tour del proprietario):
+                  per i tour del proprietario — anche privati — mostriamo le tappe qui sotto, così
+                  restano visibili DENTRO l'evento senza finire nella lista pubblica. */}
+              {!(event.route && event.route.waypoints) && (
+                <Link
+                  href={event.route_id ? `/routes?routeId=${event.route_id}` : '/routes'}
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <RouteIcon size={14} /> Vedi itinerario
+                </Link>
+              )}
+            </div>
+          )}
+          {/* Itinerario del proprietario mostrato INLINE (tappe), con la privacy dell'evento. */}
+          {event.route && Array.isArray(event.route.waypoints) && event.route.waypoints.length > 0 && (
+            <div style={{ marginTop: '4px', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <RouteIcon size={14} color="var(--primary)" /> Tappe dell&apos;itinerario
+              </div>
+              <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {event.route.waypoints.map((w, i) => {
+                  const wlat = w.lat, wlng = w.lng ?? w.lon;
+                  const mapHref = (wlat != null && wlng != null)
+                    ? `https://www.google.com/maps/search/?api=1&query=${wlat},${wlng}`
+                    : (w.name ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(w.name)}` : null);
+                  return (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ flexShrink: 0, width: '22px', height: '22px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '1px' }}>{i + 1}</span>
+                      <span style={{ minWidth: 0, fontSize: '14px', color: '#FFF' }}>
+                        {w.name || `Tappa ${i + 1}`}
+                        {w.address && <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{w.address}</span>}
+                      </span>
+                      {mapHref && (
+                        <a href={mapHref} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', flexShrink: 0 }}>
+                          <ExternalLink size={11} /> Mappa
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
@@ -852,12 +898,31 @@ export default function EventDetailPage({ params }) {
 
             <div className="form-group">
               <label className="form-label">Itinerario collegato (opzionale)</label>
-              <select className="form-control" value={edit.routeId} onChange={(e) => setEdit((p) => ({ ...p, routeId: e.target.value }))}>
-                <option value="">Nessun itinerario</option>
-                {routes.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
+              {(() => {
+                // Collegabili: i MIEI itinerari (qualunque privacy) o quelli PUBBLICI.
+                // Mantengo selezionabile l'itinerario già collegato anche se non rientra nel filtro.
+                const selectable = routes.filter((r) => r.user_id === currentUser?.id || r.visibility === 'public' || r.id === edit.routeId);
+                const sel = routes.find((r) => r.id === edit.routeId);
+                const mineNonPublic = sel && sel.user_id === currentUser?.id && (sel.visibility || 'public') !== 'public';
+                return (
+                  <>
+                    <select className="form-control" value={edit.routeId} onChange={(e) => setEdit((p) => ({ ...p, routeId: e.target.value }))}>
+                      <option value="">Nessun itinerario</option>
+                      {selectable.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}{r.user_id === currentUser?.id ? ' · il mio' : ' · pubblico'}{(r.user_id === currentUser?.id && (r.visibility || 'public') !== 'public') ? (r.visibility === 'private' ? ' 🔒' : ' 👥') : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
+                      Puoi collegare i <strong>tuoi</strong> itinerari o quelli <strong>pubblici</strong>.
+                      {mineNonPublic && (
+                        <> <br />⚠️ <span style={{ color: 'var(--secondary)' }}>Itinerario {sel.visibility === 'private' ? 'privato' : 'riservato agli amici'}: le tappe saranno visibili <strong>dentro l&apos;evento</strong> secondo la privacy dell&apos;evento, ma resta fuori dalla lista pubblica dei tour.</span></>
+                      )}
+                    </p>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="form-group">

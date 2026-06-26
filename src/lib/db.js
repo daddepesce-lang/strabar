@@ -2928,6 +2928,39 @@ export const db = {
     return { ...ev, responses, invitedProfiles };
   },
 
+  // Dettaglio evento per la pagina/condivisione: usa la funzione SECURITY DEFINER
+  // get_event_full, che applica l'accesso (token del link OPPURE host/pubblico/invitato/amici)
+  // e include l'itinerario INLINE se è del proprietario dell'evento. Così:
+  //  • chi ha il link vede l'evento anche senza account / senza essere amico;
+  //  • un itinerario privato del proprietario è visibile DENTRO l'evento (mai nella lista tour).
+  // Ritorna null se non c'è accesso (la pagina mostra "non trovato", senza rivelarne l'esistenza).
+  async getEventShared(eventId, token = null) {
+    if (!isSupabaseConfigured) return this.getEvent(eventId);
+    const user = await this.getCurrentUser();
+    const { data: e, error } = await supabase.rpc('get_event_full', { p_id: eventId, p_token: token });
+    if (error) throw error;
+    if (!e) return null;
+    const responses = e.responses || [];
+    const invitedIds = e.invited || [];
+    const pmap = await this._profilesByIds([e.host_id, ...responses.map((r) => r.user_id), ...invitedIds]);
+    const host = pmap[e.host_id] || { display_name: 'Organizzatore', username: 'host' };
+    return {
+      ...e,
+      host,
+      host_name: host.display_name || host.username,
+      goingCount: responses.filter((r) => r.status === 'going').length,
+      myResponse: user ? (responses.find((r) => r.user_id === user.id)?.status || null) : null,
+      isInvited: user ? (e.host_id === user.id || invitedIds.includes(user.id)) : false,
+      // true quando l'accesso è arrivato dal link (utile alla UI per spiegare "sei qui col link")
+      viaLink: !!token,
+      responses: responses.map((r) => ({
+        ...r,
+        profile: pmap[r.user_id] || { display_name: 'Atleta', username: 'utente' },
+      })),
+      invitedProfiles: invitedIds.map((uid) => pmap[uid] || { id: uid, display_name: 'Atleta', username: 'utente' }),
+    };
+  },
+
   async createEvent(data) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato per creare un evento!');
@@ -2994,9 +3027,25 @@ export const db = {
     return newEvent;
   },
 
-  async respondToEvent(eventId, status) {
+  async respondToEvent(eventId, status, token = null) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato per rispondere a un evento!');
+
+    // Arrivo dal link (token): chi ha il link è "invitato", quindi può partecipare anche
+    // se non è tra gli invitati formali. L'RPC valida il token e fa l'upsert bypassando la RLS.
+    if (isSupabaseConfigured && token) {
+      const { error } = await supabase.rpc('rsvp_shared_event', { p_id: eventId, p_token: token, p_status: status });
+      if (error) throw error;
+      const { data: ev } = await supabase.from('events').select('host_id, title').eq('id', eventId).maybeSingle();
+      if (ev && ev.host_id !== user.id) {
+        const label = status === 'going' ? 'Partecipo' : status === 'maybe' ? 'Forse' : 'Non posso';
+        this.pushNotification(ev.host_id, {
+          type: 'event_rsvp', actor_id: user.id, actor_name: user.display_name || user.username,
+          message: `${user.display_name || user.username} ha risposto "${label}" a "${ev?.title || 'un evento'}"`, link: `/events/${eventId}`,
+        });
+      }
+      return true;
+    }
 
     if (isSupabaseConfigured) {
       // Stato precedente: serve per notificare l'host SOLO quando la risposta cambia

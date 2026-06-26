@@ -354,12 +354,32 @@ export default function EventsPage() {
 
             <div className="form-group">
               <label className="form-label">Itinerario collegato (opzionale)</label>
-              <select className="form-control" value={routeId} onChange={(e) => setRouteId(e.target.value)}>
-                <option value="">Nessun itinerario</option>
-                {routes.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
+              {(() => {
+                // Collegabili: solo i MIEI itinerari (qualunque privacy) o quelli PUBBLICI.
+                // Un tour "amici" di un altro non si può collegare: l'evento potrebbe avere
+                // un pubblico più ampio del tour → si eviterebbe un leak.
+                const selectable = routes.filter((r) => r.user_id === currentUser?.id || r.visibility === 'public');
+                const sel = routes.find((r) => r.id === routeId);
+                const mineNonPublic = sel && sel.user_id === currentUser?.id && (sel.visibility || 'public') !== 'public';
+                return (
+                  <>
+                    <select className="form-control" value={routeId} onChange={(e) => setRouteId(e.target.value)}>
+                      <option value="">Nessun itinerario</option>
+                      {selectable.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}{r.user_id === currentUser?.id ? ' · il mio' : ' · pubblico'}{(r.user_id === currentUser?.id && (r.visibility || 'public') !== 'public') ? (r.visibility === 'private' ? ' 🔒' : ' 👥') : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
+                      Puoi collegare i <strong>tuoi</strong> itinerari o quelli <strong>pubblici</strong>.
+                      {mineNonPublic && (
+                        <> <br />⚠️ <span style={{ color: 'var(--secondary)' }}>Questo è un tuo itinerario {sel.visibility === 'private' ? 'privato' : 'riservato agli amici'}: collegandolo, le sue tappe saranno visibili <strong>dentro l&apos;evento</strong> a chi può vederlo (secondo la privacy dell&apos;evento). Resta comunque fuori dalla lista pubblica dei tour.</span></>
+                      )}
+                    </p>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="form-group">
