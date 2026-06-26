@@ -105,6 +105,7 @@ export default function FeedPage() {
   const [activeSession, setActiveSession] = useState(null);
   const [showLivePanel, setShowLivePanel] = useState(false); // pannello live a comparsa (non nel feed)
   const [tourMsg, setTourMsg] = useState(null); // ultimo esito tappa (mostrato in-app, per intero)
+  const [pacingTip, setPacingTip] = useState(false); // consiglio: non loggare i drink tutti insieme
   const [banners, setBanners] = useState([]); // banner pubblicitari gestiti da admin
   const [liveResidualGrams, setLiveResidualGrams] = useState(0); // alcol residuo da sessioni precedenti recenti
   // Lock per l'aggiunta drink: blocca nuove selezioni finché l'aggiunta non è completata
@@ -762,6 +763,21 @@ export default function FeedPage() {
         : null;
       const base = freshSession || activeSession;
       const currentDrinks = base.drinks || [];
+
+      // CONSIGLIO "PACING": se aggiungi un drink entro 1 min dal precedente, è probabile
+      // che tu li stia inserendo tutti insieme. La curva BAC usa l'orario di OGNI drink,
+      // quindi loggarli in blocco la rende meno realistica (picco anticipato e più alto).
+      // Mostriamo il consiglio UNA volta per sessione.
+      const priorTimes = currentDrinks.flatMap((d) => (
+        Array.isArray(d.added_times) && d.added_times.length ? d.added_times : (d.added_at ? [d.added_at] : [])
+      ));
+      const lastPriorMs = priorTimes.length ? Math.max(...priorTimes.map((t) => new Date(t).getTime())) : 0;
+      if (lastPriorMs && (Date.now() - lastPriorMs) < 60000) {
+        try {
+          const k = `strabar_pacing_tip_${activeSession.id}`;
+          if (sessionStorage.getItem(k) !== '1') { sessionStorage.setItem(k, '1'); setPacingTip(true); }
+        } catch { setPacingTip(true); }
+      }
 
       // LOCALE CORRENTE per attribuire il drink (statistiche bar per-tappa).
       // Con un tour attivo → la tappa corrente; altrimenti → il locale della sessione.
@@ -2234,6 +2250,20 @@ export default function FeedPage() {
                   )}
                 </div>
               </div>
+
+              {/* Consiglio pacing: evita di loggare i drink tutti insieme (curva più realistica) */}
+              {pacingTip && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: 'rgba(223,255,0,0.08)', border: '1px solid rgba(223,255,0,0.35)', borderRadius: '12px', padding: '12px 14px', marginBottom: '14px' }}>
+                  <span style={{ fontSize: '18px', flexShrink: 0, lineHeight: 1.2 }}>📈</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', marginBottom: '2px' }}>Registra ogni drink quando lo inizi</strong>
+                    <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.45 }}>
+                      La curva del tasso alcolico usa l&apos;orario di ogni drink. Inserirli tutti insieme la rende meno precisa (picco anticipato e più alto del reale). Aggiungili man mano che bevi per una stima accurata.
+                    </span>
+                  </div>
+                  <button onClick={() => setPacingTip(false)} aria-label="Chiudi" style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, fontSize: '16px', lineHeight: 1, padding: '2px' }}>×</button>
+                </div>
+              )}
 
               {/* Pulsantiera Quick Add */}
               <div style={{ marginBottom: '15px' }}>
