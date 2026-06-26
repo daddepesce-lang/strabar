@@ -449,7 +449,7 @@ export const db = {
       return (data || []).map(c => ({
         id: c.id,
         user_id: c.user_id,
-        user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+        user_name: publicName(c.profiles, 'Utente Sconosciuto'),
         text: c.text,
         created_at: c.created_at,
       }));
@@ -516,7 +516,7 @@ export const db = {
         comments: data.comments ? data.comments.map(c => ({
           id: c.id,
           user_id: c.user_id,
-          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+          user_name: publicName(c.profiles, 'Utente Sconosciuto'),
           text: c.text,
           created_at: c.created_at
         })) : []
@@ -1951,7 +1951,7 @@ export const db = {
         comments: act.comments ? act.comments.map(c => ({
           id: c.id,
           user_id: c.user_id,
-          user_name: c.profiles?.display_name || c.profiles?.username || 'Utente Sconosciuto',
+          user_name: publicName(c.profiles, 'Utente Sconosciuto'),
           text: c.text,
           created_at: c.created_at,
         })) : [],
