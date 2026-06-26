@@ -47,13 +47,12 @@ export default function PrivacyPage() {
         <section>
           <h2 style={s.h2}>Visibilità dei contenuti</h2>
           <p>{APP_NAME} è un social: profilo, sessioni, classifiche, commenti e &quot;cheers&quot; sono <strong>visibili agli altri utenti</strong>. Non pubblicare ciò che vuoi mantenere privato.</p>
-          <p style={{ marginTop: '10px' }}><strong>Eventi e itinerari (tour)</strong> hanno una privacy che scegli tu, per singolo elemento, tra tre livelli:</p>
+          <p style={{ marginTop: '10px' }}>Per gli <strong>eventi</strong> controlli separatamente <strong>due cose distinte</strong>:</p>
           <ul style={s.ul}>
-            <li><strong>🌍 Pubblico:</strong> visibile a tutti gli utenti e apribile da chiunque abbia il link di condivisione.</li>
-            <li><strong>👥 Amici:</strong> visibile solo a chi è collegato a te da un follow (e, per gli eventi, alle persone che inviti). Il link funziona solo per loro.</li>
-            <li><strong>🔒 Privato / Solo invitati:</strong> non compare nella lista pubblica. Per gli <strong>eventi</strong> è visibile a te e alle persone che inviti.</li>
+            <li><strong>Chi lo vede nella lista eventi</strong> (solo scoperta passiva): <strong>🌍 Tutti</strong>, <strong>👥 Amici</strong> (chi è collegato a te da un follow) oppure <strong>🔒 Nessuno</strong> (non compare in lista: lo vedono solo te e le persone che inviti per nome).</li>
+            <li><strong>Link di invito</strong> (interruttore on/off): quando è attivo, ogni evento ha un link con un codice e <strong>chiunque riceva quel link può aprire e partecipare</strong> — anche se l&apos;evento non compare nella lista e anche senza un account. In pratica, per l&apos;organizzatore <em>chi ha il link è un invitato</em>. Se disattivi il link, accedono solo tu e le persone invitate per nome, e un link inoltrato non funziona.</li>
           </ul>
-          <p style={{ marginTop: '10px' }}><strong>Link di condivisione degli eventi:</strong> ogni evento ha un link che contiene un codice. Chiunque riceve quel link può <strong>aprire e partecipare all&apos;evento</strong>, anche se l&apos;evento è &quot;Amici&quot; o &quot;Privato&quot; e anche senza un account: in pratica, per l&apos;organizzatore <em>chi ha il link è un invitato</em>. Condividi il link solo con le persone che vuoi davvero invitare. Gli itinerari (tour), invece, non hanno un link-invito: restano accessibili secondo la loro visibilità.</p>
+          <p style={{ marginTop: '10px' }}>Condividi il link solo con le persone che vuoi davvero far entrare. Gli <strong>itinerari (tour)</strong> hanno invece la classica visibilità per-elemento (🌍 pubblico / 👥 amici / 🔒 privato) e non hanno un link-invito separato.</p>
           <p style={{ marginTop: '10px' }}>Gli eventi e gli itinerari creati prima dell&apos;introduzione di questi controlli restano <strong>pubblici</strong> come in precedenza, ma il proprietario può modificarne la visibilità in qualsiasi momento dalle rispettive schermate. Un evento può includere un itinerario: se l&apos;itinerario è del <strong>proprietario dell&apos;evento</strong>, le sue tappe vengono mostrate <strong>dentro l&apos;evento</strong> seguendo la privacy dell&apos;evento (e restano fuori dalla lista pubblica dei tour). Puoi collegare a un evento solo i tuoi itinerari o quelli pubblici.</p>
         </section>
 

@@ -66,7 +66,7 @@ export default function EventDetailPage({ params }) {
   // Modifica evento (solo organizzatore)
   const [showEdit, setShowEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [edit, setEdit] = useState({ title: '', description: '', date: '', routeId: '', visibility: 'public' });
+  const [edit, setEdit] = useState({ title: '', description: '', date: '', routeId: '', visibility: 'public', linkSharing: true });
   const [locQuery, setLocQuery] = useState('');
   const [locResults, setLocResults] = useState([]);
   const [locSearching, setLocSearching] = useState(false);
@@ -150,6 +150,7 @@ export default function EventDetailPage({ params }) {
       date: event.date ? toLocalInput(event.date) : '',
       routeId: event.route_id || '',
       visibility: event.visibility || 'public',
+      linkSharing: event.link_sharing !== false,
     });
     setEditLocName(event.location_name || '');
     setLocQuery(event.location_name || '');
@@ -188,6 +189,7 @@ export default function EventDetailPage({ params }) {
         route_id: edit.routeId || null,
         route_name: selectedRoute?.name || null,
         visibility: edit.visibility || 'public',
+        link_sharing: edit.linkSharing !== false,
       });
       setShowEdit(false);
       await load();
@@ -453,13 +455,19 @@ export default function EventDetailPage({ params }) {
             {(() => {
               const v = event.visibility || 'public';
               const meta = v === 'private'
-                ? { icon: '🔒', label: 'Solo invitati', color: 'var(--error)' }
+                ? { icon: '🔒', label: 'Nella lista: nessuno', color: 'var(--error)' }
                 : v === 'friends'
-                ? { icon: '👥', label: 'Solo amici', color: 'var(--secondary)' }
-                : { icon: '🌍', label: 'Pubblico', color: 'var(--success)' };
+                ? { icon: '👥', label: 'Nella lista: amici', color: 'var(--secondary)' }
+                : { icon: '🌍', label: 'Nella lista: tutti', color: 'var(--success)' };
+              const linkOn = event.link_sharing !== false;
               return (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '6px', fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${meta.color}`, color: meta.color }}>
-                  {meta.icon} {meta.label}
+                <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${meta.color}`, color: meta.color }}>
+                    {meta.icon} {meta.label}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${linkOn ? 'var(--primary)' : 'var(--border-dark)'}`, color: linkOn ? 'var(--primary)' : 'var(--text-dark-secondary)' }}>
+                    🔗 Link {linkOn ? 'attivo' : 'disattivato'}
+                  </span>
                 </span>
               );
             })()}
@@ -484,11 +492,15 @@ export default function EventDetailPage({ params }) {
           </div>
         </div>
 
-        {isHost && (event.visibility || 'public') !== 'public' && (
+        {isHost && (event.link_sharing === false ? (
           <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-            🔗 {(event.visibility === 'private') ? 'Privato' : 'Solo amici'}: non compare nella lista pubblica. Ma <strong style={{ color: 'var(--text-dark-primary)' }}>chiunque riceva il link qui sotto può aprirlo e partecipare — anche senza account</strong>. Condividilo solo con chi vuoi invitare.
+            🔗 <strong style={{ color: 'var(--text-dark-primary)' }}>Link di invito disattivato</strong>: accedono solo tu e le persone che inviti per nome. Un link inoltrato non funziona. Puoi riattivarlo da “Modifica”.
           </p>
-        )}
+        ) : (event.visibility || 'public') !== 'public' ? (
+          <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
+            🔗 Non compare nella lista {(event.visibility === 'private') ? 'a nessuno' : '(solo agli amici)'}, ma <strong style={{ color: 'var(--text-dark-primary)' }}>chiunque riceva il link qui sotto può aprirlo e partecipare — anche senza account</strong>. Condividilo solo con chi vuoi invitare.
+          </p>
+        ) : null)}
         {!isHost && event.viaLink && (event.visibility || 'public') !== 'public' && (
           <p style={{ fontSize: '12px', color: 'var(--secondary)', marginTop: '8px', lineHeight: 1.4 }}>
             👋 Sei qui tramite un <strong>link condiviso</strong>: l&apos;organizzatore ti ha invitato a questo evento {(event.visibility === 'private') ? 'privato' : 'riservato agli amici'}.
@@ -925,13 +937,14 @@ export default function EventDetailPage({ params }) {
               })()}
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Chi può vedere questo evento</label>
+            {/* ACCESSO — due concetti distinti */}
+            <div className="form-group" style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
+              <label className="form-label">Chi lo vede nella lista eventi</label>
               <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
                 {[
                   { v: 'public', t: '🌍 Tutti' },
                   { v: 'friends', t: '👥 Amici' },
-                  { v: 'private', t: '🔒 Solo invitati' },
+                  { v: 'private', t: '🔒 Nessuno' },
                 ].map((o) => (
                   <div
                     key={o.v}
@@ -942,10 +955,27 @@ export default function EventDetailPage({ params }) {
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
                 {edit.visibility === 'public'
-                  ? '🌍 Visibile a tutti e apribile da chiunque abbia il link.'
+                  ? '🌍 Compare nella lista eventi a tutti gli utenti.'
                   : edit.visibility === 'friends'
-                  ? '👥 Visibile solo ai tuoi amici e agli invitati. Il link funziona solo per loro.'
-                  : '🔒 Visibile solo a te e agli invitati. Il link funziona solo per gli invitati.'}
+                  ? '👥 Compare nella lista solo ai tuoi amici.'
+                  : '🔒 Non compare nella lista: lo vedono solo tu e le persone che inviti.'}
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label
+                onClick={() => setEdit((p) => ({ ...p, linkSharing: !p.linkSharing }))}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', cursor: 'pointer' }}
+              >
+                <span style={{ fontWeight: 700, fontSize: '14px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Link di invito</span>
+                <span style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0, transition: 'var(--transition)', background: edit.linkSharing ? 'var(--primary)' : 'var(--border-dark)' }}>
+                  <span style={{ position: 'absolute', top: '2px', left: edit.linkSharing ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'var(--transition)' }} />
+                </span>
+              </label>
+              <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
+                {edit.linkSharing
+                  ? '✅ Chiunque riceva il link può aprire e partecipare — anche senza account e anche se non lo vede nella lista.'
+                  : '⛔ Solo tu e le persone che inviti per nome potete accedere. Un link inoltrato non funzionerà.'}
               </p>
             </div>
 

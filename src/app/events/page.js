@@ -34,7 +34,8 @@ export default function EventsPage() {
   const [date, setDate] = useState('');
   const [locationName, setLocationName] = useState('');
   const [routeId, setRouteId] = useState('');
-  const [visibility, setVisibility] = useState('public'); // public | friends | private
+  const [visibility, setVisibility] = useState('public'); // chi lo vede nella LISTA: public | friends | private
+  const [linkSharing, setLinkSharing] = useState(true); // il LINK di invito funziona (chiunque lo riceve entra)
   const [invited, setInvited] = useState([]);
   const [invitedPeople, setInvitedPeople] = useState([]); // [{id,name,username}] mostrati come chip
   const [inviteQuery, setInviteQuery] = useState('');
@@ -159,10 +160,11 @@ export default function EventsPage() {
         route_id: routeId || null,
         route_name: selectedRoute?.name || null,
         visibility,
+        link_sharing: linkSharing,
         invited,
       });
       setShowForm(false);
-      setTitle(''); setDesc(''); setDate(''); setLocationName(''); setRouteId(''); setVisibility('public'); setInvited([]); setInvitedPeople([]); setInviteQuery('');
+      setTitle(''); setDesc(''); setDate(''); setLocationName(''); setRouteId(''); setVisibility('public'); setLinkSharing(true); setInvited([]); setInvitedPeople([]); setInviteQuery('');
       setLocQuery(''); setLocResults([]); setSelectedLoc(null);
       router.push(`/events/${ev.id}`);
     } catch (err) {
@@ -383,30 +385,6 @@ export default function EventsPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Chi può vedere questo evento</label>
-              <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
-                {[
-                  { v: 'public', t: '🌍 Tutti' },
-                  { v: 'friends', t: '👥 Amici' },
-                  { v: 'private', t: '🔒 Solo invitati' },
-                ].map((o) => (
-                  <div
-                    key={o.v}
-                    onClick={() => setVisibility(o.v)}
-                    style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '9px 4px', borderRadius: '10px', fontWeight: 700, fontSize: '13px', border: visibility === o.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: visibility === o.v ? 'var(--primary)' : 'var(--text-dark-primary)', background: 'var(--bg-input-dark)' }}
-                  >{o.t}</div>
-                ))}
-              </div>
-              <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
-                {visibility === 'public'
-                  ? '🌍 Visibile a tutti e apribile da chiunque abbia il link.'
-                  : visibility === 'friends'
-                  ? '👥 Visibile solo ai tuoi amici (chi ti segue o segui) e agli invitati. Il link funziona solo per loro.'
-                  : '🔒 Visibile solo a te e alle persone che inviti. Il link funziona solo per gli invitati.'}
-              </p>
-            </div>
-
-            <div className="form-group">
               <label className="form-label">Descrizione</label>
               <textarea className="form-control" rows={2} placeholder="Dettagli, dress code, cosa portare..." value={desc} onChange={(e) => setDesc(e.target.value)} style={{ resize: 'vertical' }} />
             </div>
@@ -468,6 +446,48 @@ export default function EventsPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* ACCESSO — due concetti distinti e indipendenti */}
+            <div className="form-group" style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
+              <label className="form-label">Chi lo vede nella lista eventi</label>
+              <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { v: 'public', t: '🌍 Tutti' },
+                  { v: 'friends', t: '👥 Amici' },
+                  { v: 'private', t: '🔒 Nessuno' },
+                ].map((o) => (
+                  <div
+                    key={o.v}
+                    onClick={() => setVisibility(o.v)}
+                    style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '9px 4px', borderRadius: '10px', fontWeight: 700, fontSize: '13px', border: visibility === o.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: visibility === o.v ? 'var(--primary)' : 'var(--text-dark-primary)', background: 'var(--bg-input-dark)' }}
+                  >{o.t}</div>
+                ))}
+              </div>
+              <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
+                {visibility === 'public'
+                  ? '🌍 Compare nella lista eventi a tutti gli utenti.'
+                  : visibility === 'friends'
+                  ? '👥 Compare nella lista solo ai tuoi amici (chi segui / ti segue).'
+                  : '🔒 Non compare nella lista a nessuno: lo vedono solo tu e le persone che inviti.'}
+              </p>
+            </div>
+
+            <div className="form-group">
+              <label
+                onClick={() => setLinkSharing((v) => !v)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', cursor: 'pointer' }}
+              >
+                <span style={{ fontWeight: 700, fontSize: '14px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Link di invito</span>
+                <span style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0, transition: 'var(--transition)', background: linkSharing ? 'var(--primary)' : 'var(--border-dark)' }}>
+                  <span style={{ position: 'absolute', top: '2px', left: linkSharing ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'var(--transition)' }} />
+                </span>
+              </label>
+              <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
+                {linkSharing
+                  ? '✅ Chiunque riceva il link può aprire e partecipare — anche senza account e anche se non lo vede nella lista. Perfetto per invitare non-amici.'
+                  : '⛔ Solo tu e le persone che inviti per nome potete accedere. Un link inoltrato non funzionerà.'}
+              </p>
             </div>
 
             <button onClick={handleCreate} disabled={saving} className="btn btn-primary" style={{ width: '100%', marginTop: '6px' }}>

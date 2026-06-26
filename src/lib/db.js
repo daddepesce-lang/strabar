@@ -2981,7 +2981,8 @@ export const db = {
           location: data.location || null,
           route_id: data.route_id || null,
           route_name: data.route_name || null,
-          visibility: data.visibility || 'public', // public | friends | private
+          visibility: data.visibility || 'public', // chi lo vede nella LISTA: public | friends | private
+          link_sharing: data.link_sharing !== false, // se il LINK di invito funziona (default ON)
           invited,
         })
         .select()
@@ -3014,6 +3015,7 @@ export const db = {
       route_id: data.route_id || null,
       route_name: data.route_name || null,
       visibility: data.visibility || 'public',
+      link_sharing: data.link_sharing !== false,
       invited,
       responses: [{ user_id: user.id, user_name: user.display_name || user.username, status: 'going', created_at: new Date().toISOString() }],
       created_at: new Date().toISOString(),
@@ -3134,7 +3136,7 @@ export const db = {
   async updateEvent(eventId, fields) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato!');
-    const allowed = ['title', 'description', 'date', 'location_name', 'location', 'route_id', 'route_name', 'visibility'];
+    const allowed = ['title', 'description', 'date', 'location_name', 'location', 'route_id', 'route_name', 'visibility', 'link_sharing'];
     const patch = {};
     allowed.forEach((k) => { if (k in fields) patch[k] = fields[k]; });
 
