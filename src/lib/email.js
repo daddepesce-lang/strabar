@@ -6,7 +6,9 @@ import { Resend } from 'resend';
 // (ma invia solo all'email del tuo account Resend).
 
 const apiKey = process.env.RESEND_API_KEY;
-const FROM = process.env.RESEND_FROM || 'Strabar <onboarding@resend.dev>';
+// Dominio strabar.app verificato su Resend → mittente di default sul dominio.
+// Override possibile con RESEND_FROM (es. "Strabar <ciao@strabar.app>").
+const FROM = process.env.RESEND_FROM || 'Strabar <noreply@strabar.app>';
 
 export async function sendWelcomeEmail(to, name) {
   if (!apiKey) {
