@@ -2282,7 +2282,7 @@ export const db = {
       if (!p.address && loc.address) p.address = loc.address;
       if (!p.lat && loc.lat) { p.lat = loc.lat; p.lng = loc.lng; }
       const uid = act.user_id;
-      const uname = act.profiles?.display_name || act.profiles?.username || 'Atleta Strabar';
+      const uname = publicName(act.profiles, 'Atleta Strabar');
       if (!p.drinkers[uid]) p.drinkers[uid] = { name: uname, count: 0, units: 0 };
       p.drinkers[uid].count += 1;
       p.drinkers[uid].units += parseFloat(act.total_units || 0);
@@ -2573,7 +2573,7 @@ export const db = {
     const byUser = {};
     sessions.forEach((s) => {
       const uid = s.user_id;
-      const name = s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar';
+      const name = publicName(s.profiles, 'Atleta Strabar');
       if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: s.profiles?.public_leaderboard === false };
       byUser[uid].visits += 1;
       byUser[uid].units += parseFloat(s.total_units || 0);
@@ -2601,7 +2601,7 @@ export const db = {
     const byUser = {};
     sessions.forEach((s) => {
       const uid = s.user_id;
-      const name = s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar';
+      const name = publicName(s.profiles, 'Atleta Strabar');
       if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: s.profiles?.public_leaderboard === false };
       byUser[uid].visits += 1;
       byUser[uid].units += parseFloat(s.total_units || 0);
@@ -2621,7 +2621,7 @@ export const db = {
         // Picco BAC è per-sessione: una sessione privata (o di chi è in opt-out) resta anonima.
         const revealed = s.location?.share !== 'private' && s.profiles?.public_leaderboard !== false;
         return {
-          name: revealed ? (s.profiles?.display_name || s.profiles?.username || 'Atleta Strabar') : 'Atleta riservato',
+          name: revealed ? publicName(s.profiles, 'Atleta Strabar') : 'Atleta riservato',
           bac: this.calculatePeakBAC(s.drinks || [], s.created_at, s.duration || 120, s.profiles?.weight, s.full_stomach, s.profiles?.sex),
         };
       })
