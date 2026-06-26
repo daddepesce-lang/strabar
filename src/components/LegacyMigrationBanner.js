@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Download } from 'lucide-react';
+
+// Link assoluto al nuovo dominio: se il banner compare ancora sul vecchio host,
+// un link relativo resterebbe lì. Forziamo strabar.app.
+const INSTALL_URL = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://strabar.app'}/install`;
 
 // Domini "legacy": chi arriva da qui (o viene rediretto dal middleware con ?legacy=1)
 // va avvisato che l'app si è spostata su strabar.app e conviene reinstallarla, perché
@@ -43,24 +47,33 @@ export default function LegacyMigrationBanner() {
         boxShadow: '0 8px 30px rgba(0,0,0,0.5), 0 0 18px rgba(255, 32, 0,0.25)',
         padding: '12px 14px',
         display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
+        flexDirection: 'column',
+        gap: '10px',
         maxWidth: '560px',
         margin: '0 auto',
       }}
     >
-      <div style={{ background: 'rgba(255, 32, 0,0.12)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>
-        📦
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+        <div style={{ background: 'rgba(255, 32, 0,0.12)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>
+          📦
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <strong style={{ fontSize: '14px', color: '#FFF', display: 'block', marginBottom: 2 }}>Reinstalla Strabar dal nuovo indirizzo</strong>
+          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.45 }}>
+            Strabar ora è su <strong>strabar.app</strong>. L&apos;app installata col vecchio indirizzo non riceve più <strong>notifiche</strong> né aggiornamenti: eliminala dalla schermata Home e reinstallala da qui.
+          </span>
+        </div>
+        <button onClick={dismiss} aria-label="Chiudi" style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, padding: '4px', background: 'none', border: 'none' }}>
+          <X size={18} />
+        </button>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>Strabar si è spostata su strabar.app</strong>
-        <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-          Se avevi l&apos;app installata col vecchio indirizzo, rimuovila e <strong>reinstallala da qui</strong> per riceverne i link e gli aggiornamenti.
-        </span>
-      </div>
-      <button onClick={dismiss} aria-label="Chiudi" style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, padding: '4px' }}>
-        <X size={18} />
-      </button>
+      <a
+        href={INSTALL_URL}
+        className="btn btn-primary"
+        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '11px', borderRadius: '24px', fontWeight: 700, fontSize: '14px', textDecoration: 'none' }}
+      >
+        <Download size={16} /> Reinstalla l&apos;app
+      </a>
     </div>
   );
 }
