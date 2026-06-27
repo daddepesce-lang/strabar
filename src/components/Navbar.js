@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import NavSearch from '@/components/NavSearch';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users,
+  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users, HelpCircle,
 } from 'lucide-react';
 
 // Email per le segnalazioni bug (stessa del contatto privacy).
@@ -382,6 +382,7 @@ export default function Navbar() {
               {user.is_admin && (
                 <Link href="/admin" className={isActive('/admin') ? 'active' : ''}><ShieldCheck size={22} /><span>Admin</span></Link>
               )}
+              <button type="button" onClick={() => { setMoreOpen(false); window.dispatchEvent(new Event('strabar:open-guide')); }}><HelpCircle size={22} /><span>Come funziona</span></button>
               <a href={`mailto:${BUG_EMAIL}?subject=${encodeURIComponent('Strabar — Segnalazione bug')}&body=${encodeURIComponent('Descrivi il problema (cosa facevi, cosa è successo):\n\n\n— Dispositivo/browser:\n')}`}><Bug size={22} /><span>Segnala bug</span></a>
               <button type="button" onClick={handleLogout}><LogOut size={22} /><span>Esci</span></button>
             </div>

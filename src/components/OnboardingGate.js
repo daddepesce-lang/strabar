@@ -74,6 +74,8 @@ export default function OnboardingGate() {
       const u = { ...user, marketing_consent: value };
       setUser(u);
       evaluate(u);
+      // Onboarding obbligatorio completato → segnala così la mini-guida può apparire.
+      window.dispatchEvent(new Event('auth-change'));
     } catch (err) {
       setError(err.message || 'Errore nel salvataggio. Riprova.');
     } finally {

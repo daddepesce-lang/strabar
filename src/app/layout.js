@@ -22,6 +22,7 @@ import PushReminderGate from "@/components/PushReminderGate";
 import Footer from "@/components/Footer";
 import AgeGate from "@/components/AgeGate";
 import OnboardingGate from "@/components/OnboardingGate";
+import WelcomeGuide from "@/components/WelcomeGuide";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
@@ -84,6 +85,7 @@ export default function RootLayout({ children }) {
         <ServiceWorkerRegister />
         <AgeGate />
         <OnboardingGate />
+        <WelcomeGuide />
         <PwaInstallBanner />
         <LegacyMigrationBanner />
         <PushReminderGate />
