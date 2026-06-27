@@ -228,7 +228,18 @@ export default function LogActivityPage() {
         console.warn('Geolocalizzazione non disponibile:', err.code, err.message || err);
         let error;
         if (err.code === 1) {
-          error = 'Permesso GPS negato. Abilita la posizione per Strabar dalle impostazioni del browser e riprova.';
+          // Permesso negato: su iOS il browser NON ripropone il popup → servono le
+          // istruzioni di sistema. Le adattiamo alla piattaforma.
+          const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+          const isIos = /iphone|ipad|ipod/i.test(ua);
+          const isAndroid = /android/i.test(ua);
+          if (isIos) {
+            error = 'Posizione negata. Su iPhone non si può richiedere di nuovo dal sito: vai in Impostazioni → Privacy e sicurezza → Localizzazione → attivala per Safari (o per Strabar), poi torna qui e tocca "Riprova GPS". Oppure cerca il locale per nome.';
+          } else if (isAndroid) {
+            error = 'Posizione negata. Tocca il lucchetto 🔒 nella barra dell\'indirizzo → Autorizzazioni → Posizione → Consenti, poi tocca "Riprova GPS". Oppure cerca il locale per nome.';
+          } else {
+            error = 'Posizione negata. Abilitala per Strabar dalle impostazioni del browser (icona accanto all\'indirizzo), poi tocca "Riprova GPS". Oppure cerca il locale per nome.';
+          }
         } else if (err.code === 2) {
           error = 'Posizione non disponibile. Su Mac/PC controlla che i Servizi di Localizzazione di sistema siano attivi per il browser; in alternativa cerca il locale per nome.';
         } else if (err.code === 3) {
