@@ -2839,6 +2839,19 @@ export const db = {
   async addGroupMember(groupId, userId) {
     const { error } = await supabase.rpc('add_group_member', { p_group: groupId, p_user: userId });
     if (error) throw error;
+    // Avvisa l'utente che è stato aggiunto (può sempre lasciare il gruppo).
+    try {
+      const me = await this.getCurrentUser();
+      const { data: g } = await supabase.from('groups').select('name').eq('id', groupId).maybeSingle();
+      const actorName = me ? publicName(me, 'Un amministratore') : 'Un amministratore';
+      this.pushNotification(userId, {
+        type: 'group_add',
+        actor_id: me?.id || null,
+        actor_name: actorName,
+        message: `${actorName} ti ha aggiunto al gruppo "${g?.name || 'un gruppo'}" 👥`,
+        link: `/groups/${groupId}`,
+      });
+    } catch { /* best effort: l'aggiunta è comunque avvenuta */ }
     return true;
   },
 
