@@ -3282,42 +3282,50 @@ export default function FeedPage() {
                       <strong style={{ color: '#FFF', fontSize: '15px' }}>{selectedActivity.location.name}</strong>
                       <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{selectedActivity.location.address}</div>
                     </div>
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedActivity.location.name + ' ' + selectedActivity.location.address)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px' }}
-                    >
-                      Apri in Google Maps
-                    </a>
+                    {!selectedActivity.location.freeform && (selectedActivity.location.address || typeof selectedActivity.location.lat === 'number') && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((selectedActivity.location.name || '') + ' ' + (selectedActivity.location.address || ''))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px' }}
+                      >
+                        Apri in Google Maps
+                      </a>
+                    )}
                   </div>
-                  
-                  {/* Mappa Leaflet Reale ed Interattiva del percorso */}
-                  <div style={{ height: '220px', width: '100%', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
-                    {(() => {
-                      const tour = selectedActivity.location.tour;
-                      let waypoints, activeIndex = null;
-                      if (tour && Array.isArray(tour.stops)) {
-                        // Tour: mostra tutte le tappe con coordinate, evidenziando quella corrente.
-                        const stopsWithCoords = tour.stops
-                          .map((s, i) => ({ name: s.name, lat: s.lat, lng: s.lng ?? s.lon, label: i + 1, note: i === (tour.current || 0) ? 'Qui ora 📍' : '' }))
-                          .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
-                        waypoints = stopsWithCoords;
-                        activeIndex = stopsWithCoords.findIndex((s) => s.label === (tour.current || 0) + 1);
-                      } else {
-                        waypoints = selectedActivity.location.sequence && Array.isArray(selectedActivity.location.sequence)
-                          ? selectedActivity.location.sequence
-                          : [{
-                              name: selectedActivity.location.name,
-                              lat: selectedActivity.location.lat,
-                              lng: selectedActivity.location.lng ?? selectedActivity.location.lon,
-                              note: 'Partenza'
-                            }];
-                      }
-                      return <RouteMap waypoints={waypoints} activeIndex={activeIndex >= 0 ? activeIndex : null} height="100%" connectLine={true} />;
-                    })()}
-                  </div>
+
+                  {/* Mappa: SOLO con coordinate reali. Le sessioni libere (o i locali senza
+                      coordinate) non devono mostrare una mappa vuota senza segnaposto. */}
+                  {(() => {
+                    const L = selectedActivity.location;
+                    const tour = L.tour;
+                    let waypoints = [], activeIndex = null;
+                    if (tour && Array.isArray(tour.stops)) {
+                      waypoints = tour.stops
+                        .map((s, i) => ({ name: s.name, lat: s.lat, lng: s.lng ?? s.lon, label: i + 1, note: i === (tour.current || 0) ? 'Qui ora 📍' : '' }))
+                        .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
+                      activeIndex = waypoints.findIndex((s) => s.label === (tour.current || 0) + 1);
+                    } else if (Array.isArray(L.sequence)) {
+                      waypoints = L.sequence
+                        .map((s) => ({ ...s, lng: s.lng ?? s.lon }))
+                        .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
+                    } else if (typeof L.lat === 'number' && typeof (L.lng ?? L.lon) === 'number') {
+                      waypoints = [{ name: L.name, lat: L.lat, lng: L.lng ?? L.lon, note: 'Partenza' }];
+                    }
+                    if (!waypoints.length) {
+                      return (
+                        <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', margin: 0 }}>
+                          🍸 Sessione senza posizione: nessuna mappa da mostrare.
+                        </p>
+                      );
+                    }
+                    return (
+                      <div style={{ height: '220px', width: '100%', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+                        <RouteMap waypoints={waypoints} activeIndex={activeIndex >= 0 ? activeIndex : null} height="100%" connectLine={true} />
+                      </div>
+                    );
+                  })()}
 
                   {/* TOUR: drink divisi per tappa/locale */}
                   {(() => {

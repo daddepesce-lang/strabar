@@ -671,7 +671,7 @@ export default function LogActivityPage() {
 
       {/* MODAL 1: Avviso Sessione Attiva */}
       {showActiveSessionWarning && activeSession && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 32, 0, 0.25)', padding: '24px', position: 'relative' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Sessione Live Attiva! 🚨</h2>
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
@@ -746,7 +746,7 @@ export default function LogActivityPage() {
 
       {/* MODAL 2: Selettore Locale (ricerca reale OpenStreetMap) */}
       {showLocaleSelector && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '500px', width: '100%', border: '1px solid var(--border-dark)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', padding: '24px', position: 'relative' }}>
             <button
               onClick={() => setShowLocaleSelector(false)}
