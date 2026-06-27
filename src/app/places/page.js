@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import {
-  MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award,
+  MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award, Info,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 
@@ -47,7 +47,8 @@ export default function ClassifichePage() {
   // Atleti
   const [users, setUsers] = useState([]);
   const [boardMode, setBoardMode] = useState('verified'); // 'verified' | 'all'
-  const [period, setPeriod] = useState('week'); // 'week' | 'weekend' | 'all' — default: race settimanale
+  const [period, setPeriod] = useState('week'); // 'week' | 'all' — default: race settimanale
+  const [showInfo, setShowInfo] = useState(false); // spiegazione classifica (i)
   const [userSort, setUserSort] = useState('units');
 
   // Locali
@@ -363,34 +364,6 @@ export default function ClassifichePage() {
         </p>
       </div>
 
-      {tab === 'atleti' && (
-        <>
-          {/* Periodo: race settimanale (default), weekend (ven→dom) o di sempre */}
-          <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '480px' }}>
-            <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>📅 Settimana</div>
-            <div className={`seg-tab ${period === 'weekend' ? 'active' : ''}`} onClick={() => setPeriod('weekend')}>🎉 Weekend</div>
-            <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>♾️ Sempre</div>
-          </div>
-
-          {/* Modalità classifica: Verificata (locali) vs Attività totale (anche libere) */}
-          <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '420px' }}>
-            <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>🏆 Verificata</div>
-            <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>📊 Tutte le sessioni</div>
-          </div>
-          <div className="card" style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.03)' }}>
-            <span style={{ fontSize: '18px', lineHeight: 1 }}>{boardMode === 'verified' ? '🏆' : '📊'}</span>
-            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-              {boardMode === 'verified' ? (
-                <>Classifica <strong>ufficiale</strong>: contano solo i <strong>check-in geolocalizzati e verificati</strong> sul posto (le stesse delle classifiche dei locali). È quella che vale.</>
-              ) : (
-                <>Classifica <strong>per attività</strong>: include <strong>tutte le sessioni, anche libere</strong> (non verificate). Solo per divertimento — non assegna premi né leggende.</>
-              )}
-              {' '}Il <strong>nome</strong> è visibile solo per te e per chi segui o ti segue: gli altri restano coperti.
-            </p>
-          </div>
-        </>
-      )}
-
       {/* Tab Atleti / Locali */}
       <div className="seg-tabs">
         <button onClick={() => setTab('atleti')} className={`seg-tab ${tab === 'atleti' ? 'active' : ''}`}>
@@ -400,6 +373,38 @@ export default function ClassifichePage() {
           <MapPin size={16} /> Locali
         </button>
       </div>
+
+      {/* Atleti: periodo + modalità su una riga, spiegazione nella (i) */}
+      {tab === 'atleti' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'stretch' }}>
+          <div className="seg-tabs feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
+            <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>📅 Settimana</div>
+            <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>♾️ Sempre</div>
+          </div>
+          <div className="seg-tabs feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
+            <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>🏆 Verificata</div>
+            <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>📊 Tutte</div>
+          </div>
+          <button onClick={() => setShowInfo(true)} aria-label="Come funziona la classifica" title="Come funziona" className="action-btn" style={{ flexShrink: 0, alignSelf: 'center' }}>
+            <Info size={18} />
+          </button>
+        </div>
+      )}
+
+      {showInfo && (
+        <div onClick={() => setShowInfo(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', width: '100%', position: 'relative' }}>
+            <button onClick={() => setShowInfo(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={20} /></button>
+            <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '12px', paddingRight: '36px' }}>Come funziona la classifica</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: 1.55 }}>
+              <p><strong style={{ color: '#FFF' }}>🏆 Verificata</strong> — la classifica ufficiale: contano solo i check-in <strong>geolocalizzati e verificati</strong> sul posto. È quella che vale (premi e Leggenda del Locale).</p>
+              <p><strong style={{ color: '#FFF' }}>📊 Tutte</strong> — include <strong>tutte le sessioni, anche libere</strong> (non verificate). Solo per divertimento.</p>
+              <p><strong style={{ color: '#FFF' }}>📅 Settimana / ♾️ Sempre</strong> — il periodo: la gara della settimana corrente oppure la classifica storica.</p>
+              <p>Il <strong style={{ color: '#FFF' }}>nome</strong> è visibile solo a te e a chi segui o ti segue: gli altri restano coperti.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dark-secondary)' }}>
@@ -630,7 +635,7 @@ export default function ClassifichePage() {
               <Trophy size={18} color="var(--secondary)" /> Classifica Atleti del Locale
             </h3>
             <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '380px', marginBottom: '12px' }}>
-              {[{ k: 'week', l: '📅 Settimana' }, { k: 'weekend', l: '🎉 Weekend' }, { k: 'all', l: '♾️ Sempre' }].map((p) => (
+              {[{ k: 'week', l: '📅 Settimana' }, { k: 'all', l: '♾️ Sempre' }].map((p) => (
                 <div key={p.k} className={`seg-tab ${placePeriod === p.k ? 'active' : ''}`} onClick={() => setPlacePeriod(p.k)}>{p.l}</div>
               ))}
             </div>

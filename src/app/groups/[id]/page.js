@@ -14,7 +14,6 @@ import { publicName } from '@/lib/names';
 
 const PERIODS = [
   { k: 'week', l: '📅 Settimana' },
-  { k: 'weekend', l: '🎉 Weekend' },
   { k: 'all', l: '♾️ Sempre' },
 ];
 
