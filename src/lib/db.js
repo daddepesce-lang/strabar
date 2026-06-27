@@ -1722,24 +1722,37 @@ export const db = {
     }
   },
 
+  // La ricerca rispetta "Come compaio agli altri":
+  //  • chi usa un ALIAS è trovabile per alias o @username, NON per nome reale;
+  //  • chi usa @username è trovabile per username;
+  //  • gli altri (nome reale) per nome o username.
+  // Così l'alias diventa cercabile e non si "scopre" il nome reale di chi l'ha nascosto.
+  _matchesSearch(p, ql) {
+    const mode = p.name_mode || (p.use_username ? 'username' : 'name');
+    if (p.username && p.username.toLowerCase().includes(ql)) return true;
+    if (mode === 'alias') return !!(p.alias && p.alias.toLowerCase().includes(ql));
+    if (mode === 'username') return false; // solo username (già verificato sopra)
+    return !!(p.display_name && p.display_name.toLowerCase().includes(ql));
+  },
+
   async searchProfiles(queryText) {
-    if (!queryText.trim()) return [];
+    const q = queryText.trim();
+    if (!q) return [];
+    const ql = q.toLowerCase();
     if (isSupabaseConfigured) {
+      // Pre-filtro lato DB su tutti i campi rilevanti (incluso alias), poi affino lato
+      // client secondo la modalità-nome di ciascuno. (Una sola query, ~30 righe: egress trascurabile.)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .or(`username.ilike.%${queryText}%,display_name.ilike.%${queryText}%`)
-        .limit(20);
+        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%,alias.ilike.%${q}%`)
+        .limit(30);
       if (error) throw error;
-      return data;
+      return (data || []).filter((p) => this._matchesSearch(p, ql)).slice(0, 20);
     } else {
       if (typeof window === 'undefined') return [];
       const profiles = getStored('sb_profiles');
-      const q = queryText.toLowerCase();
-      return profiles.filter(p => 
-        p.username.toLowerCase().includes(q) || 
-        p.display_name.toLowerCase().includes(q)
-      );
+      return profiles.filter((p) => this._matchesSearch(p, ql));
     }
   },
 
