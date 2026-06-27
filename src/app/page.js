@@ -114,6 +114,11 @@ export default function FeedPage() {
   const [addingDrink, setAddingDrink] = useState(false);
   const addingDrinkRef = useRef(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
+  // Pull-to-refresh (mobile): se sei in cima al feed e trascini giù, ricarica.
+  const [pullPx, setPullPx] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullRef = useRef({ startY: null, dist: 0, active: false });
+  const refreshingRef = useRef(false);
   const [profilesList, setProfilesList] = useState([]);
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [completedSession, setCompletedSession] = useState(null); // resoconto post-chiusura (modale congratulazioni)
@@ -440,6 +445,63 @@ export default function FeedPage() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSession]);
+
+  // Pull-to-refresh + "tocca Feed per tornare in cima e aggiornare".
+  useEffect(() => {
+    const doRefresh = () => {
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      setRefreshing(true);
+      setPullPx(56);
+      Promise.resolve(loadFeed()).finally(() => {
+        refreshingRef.current = false;
+        setRefreshing(false);
+        setPullPx(0);
+      });
+    };
+    // Evento dalla barra in basso: tap su "Feed" mentre sei già sul feed.
+    const onFeedRefresh = () => doRefresh();
+    window.addEventListener('strabar:feed-refresh', onFeedRefresh);
+
+    // Gesto pull-to-refresh (solo quando sei in cima alla pagina).
+    const onStart = (e) => {
+      if (window.scrollY <= 0 && !refreshingRef.current) {
+        pullRef.current.startY = e.touches[0].clientY;
+        pullRef.current.active = true;
+      } else {
+        pullRef.current.active = false;
+      }
+    };
+    const onMove = (e) => {
+      if (!pullRef.current.active) return;
+      const dy = e.touches[0].clientY - pullRef.current.startY;
+      if (dy > 0 && window.scrollY <= 0) {
+        pullRef.current.dist = Math.min(dy * 0.5, 90); // resistenza
+        setPullPx(pullRef.current.dist);
+      } else {
+        pullRef.current.dist = 0;
+        setPullPx(0);
+      }
+    };
+    const onEnd = () => {
+      if (!pullRef.current.active) return;
+      pullRef.current.active = false;
+      const d = pullRef.current.dist;
+      pullRef.current.dist = 0;
+      if (d >= 60) doRefresh();
+      else setPullPx(0);
+    };
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onEnd);
+    return () => {
+      window.removeEventListener('strabar:feed-refresh', onFeedRefresh);
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Applica una trasformazione a un'attività sia nel feed che nel modale aperto
   const patchActivity = (activityId, updater) => {
@@ -2519,6 +2581,15 @@ export default function FeedPage() {
             <Link href="/auth" className="btn btn-primary">
               Crea un Account Gratuito
             </Link>
+          </div>
+        )}
+
+        {/* Indicatore pull-to-refresh: appare in cima mentre trascini o ricarichi. */}
+        {(pullPx > 0 || refreshing) && (
+          <div style={{ position: 'fixed', top: 'calc(60px + env(safe-area-inset-top, 0px))', left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 400 }}>
+            <div style={{ transform: `translateY(${Math.max(0, pullPx - 20)}px)`, background: 'var(--bg-card-dark, #16171c)', border: '1px solid var(--border-dark)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}>
+              <Loader size={18} style={{ color: 'var(--primary)', animation: refreshing ? 'spin 1s linear infinite' : 'none', transform: refreshing ? 'none' : `rotate(${pullPx * 4}deg)` }} />
+            </div>
           </div>
         )}
 

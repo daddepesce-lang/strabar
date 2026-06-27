@@ -6,8 +6,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import NavSearch from '@/components/NavSearch';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck,
+  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug,
 } from 'lucide-react';
+
+// Email per le segnalazioni bug (stessa del contatto privacy).
+const BUG_EMAIL = 'pesce.davide1995@gmail.com';
 
 function timeAgo(dateString) {
   const diff = Date.now() - new Date(dateString).getTime();
@@ -284,7 +287,7 @@ export default function Navbar() {
               {user.is_premium ? (
                 <span className="badge-premium">
                   <Award size={12} />
-                  Premium
+                  <span className="badge-premium-label">Premium</span>
                 </span>
               ) : (
                 <Link href="/premium" className="btn btn-premium btn-sm" style={{ padding: '6px 14px', fontSize: '12px' }}>
@@ -320,7 +323,18 @@ export default function Navbar() {
       {user && !pathname.startsWith('/auth') && !pathname.startsWith('/install') && (
       <>
       <nav className="mobile-nav">
-        <Link href="/" className={isActive('/') ? 'active' : ''}>
+        <Link
+          href="/"
+          className={isActive('/') ? 'active' : ''}
+          onClick={(e) => {
+            // Se sei già sul feed: torna in cima e aggiorna (non ricaricare la rotta).
+            if (pathname === '/') {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              window.dispatchEvent(new Event('strabar:feed-refresh'));
+            }
+          }}
+        >
           <Beer size={20} />
           Feed
         </Link>
@@ -332,14 +346,14 @@ export default function Navbar() {
           <PlusCircle size={24} />
           Registra
         </Link>
-        <Link href="/profile" className={isActive('/profile') ? 'active' : ''}>
-          <User size={20} />
-          Profilo
+        <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
+          <Map size={20} />
+          Percorsi
         </Link>
         <button
           type="button"
           onClick={() => setMoreOpen(true)}
-          className={['/routes', '/events', '/live', '/premium'].some((p) => pathname.startsWith(p)) ? 'active' : ''}
+          className={['/events', '/live', '/premium', '/profile'].some((p) => pathname.startsWith(p)) ? 'active' : ''}
         >
           <Menu size={20} />
           Altro
@@ -356,8 +370,8 @@ export default function Navbar() {
               <button type="button" onClick={() => setMoreOpen(false)} aria-label="Chiudi"><X size={20} /></button>
             </div>
             <div className="more-sheet-grid">
+              <Link href="/profile" className={isActive('/profile') ? 'active' : ''}><User size={22} /><span>Profilo</span></Link>
               <Link href="/live" className={isActive('/live') ? 'active' : ''}><Radar size={22} /><span>Radar</span></Link>
-              <Link href="/routes" className={isActive('/routes') ? 'active' : ''}><Map size={22} /><span>Percorsi</span></Link>
               <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>Eventi</span></Link>
               <Link href="/install" className={isActive('/install') ? 'active' : ''}><Share2 size={22} /><span>Invita</span></Link>
               {!user.is_premium && (
@@ -366,6 +380,7 @@ export default function Navbar() {
               {user.is_admin && (
                 <Link href="/admin" className={isActive('/admin') ? 'active' : ''}><ShieldCheck size={22} /><span>Admin</span></Link>
               )}
+              <a href={`mailto:${BUG_EMAIL}?subject=${encodeURIComponent('Strabar — Segnalazione bug')}&body=${encodeURIComponent('Descrivi il problema (cosa facevi, cosa è successo):\n\n\n— Dispositivo/browser:\n')}`}><Bug size={22} /><span>Segnala bug</span></a>
               <button type="button" onClick={handleLogout}><LogOut size={22} /><span>Esci</span></button>
             </div>
           </div>
