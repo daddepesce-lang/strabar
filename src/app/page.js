@@ -294,7 +294,10 @@ export default function FeedPage() {
   const loadMoreRef = useRef(null);
   useEffect(() => {
     const el = loadMoreRef.current;
-    if (!el || !feedHasMore) return;
+    // Auto-load SOLO nel feed completo ('all'). Con 'live'/'amici' la lista visibile è un
+    // sottoinsieme filtrato lato client: caricare pagine storiche non aggiunge quasi nulla
+    // e il sentinel resta visibile → ricarica a raffica = sfarfallio. Lì si usa il bottone.
+    if (!el || !feedHasMore || feedFilter !== 'all') return;
     const obs = new IntersectionObserver(
       (entries) => { if (entries[0].isIntersecting) loadMoreFeed(); },
       { rootMargin: '400px' }
@@ -302,7 +305,7 @@ export default function FeedPage() {
     obs.observe(el);
     return () => obs.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feedHasMore, feedLoadingMore, activities.length]);
+  }, [feedHasMore, feedLoadingMore, activities.length, feedFilter]);
 
   // Scroll-reveal della landing (solo per utenti non loggati): aggiunge .is-visible
   // agli elementi .reveal quando entrano nel viewport.
@@ -2937,8 +2940,9 @@ export default function FeedPage() {
           })
         )}
 
-        {/* Scroll infinito: il sentinel carica automaticamente altre attività */}
-        {feedHasMore && visibleActivities.length > 0 && (
+        {/* Scroll infinito (auto solo in 'Tutti'); in 'Live' niente sentinel (le live
+            sono già tutte in cima). In 'Amici' il bottone "Carica altre" è manuale. */}
+        {feedHasMore && visibleActivities.length > 0 && feedFilter !== 'live' && (
           <div ref={loadMoreRef} style={{ display: 'flex', justifyContent: 'center', padding: '14px' }}>
             {feedLoadingMore ? (
               <Loader size={20} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />

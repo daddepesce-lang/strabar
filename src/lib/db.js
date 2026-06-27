@@ -2833,6 +2833,12 @@ export const db = {
     return true;
   },
 
+  async addGroupMember(groupId, userId) {
+    const { error } = await supabase.rpc('add_group_member', { p_group: groupId, p_user: userId });
+    if (error) throw error;
+    return true;
+  },
+
   async updateGroup(groupId, fields) {
     const allowed = {};
     ['name', 'description', 'visibility', 'avatar_url'].forEach((k) => {

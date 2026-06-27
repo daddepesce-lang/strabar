@@ -7,8 +7,10 @@ import { db } from '@/lib/db';
 import { siteUrl } from '@/lib/site';
 import {
   Users, Crown, Shield, Lock, Globe, Share2, LogOut, Trash2, Plus, X, ChevronLeft,
-  Calendar, Trophy, UserPlus, UserMinus, PlusCircle,
+  Calendar, Trophy, UserPlus, UserMinus, PlusCircle, Search,
 } from 'lucide-react';
+
+import { publicName } from '@/lib/names';
 
 const PERIODS = [
   { k: 'week', l: '📅 Settimana' },
@@ -35,6 +37,9 @@ export default function GroupDetailPage({ params }) {
   const [evTitle, setEvTitle] = useState('');
   const [evDate, setEvDate] = useState('');
   const [evDesc, setEvDesc] = useState('');
+  // aggiunta membri (admin)
+  const [addQ, setAddQ] = useState('');
+  const [addResults, setAddResults] = useState([]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') setToken(new URLSearchParams(window.location.search).get('t'));
@@ -67,6 +72,27 @@ export default function GroupDetailPage({ params }) {
   const isMember = !!group?.myRole;
   const canAdmin = group?.myRole === 'owner' || group?.myRole === 'admin';
   const isOwner = group?.myRole === 'owner';
+
+  // Ricerca utenti da aggiungere (solo admin): esclude chi è già membro.
+  useEffect(() => {
+    if (!canAdmin) { setAddResults([]); return; }
+    const h = setTimeout(() => {
+      if (!addQ.trim()) { setAddResults([]); return; }
+      db.searchProfiles(addQ).then((r) => {
+        const ids = new Set(members.map((m) => m.user_id));
+        setAddResults((r || []).filter((p) => !ids.has(p.id)).slice(0, 6));
+      }).catch(() => {});
+    }, 250);
+    return () => clearTimeout(h);
+  }, [addQ, canAdmin, members]);
+
+  const addMember = async (uid) => {
+    try {
+      await db.addGroupMember(id, uid);
+      setAddQ(''); setAddResults([]);
+      setMembers(await db.getGroupMembers(id));
+    } catch (e) { alert(e.message || 'Errore'); }
+  };
 
   const handleJoin = async () => {
     setBusy(true);
@@ -238,6 +264,27 @@ export default function GroupDetailPage({ params }) {
             </div>
           )}
         </>
+      )}
+
+      {tab === 'members' && canAdmin && (
+        <div className="card" style={{ padding: '12px' }}>
+          <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}><UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Aggiungi un membro</label>
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
+            <input className="form-control" placeholder="Cerca per nome o @username…" value={addQ} onChange={(e) => setAddQ(e.target.value)} style={{ paddingLeft: '34px' }} />
+          </div>
+          {addResults.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+              {addResults.map((p) => (
+                <button key={p.id} type="button" onClick={() => addMember(p.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-dark)', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
+                  <span className="activity-avatar" style={{ width: 30, height: 30, fontSize: 13, flexShrink: 0 }}>{publicName(p).charAt(0).replace('@', '').toUpperCase()}</span>
+                  <span style={{ flex: 1, minWidth: 0, color: '#FFF', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{publicName(p)}</span>
+                  <Plus size={16} color="var(--primary)" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {tab === 'members' && (
