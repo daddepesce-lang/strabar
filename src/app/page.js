@@ -1203,6 +1203,30 @@ export default function FeedPage() {
     }
   };
 
+  // Conferma presenza per una live NORMALE (non-tour): se è "non verificata" ma sei sul posto,
+  // un check GPS la valida. Utile quando il GPS era spento all'avvio.
+  const confirmVenuePresence = async () => {
+    const loc = activeSession?.location;
+    if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
+    setCheckingStop(true);
+    try {
+      const pos = await getCurrentPosition();
+      if (!pos) { alert('📍 GPS non disponibile. Attiva la posizione per Strabar e riprova.'); return; }
+      const { distance } = db.checkGeofencing(loc.lat, loc.lng, pos.lat, pos.lng, Infinity);
+      if (distance <= 300) {
+        const locationUpdate = { ...loc, unverified: false };
+        setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
+        try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
+        alert('✅ Posizione confermata: la sessione ora conta per le classifiche!');
+      } else {
+        const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+        alert(`📍 Sei a ~${d} dal locale: avvicinati e riprova. La sessione conta solo se sei sul posto.`);
+      }
+    } finally {
+      setCheckingStop(false);
+    }
+  };
+
   const handleAdvanceTourStop = async () => {
     const tour = activeSession?.location?.tour;
     if (!tour) return;
@@ -2252,11 +2276,23 @@ export default function FeedPage() {
                   </div>
                 );
               })() : (
-                <div style={{ marginBottom: '15px' }}>
+                <div style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Live normale non verificata + con coordinate → consenti di validare sul posto */}
+                  {activeSession.location?.unverified && typeof activeSession.location?.lat === 'number' && typeof activeSession.location?.lng === 'number' && (
+                    <button
+                      onClick={confirmVenuePresence}
+                      disabled={checkingStop}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '13px', padding: '9px 12px', borderRadius: '14px', fontWeight: 700, border: '1px solid var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    >
+                      {checkingStop ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
+                      {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica per la classifica'}
+                    </button>
+                  )}
                   <button
                     onClick={() => router.push('/log?action=append')}
                     className="btn btn-secondary"
-                    style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                    style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px', alignSelf: 'flex-start' }}
                   >
                     📍 Aggiungi Tappa / Cambia Bar
                   </button>

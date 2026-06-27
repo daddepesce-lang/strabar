@@ -469,22 +469,34 @@ export default function LogActivityPage() {
       const evs = await db.getActiveAttendingEvents().catch(() => []);
       if (evs.length) { setEventGuard({ events: evs, kind: 'session', proceed: () => startSessionAtVenue(venue, true) }); return; }
     }
-    // Verifica posizione = serve una prova GPS che tu sia sul posto.
-    //  • Sei lontano (>300m): registri lo stesso ma "non verificata" (non conta in classifica).
-    //  • Nessuna distanza GPS (GPS negato / locale cercato per nome): NON possiamo verificare
-    //    la posizione → registrabile ma "non verificata". Prima poteva contare in classifica
-    //    senza alcuna prova: era un buco di integrità.
+    // Verifica posizione: una sessione conta solo se c'è una PROVA GPS che sei sul posto (≤300m).
+    // Facciamo un check GPS FRESCO al momento dell'avvio (l'utente potrebbe essere appena
+    // arrivato, o aver scelto il locale per nome senza distanza pre-calcolata). Così basta
+    // essere davvero lì: niente più "non verificata" ingiusto su un locale dove sei presente.
     let unverified = false;
     if (!isAppendingToSession) {
-      if (venue.distance == null) {
-        unverified = true;
-      } else if (venue.distance > 300) {
-        const dist = venue.distance >= 1000 ? `${(venue.distance / 1000).toFixed(1)} km` : `${venue.distance} m`;
-        const ok = window.confirm(
-          `Sei a circa ${dist} da "${venue.name}".\n\nPuoi registrare comunque, ma la sessione verrà segnata come "non verificata" e NON conterà per le classifiche (del locale e degli atleti).\n\nProcedere?`
-        );
-        if (!ok) return;
-        unverified = true;
+      if (typeof venue.lat === 'number' && typeof venue.lng === 'number') {
+        let dist = typeof venue.distance === 'number' ? venue.distance : null;
+        if (dist == null || dist > 300) {
+          // distanza ignota o lontana → ricontrolla ADESSO la posizione
+          setCheckingGps(true);
+          const loc = await requestUserLocation();
+          if (loc.coords && typeof db.checkGeofencing === 'function') {
+            dist = db.checkGeofencing(venue.lat, venue.lng, loc.coords.lat, loc.coords.lng, Infinity).distance;
+          }
+        }
+        if (dist == null) {
+          unverified = true; // nessuna prova GPS disponibile
+        } else if (dist > 300) {
+          const distLabel = dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`;
+          const ok = window.confirm(
+            `Sei a circa ${distLabel} da "${venue.name}".\n\nPuoi registrare comunque, ma la sessione verrà segnata come "non verificata" e NON conterà per le classifiche (del locale e degli atleti).\n\nProcedere?`
+          );
+          if (!ok) { setCheckingGps(false); return; }
+          unverified = true;
+        }
+      } else {
+        unverified = true; // locale senza coordinate → non verificabile
       }
     }
     setShowLocaleSelector(false);
