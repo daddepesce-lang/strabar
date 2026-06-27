@@ -114,6 +114,7 @@ export default function FeedPage() {
   const [addingDrink, setAddingDrink] = useState(false);
   const addingDrinkRef = useRef(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
+  const [checkingStop, setCheckingStop] = useState(false); // verifica GPS "sono alla tappa"
   // Pull-to-refresh (mobile): se sei in cima al feed e trascini giù, ricarica.
   const [pullPx, setPullPx] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -1173,6 +1174,35 @@ export default function FeedPage() {
   };
 
   // Avanza alla tappa successiva schedulata e apre la navigazione
+  // Conferma esplicita "sono alla tappa": verifica il GPS contro la tappa corrente e la
+  // valida (così il tour può partire da casa, ma una tappa conta solo quando confermi di
+  // essere sul posto — non serve aspettare il primo drink).
+  const confirmStopPresence = async () => {
+    const tour = activeSession?.location?.tour;
+    if (!tour) return;
+    const cur = tour.current || 0;
+    const curStop = (tour.stops || [])[cur];
+    if (!curStop?.lat || !curStop?.lng) { setTourMsg('Questa tappa non ha coordinate: registra qui i tuoi drink.'); return; }
+    setCheckingStop(true);
+    try {
+      const pos = await getCurrentPosition();
+      if (!pos) { setTourMsg('📍 GPS non disponibile. Attiva la posizione e riprova.'); return; }
+      const { distance } = db.checkGeofencing(curStop.lat, curStop.lng, pos.lat, pos.lng, Infinity);
+      if (distance <= 300) {
+        const newVisited = (tour.visited || []).map((v, i) => (i === cur ? { ...v, verified: true } : v));
+        const locationUpdate = { ...activeSession.location, unverified: false, tour: { ...tour, visited: newVisited } };
+        setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
+        try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
+        setTourMsg(`✅ Sei a ${curStop.name}: tappa verificata, conta per le classifiche!`);
+      } else {
+        const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+        setTourMsg(`📍 Sei a ~${dist} da ${curStop.name}: avvicinati e riprova. La tappa non conta finché non sei sul posto.`);
+      }
+    } finally {
+      setCheckingStop(false);
+    }
+  };
+
   const handleAdvanceTourStop = async () => {
     const tour = activeSession?.location?.tour;
     if (!tour) return;
@@ -2139,11 +2169,25 @@ export default function FeedPage() {
                       <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Tappa {cur + 1}/{stops.length}</span>
                     </div>
                     <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>📍 {curStop?.name}</div>
-                    <div style={{ fontSize: '11px', marginBottom: '8px', fontWeight: 700, color: activeSession.location?.unverified ? 'var(--text-dark-secondary)' : 'var(--success)' }}>
-                      {activeSession.location?.unverified
-                        ? '○ Tappa non ancora verificata — registra un drink qui sul posto per validarla'
-                        : '✅ Tappa verificata — conta per le classifiche'}
+                    <div style={{ fontSize: '11px', marginBottom: '8px', fontWeight: 700, color: tour.visited?.[cur]?.verified ? 'var(--success)' : 'var(--text-dark-secondary)' }}>
+                      {tour.visited?.[cur]?.verified
+                        ? '✅ Tappa verificata — conta per le classifiche'
+                        : '○ Tappa non ancora verificata — conferma di essere qui (o registra un drink sul posto)'}
                     </div>
+
+                    {/* Conferma presenza GPS: una tappa conta solo quando sei davvero sul posto.
+                        Così puoi avviare il tour da casa per le indicazioni, e validare all'arrivo. */}
+                    {!tour.visited?.[cur]?.verified && curStop?.lat && curStop?.lng && (
+                      <button
+                        onClick={confirmStopPresence}
+                        disabled={checkingStop}
+                        className="btn btn-secondary"
+                        style={{ width: '100%', fontSize: '13px', padding: '9px 12px', borderRadius: '14px', marginBottom: '8px', fontWeight: 700, border: '1px solid var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      >
+                        {checkingStop ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
+                        {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica la tappa'}
+                      </button>
+                    )}
 
                     {/* Esito ultimo drink/posizione, mostrato per intero (la notifica di sistema lo tronca) */}
                     {tourMsg && (
