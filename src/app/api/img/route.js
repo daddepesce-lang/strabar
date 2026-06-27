@@ -62,8 +62,13 @@ export async function GET(req) {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        // I nomi file R2 sono immutabili → cache lunga lato browser/CDN.
-        'Cache-Control': 'public, max-age=86400, immutable',
+        // I nomi file R2 (e i tile mappa) sono immutabili → cache lunga.
+        //  • max-age   = cache del BROWSER
+        //  • s-maxage  = cache della CDN Vercel (FONDAMENTALE): senza, OGNI richiesta
+        //    immagine ricolpiva la funzione origin → Fast Origin Transfer enorme.
+        //    Con s-maxage la stessa foto/tile è servita dal bordo dopo la 1ª volta.
+        'Cache-Control': 'public, max-age=86400, s-maxage=31536000, stale-while-revalidate=86400, immutable',
+        'CDN-Cache-Control': 'public, s-maxage=31536000, immutable',
         'Access-Control-Allow-Origin': '*',
       },
     });
