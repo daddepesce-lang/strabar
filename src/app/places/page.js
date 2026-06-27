@@ -58,6 +58,7 @@ export default function ClassifichePage() {
   // Dettaglio locale
   const [selected, setSelected] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [placePeriod, setPlacePeriod] = useState('all'); // periodo classifica del locale
   const [reviews, setReviews] = useState([]);
   const [newRating, setNewRating] = useState(5);
   const [newReview, setNewReview] = useState('');
@@ -291,13 +292,18 @@ export default function ClassifichePage() {
     }
   }, []);
 
+  // Classifica del locale: (ri)carica quando apri un locale o cambi periodo.
+  useEffect(() => {
+    if (!selected) return;
+    db.getPlaceLeaderboard(selected.key, placePeriod)
+      .then((lb) => setLeaderboard(lb.sort((a, b) => b.units - a.units || b.visits - a.visits)))
+      .catch(() => {});
+  }, [placePeriod, selected?.key]);
+
   const openPlace = async (place) => {
+    setPlacePeriod('all');
     setSelected(place);
-    const [lb, rv] = await Promise.all([
-      db.getPlaceLeaderboard(place.key),
-      db.getPlaceReviews(place.key),
-    ]);
-    setLeaderboard(lb.sort((a, b) => b.units - a.units || b.visits - a.visits));
+    const rv = await db.getPlaceReviews(place.key).catch(() => []);
     setReviews(rv);
     setNewRating(5);
     setNewReview('');
@@ -623,6 +629,16 @@ export default function ClassifichePage() {
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Trophy size={18} color="var(--secondary)" /> Classifica Atleti del Locale
             </h3>
+            <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '380px', marginBottom: '12px' }}>
+              {[{ k: 'week', l: '📅 Settimana' }, { k: 'weekend', l: '🎉 Weekend' }, { k: 'all', l: '♾️ Sempre' }].map((p) => (
+                <div key={p.k} className={`seg-tab ${placePeriod === p.k ? 'active' : ''}`} onClick={() => setPlacePeriod(p.k)}>{p.l}</div>
+              ))}
+            </div>
+            {leaderboard.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: '13px', marginBottom: '24px' }}>
+                Nessuna sessione verificata {placePeriod === 'week' ? 'questa settimana' : placePeriod === 'weekend' ? 'nel weekend' : 'qui'}.
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
               {leaderboard.map((u, i) => (
                 <div key={u.user_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-input-dark)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
@@ -637,6 +653,7 @@ export default function ClassifichePage() {
                 </div>
               ))}
             </div>
+            )}
 
             {/* Recensioni */}
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>

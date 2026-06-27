@@ -2565,11 +2565,14 @@ export const db = {
     return this._countsForVenue(a);
   },
 
-  async getPlaceLeaderboard(placeKey) {
+  async getPlaceLeaderboard(placeKey, period = 'all') {
     const activities = await this.getActivities();
-    const sessions = activities.filter(
-      (a) => this._countsForVenue(a) && this.normalizePlaceKey(a.location.name) === placeKey
-    );
+    const { from, to } = this._periodRange(period);
+    const sessions = activities.filter((a) => {
+      if (!this._countsForVenue(a) || this.normalizePlaceKey(a.location.name) !== placeKey) return false;
+      const t = new Date(a.created_at).getTime();
+      return t >= from && t < to;
+    });
     const byUser = {};
     sessions.forEach((s) => {
       const uid = s.user_id;
