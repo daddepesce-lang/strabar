@@ -42,6 +42,7 @@ export default function LogActivityPage() {
   // Visibilità della sessione live: chi la vede nel feed e sul radar mentre bevi.
   // 'private' = nascosta a tutti finché è live (riappare nel feed solo a chiusura).
   const [liveShare, setLiveShare] = useState('public'); // 'private' | 'friends' | 'public'
+  const [groupCtx, setGroupCtx] = useState(null); // { id, name } se la sessione è "per il gruppo"
   const [fullStomach, setFullStomach] = useState(false); // stomaco pieno → BAC più preciso
   // Sessione libera: nascondi la posizione (niente GPS → non compari sul radar/mappa).
   const [hideLocation, setHideLocation] = useState(false);
@@ -183,6 +184,9 @@ export default function LogActivityPage() {
 
     // Gestione query parameter ?action=append per aggiungere una tappa direttamente
     const urlParams = new URLSearchParams(window.location.search);
+    // Sessione "per il gruppo": attribuisce la sessione al gruppo (classifica di gruppo).
+    const gId = urlParams.get('group');
+    if (gId) setGroupCtx({ id: gId, name: urlParams.get('groupName') || 'gruppo' });
     if (urlParams.get('action') === 'append') {
       setIsAppendingToSession(true);
       openVenueSelector();
@@ -352,7 +356,7 @@ export default function LogActivityPage() {
 
       // Visibilità: salviamo sempre lo stato; per Tutti/Amici proviamo a prendere il GPS per il radar
       // freeform: sessione senza locale reale → esclusa da locali/classifiche dei locali.
-      const location = { name: 'Sessione Libera', share: liveShare, freeform: true };
+      const location = { name: 'Sessione Libera', share: liveShare, freeform: true, ...(groupCtx ? { group_id: groupCtx.id } : {}) };
       // Niente GPS se la sessione è privata O se l'utente ha scelto di nascondere la posizione:
       // senza coordinate non compare sul radar/mappa.
       if (hideLocation) location.hidden = true;
@@ -467,6 +471,7 @@ export default function LogActivityPage() {
             lng: venue.lng ?? null,
             share: liveShare,
             ...(unverified ? { unverified: true } : {}),
+            ...(groupCtx ? { group_id: groupCtx.id } : {}),
           },
           full_stomach: fullStomach,
           drinks: [],
@@ -765,6 +770,12 @@ export default function LogActivityPage() {
                 ? `Bar e locali reali nel raggio di ${nearbyRadius >= 1000 ? (nearbyRadius / 1000) + ' km' : nearbyRadius + ' m'} da te. Non lo trovi? Cercalo per nome.`
                 : 'Cerca il tuo locale per nome oppure inseriscilo manualmente.'}
             </p>
+
+            {groupCtx && (
+              <div style={{ fontSize: '12px', color: 'var(--primary)', background: 'rgba(255,32,0,0.08)', border: '1px solid rgba(255,32,0,0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontWeight: 600 }}>
+                👥 Questa sessione conta per il gruppo <strong>{groupCtx.name}</strong>
+              </div>
+            )}
 
             {/* Input Cerca */}
             <div style={{ position: 'relative', marginBottom: '12px' }}>

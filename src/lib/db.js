@@ -2744,6 +2744,128 @@ export const db = {
       .sort((a, b) => b.units - a.units || b.sessions - a.sessions);
   },
 
+  // ───────────────────────── GRUPPI ─────────────────────────
+  // I gruppi radunano amici con classifiche/eventi propri. Le sessioni si "avviano dal
+  // gruppo" (location.group_id). Letture via RLS, operazioni sensibili + classifica via RPC.
+
+  async getMyGroups() {
+    if (!isSupabaseConfigured) return [];
+    const user = await this.getCurrentUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from('group_members')
+      .select('role, joined_at, groups(*)')
+      .eq('user_id', user.id);
+    if (error) { console.warn('getMyGroups:', error.message); return []; }
+    return (data || [])
+      .filter((r) => r.groups)
+      .map((r) => ({ ...r.groups, myRole: r.role }))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  },
+
+  async discoverGroups(queryText = '') {
+    if (!isSupabaseConfigured) return [];
+    let q = supabase.from('groups').select('*').eq('visibility', 'public').limit(30);
+    if (queryText && queryText.trim()) q = q.ilike('name', `%${queryText.trim()}%`);
+    const { data, error } = await q;
+    if (error) { console.warn('discoverGroups:', error.message); return []; }
+    return data || [];
+  },
+
+  async getGroup(groupId) {
+    if (!isSupabaseConfigured || !groupId) return null;
+    const user = await this.getCurrentUser();
+    const { data, error } = await supabase.from('groups').select('*').eq('id', groupId).maybeSingle();
+    if (error) { console.warn('getGroup:', error.message); return null; }
+    if (!data) return null;
+    let myRole = null;
+    if (user) {
+      const { data: m } = await supabase
+        .from('group_members').select('role').eq('group_id', groupId).eq('user_id', user.id).maybeSingle();
+      myRole = m?.role || null;
+    }
+    return { ...data, myRole };
+  },
+
+  async getGroupMembers(groupId) {
+    if (!isSupabaseConfigured || !groupId) return [];
+    const { data, error } = await supabase
+      .from('group_members')
+      .select('role, joined_at, user_id, profiles(id, username, display_name, use_username, alias, name_mode, avatar_url, is_premium)')
+      .eq('group_id', groupId);
+    if (error) { console.warn('getGroupMembers:', error.message); return []; }
+    const order = { owner: 0, admin: 1, member: 2 };
+    return (data || [])
+      .map((r) => ({ user_id: r.user_id, role: r.role, joined_at: r.joined_at, profile: r.profiles, name: publicName(r.profiles, 'Atleta Strabar') }))
+      .sort((a, b) => (order[a.role] - order[b.role]) || a.name.localeCompare(b.name));
+  },
+
+  async createGroup({ name, description = '', visibility = 'private' }) {
+    if (!isSupabaseConfigured) throw new Error('Database non configurato.');
+    const { data, error } = await supabase.rpc('create_group', {
+      p_name: name, p_description: description, p_visibility: visibility,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async joinGroup(groupId, token = null) {
+    const { data, error } = await supabase.rpc('join_group', { p_group: groupId, p_token: token });
+    if (error) throw error;
+    return data; // ruolo risultante
+  },
+
+  async leaveGroup(groupId) {
+    const { error } = await supabase.rpc('leave_group', { p_group: groupId });
+    if (error) throw error;
+    return true;
+  },
+
+  async setGroupRole(groupId, userId, role) {
+    const { error } = await supabase.rpc('set_group_role', { p_group: groupId, p_user: userId, p_role: role });
+    if (error) throw error;
+    return true;
+  },
+
+  async removeGroupMember(groupId, userId) {
+    const { error } = await supabase.rpc('remove_group_member', { p_group: groupId, p_user: userId });
+    if (error) throw error;
+    return true;
+  },
+
+  async updateGroup(groupId, fields) {
+    const allowed = {};
+    ['name', 'description', 'visibility', 'avatar_url'].forEach((k) => {
+      if (fields[k] !== undefined) allowed[k] = fields[k];
+    });
+    const { error } = await supabase.from('groups').update(allowed).eq('id', groupId);
+    if (error) throw error;
+    return true;
+  },
+
+  async deleteGroup(groupId) {
+    const { error } = await supabase.from('groups').delete().eq('id', groupId);
+    if (error) throw error;
+    return true;
+  },
+
+  async getGroupBoard(groupId, period = 'all') {
+    if (!isSupabaseConfigured || !groupId) return [];
+    const { from, to } = this._periodRange(period);
+    const p_from = Number.isFinite(from) ? new Date(from).toISOString() : null;
+    const p_to = Number.isFinite(to) ? new Date(to).toISOString() : null;
+    const { data, error } = await supabase.rpc('get_group_board', { p_group: groupId, p_from, p_to });
+    if (error) { console.warn('getGroupBoard:', error.message); return []; }
+    return data || [];
+  },
+
+  async getGroupEvents(groupId) {
+    if (!isSupabaseConfigured || !groupId) return [];
+    const { data, error } = await supabase.rpc('get_group_events', { p_group: groupId });
+    if (error) { console.warn('getGroupEvents:', error.message); return []; }
+    return data || [];
+  },
+
   // Classifica + statistiche di un EVENTO: aggrega le sessioni avviate dall'evento
   // (location.event_id === eventId). Rispetta la privacy globale: i totali si basano
   // solo sulle sessioni che lo spettatore può effettivamente vedere (la RLS filtra le
@@ -3028,6 +3150,7 @@ export const db = {
           route_name: data.route_name || null,
           visibility: data.visibility || 'public', // chi lo vede nella LISTA: public | friends | private
           link_sharing: data.link_sharing !== false, // se il LINK di invito funziona (default ON)
+          group_id: data.group_id || null, // evento legato a un gruppo (visibile ai membri)
           invited,
         })
         .select()
