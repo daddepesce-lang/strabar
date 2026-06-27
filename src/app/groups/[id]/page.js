@@ -104,13 +104,13 @@ export default function GroupDetailPage({ params }) {
   };
 
   const handleLeave = async () => {
-    if (!confirm('Vuoi lasciare il gruppo?')) return;
+    if (!confirm('Vuoi lasciare la lega?')) return;
     try { await db.leaveGroup(id); router.push('/groups'); }
     catch (e) { alert(e.message || 'Errore'); }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Eliminare il gruppo per tutti? Operazione irreversibile.')) return;
+    if (!confirm('Eliminare la lega per tutti? Operazione irreversibile.')) return;
     try { await db.deleteGroup(id); router.push('/groups'); }
     catch (e) { alert(e.message || 'Errore'); }
   };
@@ -126,7 +126,7 @@ export default function GroupDetailPage({ params }) {
     catch (e) { alert(e.message || 'Errore'); }
   };
   const removeMember = async (uid) => {
-    if (!confirm('Rimuovere questo membro dal gruppo?')) return;
+    if (!confirm('Rimuovere questo membro dalla lega?')) return;
     try { await db.removeGroupMember(id, uid); setMembers(await db.getGroupMembers(id)); }
     catch (e) { alert(e.message || 'Errore'); }
   };
@@ -148,7 +148,7 @@ export default function GroupDetailPage({ params }) {
   if (!isMember) {
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
-        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> Gruppi</Link>
+        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> Leghe</Link>
         <div className="card" style={{ textAlign: 'center', padding: '32px', marginTop: '16px' }}>
           <Users size={40} color="var(--primary)" style={{ margin: '0 auto 12px' }} />
           {group ? (
@@ -156,7 +156,7 @@ export default function GroupDetailPage({ params }) {
               <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{group.name}</h2>
               {group.description && <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: '8px 0' }}>{group.description}</p>}
               <button onClick={handleJoin} disabled={busy || !currentUser} className="btn btn-primary" style={{ borderRadius: '20px', padding: '12px 24px', marginTop: '12px', fontWeight: 700 }}>
-                {currentUser ? (busy ? 'Attendi…' : 'Unisciti al gruppo') : 'Accedi per unirti'}
+                {currentUser ? (busy ? 'Attendi…' : 'Unisciti alla lega') : 'Accedi per unirti'}
               </button>
               {!currentUser && (
                 <button onClick={() => router.push(`/auth?next=${encodeURIComponent(`/groups/${id}${token ? `?t=${token}` : ''}`)}`)} className="btn btn-secondary" style={{ borderRadius: '20px', padding: '10px 20px', marginTop: '10px' }}>Accedi / Registrati</button>
@@ -164,14 +164,14 @@ export default function GroupDetailPage({ params }) {
             </>
           ) : token ? (
             <>
-              <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Sei stato invitato a un gruppo 👥</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Sei stato invitato a una lega 🏆</h2>
               <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: '8px 0 16px' }}>Unisciti per vedere classifica ed eventi.</p>
               <button onClick={currentUser ? handleJoin : () => router.push(`/auth?next=${encodeURIComponent(`/groups/${id}?t=${token}`)}`)} disabled={busy} className="btn btn-primary" style={{ borderRadius: '20px', padding: '12px 24px', fontWeight: 700 }}>
-                {currentUser ? (busy ? 'Attendi…' : 'Unisciti al gruppo') : 'Accedi e unisciti'}
+                {currentUser ? (busy ? 'Attendi…' : 'Unisciti alla lega') : 'Accedi e unisciti'}
               </button>
             </>
           ) : (
-            <p style={{ color: 'var(--text-dark-secondary)' }}>Gruppo non trovato o privato. Serve un invito.</p>
+            <p style={{ color: 'var(--text-dark-secondary)' }}>Lega non trovata o privata. Serve un invito.</p>
           )}
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function GroupDetailPage({ params }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div>
-        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> Gruppi</Link>
+        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> Leghe</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '10px' }}>
           <div className="activity-avatar" style={{ width: 56, height: 56, fontSize: 22, flexShrink: 0, background: 'rgba(255,32,0,0.12)', color: 'var(--primary)' }}>{(group.name || 'G').charAt(0).toUpperCase()}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -196,7 +196,7 @@ export default function GroupDetailPage({ params }) {
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '14px' }}>
           <button onClick={() => router.push(`/log?group=${id}&groupName=${encodeURIComponent(group.name)}`)} className="btn btn-primary" style={{ borderRadius: '18px', padding: '9px 14px', fontSize: '13px', fontWeight: 700 }}>
-            <PlusCircle size={16} /> Brinda con il gruppo
+            <PlusCircle size={16} /> Brinda con la lega
           </button>
           <button onClick={copyInvite} className="btn btn-secondary" style={{ borderRadius: '18px', padding: '9px 14px', fontSize: '13px' }}>
             <Share2 size={16} /> {copied ? 'Link copiato!' : 'Invita'}
@@ -224,8 +224,8 @@ export default function GroupDetailPage({ params }) {
           </div>
           {board.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-              Nessuna sessione del gruppo {period === 'week' ? 'questa settimana' : period === 'weekend' ? 'nel weekend' : 'finora'}.<br />
-              Tocca <strong>“Brinda con il gruppo”</strong> per aprire la gara! 🍻
+              Nessuna sessione della lega {period === 'week' ? 'questa settimana' : period === 'weekend' ? 'nel weekend' : 'finora'}.<br />
+              Tocca <strong>“Brinda con la lega”</strong> per aprire la gara! 🍻
             </div>
           ) : (
             <div className="card" style={{ padding: '8px' }}>
@@ -246,11 +246,11 @@ export default function GroupDetailPage({ params }) {
         <>
           {canAdmin && (
             <button onClick={() => setShowEvent(true)} className="btn btn-secondary" style={{ borderRadius: '18px', padding: '10px', alignSelf: 'flex-start' }}>
-              <Plus size={16} /> Crea evento del gruppo
+              <Plus size={16} /> Crea evento della lega
             </button>
           )}
           {events.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Nessun evento del gruppo.</div>
+            <div className="card" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Nessun evento della lega.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {events.map((e) => (
@@ -307,14 +307,14 @@ export default function GroupDetailPage({ params }) {
                   ) : (
                     <button onClick={() => changeRole(m.user_id, 'member')} title="Rimuovi admin" className="action-btn"><UserMinus size={16} /></button>
                   )}
-                  <button onClick={() => removeMember(m.user_id)} title="Rimuovi dal gruppo" className="action-btn" style={{ color: 'var(--error)' }}><X size={16} /></button>
+                  <button onClick={() => removeMember(m.user_id)} title="Rimuovi dalla lega" className="action-btn" style={{ color: 'var(--error)' }}><X size={16} /></button>
                 </div>
               )}
             </div>
           ))}
           {isOwner && (
             <button onClick={handleDelete} className="btn btn-secondary" style={{ width: '100%', marginTop: '10px', borderRadius: '14px', color: 'var(--error)' }}>
-              <Trash2 size={16} /> Elimina gruppo
+              <Trash2 size={16} /> Elimina lega
             </button>
           )}
         </div>
@@ -324,7 +324,7 @@ export default function GroupDetailPage({ params }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '440px', width: '100%', position: 'relative', maxHeight: '85dvh', overflowY: 'auto' }}>
             <button onClick={() => setShowEvent(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
-            <h2 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '14px', paddingRight: '36px' }}>Evento del gruppo</h2>
+            <h2 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '14px', paddingRight: '36px' }}>Evento della lega</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <input className="form-control" placeholder="Titolo *" value={evTitle} onChange={(e) => setEvTitle(e.target.value)} />
               <input type="datetime-local" className="form-control" value={evDate} onChange={(e) => setEvDate(e.target.value)} />

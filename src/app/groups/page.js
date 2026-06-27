@@ -40,7 +40,7 @@ export default function GroupsPage() {
   }, [tab, dq]);
 
   const handleCreate = async () => {
-    if (!name.trim()) { setErr('Dai un nome al gruppo.'); return; }
+    if (!name.trim()) { setErr('Dai un nome alla lega.'); return; }
     setBusy(true); setErr('');
     try {
       const g = await db.createGroup({ name, description, visibility });
@@ -60,10 +60,10 @@ export default function GroupsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '30px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Users size={30} color="var(--primary)" /> Gruppi
+            <Users size={30} color="var(--primary)" /> Leghe
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-            Raduna gli amici, sfidatevi nelle classifiche e organizzate eventi di gruppo. 🍻
+            Raduna gli amici, sfidatevi nelle classifiche e organizzate eventi di lega. 🍻
           </p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn btn-primary" style={{ borderRadius: '20px', padding: '10px 16px', whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -72,7 +72,7 @@ export default function GroupsPage() {
       </div>
 
       <div className="seg-tabs">
-        <button onClick={() => setTab('mine')} className={`seg-tab ${tab === 'mine' ? 'active' : ''}`}>I miei gruppi</button>
+        <button onClick={() => setTab('mine')} className={`seg-tab ${tab === 'mine' ? 'active' : ''}`}>Le mie leghe</button>
         <button onClick={() => setTab('discover')} className={`seg-tab ${tab === 'discover' ? 'active' : ''}`}>Scopri</button>
       </div>
 
@@ -80,10 +80,10 @@ export default function GroupsPage() {
         mine.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
             <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-              Non sei in nessun gruppo. Creane uno e invita gli amici! 👥
+              Non sei in nessuna lega. Creane una e invita gli amici! 👥
             </p>
             <button onClick={() => setShowCreate(true)} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-              <Plus size={18} /> Crea il primo gruppo
+              <Plus size={18} /> Crea la prima lega
             </button>
           </div>
         ) : (
@@ -95,11 +95,11 @@ export default function GroupsPage() {
         <>
           <div style={{ position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-            <input className="form-control" placeholder="Cerca gruppi pubblici..." value={dq} onChange={(e) => setDq(e.target.value)} style={{ paddingLeft: '38px', height: '42px' }} />
+            <input className="form-control" placeholder="Cerca leghe pubbliche..." value={dq} onChange={(e) => setDq(e.target.value)} style={{ paddingLeft: '38px', height: '42px' }} />
           </div>
           {discover.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-              Nessun gruppo pubblico trovato.
+              Nessuna lega pubblica trovata.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -113,7 +113,7 @@ export default function GroupsPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '460px', width: '100%', border: '1px solid var(--border-dark)', position: 'relative', maxHeight: '85dvh', overflowY: 'auto' }}>
             <button onClick={() => setShowCreate(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px', paddingRight: '36px' }}>Nuovo gruppo</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px', paddingRight: '36px' }}>Nuova lega</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label className="form-label">Nome</label>
@@ -131,13 +131,13 @@ export default function GroupsPage() {
                 </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.5 }}>
                   {visibility === 'private'
-                    ? 'Solo i membri vedono gruppo, classifica ed eventi. Si entra su invito (link).'
-                    : 'Chiunque può trovarlo e vederne classifica/eventi; per partecipare deve unirsi.'}
+                    ? 'Solo i membri vedono la lega, la classifica e gli eventi. Si entra su invito (link).'
+                    : 'Chiunque può trovarla e vederne classifica/eventi; per partecipare deve unirsi.'}
                 </p>
               </div>
               {err && <p style={{ color: '#FF7D7D', fontSize: '13px' }}>{err}</p>}
               <button onClick={handleCreate} disabled={busy} className="btn btn-primary" style={{ borderRadius: '20px', padding: '12px', fontWeight: 700 }}>
-                {busy ? 'Creazione…' : 'Crea gruppo'}
+                {busy ? 'Creazione…' : 'Crea lega'}
               </button>
             </div>
           </div>

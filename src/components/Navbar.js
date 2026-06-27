@@ -149,7 +149,7 @@ export default function Navbar() {
     { href: '/', label: 'Feed', icon: Beer },
     { href: '/routes', label: 'Percorsi', icon: Map },
     { href: '/places', label: 'Classifiche', icon: Trophy },
-    { href: '/groups', label: 'Gruppi', icon: Users },
+    { href: '/groups', label: 'Leghe', icon: Users },
     { href: '/events', label: 'Eventi', icon: Calendar },
     { href: '/live', label: 'Radar', icon: Radar },
     { href: '/log', label: 'Registra', icon: PlusCircle },
@@ -372,7 +372,7 @@ export default function Navbar() {
             </div>
             <div className="more-sheet-grid">
               <Link href="/profile" className={isActive('/profile') ? 'active' : ''}><User size={22} /><span>Profilo</span></Link>
-              <Link href="/groups" className={isActive('/groups') ? 'active' : ''}><Users size={22} /><span>Gruppi</span></Link>
+              <Link href="/groups" className={isActive('/groups') ? 'active' : ''}><Users size={22} /><span>Leghe</span></Link>
               <Link href="/live" className={isActive('/live') ? 'active' : ''}><Radar size={22} /><span>Radar</span></Link>
               <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>Eventi</span></Link>
               <Link href="/install" className={isActive('/install') ? 'active' : ''}><Share2 size={22} /><span>Invita</span></Link>

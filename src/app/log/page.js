@@ -42,7 +42,9 @@ export default function LogActivityPage() {
   // Visibilità della sessione live: chi la vede nel feed e sul radar mentre bevi.
   // 'private' = nascosta a tutti finché è live (riappare nel feed solo a chiusura).
   const [liveShare, setLiveShare] = useState('public'); // 'private' | 'friends' | 'public'
-  const [groupCtx, setGroupCtx] = useState(null); // { id, name } se la sessione è "per il gruppo"
+  const [myLeagues, setMyLeagues] = useState([]); // leghe di cui faccio parte
+  const [selectedLeagues, setSelectedLeagues] = useState(() => new Set()); // leghe in cui competo con questa sessione
+  const [showLeagues, setShowLeagues] = useState(false); // modale selezione leghe
   const [fullStomach, setFullStomach] = useState(false); // stomaco pieno → BAC più preciso
   // Sessione libera: nascondi la posizione (niente GPS → non compari sul radar/mappa).
   const [hideLocation, setHideLocation] = useState(false);
@@ -184,9 +186,15 @@ export default function LogActivityPage() {
 
     // Gestione query parameter ?action=append per aggiungere una tappa direttamente
     const urlParams = new URLSearchParams(window.location.search);
-    // Sessione "per il gruppo": attribuisce la sessione al gruppo (classifica di gruppo).
-    const gId = urlParams.get('group');
-    if (gId) setGroupCtx({ id: gId, name: urlParams.get('groupName') || 'gruppo' });
+    // Leghe: carica quelle di cui faccio parte e preseleziona TUTTE (default).
+    // Da una lega ("Brinda con la lega") arriva ?group=id: è già inclusa (tutte selezionate).
+    (async () => {
+      try {
+        const leagues = await db.getMyGroups();
+        setMyLeagues(leagues || []);
+        setSelectedLeagues(new Set((leagues || []).map((l) => l.id)));
+      } catch { /* noop */ }
+    })();
     if (urlParams.get('action') === 'append') {
       setIsAppendingToSession(true);
       openVenueSelector();
@@ -356,7 +364,7 @@ export default function LogActivityPage() {
 
       // Visibilità: salviamo sempre lo stato; per Tutti/Amici proviamo a prendere il GPS per il radar
       // freeform: sessione senza locale reale → esclusa da locali/classifiche dei locali.
-      const location = { name: 'Sessione Libera', share: liveShare, freeform: true, ...(groupCtx ? { group_id: groupCtx.id } : {}) };
+      const location = { name: 'Sessione Libera', share: liveShare, freeform: true, ...(selectedLeagues.size ? { league_ids: [...selectedLeagues] } : {}) };
       // Niente GPS se la sessione è privata O se l'utente ha scelto di nascondere la posizione:
       // senza coordinate non compare sul radar/mappa.
       if (hideLocation) location.hidden = true;
@@ -471,7 +479,7 @@ export default function LogActivityPage() {
             lng: venue.lng ?? null,
             share: liveShare,
             ...(unverified ? { unverified: true } : {}),
-            ...(groupCtx ? { group_id: groupCtx.id } : {}),
+            ...(selectedLeagues.size ? { league_ids: [...selectedLeagues] } : {}),
           },
           full_stomach: fullStomach,
           drinks: [],
@@ -749,6 +757,38 @@ export default function LogActivityPage() {
         </div>
       )}
 
+      {/* Selettore LEGHE: in quali competere con questa sessione (default: tutte) */}
+      {showLeagues && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1600, padding: '20px' }}>
+          <div className="card" style={{ maxWidth: '440px', width: '100%', position: 'relative', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', padding: '20px' }}>
+            <button onClick={() => setShowLeagues(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
+            <h2 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '4px', paddingRight: '36px' }}>🏆 Leghe</h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>Scegli in quali leghe far valere questa sessione.</p>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <button type="button" onClick={() => setSelectedLeagues(new Set(myLeagues.map((l) => l.id)))} className="btn btn-secondary" style={{ flex: 1, borderRadius: '14px', fontSize: '12px', padding: '7px' }}>Tutte</button>
+              <button type="button" onClick={() => setSelectedLeagues(new Set())} className="btn btn-secondary" style={{ flex: 1, borderRadius: '14px', fontSize: '12px', padding: '7px' }}>Nessuna</button>
+            </div>
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {myLeagues.map((l) => {
+                const on = selectedLeagues.has(l.id);
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={() => setSelectedLeagues((prev) => { const n = new Set(prev); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-dark)'}`, background: on ? 'rgba(255,32,0,0.08)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${on ? 'var(--primary)' : 'var(--border-dark)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{on ? '✓' : ''}</span>
+                    <span style={{ flex: 1, minWidth: 0, color: '#FFF', fontWeight: 600, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => setShowLeagues(false)} className="btn btn-primary" style={{ borderRadius: '16px', padding: '11px', fontWeight: 700, marginTop: '12px' }}>Fatto</button>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 2: Selettore Locale (ricerca reale OpenStreetMap) */}
       {showLocaleSelector && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
@@ -771,10 +811,15 @@ export default function LogActivityPage() {
                 : 'Cerca il tuo locale per nome oppure inseriscilo manualmente.'}
             </p>
 
-            {groupCtx && (
-              <div style={{ fontSize: '12px', color: 'var(--primary)', background: 'rgba(255,32,0,0.08)', border: '1px solid rgba(255,32,0,0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', fontWeight: 600 }}>
-                👥 Questa sessione conta per il gruppo <strong>{groupCtx.name}</strong>
-              </div>
+            {myLeagues.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowLeagues(true)}
+                style={{ width: '100%', textAlign: 'left', fontSize: '12px', color: selectedLeagues.size ? 'var(--primary)' : 'var(--text-dark-secondary)', background: 'rgba(255,32,0,0.07)', border: '1px solid rgba(255,32,0,0.25)', borderRadius: '8px', padding: '9px 12px', marginBottom: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}
+              >
+                <span>🏆 Conta per {selectedLeagues.size === 0 ? 'nessuna lega' : selectedLeagues.size === myLeagues.length ? 'tutte le tue leghe' : `${selectedLeagues.size} ${selectedLeagues.size === 1 ? 'lega' : 'leghe'}`}</span>
+                <span style={{ textDecoration: 'underline', flexShrink: 0 }}>Modifica</span>
+              </button>
             )}
 
             {/* Input Cerca */}

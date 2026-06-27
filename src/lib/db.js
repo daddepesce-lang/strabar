@@ -2848,7 +2848,7 @@ export const db = {
         type: 'group_add',
         actor_id: me?.id || null,
         actor_name: actorName,
-        message: `${actorName} ti ha aggiunto al gruppo "${g?.name || 'un gruppo'}" 👥`,
+        message: `${actorName} ti ha aggiunto alla lega "${g?.name || 'una lega'}" 🏆`,
         link: `/groups/${groupId}`,
       });
     } catch { /* best effort: l'aggiunta è comunque avvenuta */ }

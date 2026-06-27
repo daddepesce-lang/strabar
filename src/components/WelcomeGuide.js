@@ -23,7 +23,7 @@ const CARDS = [
   {
     icon: Users,
     title: 'Social & gruppi',
-    body: 'Tagga gli amici, segui gli atleti, crea un gruppo e sfidatevi. Organizzate eventi e percorsi (pub crawl) insieme.',
+    body: 'Tagga gli amici, segui gli atleti, crea una lega e sfidatevi. Organizzate eventi e percorsi (pub crawl) insieme.',
   },
 ];
 
