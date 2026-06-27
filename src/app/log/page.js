@@ -550,6 +550,9 @@ export default function LogActivityPage() {
 
     let lat = userCoords?.lat ?? null;
     let lng = userCoords?.lng ?? null;
+    // Se uso la mia posizione GPS attuale, sono SUL POSTO → distanza 0 = sessione verificata.
+    // Se invece geolocalizzo un indirizzo digitato, non so se sei lì → distanza ignota (non verificata).
+    let fromGps = lat != null && lng != null;
 
     if (lat == null || lng == null) {
       if (!address) {
@@ -573,7 +576,7 @@ export default function LogActivityPage() {
       }
     }
 
-    startSessionAtVenue({ name, address, lat, lng });
+    startSessionAtVenue({ name, address, lat, lng, distance: fromGps ? 0 : null });
   };
 
   // Lista visualizzata nel selettore: risultati di ricerca o locali vicini
