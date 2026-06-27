@@ -3046,6 +3046,30 @@ export const db = {
     return map;
   },
 
+  // Eventi a cui partecipo (going/maybe) o di cui sono host, con finestra ATTIVA ora:
+  // da 2h prima dell'inizio a 5h dopo. Query leggera (poche colonne, range di date),
+  // chiamata solo al momento dell'avvio di una sessione → niente egress extra a vuoto.
+  async getActiveAttendingEvents() {
+    if (!isSupabaseConfigured) return [];
+    const user = await this.getCurrentUser();
+    if (!user) return [];
+    const now = Date.now();
+    const fromIso = new Date(now - 5 * 60 * 60 * 1000).toISOString(); // date >= now-5h
+    const toIso = new Date(now + 2 * 60 * 60 * 1000).toISOString();   // date <= now+2h
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, title, date, route_id, host_id, event_responses(user_id, status)')
+      .gte('date', fromIso).lte('date', toIso).limit(10);
+    if (error) { console.warn('getActiveAttendingEvents:', error.message); return []; }
+    return (data || [])
+      .filter((e) => {
+        if (e.host_id === user.id) return true;
+        const mine = (e.event_responses || []).find((r) => r.user_id === user.id);
+        return mine && (mine.status === 'going' || mine.status === 'maybe');
+      })
+      .map((e) => ({ id: e.id, title: e.title, date: e.date, route_id: e.route_id }));
+  },
+
   async getEvents() {
     const user = await this.getCurrentUser();
     if (isSupabaseConfigured) {

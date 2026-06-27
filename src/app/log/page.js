@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera, Info } from 'lucide-react';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import BeerPicker from '@/components/BeerPicker';
+import EventStartGuard from '@/components/EventStartGuard';
 
 export default function LogActivityPage() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function LogActivityPage() {
   const [myLeagues, setMyLeagues] = useState([]); // leghe di cui faccio parte
   const [selectedLeagues, setSelectedLeagues] = useState(() => new Set()); // leghe in cui competo con questa sessione
   const [showLeagues, setShowLeagues] = useState(false); // modale selezione leghe
+  const [eventGuard, setEventGuard] = useState(null); // { events, proceed } se hai un evento in corso
   const [fullStomach, setFullStomach] = useState(false); // stomaco pieno → BAC più preciso
   // Sessione libera: nascondi la posizione (niente GPS → non compari sul radar/mappa).
   const [hideLocation, setHideLocation] = useState(false);
@@ -363,10 +365,15 @@ export default function LogActivityPage() {
   };
 
   // Avvia Brindisi Libero / Roaming
-  const handleStartFreeSession = async () => {
+  const handleStartFreeSession = async (skipGuard = false) => {
     if (activeSession) {
       setShowActiveSessionWarning(true);
       return;
+    }
+    // "Intendevi l'evento?" — se partecipi a un evento in corso, chiedi conferma.
+    if (!skipGuard) {
+      const evs = await db.getActiveAttendingEvents().catch(() => []);
+      if (evs.length) { setEventGuard({ events: evs, kind: 'session', proceed: () => handleStartFreeSession(true) }); return; }
     }
 
     setStartingSession(true);
@@ -454,8 +461,14 @@ export default function LogActivityPage() {
 
   // Avvia (o estende) una sessione live presso il locale scelto.
   // Nessun blocco GPS rigido: l'utente ha scelto attivamente il locale dalla lista reale.
-  const startSessionAtVenue = async (venue) => {
+  const startSessionAtVenue = async (venue, skipGuard = false) => {
     if (!venue || !venue.name) return;
+    // "Intendevi l'evento?" — se stai per avviare una sessione normale (non una tappa) ma
+    // partecipi a un evento in corso, chiedi conferma prima di procedere.
+    if (!skipGuard && !isAppendingToSession) {
+      const evs = await db.getActiveAttendingEvents().catch(() => []);
+      if (evs.length) { setEventGuard({ events: evs, kind: 'session', proceed: () => startSessionAtVenue(venue, true) }); return; }
+    }
     // Verifica posizione = serve una prova GPS che tu sia sul posto.
     //  • Sei lontano (>300m): registri lo stesso ma "non verificata" (non conta in classifica).
     //  • Nessuna distanza GPS (GPS negato / locale cercato per nome): NON possiamo verificare
@@ -767,6 +780,14 @@ export default function LogActivityPage() {
           </div>
         </div>
       )}
+
+      {/* Guard "intendevi l'evento?" */}
+      <EventStartGuard
+        events={eventGuard?.events}
+        kind={eventGuard?.kind}
+        onContinue={() => { const p = eventGuard?.proceed; setEventGuard(null); if (p) p(); }}
+        onCancel={() => setEventGuard(null)}
+      />
 
       {/* Selettore LEGHE: in quali competere con questa sessione (default: tutte) */}
       {showLeagues && (

@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import RequireAuth from '@/components/RequireAuth';
+import EventStartGuard from '@/components/EventStartGuard';
 import { siteUrl } from '@/lib/site';
 
 export default function RoutesPage() {
@@ -17,6 +18,7 @@ export default function RoutesPage() {
   const [tourTarget, setTourTarget] = useState(2); // drink-target per tappa
   const [tourVisibility, setTourVisibility] = useState('public'); // private | friends | public
   const [startingTour, setStartingTour] = useState(false);
+  const [eventGuard, setEventGuard] = useState(null); // { events, kind, proceed }
   const [loading, setLoading] = useState(true);
 
   // Creation state
@@ -578,10 +580,16 @@ out body;`;
   };
 
   // Avvia un Tour guidato: crea una sessione live "modalità percorso" sulla prima tappa
-  const handleStartTour = async () => {
+  const handleStartTour = async (skipGuard = false) => {
     if (!currentUser) { alert('Accedi per avviare un tour.'); return; }
     const stopsRaw = selectedRoute?.waypoints || [];
     if (stopsRaw.length === 0) { alert('Questo percorso non ha tappe.'); return; }
+    // "Intendevi l'evento?" — se partecipi a un evento in corso, chiedi conferma:
+    // avviare il tour dall'evento lo fa contare nella classifica dell'evento.
+    if (!skipGuard) {
+      const evs = await db.getActiveAttendingEvents().catch(() => []);
+      if (evs.length) { setEventGuard({ events: evs, kind: 'tour', proceed: () => handleStartTour(true) }); return; }
+    }
     // Conferma esplicita della privacy scelta (🌍/👥/🔒) prima di avviare il tour.
     const privacyLabels = { public: '🌍 Tutti', friends: '👥 Solo amici', private: '🔒 Privata' };
     if (!window.confirm(`Avvio "${selectedRoute.name}"\nVisibilità della live: ${privacyLabels[tourVisibility] || tourVisibility}.\n\nProcedere? (puoi cambiarla qui sopra prima di avviare)`)) return;
@@ -793,6 +801,12 @@ out body;`;
   // --- RENDER ---
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <EventStartGuard
+        events={eventGuard?.events}
+        kind={eventGuard?.kind}
+        onContinue={() => { const p = eventGuard?.proceed; setEventGuard(null); if (p) p(); }}
+        onCancel={() => setEventGuard(null)}
+      />
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <div>
