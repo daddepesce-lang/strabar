@@ -150,7 +150,12 @@ export default function BusinessPage() {
             </Link>
           ))}
           {q.trim().length >= 2 && !searching && results.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-dark-secondary)', textAlign: 'center', padding: 10 }}>Nessun locale trovato. Se non è ancora su Strabar, registra prima una sessione lì o aggiungilo dalla schermata &ldquo;Registra&rdquo;.</p>
+            <div style={{ textAlign: 'center', padding: 10 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-dark-secondary)', marginBottom: 10 }}>Non lo troviamo tra i locali esistenti.</p>
+              <Link href={`/locale/${encodeURIComponent(q.trim().toLowerCase().replace(/\s+/g, ' '))}/gestione`} className="btn btn-primary" style={{ borderRadius: 20, padding: '10px 18px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                Aggiungi e richiedi «{q.trim()}» <ArrowRight size={15} />
+              </Link>
+            </div>
           )}
         </div>
       </div>

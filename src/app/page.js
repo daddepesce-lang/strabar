@@ -2123,6 +2123,18 @@ export default function FeedPage() {
         </section>
 
         {/* CTA CARD */}
+        {/* Sezione B2B: SOLO nella landing (i normali utenti non vedono nulla di commerciale). */}
+        <section className="reveal" style={{ textAlign: 'center', borderTop: '1px solid var(--border-dark)', paddingTop: '40px' }}>
+          <span className="eyebrow-pill" style={{ background: 'rgba(223,255,0,0.1)', color: 'var(--secondary)', margin: '0 auto' }}>Per i locali</span>
+          <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#FFF', margin: '14px 0 8px' }}>Sei un bar o un locale?</h2>
+          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', maxWidth: '520px', margin: '0 auto 18px', lineHeight: 1.5 }}>
+            Classifica dedicata, eventi sponsorizzati, promo e notifiche ai clienti. Scopri come portare più gente nel tuo locale con Strabar.
+          </p>
+          <Link href="/business" className="btn btn-secondary lift" style={{ padding: '12px 26px', borderRadius: '28px', fontSize: '15px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            Scopri Strabar per i locali <ChevronRight size={16} />
+          </Link>
+        </section>
+
         <section className="card landing-cta-pad reveal" style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
           <div className="glow-orb" style={{ top: '-60px', left: '50%', width: '240px', height: '240px', background: 'var(--primary)', opacity: 0.25 }} />
           <Sparkles size={32} color="var(--secondary)" style={{ position: 'relative', zIndex: 1 }} />
@@ -2216,17 +2228,6 @@ export default function FeedPage() {
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
       <div className="feed-list">
-        {/* Finder locali / ingresso "Per i locali" — discreto, in cima al feed */}
-        {currentUser && (
-          <Link href="/business" className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', textDecoration: 'none' }}>
-            <span style={{ fontSize: '22px', lineHeight: 1 }}>🏪</span>
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#FFF' }}>Trova un locale</span>
-              <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Cerca i bar su Strabar · sei un locale? Gestiscilo</span>
-            </span>
-            <span style={{ color: 'var(--text-dark-secondary)', flexShrink: 0 }}>→</span>
-          </Link>
-        )}
         {/* Banner sponsor (gestito da /admin) */}
         {banners.length > 0 && (() => {
           const b = banners[0];

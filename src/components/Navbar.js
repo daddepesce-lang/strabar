@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import NavSearch from '@/components/NavSearch';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, Plus, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users, HelpCircle, Store,
+  Beer, Map, Trophy, Calendar, PlusCircle, Plus, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users, HelpCircle,
 } from 'lucide-react';
 
 // Email per le segnalazioni bug (stessa del contatto privacy).
@@ -376,7 +376,6 @@ export default function Navbar() {
               <Link href="/live" className={isActive('/live') ? 'active' : ''}><Radar size={22} /><span>Radar</span></Link>
               <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>Eventi</span></Link>
               <Link href="/install" className={isActive('/install') ? 'active' : ''}><Share2 size={22} /><span>Invita</span></Link>
-              <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>Per i locali</span></Link>
               {!user.is_premium && (
                 <Link href="/premium" className={isActive('/premium') ? 'active' : ''}><Award size={22} /><span>Premium</span></Link>
               )}
