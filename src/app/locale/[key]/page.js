@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { db } from '@/lib/db';
 import QRCode from 'qrcode';
 import { Trophy, Beer, Share2, Download, MapPin, Loader, ArrowLeft } from 'lucide-react';
 
@@ -18,6 +19,7 @@ export default function VenuePublicPage({ params }) {
   const [period, setPeriod] = useState('all'); // 'week' | 'all'
   const [qr, setQr] = useState(null);
   const [pageUrl, setPageUrl] = useState('');
+  const [isManager, setIsManager] = useState(false); // gestore approvato di QUESTO locale
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -27,6 +29,14 @@ export default function VenuePublicPage({ params }) {
       .then(setQr)
       .catch(() => {});
   }, []);
+
+  // Solo un gestore APPROVATO di questo locale vede l'ingresso all'area riservata:
+  // l'area gestione/servizi non è esposta ai visitatori qualsiasi.
+  useEffect(() => {
+    let cancelled = false;
+    db.isVenueManager(placeKey).then((m) => { if (!cancelled) setIsManager(!!m); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [placeKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,9 +143,11 @@ export default function VenuePublicPage({ params }) {
         </div>
       )}
 
-      <Link href={`/locale/${encodeURIComponent(placeKey)}/gestione`} style={{ textAlign: 'center', fontSize: '12px', color: 'var(--secondary)', fontWeight: 600 }}>
-        Sei il titolare? Gestisci questo locale →
-      </Link>
+      {isManager && (
+        <Link href={`/locale/${encodeURIComponent(placeKey)}/gestione`} style={{ textAlign: 'center', fontSize: '12px', color: 'var(--secondary)', fontWeight: 600 }}>
+          🔧 Area gestione del locale →
+        </Link>
+      )}
 
       <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '20px' }}>
         Bevi responsabilmente. Strabar è un gioco sociale, non incoraggia l&apos;abuso di alcol.
