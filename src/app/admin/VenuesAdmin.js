@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader, Search, MapPin, Users, Beer, Clock, Repeat, ChevronDown, TrendingUp } from 'lucide-react';
+import { Loader, Search, MapPin, Users, Beer, Clock, Repeat, ChevronDown, TrendingUp, BadgeCheck, GitMerge, Pencil } from 'lucide-react';
 
 const fmtAgo = (d) => {
   if (!d) return '—';
@@ -19,15 +19,41 @@ export default function VenuesAdmin() {
   const [data, setData] = useState(null);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/admin/venues', { cache: 'no-store' });
-        setData(await res.json());
-      } catch { setData({ venues: [] }); }
-    })();
-  }, []);
+  const load = async () => {
+    try {
+      const res = await fetch('/api/admin/venues', { cache: 'no-store' });
+      setData(await res.json());
+    } catch { setData({ venues: [] }); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const post = async (body) => {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/venues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await res.json();
+      if (!res.ok) { alert(d.error || 'Errore'); return null; }
+      await load();
+      return d;
+    } finally { setBusy(false); }
+  };
+
+  const toggleVerify = (v) => post({ action: 'verify', key: v.key, name: v.name, lat: v.lat, lng: v.lng, verified: !v.verified });
+  const rename = async (v) => {
+    const toName = prompt('Nuovo nome canonico del locale:', v.name);
+    if (!toName || !toName.trim() || toName.trim() === v.name) return;
+    const r = await post({ action: 'rename', fromKey: v.key, toName: toName.trim() });
+    if (r) alert(`Rinominato. Sessioni aggiornate: ${r.sessionsUpdated}.`);
+  };
+  const merge = async (v) => {
+    const toName = prompt(`Unisci "${v.name}" in un altro locale.\nScrivi il NOME canonico di destinazione (le sessioni di "${v.name}" verranno spostate lì):`);
+    if (!toName || !toName.trim()) return;
+    if (!confirm(`Confermi? Tutte le ${v.sessions} presenze di "${v.name}" passeranno a "${toName.trim()}". L'operazione riscrive le sessioni.`)) return;
+    const r = await post({ action: 'merge', fromKey: v.key, toName: toName.trim() });
+    if (r) alert(`Unito. Sessioni spostate: ${r.sessionsUpdated}.`);
+  };
 
   if (!data) return <div style={{ color: 'var(--text-dark-secondary)' }}><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Carico…</div>;
 
@@ -66,6 +92,8 @@ export default function VenuesAdmin() {
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#FFF', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <MapPin size={14} color="var(--primary)" /> {v.name}
+                  {v.verified && <BadgeCheck size={15} color="var(--secondary)" title="Verificato" />}
+                  {v.claimed && <span title="Ha un gestore" style={{ fontSize: 11 }}>🔧</span>}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 3 }}>
                   {v.sessions} presenze · {v.uniqueUsers} clienti · picco {peakWindow(v.peakHour)} · {v.topDay}
@@ -76,6 +104,19 @@ export default function VenuesAdmin() {
 
             {isOpen && (
               <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Governance: verifica, rinomina, unisci doppioni */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <button type="button" disabled={busy} onClick={() => toggleVerify(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 5, color: v.verified ? 'var(--secondary)' : undefined }}>
+                    <BadgeCheck size={14} /> {v.verified ? 'Verificato (togli)' : 'Verifica'}
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => rename(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <Pencil size={14} /> Rinomina
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => merge(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <GitMerge size={14} /> Unisci a…
+                  </button>
+                </div>
+
                 {/* KPI */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>
                   {[

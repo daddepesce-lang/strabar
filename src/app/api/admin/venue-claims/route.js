@@ -32,6 +32,17 @@ export async function POST(req) {
     .eq('id', body.id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Un locale con gestore approvato diventa anche VERIFICATO nel registro (badge ✓ +
+  // può vendere servizi). Best-effort: non bloccare l'approvazione se fallisce.
+  if (status === 'approved') {
+    try {
+      await gate.admin.from('venues').upsert(
+        { key: claim.venue_key, name: claim.venue_name, verified: true, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+    } catch { /* noop */ }
+  }
+
   // Notifica al richiedente l'esito.
   try {
     await gate.admin.from('notifications').insert({

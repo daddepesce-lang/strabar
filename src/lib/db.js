@@ -2345,6 +2345,15 @@ export const db = {
 
     const reviews = this.getReviewsRaw();
 
+    // Locali VERIFICATI (registro canonico, gestito da admin) → badge ✓.
+    const verifiedKeys = new Set();
+    if (isSupabaseConfigured) {
+      try {
+        const { data } = await supabase.from('venues').select('key').eq('verified', true);
+        (data || []).forEach((v) => verifiedKeys.add(v.key));
+      } catch { /* tabella assente: nessun verificato */ }
+    }
+
     return Object.values(map)
       .map((p) => {
         const drinkers = Object.values(p.drinkers);
@@ -2368,6 +2377,7 @@ export const db = {
           localLegend: legend,
           reviewsCount: placeReviews.length,
           avgRating: parseFloat(avgRating.toFixed(1)),
+          verified: verifiedKeys.has(p.key),
         };
       });
   },

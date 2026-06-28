@@ -120,6 +120,7 @@ export async function GET() {
     const peakHour = v.hours.reduce((best, c, i) => (c > v.hours[best] ? i : best), 0);
     const topDay = v.days.reduce((best, c, i) => (c > v.days[best] ? i : best), 0);
     return {
+      key: norm(v.name),
       name: v.name,
       lat: v.lat, lng: v.lng,
       sessions: v.sessions,
@@ -138,10 +139,69 @@ export async function GET() {
     };
   }).sort((a, b) => b.sessions - a.sessions || b.units - a.units);
 
+  // Annota verificati (registro venues) e locali con gestore approvato (claim).
+  const [{ data: reg }, { data: claims }] = await Promise.all([
+    gate.admin.from('venues').select('key, name, verified'),
+    gate.admin.from('venue_claims').select('venue_key, status'),
+  ]);
+  const verifiedSet = new Set((reg || []).filter((r) => r.verified).map((r) => r.key));
+  const claimedSet = new Set((claims || []).filter((c) => c.status === 'approved').map((c) => c.venue_key));
+  list.forEach((v) => { v.verified = verifiedSet.has(v.key); v.claimed = claimedSet.has(v.key); });
+
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     totalVenues: list.length,
     totalGeoSessions: geo.length,
     venues: list,
   });
+}
+
+// POST: governance locali.
+//   {action:'verify',  key, name, address?, lat?, lng?, verified}
+//   {action:'merge',   fromKey, toName}              → riscrive le sessioni del doppione
+//   {action:'rename',  fromKey, toName}              → rinomina (= merge verso il nuovo nome)
+export async function POST(req) {
+  const gate = await requireAdmin();
+  if (gate.error) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const body = await req.json().catch(() => ({}));
+  const action = body.action;
+
+  if (action === 'verify') {
+    const key = norm(body.key);
+    if (!key) return NextResponse.json({ error: 'key mancante' }, { status: 400 });
+    const row = {
+      key,
+      name: body.name || key,
+      address: body.address ?? null,
+      lat: typeof body.lat === 'number' ? body.lat : null,
+      lng: typeof body.lng === 'number' ? body.lng : null,
+      verified: body.verified !== false,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await gate.admin.from('venues').upsert(row, { onConflict: 'key' });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'merge' || action === 'rename') {
+    const fromKey = norm(body.fromKey);
+    const toName = (body.toName || '').trim();
+    if (!fromKey || !toName) return NextResponse.json({ error: 'fromKey e toName obbligatori' }, { status: 400 });
+    const toKey = norm(toName);
+    // 1) riscrive le sessioni del doppione/vecchio nome → nome canonico
+    const { data: n, error: rpcErr } = await gate.admin.rpc('merge_venue_sessions', { p_from_key: fromKey, p_to_name: toName });
+    if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+    // 2) sposta claim/override/ordini/recensioni dalla vecchia chiave alla nuova
+    if (toKey !== fromKey) {
+      await gate.admin.from('venue_claims').update({ venue_key: toKey, venue_name: toName }).eq('venue_key', fromKey);
+      await gate.admin.from('venue_service_overrides').update({ venue_key: toKey }).eq('venue_key', fromKey);
+      await gate.admin.from('venue_orders').update({ venue_key: toKey }).eq('venue_key', fromKey);
+      try { await gate.admin.from('reviews').update({ place_key: toKey, place_name: toName }).eq('place_key', fromKey); } catch { /* tabella recensioni opzionale */ }
+      // rimuove l'eventuale riga di registro del vecchio nome
+      await gate.admin.from('venues').delete().eq('key', fromKey);
+    }
+    return NextResponse.json({ ok: true, sessionsUpdated: n || 0, toKey });
+  }
+
+  return NextResponse.json({ error: 'Azione non valida' }, { status: 400 });
 }

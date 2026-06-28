@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import {
-  MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award, Info, QrCode,
+  MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award, Info, QrCode, BadgeCheck,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 
@@ -547,6 +547,7 @@ export default function ClassifichePage() {
                       <div style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '18px' }}>{medal(i)}</span>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{place.name}</span>
+                        {place.verified && <BadgeCheck size={16} color="var(--secondary)" style={{ flexShrink: 0 }} aria-label="Locale verificato" />}
                       </div>
                       {place.address && (
                         <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
