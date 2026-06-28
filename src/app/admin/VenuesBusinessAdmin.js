@@ -89,11 +89,20 @@ export default function VenuesBusinessAdmin() {
                 </div>
               )}
               {/* Collega un account Strabar (per email) a questo locale → account di tipo "locale" */}
-              <button
-                onClick={() => { const em = prompt('Email dell’account da collegare a questo locale:', c.details?.email || '') || ''; if (em.trim()) post('/api/admin/venue-claims', { action: 'link_account', email: em.trim(), venue_key: c.venue_key, venue_name: c.venue_name }); }}
-                className="btn btn-secondary" style={{ width: '100%', marginTop: 8, borderRadius: 16, fontSize: 12, padding: 7 }}>
-                🔗 Collega account locale {c.user_id ? '(ricollega)' : ''}
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button
+                  onClick={() => { const em = prompt('Email dell’account da collegare a questo locale:', c.details?.email || '') || ''; if (em.trim()) post('/api/admin/venue-claims', { action: 'link_account', email: em.trim(), venue_key: c.venue_key, venue_name: c.venue_name }); }}
+                  className="btn btn-secondary" style={{ flex: 1, borderRadius: 16, fontSize: 12, padding: 7 }}>
+                  🔗 Collega {c.user_id ? '(ricollega)' : 'account'}
+                </button>
+                {c.status === 'approved' && c.user_id && (
+                  <button
+                    onClick={() => { if (confirm(`Scollegare l'account dal locale "${c.venue_name}"? Perderà l'accesso all'area gestione.`)) post('/api/admin/venue-claims', { action: 'unlink', id: c.id }); }}
+                    className="btn btn-secondary" style={{ flex: 1, borderRadius: 16, fontSize: 12, padding: 7, color: 'var(--error)' }}>
+                    ✖ Scollega
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

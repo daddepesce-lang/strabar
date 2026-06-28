@@ -49,6 +49,23 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
   }
 
+  // Scollega: revoca la gestione di un locale (status → 'revoked'). Se quell'account non
+  // gestisce più nessun locale, torna utente normale (account_type='user').
+  if (body.action === 'unlink') {
+    if (!body.id) return NextResponse.json({ error: 'id mancante' }, { status: 400 });
+    const { data: c, error: e0 } = await gate.admin.from('venue_claims').select('*').eq('id', body.id).single();
+    if (e0) return NextResponse.json({ error: e0.message }, { status: 500 });
+    await gate.admin.from('venue_claims').update({ status: 'revoked', resolved_at: new Date().toISOString() }).eq('id', c.id);
+    if (c.user_id) {
+      const { data: others } = await gate.admin.from('venue_claims').select('id').eq('user_id', c.user_id).eq('status', 'approved').limit(1);
+      if (!others || others.length === 0) {
+        try { await gate.admin.from('profiles').update({ account_type: 'user' }).eq('id', c.user_id); } catch { /* noop */ }
+      }
+      try { await gate.admin.from('notifications').insert({ user_id: c.user_id, type: 'venue_claim', message: `Il collegamento al locale "${c.venue_name}" è stato rimosso.`, link: '/' }); } catch { /* noop */ }
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   if (!body.id || !['approve', 'reject'].includes(body.action)) {
     return NextResponse.json({ error: 'Parametri non validi' }, { status: 400 });
   }
