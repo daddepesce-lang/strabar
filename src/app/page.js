@@ -1702,15 +1702,20 @@ export default function FeedPage() {
   };
 
   const displayBac = (a) => {
-    if (!a || !a.drinks || a.drinks.length === 0) return 0;
+    if (!a) return 0;
+    const residual = priorResidualFor(a);
+    // Niente drink E niente residuo da sessioni precedenti → 0. Ma se c'è un residuo
+    // (es. live appena aperta dopo un'altra, o cambio bar), il BAC NON è 0: va mostrato
+    // come nel dettaglio della sessione (prima il feed lo azzerava → numeri incoerenti).
+    if ((!a.drinks || a.drinks.length === 0) && !residual) return 0;
     const ownerWeight = (a.user_id === currentUser?.id ? currentUser?.weight : a.profiles?.weight) || undefined;
     const ownerSex = (a.user_id === currentUser?.id ? currentUser?.sex : a.profiles?.sex) || undefined;
     // Sessione LIVE: tutti vedono lo stesso numero del proprietario, cioè il BAC
     // ATTUALE (adesso). Solo a sessione chiusa si mostra il PICCO deterministico.
     if (isLiveAct(a)) {
-      return db.calculateCurrentBAC(a.drinks, a.created_at, a.duration || effortMinutes(a) || 1, undefined, ownerWeight, a.full_stomach, ownerSex, priorResidualFor(a));
+      return db.calculateCurrentBAC(a.drinks || [], a.created_at, a.duration || effortMinutes(a) || 1, undefined, ownerWeight, a.full_stomach, ownerSex, residual);
     }
-    return db.calculatePeakBAC(a.drinks, a.created_at, a.duration || effortMinutes(a) || 120, ownerWeight, a.full_stomach, ownerSex, priorResidualFor(a));
+    return db.calculatePeakBAC(a.drinks || [], a.created_at, a.duration || effortMinutes(a) || 120, ownerWeight, a.full_stomach, ownerSex, residual);
   };
 
   // Per i Tour: raggruppa i drink per tappa, in base alle finestre temporali di arrivo

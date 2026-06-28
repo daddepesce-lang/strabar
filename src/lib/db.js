@@ -1448,7 +1448,33 @@ export const db = {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('sb_active_session_id');
     }
+
+    // Sessione VUOTA → eliminala: una sessione chiusa senza drink, foto, commenti o cheer
+    // è spazzatura (es. aperta per errore o per un test) e non deve restare nel diario/feed.
+    try { await this.deleteIfEmptySession(sessionId); } catch { /* best effort */ }
+
     return result;
+  },
+
+  // Elimina la sessione se è completamente vuota: niente drink, niente foto/media,
+  // niente commenti, niente cheer. Ritorna true se eliminata.
+  async deleteIfEmptySession(sessionId) {
+    if (!sessionId || !isSupabaseConfigured) return false;
+    const { data: s } = await supabase
+      .from('sessions')
+      .select('id, drinks, media, cheers(count), comments(count)')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (!s) return false;
+    const noDrinks = !Array.isArray(s.drinks) || s.drinks.length === 0;
+    const noMedia = !Array.isArray(s.media) || s.media.length === 0;
+    const noCheers = !Array.isArray(s.cheers) || !(s.cheers[0]?.count);
+    const noComments = !Array.isArray(s.comments) || !(s.comments[0]?.count);
+    if (noDrinks && noMedia && noCheers && noComments) {
+      await supabase.from('sessions').delete().eq('id', sessionId);
+      return true;
+    }
+    return false;
   },
 
   checkGeofencing(placeLat, placeLng, userLat, userLng, maxDistance = 200) {
