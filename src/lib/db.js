@@ -1541,13 +1541,17 @@ export const db = {
   // Grammi di alcol ANCORA in circolo a un certo istante, derivanti dalle sessioni
   // CHIUSE recenti dell'utente (per riportare il "residuo" su una nuova sessione live).
   // `activities` = sessioni dell'utente (es. myActivities). Pura, niente query.
-  residualGramsAtTime(activities, beforeISO, weightKg, sex, windowHours = 6) {
+  residualGramsAtTime(activities, beforeISO, weightKg, sex, windowHours = 6, includeActive = false) {
     const before = new Date(beforeISO).getTime();
     if (!before || !Array.isArray(activities)) return 0;
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     let grams = 0;
     activities.forEach((a) => {
-      if (!a || a.is_active) return; // ignora la sessione live in corso
+      // Normalmente la live IN CORSO va ignorata (i suoi drink contano a parte). MA quando
+      // calcoliamo il residuo per una NUOVA sessione (includeActive=true), la sessione
+      // ancora attiva è quella che stiamo "lasciando" (cambia bar/prosecuzione) e il suo
+      // alcol DEVE diventare residuo della nuova → altrimenti il BAC riparte da zero.
+      if (!a || (a.is_active && !includeActive)) return;
       const drinks = a.drinks || [];
       if (drinks.length === 0) return;
       const parsed = this.getDrinksWithTimestamps(drinks, a.created_at, a.duration || 120);
@@ -1597,7 +1601,9 @@ export const db = {
       const p = (getStored('sb_profiles') || []).find((x) => x.id === userId);
       weight = p?.weight; sex = p?.sex;
     }
-    return this.residualGramsAtTime(recent, createdAtISO, weight, sex);
+    // includeActive=true: conta anche l'eventuale sessione ancora attiva che stai
+    // lasciando → il BAC residuo si porta SEMPRE dietro, qualsiasi sessione.
+    return this.residualGramsAtTime(recent, createdAtISO, weight, sex, 6, true);
   },
 
   // BACKFILL: congela il residuo sulle sessioni recenti dell'utente che ne sono prive

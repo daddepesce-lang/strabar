@@ -511,8 +511,16 @@ export default function LogActivityPage() {
     setCheckingGps(true);
     try {
       if (isAppendingToSession) {
-        if (!activeSession) throw new Error('Nessuna sessione attiva da aggiornare.');
-        await db.updateActivity(activeSession.id, buildAppendFields(activeSession, venue));
+        // CAMBIO BAR = STESSA SESSIONE: aggiorna la live in corso (non ne crea una nuova,
+        // così il BAC e i drink proseguono). Se lo stato non è ancora caricato (race al
+        // mount), rileggi la sessione attiva dal DB invece di fallire.
+        let target = activeSession;
+        if (!target) {
+          const u = currentUser || await db.getCurrentUser().catch(() => null);
+          if (u && typeof db.getActiveSession === 'function') target = await db.getActiveSession(u.id).catch(() => null);
+        }
+        if (!target) throw new Error('Nessuna sessione attiva da aggiornare.');
+        await db.updateActivity(target.id, buildAppendFields(target, venue));
       } else {
         await db.createActivity({
           title: `Brindisi live presso ${venue.name} 🍻`,
