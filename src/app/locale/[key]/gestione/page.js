@@ -26,6 +26,8 @@ export default function VenueManagePage({ params }) {
   const [submitting, setSubmitting] = useState(false);
   const [buying, setBuying] = useState(null); // service id in corso
   const [eventChoice, setEventChoice] = useState({}); // serviceId -> eventId
+  const [svcInput, setSvcInput] = useState({}); // serviceId -> { title, body, link, message }
+  const setInput = (id, patch) => setSvcInput((p) => ({ ...p, [id]: { ...(p[id] || {}), ...patch } }));
 
   useEffect(() => {
     let cancelled = false;
@@ -76,18 +78,26 @@ export default function VenueManagePage({ params }) {
   };
 
   const buy = async (svc) => {
-    // L'evento sponsorizzato richiede di scegliere a quale evento applicarlo.
+    // Input per servizio: evento (sponsored), testi (promo), messaggio (notify).
     let eventId = null;
+    let meta = {};
+    const inp = svcInput[svc.id] || {};
     if (svc.code === 'sponsored_event') {
       eventId = eventChoice[svc.id];
       if (!eventId) { alert('Scegli prima quale tuo evento sponsorizzare (creane uno dalla pagina Eventi se non ne hai).'); return; }
+    } else if (svc.code === 'promo') {
+      if (!inp.title?.trim()) { alert('Scrivi almeno il titolo della promo.'); return; }
+      meta = { title: inp.title, body: inp.body, link: inp.link };
+    } else if (svc.code === 'notify') {
+      if (!inp.message?.trim()) { alert('Scrivi il messaggio da inviare ai clienti.'); return; }
+      meta = { message: inp.message, link: inp.link };
     }
     setBuying(svc.id);
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venueKey: placeKey, serviceId: svc.id, eventId }),
+        body: JSON.stringify({ venueKey: placeKey, serviceId: svc.id, eventId, meta }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -198,6 +208,19 @@ export default function VenueManagePage({ params }) {
                       )}
                       {s.code === 'sponsored_event' && myEvents.length === 0 && (
                         <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>Non hai eventi futuri: <Link href="/events" style={{ color: 'var(--secondary)' }}>creane uno</Link> e torna qui.</p>
+                      )}
+                      {s.code === 'promo' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                          <input value={svcInput[s.id]?.title || ''} onChange={(e) => setInput(s.id, { title: e.target.value })} placeholder="Titolo promo (es. Aperitivo 2x1)" className="form-control" style={{ fontSize: '13px' }} />
+                          <textarea value={svcInput[s.id]?.body || ''} onChange={(e) => setInput(s.id, { body: e.target.value })} placeholder="Descrizione (facoltativa)" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
+                          <input value={svcInput[s.id]?.link || ''} onChange={(e) => setInput(s.id, { link: e.target.value })} placeholder="Link (facoltativo)" className="form-control" style={{ fontSize: '13px' }} />
+                        </div>
+                      )}
+                      {s.code === 'notify' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                          <textarea value={svcInput[s.id]?.message || ''} onChange={(e) => setInput(s.id, { message: e.target.value })} placeholder="Messaggio ai clienti (es. Stasera live music dalle 21!)" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
+                          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Arriva solo a chi ha già brindato qui e ha accettato le comunicazioni commerciali.</p>
+                        </div>
                       )}
                       <button onClick={() => buy(s)} disabled={buying === s.id} className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '10px', fontWeight: 700, fontSize: '14px' }}>
                         {buying === s.id ? 'Apro il pagamento…' : `Acquista — ${euro(s.price_cents)}`}

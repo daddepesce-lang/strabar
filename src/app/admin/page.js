@@ -10,6 +10,7 @@ import UsersAdmin from './UsersAdmin';
 import GdprAdmin from './GdprAdmin';
 import DrinksAdmin from './DrinksAdmin';
 import VenuesAdmin from './VenuesAdmin';
+import VenuesBusinessAdmin from './VenuesBusinessAdmin';
 
 function Kpi({ label, value, sub, color }) {
   return (
@@ -87,6 +88,7 @@ export default function AdminPage() {
         <button onClick={() => setTab('gdpr')} className={`seg-tab ${tab === 'gdpr' ? 'active' : ''}`}>🔐 GDPR</button>
         <button onClick={() => setTab('drink')} className={`seg-tab ${tab === 'drink' ? 'active' : ''}`}>🍺 Drink</button>
         <button onClick={() => setTab('locali')} className={`seg-tab ${tab === 'locali' ? 'active' : ''}`}>📍 Locali</button>
+        <button onClick={() => setTab('business')} className={`seg-tab ${tab === 'business' ? 'active' : ''}`}>🏪 Area locali</button>
         <button onClick={() => setTab('notifiche')} className={`seg-tab ${tab === 'notifiche' ? 'active' : ''}`}>🔔 Notifiche</button>
         <button onClick={() => setTab('banner')} className={`seg-tab ${tab === 'banner' ? 'active' : ''}`}>📢 Banner</button>
       </div>
@@ -95,6 +97,7 @@ export default function AdminPage() {
       {tab === 'gdpr' && <GdprAdmin />}
       {tab === 'drink' && <DrinksAdmin />}
       {tab === 'locali' && <VenuesAdmin />}
+      {tab === 'business' && <VenuesBusinessAdmin />}
       {tab === 'notifiche' && <NotificationsAdmin />}
       {tab === 'banner' && <BannersAdmin />}
 
