@@ -586,7 +586,21 @@ export const db = {
     }
   },
 
+  // Dedup tap ravvicinati (connessione lenta): se schiaccio 3 volte "avvia sessione",
+  // le chiamate concorrenti per APRIRE una live collassano sulla STESSA promise →
+  // viene creata UNA sola sessione (niente più righe doppie/spazzatura). Il lock si
+  // libera appena la creazione finisce, quindi avvii successivi (intenzionali) funzionano.
   async createActivity(activityData) {
+    if (activityData?.is_active) {
+      if (this._activeCreateLock) return this._activeCreateLock;
+      this._activeCreateLock = this._createActivityImpl(activityData)
+        .finally(() => { this._activeCreateLock = null; });
+      return this._activeCreateLock;
+    }
+    return this._createActivityImpl(activityData);
+  },
+
+  async _createActivityImpl(activityData) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Devi essere loggato per registrarare una sessione!");
 
