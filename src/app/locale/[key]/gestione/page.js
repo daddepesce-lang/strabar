@@ -49,7 +49,10 @@ export default function VenueManagePage({ params }) {
       }).catch(() => {});
       if (u) {
         const claims = await db.getMyVenueClaims().catch(() => []);
-        const c = (claims || []).find((x) => x.venue_key === placeKey) || null;
+        const mine = (claims || []).filter((x) => x.venue_key === placeKey);
+        // Possono esserci più claim per lo stesso locale (es. uno revocato + uno approvato):
+        // preferisci SEMPRE quello approvato, poi pending, poi l'ultimo.
+        const c = mine.find((x) => x.status === 'approved') || mine.find((x) => x.status === 'pending') || mine[0] || null;
         const mgr = c?.status === 'approved';
         if (cancelled) return;
         setClaim(c);

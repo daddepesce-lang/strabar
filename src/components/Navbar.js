@@ -232,6 +232,12 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            {myVenueKey && (
+              <Link href={`/locale/${encodeURIComponent(myVenueKey)}/gestione`} prefetch={false} className={`nav-link ${pathname.startsWith('/locale') ? 'active' : ''}`}>
+                <Store size={18} />
+                Il mio locale
+              </Link>
+            )}
           </div>
         )}
 
