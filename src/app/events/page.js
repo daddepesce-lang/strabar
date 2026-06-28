@@ -239,7 +239,12 @@ export default function EventsPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
           {visibleEvents.map((ev) => (
-            <Link key={ev.id} href={`/events/${ev.id}`} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Link key={ev.id} href={`/events/${ev.id}`} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', ...(ev.isSponsored ? { border: '1px solid var(--secondary)' } : {}) }}>
+              {ev.isSponsored && (
+                <span style={{ alignSelf: 'flex-start', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.4px', padding: '3px 8px', borderRadius: '20px', background: 'rgba(223, 255, 0,0.16)', color: 'var(--secondary)', border: '1px solid rgba(223,255,0,0.35)' }}>
+                  ⭐ Sponsorizzato
+                </span>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#FFF' }}>{ev.title}</h3>
                 {ev.myResponse && (

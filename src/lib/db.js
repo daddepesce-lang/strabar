@@ -2694,6 +2694,86 @@ export const db = {
     };
   },
 
+  // ===== AREA LOCALI (B2B): rivendicazione, servizi, ordini =====================
+
+  // I claim (richieste di gestione) dell'utente corrente.
+  async getMyVenueClaims() {
+    const user = await this.getCurrentUser();
+    if (!user || !isSupabaseConfigured) return [];
+    const { data } = await supabase.from('venue_claims').select('*').eq('user_id', user.id);
+    return data || [];
+  },
+
+  // L'utente corrente è gestore APPROVATO di questo locale?
+  async isVenueManager(venueKey) {
+    const user = await this.getCurrentUser();
+    if (!user || !isSupabaseConfigured || !venueKey) return false;
+    const { data } = await supabase
+      .from('venue_claims')
+      .select('id')
+      .eq('user_id', user.id).eq('venue_key', venueKey).eq('status', 'approved')
+      .limit(1);
+    return !!(data && data.length);
+  },
+
+  // Richiede di gestire un locale (status pending → approvi tu da /admin).
+  async requestVenueClaim(venueKey, venueName, note) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('Accedi per richiedere la gestione del locale.');
+    const { error } = await supabase.from('venue_claims').insert({
+      venue_key: venueKey, venue_name: venueName || venueKey, user_id: user.id, status: 'pending', note: note || null,
+    });
+    if (error) throw error;
+    return true;
+  },
+
+  // Servizi disponibili per un locale: catalogo + override per-locale (prezzo/abilitazione).
+  // Restituisce solo i servizi ABILITATI per quel locale, col prezzo effettivo.
+  async getVenueServices(venueKey) {
+    if (!isSupabaseConfigured) return [];
+    const [typesRes, ovRes] = await Promise.all([
+      supabase.from('venue_service_types').select('*').order('sort', { ascending: true }),
+      supabase.from('venue_service_overrides').select('*').eq('venue_key', venueKey),
+    ]);
+    const types = typesRes.data || [];
+    const ovMap = {};
+    (ovRes.data || []).forEach((o) => { ovMap[o.service_type_id] = o; });
+    return types.map((t) => {
+      const o = ovMap[t.id] || {};
+      return {
+        id: t.id,
+        code: t.code,
+        name: t.name,
+        description: t.description,
+        currency: t.currency,
+        price_cents: o.price_cents != null ? o.price_cents : t.default_price_cents,
+        enabled: o.enabled != null ? o.enabled : t.active,
+      };
+    }).filter((s) => s.enabled);
+  },
+
+  // Ordini dell'utente corrente (eventualmente filtrati per locale).
+  async getMyVenueOrders(venueKey) {
+    const user = await this.getCurrentUser();
+    if (!user || !isSupabaseConfigured) return [];
+    let q = supabase.from('venue_orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    if (venueKey) q = q.eq('venue_key', venueKey);
+    const { data } = await q;
+    return data || [];
+  },
+
+  // Eventi futuri di cui sono organizzatore (per collegarci la sponsorizzazione).
+  async getMyUpcomingEvents() {
+    const user = await this.getCurrentUser();
+    if (!user || !isSupabaseConfigured) return [];
+    const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('events')
+      .select('id, title, date, location_name, location, sponsored')
+      .eq('host_id', user.id).gte('date', since).order('date', { ascending: true });
+    return data || [];
+  },
+
   // Insieme degli ID di cui lo spettatore può vedere il NOME nelle classifiche: se stesso
   // + chi segue + chi lo segue. Tutti gli altri restano "coperti" (privacy globale).
   async _revealIdsFor(viewerId) {
@@ -3126,6 +3206,8 @@ export const db = {
         .limit(100);
       if (error) throw error;
       const hostMap = await this._profilesByIds((data || []).map((e) => e.host_id));
+      const nowMs = Date.now();
+      const isSponsoredNow = (e) => !!e.sponsored && (!e.sponsor_until || new Date(e.sponsor_until).getTime() > nowMs);
       return (data || []).map((e) => {
         const responses = e.event_responses || [];
         const host = hostMap[e.host_id] || { display_name: 'Organizzatore', username: 'host' };
@@ -3133,11 +3215,14 @@ export const db = {
           ...e,
           host,
           host_name: host.display_name || host.username,
+          isSponsored: isSponsoredNow(e),
           goingCount: responses.filter((r) => r.status === 'going').length,
           myResponse: user ? (responses.find((r) => r.user_id === user.id)?.status || null) : null,
           isInvited: user ? (e.host_id === user.id || (e.invited || []).includes(user.id)) : false,
         };
-      });
+      })
+      // Gli eventi sponsorizzati (attivi) vanno in cima; a parità, ordine per data.
+      .sort((a, b) => (b.isSponsored - a.isSponsored) || (new Date(a.date) - new Date(b.date)));
     }
     // localStorage
     const events = this.getEventsRaw();
