@@ -404,6 +404,9 @@ export default function FeedPage() {
     if (params.get('live') === '1') {
       setShowLivePanel(true);
       window.history.replaceState({}, '', '/');
+      // Messaggio GPS dell'avvio tour ("sei arrivato"/"naviga fino a…"): lo mostriamo
+      // DENTRO il pannello (più bello di un alert) e poi lo consumiamo.
+      try { const m = sessionStorage.getItem('strabar_tour_msg'); if (m) { setTourMsg(m); sessionStorage.removeItem('strabar_tour_msg'); } } catch { /* noop */ }
     }
     const onOpenLive = () => setShowLivePanel(true);
     window.addEventListener('strabar:open-live', onOpenLive);

@@ -360,8 +360,8 @@ export default function EventDetailPage({ params }) {
         total_units: 0,
         duration: 1,
       });
-      if (startMsg) alert(startMsg);
-      window.location.href = '/';
+      try { if (startMsg) sessionStorage.setItem('strabar_tour_msg', startMsg); } catch { /* noop */ }
+      window.location.href = '/?live=1';
     } catch (err) {
       alert('Errore nell\'avvio del tour: ' + (err.message || err));
       setStartingSession(false);

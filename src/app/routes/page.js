@@ -658,10 +658,10 @@ out body;`;
         total_units: 0,
         duration: 1,
       });
-      if (startMsg) alert(startMsg);
-      // Vai alla home con reload COMPLETO: così il pannello live viene caricato subito
-      // (router.push non rieseguiva il fetch della sessione attiva se la home era già montata).
-      window.location.href = '/';
+      // Il messaggio GPS ("sei arrivato"/"naviga fino a…") viene mostrato DENTRO il pannello
+      // tour (più bello di un alert). Atterriamo direttamente sul TOUR, non sul feed.
+      try { if (startMsg) sessionStorage.setItem('strabar_tour_msg', startMsg); } catch { /* noop */ }
+      window.location.href = '/?live=1';
     } catch (err) {
       alert('Errore nell\'avvio del tour: ' + (err.message || err));
       setStartingTour(false);

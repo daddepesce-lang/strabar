@@ -1705,7 +1705,14 @@ export const db = {
     // ignorando il residuo finché non si aggiungeva il primo drink.
     if (parsedDrinks.length === 0) {
       const prior = priorResidualGrams || 0;
-      return prior > 0 ? parseFloat((prior / (w * r)).toFixed(2)) : 0;
+      if (prior <= 0) return 0;
+      // Il residuo NON è fisso: si smaltisce nel tempo. Decresce da created_at (quando il
+      // residuo è stato calcolato) al momento attuale, allo stesso ritmo del modello.
+      const startBac = prior / (w * r);
+      const refMs = referenceTime ? new Date(referenceTime).getTime() : Date.now();
+      const startMs = new Date(created_at || refMs).getTime();
+      const hours = Math.max(0, (refMs - startMs) / 3600000);
+      return parseFloat(Math.max(0, startBac - this._beta(sex) * hours).toFixed(2));
     }
 
     // Per sessioni storiche usa la fine stimata (non "adesso", che darebbe BAC=0)
@@ -1747,7 +1754,35 @@ export const db = {
   // e gli orari chiave. Stesso modello unico → la curva coincide sempre col picco mostrato.
   calculateBACCurve(drinks, created_at, durationMinutes, weightKg, fullStomach, sex, priorResidualGrams = 0) {
     const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
-    if (parsedDrinks.length === 0) return null;
+    const wResid = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
+    const rResid = this._widmarkR(sex);
+
+    // Nessun drink ma c'è un RESIDUO: mostra comunque la curva di SMALTIMENTO (discesa
+    // dal residuo fino a 0). Così una live aperta col solo residuo ha la sua curva.
+    if (parsedDrinks.length === 0) {
+      const prior = priorResidualGrams || 0;
+      if (prior <= 0) return null;
+      const beta = this._beta(sex);
+      const startBac = prior / (wResid * rResid);
+      const startTime = new Date(created_at || Date.now()).getTime();
+      const endT = startTime + Math.max(1, startBac / beta) * 3600000;
+      const fmt = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const N = 40;
+      const series = [];
+      for (let i = 0; i <= N; i++) {
+        const T = startTime + ((endT - startTime) * i) / N;
+        const h = (T - startTime) / 3600000;
+        series.push({ t: T, val: Math.max(0, parseFloat((startBac - beta * h).toFixed(3))) });
+      }
+      let belowLimit = null;
+      if (startBac >= 0.5) { const tt = startTime + ((startBac - 0.5) / beta) * 3600000; belowLimit = { t: tt, label: fmt(tt) }; }
+      return {
+        series, start: startTime, end: endT,
+        peak: { t: startTime, val: parseFloat(startBac.toFixed(2)), label: fmt(startTime) },
+        belowLimit, startLabel: fmt(startTime), endLabel: fmt(endT),
+        residualOnly: true,
+      };
+    }
 
     const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
     const r = this._widmarkR(sex);
