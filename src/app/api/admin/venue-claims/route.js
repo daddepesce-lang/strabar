@@ -29,12 +29,18 @@ export async function POST(req) {
   // Collega manualmente un ACCOUNT (per email) a un locale: lo rende account_type='venue'
   // e crea/aggiorna un claim approvato. Usato quando il locale si è registrato dopo l'email.
   if (body.action === 'link_account') {
-    const email = (body.email || '').trim();
     const venueKey = (body.venue_key || '').trim().toLowerCase().replace(/\s+/g, ' ');
     const venueName = body.venue_name || venueKey;
-    if (!email || !venueKey) return NextResponse.json({ error: 'email e venue_key obbligatori' }, { status: 400 });
-    const { data: uid, error: findErr } = await gate.admin.rpc('admin_find_user_id', { p_email: email });
-    if (findErr) return NextResponse.json({ error: findErr.message }, { status: 500 });
+    if (!venueKey) return NextResponse.json({ error: 'venue_key obbligatorio' }, { status: 400 });
+    // Account scelto: per user_id (dalla lista) o, in alternativa, per email.
+    let uid = body.user_id || null;
+    if (!uid) {
+      const email = (body.email || '').trim();
+      if (!email) return NextResponse.json({ error: 'Scegli un account (user_id) o un’email' }, { status: 400 });
+      const { data: found, error: findErr } = await gate.admin.rpc('admin_find_user_id', { p_email: email });
+      if (findErr) return NextResponse.json({ error: findErr.message }, { status: 500 });
+      uid = found;
+    }
     if (!uid) return NextResponse.json({ error: 'Nessun account Strabar con questa email. Chiedi al locale di registrarsi prima.' }, { status: 404 });
     await gate.admin.from('profiles').update({ account_type: 'venue' }).eq('id', uid);
     // collega: aggiorna un claim esistente (lead) o creane uno approvato

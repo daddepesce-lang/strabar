@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader, Check, X, Trash2, Plus } from 'lucide-react';
+import AccountPicker from './AccountPicker';
 
 // Pannello admin "Area locali": richieste di gestione, catalogo servizi (prezzi/attivazione,
 // anche per-locale) e ordini (attivazione manuale per pagamenti offline).
@@ -13,6 +14,7 @@ export default function VenuesBusinessAdmin() {
   const [overrides, setOverrides] = useState([]);
   const [orders, setOrders] = useState([]);
   const [busy, setBusy] = useState(null);
+  const [picker, setPicker] = useState(null); // { venue_key, venue_name } per collegare un account
 
   const load = async () => {
     setLoading(true);
@@ -91,7 +93,7 @@ export default function VenuesBusinessAdmin() {
               {/* Collega un account Strabar (per email) a questo locale → account di tipo "locale" */}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button
-                  onClick={() => { const em = prompt('Email dell’account da collegare a questo locale:', c.details?.email || '') || ''; if (em.trim()) post('/api/admin/venue-claims', { action: 'link_account', email: em.trim(), venue_key: c.venue_key, venue_name: c.venue_name }); }}
+                  onClick={() => setPicker({ venue_key: c.venue_key, venue_name: c.venue_name })}
                   className="btn btn-secondary" style={{ flex: 1, borderRadius: 16, fontSize: 12, padding: 7 }}>
                   🔗 Collega {c.user_id ? '(ricollega)' : 'account'}
                 </button>
@@ -163,6 +165,14 @@ export default function VenuesBusinessAdmin() {
             </div>
           ))}
         </div>
+      )}
+
+      {picker && (
+        <AccountPicker
+          title={`Collega un account a "${picker.venue_name}"`}
+          onClose={() => setPicker(null)}
+          onPick={async (u) => { setPicker(null); await post('/api/admin/venue-claims', { action: 'link_account', user_id: u.id, venue_key: picker.venue_key, venue_name: picker.venue_name }); }}
+        />
       )}
     </div>
   );

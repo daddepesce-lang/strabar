@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader, Search, MapPin, Users, Beer, Clock, Repeat, ChevronDown, TrendingUp, BadgeCheck, GitMerge, Pencil } from 'lucide-react';
+import AccountPicker from './AccountPicker';
 
 const fmtAgo = (d) => {
   if (!d) return '—';
@@ -20,6 +21,7 @@ export default function VenuesAdmin() {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [picker, setPicker] = useState(null); // venue per cui collegare un account
 
   const load = async () => {
     try {
@@ -66,7 +68,7 @@ export default function VenuesAdmin() {
       return true;
     } finally { setBusy(false); }
   };
-  const linkAccount = (v) => { const em = prompt(`Email dell’account da collegare a "${v.name}":`) || ''; if (em.trim()) claimPost({ action: 'link_account', email: em.trim(), venue_key: v.key, venue_name: v.name }); };
+  const linkAccount = (v) => setPicker(v);
   const unlinkAccount = (v) => { if (v.manager?.claimId && confirm(`Scollegare ${v.manager.name || 'l’account'} da "${v.name}"?`)) claimPost({ action: 'unlink', id: v.manager.claimId }); };
 
   if (!data) return <div style={{ color: 'var(--text-dark-secondary)' }}><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Carico…</div>;
@@ -200,6 +202,14 @@ export default function VenuesAdmin() {
           </div>
         );
       })}
+
+      {picker && (
+        <AccountPicker
+          title={`Collega un account a "${picker.name}"`}
+          onClose={() => setPicker(null)}
+          onPick={async (u) => { setPicker(null); await claimPost({ action: 'link_account', user_id: u.id, venue_key: picker.key, venue_name: picker.name }); }}
+        />
+      )}
     </div>
   );
 }
