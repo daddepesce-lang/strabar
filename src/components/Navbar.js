@@ -31,6 +31,7 @@ export default function Navbar() {
   const [unread, setUnread] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
   const [myLive, setMyLive] = useState(false); // l'utente corrente ha una sessione live attiva?
+  const [myVenueKey, setMyVenueKey] = useState(null); // locale che gestisco (claim approvato)
   const [notifOpen, setNotifOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false); // foglio "Altro" su mobile
   const notifRef = useRef(null);
@@ -90,6 +91,19 @@ export default function Navbar() {
     window.addEventListener('strabar:live-changed', onChange);
     return () => { cancelled = true; window.removeEventListener('strabar:live-changed', onChange); };
   }, [user?.id, pathname]);
+
+  // Locale gestito: se ho un claim approvato, mostro "Il mio locale" nel menu (extra,
+  // SENZA togliere nulla dell'esperienza utente normale).
+  useEffect(() => {
+    if (!user || typeof db.getMyVenueClaims !== 'function') { setMyVenueKey(null); return; }
+    let cancelled = false;
+    db.getMyVenueClaims().then((cs) => {
+      if (cancelled) return;
+      const appr = (cs || []).find((c) => c.status === 'approved');
+      setMyVenueKey(appr ? appr.venue_key : null);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const openMyLive = () => {
     if (pathname === '/') window.dispatchEvent(new Event('strabar:open-live'));
@@ -384,7 +398,9 @@ export default function Navbar() {
               )}
               <button type="button" onClick={() => { setMoreOpen(false); window.dispatchEvent(new Event('strabar:open-guide')); }}><HelpCircle size={22} /><span>Come funziona</span></button>
               <a href={`mailto:${BUG_EMAIL}?subject=${encodeURIComponent('Strabar — Segnalazione bug')}&body=${encodeURIComponent('Descrivi il problema (cosa facevi, cosa è successo):\n\n\n— Dispositivo/browser:\n')}`}><Bug size={22} /><span>Segnala bug</span></a>
-              <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>Sei un locale?</span></Link>
+              {myVenueKey
+                ? <Link href={`/locale/${encodeURIComponent(myVenueKey)}/gestione`} className={isActive('/locale') ? 'active' : ''}><Store size={22} /><span>Il mio locale</span></Link>
+                : <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>Sei un locale?</span></Link>}
               <button type="button" onClick={handleLogout}><LogOut size={22} /><span>Esci</span></button>
             </div>
           </div>

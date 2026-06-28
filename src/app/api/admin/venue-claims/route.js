@@ -93,10 +93,14 @@ export async function POST(req) {
       );
     } catch { /* noop */ }
 
-    linkedUid = claim.user_id || null; // Caso A
-    if (!linkedUid && claim.details?.email) { // Caso B: prova a matchare l'email
+    // Collegamento:
+    //  A) richiesta fatta da loggato → quell'account (il form ha l'email bloccata sull'account).
+    //  B) lead da non loggato → l'email della richiesta (match o invito a registrarsi).
+    const email = claim.details?.email;
+    linkedUid = claim.user_id || null;
+    if (!linkedUid && email) {
       try {
-        const { data: uid } = await gate.admin.rpc('admin_find_user_id', { p_email: claim.details.email });
+        const { data: uid } = await gate.admin.rpc('admin_find_user_id', { p_email: email });
         if (uid) {
           linkedUid = uid;
           await gate.admin.from('venue_claims').update({ user_id: uid }).eq('id', claim.id);
@@ -106,11 +110,12 @@ export async function POST(req) {
 
     if (linkedUid) {
       try { await gate.admin.from('profiles').update({ account_type: 'venue' }).eq('id', linkedUid); } catch { /* noop */ }
-    } else if (claim.details?.email) {
-      // Nessun account ancora: invito a registrarsi con questa email.
+    } else if (email) {
+      // L'email non ha ancora un account: invito a registrarsi con QUELL'email
+      // (alla registrazione il trigger collega in automatico).
       try {
-        await sendVenueApprovalEmail(claim.details.email, claim.venue_name, siteUrl(`/auth?next=${encodeURIComponent('/locale/' + claim.venue_key + '/gestione')}`));
-        emailedTo = claim.details.email;
+        await sendVenueApprovalEmail(email, claim.venue_name, siteUrl(`/auth?next=${encodeURIComponent('/locale/' + claim.venue_key + '/gestione')}`));
+        emailedTo = email;
       } catch (e) { console.warn('Email approvazione locale fallita:', e.message || e); }
     }
   }

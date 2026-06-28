@@ -39,6 +39,8 @@ export default function VenueManagePage({ params }) {
       const u = await db.getCurrentUser().catch(() => null);
       if (cancelled) return;
       setUser(u || null);
+      // Se loggato, l'email della richiesta è quella dell'account (campo bloccato).
+      if (u?.email) setForm((prev) => ({ ...prev, email: u.email }));
       // nome leggibile del locale
       fetch(`/api/venue/${encodeURIComponent(placeKey)}?period=all`).then((r) => r.json()).then((d) => {
         if (cancelled) return;
@@ -156,7 +158,7 @@ export default function VenueManagePage({ params }) {
             </select>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input value={form.phone} onChange={(e) => setF({ phone: e.target.value })} placeholder="Telefono *" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
-              <input value={form.email} onChange={(e) => setF({ email: e.target.value })} placeholder="Email *" type="email" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
+              <input value={form.email} onChange={(e) => setF({ email: e.target.value })} placeholder="Email *" type="email" disabled={!!user} title={user ? 'Sei loggato: la richiesta userà l’email del tuo account' : undefined} className="form-control" style={{ fontSize: '13px', flex: 1, opacity: user ? 0.6 : 1 }} />
             </div>
             <input value={form.business_name} onChange={(e) => setF({ business_name: e.target.value })} placeholder="Ragione sociale / nome attività" className="form-control" style={{ fontSize: '13px' }} />
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -166,7 +168,11 @@ export default function VenueManagePage({ params }) {
             <input value={form.address} onChange={(e) => setF({ address: e.target.value })} placeholder="Indirizzo del locale" className="form-control" style={{ fontSize: '13px' }} />
             <textarea value={form.note} onChange={(e) => setF({ note: e.target.value })} placeholder="Note (facoltativo)" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
           </div>
-          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>* obbligatori: nome referente e un contatto (telefono o email).</p>
+          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>
+            {user
+              ? 'Sei loggato: il locale verrà collegato a QUESTO account (email bloccata). Vuoi usarne un altro? Esci e invia la richiesta da non loggato con l’email desiderata.'
+              : '* obbligatori: referente e contatto. Userai questa email per registrarti: collegheremo l’account a quel locale.'}
+          </p>
           <button onClick={submitClaim} disabled={submitting} className="btn btn-primary" style={{ width: '100%', borderRadius: '24px', padding: '12px', fontWeight: 700 }}>
             {submitting ? 'Invio…' : 'Invia richiesta'}
           </button>
