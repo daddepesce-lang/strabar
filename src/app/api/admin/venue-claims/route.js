@@ -58,8 +58,16 @@ export async function POST(req) {
     .eq('id', body.id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Un locale con gestore approvato diventa anche VERIFICATO nel registro (badge ✓ +
-  // può vendere servizi). Best-effort: non bloccare l'approvazione se fallisce.
+  let linkedUid = null;
+  let emailedTo = null;
+
+  // Regola di collegamento all'APPROVAZIONE (deterministica):
+  //  A) richiesta fatta da un account loggato → collega QUEL account (l'email-contatto
+  //     nel form è solo un recapito, non conta per l'accesso).
+  //  B) lead senza account → prova a matchare l'email-contatto:
+  //       • esiste già un account con quell'email → collega quello;
+  //       • non esiste → email d'invito a registrarsi CON QUELL'EMAIL (il trigger collega
+  //         in automatico alla registrazione). Se userà un'email diversa → colleghi a mano.
   if (status === 'approved') {
     try {
       await gate.admin.from('venues').upsert(
@@ -67,30 +75,43 @@ export async function POST(req) {
         { onConflict: 'key' }
       );
     } catch { /* noop */ }
-    // Se la richiesta era di un utente già registrato, il suo account diventa di tipo "locale".
-    if (claim.user_id) {
-      try { await gate.admin.from('profiles').update({ account_type: 'venue' }).eq('id', claim.user_id); } catch { /* noop */ }
-    }
-    // Email al referente: invito a creare/attivare l'account del locale.
-    const email = claim.details?.email;
-    if (email) {
+
+    linkedUid = claim.user_id || null; // Caso A
+    if (!linkedUid && claim.details?.email) { // Caso B: prova a matchare l'email
       try {
-        await sendVenueApprovalEmail(email, claim.venue_name, siteUrl(`/auth?next=${encodeURIComponent('/locale/' + claim.venue_key + '/gestione')}`));
+        const { data: uid } = await gate.admin.rpc('admin_find_user_id', { p_email: claim.details.email });
+        if (uid) {
+          linkedUid = uid;
+          await gate.admin.from('venue_claims').update({ user_id: uid }).eq('id', claim.id);
+        }
+      } catch { /* noop */ }
+    }
+
+    if (linkedUid) {
+      try { await gate.admin.from('profiles').update({ account_type: 'venue' }).eq('id', linkedUid); } catch { /* noop */ }
+    } else if (claim.details?.email) {
+      // Nessun account ancora: invito a registrarsi con questa email.
+      try {
+        await sendVenueApprovalEmail(claim.details.email, claim.venue_name, siteUrl(`/auth?next=${encodeURIComponent('/locale/' + claim.venue_key + '/gestione')}`));
+        emailedTo = claim.details.email;
       } catch (e) { console.warn('Email approvazione locale fallita:', e.message || e); }
     }
   }
 
-  // Notifica al richiedente l'esito.
-  try {
-    await gate.admin.from('notifications').insert({
-      user_id: claim.user_id,
-      type: 'venue_claim',
-      message: status === 'approved'
-        ? `✅ Sei ora gestore di "${claim.venue_name}" su Strabar!`
-        : `La richiesta di gestione per "${claim.venue_name}" non è stata approvata.`,
-      link: `/locale/${encodeURIComponent(claim.venue_key)}/gestione`,
-    });
-  } catch { /* notifica best-effort */ }
+  // Notifica in-app all'account collegato (se c'è).
+  const notifyUid = linkedUid || claim.user_id;
+  if (notifyUid) {
+    try {
+      await gate.admin.from('notifications').insert({
+        user_id: notifyUid,
+        type: 'venue_claim',
+        message: status === 'approved'
+          ? `✅ Sei ora gestore di "${claim.venue_name}" su Strabar!`
+          : `La richiesta di gestione per "${claim.venue_name}" non è stata approvata.`,
+        link: `/locale/${encodeURIComponent(claim.venue_key)}/gestione`,
+      });
+    } catch { /* notifica best-effort */ }
+  }
 
-  return NextResponse.json({ ok: true, claim });
+  return NextResponse.json({ ok: true, claim, linked: !!linkedUid, emailedTo });
 }

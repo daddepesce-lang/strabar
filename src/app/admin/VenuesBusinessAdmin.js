@@ -84,7 +84,7 @@ export default function VenuesBusinessAdmin() {
               </div>
               {c.status === 'pending' && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <button onClick={() => post('/api/admin/venue-claims', { id: c.id, action: 'approve' })} className="btn btn-primary" style={{ flex: 1, borderRadius: 16, fontSize: 13, padding: 8 }}><Check size={14} /> Approva</button>
+                  <button onClick={async () => { const r = await post('/api/admin/venue-claims', { id: c.id, action: 'approve' }); if (r) alert(r.linked ? 'Approvata e account collegato ✅' : r.emailedTo ? `Approvata. Email d'invito inviata a ${r.emailedTo} (si collega registrandosi con quella email).` : 'Approvata. Nessuna email nel form: collega l’account a mano.'); }} className="btn btn-primary" style={{ flex: 1, borderRadius: 16, fontSize: 13, padding: 8 }}><Check size={14} /> Approva</button>
                   <button onClick={() => { const n = prompt('Motivo del rifiuto (facoltativo):') || ''; post('/api/admin/venue-claims', { id: c.id, action: 'reject', admin_note: n }); }} className="btn btn-secondary" style={{ flex: 1, borderRadius: 16, fontSize: 13, padding: 8, color: 'var(--error)' }}><X size={14} /> Rifiuta</button>
                 </div>
               )}
