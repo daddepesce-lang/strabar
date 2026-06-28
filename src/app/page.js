@@ -2301,77 +2301,104 @@ export default function FeedPage() {
                 const target = tour.target || 2;
                 const pct = Math.min(100, (atThisStop / target) * 100);
                 return (
-                  <div style={{ marginBottom: '15px', background: 'rgba(223, 255, 0,0.06)', border: '1px solid rgba(223, 255, 0,0.25)', borderRadius: '10px', padding: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-                      <strong style={{ fontSize: '13px', color: 'var(--secondary)' }}>🗺️ Tour: {tour.route_name}</strong>
-                      <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Tappa {cur + 1}/{stops.length}</span>
+                  <div style={{ marginBottom: '15px', background: 'linear-gradient(135deg, rgba(223,255,0,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(223, 255, 0,0.22)', borderRadius: '16px', padding: '14px' }}>
+                    {/* Intestazione + avanzamento complessivo del tour */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '.4px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🗺️ {tour.route_name}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--secondary)', background: 'rgba(223,255,0,0.12)', borderRadius: '20px', padding: '3px 10px', flexShrink: 0 }}>Tappa {cur + 1}/{stops.length}</span>
                     </div>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>📍 {curStop?.name}</div>
-                    <div style={{ fontSize: '11px', marginBottom: '8px', fontWeight: 700, color: tour.visited?.[cur]?.verified ? 'var(--success)' : 'var(--text-dark-secondary)' }}>
-                      {tour.visited?.[cur]?.verified
-                        ? '✅ Tappa verificata — conta per le classifiche'
-                        : '○ Tappa non ancora verificata — conferma di essere qui (o registra un drink sul posto)'}
+                    <div style={{ height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: '14px' }}>
+                      <div style={{ width: `${(cur / Math.max(1, stops.length - 1)) * 100}%`, height: '100%', background: 'var(--secondary)', transition: 'width 0.3s' }} />
                     </div>
 
-                    {/* Conferma presenza GPS: una tappa conta solo quando sei davvero sul posto.
-                        Così puoi avviare il tour da casa per le indicazioni, e validare all'arrivo. */}
-                    {!tour.visited?.[cur]?.verified && curStop?.lat && curStop?.lng && (
-                      <button
-                        onClick={confirmStopPresence}
-                        disabled={checkingStop}
-                        className="btn btn-secondary"
-                        style={{ width: '100%', fontSize: '13px', padding: '9px 12px', borderRadius: '14px', marginBottom: '8px', fontWeight: 700, border: '1px solid var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                      >
-                        {checkingStop ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
-                        {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica la tappa'}
-                      </button>
-                    )}
+                    {/* ITINERARIO verticale: passate (✓, compatte) → corrente (espansa con azioni) → future */}
+                    <div>
+                      {stops.map((st, i) => {
+                        const v = tour.visited?.[i]?.verified;
+                        const isCur = i === cur;
+                        const isPast = i < cur;
+                        const isLast = i === stops.length - 1;
+                        return (
+                          <div key={i} style={{ display: 'flex', gap: '12px' }}>
+                            {/* Colonna timeline: nodo + linea di collegamento */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                              <div style={{
+                                width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800,
+                                background: isCur ? 'var(--secondary)' : v ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.05)',
+                                color: isCur ? '#0D0D0D' : v ? 'var(--success)' : 'var(--text-dark-secondary)',
+                                border: isCur ? '2px solid var(--secondary)' : v ? '1px solid var(--success)' : '1px solid var(--border-dark)',
+                                boxShadow: isCur ? '0 0 10px rgba(223,255,0,0.4)' : 'none',
+                              }}>{v ? '✓' : i + 1}</div>
+                              {!isLast && <div style={{ flex: 1, width: '2px', minHeight: '18px', background: i < cur ? 'var(--secondary)' : 'var(--border-dark)' }} />}
+                            </div>
 
-                    {/* Esito ultimo drink/posizione, mostrato per intero (la notifica di sistema lo tronca) */}
-                    {tourMsg && (
-                      <div onClick={() => setTourMsg(null)} style={{ fontSize: '12px', lineHeight: 1.45, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px', cursor: 'pointer', color: 'var(--text-dark-primary)' }}>
-                        {tourMsg}
-                        <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>tocca per chiudere</span>
-                      </div>
-                    )}
+                            {/* Colonna contenuto */}
+                            <div style={{ flex: 1, minWidth: 0, paddingBottom: isLast ? 0 : '14px' }}>
+                              <div style={{ fontSize: isCur ? '17px' : '14px', fontWeight: isCur ? 800 : 600, color: '#FFF', opacity: isPast ? 0.6 : 1, paddingTop: isCur ? 0 : '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.name}</div>
+                              {isPast && <div style={{ fontSize: '11px', color: v ? 'var(--success)' : 'var(--text-dark-secondary)' }}>{v ? '✓ verificata' : '— non verificata'}</div>}
+                              {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>in programma</div>}
 
-                    {/* Budget drink a questa tappa */}
-                    <div style={{ marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '4px' }}>
-                        <span>Drink a questa tappa</span>
-                        <strong style={{ color: atThisStop >= target ? 'var(--error)' : 'var(--secondary)' }}>{atThisStop} / {target}</strong>
-                      </div>
-                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, height: '100%', background: atThisStop >= target ? 'var(--error)' : 'var(--secondary)', transition: 'width 0.3s' }} />
-                      </div>
-                      {atThisStop >= target && <div style={{ fontSize: '10px', color: 'var(--error)', marginTop: '4px' }}>Target raggiunto — valuta di passare alla prossima tappa 😉</div>}
-                    </div>
+                              {/* TAPPA CORRENTE: card "hero" con tutte le azioni guidate */}
+                              {isCur && (
+                                <div style={{ marginTop: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '12px' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '20px', marginBottom: '10px',
+                                    background: v ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: v ? 'var(--success)' : 'var(--text-dark-secondary)', border: `1px solid ${v ? 'var(--success)' : 'var(--border-dark)'}` }}>
+                                    {v ? '✅ Verificata — conta per le classifiche' : '○ Non ancora verificata'}
+                                  </span>
 
-                    {/* Navigazione verso la tappa CORRENTE (sempre in primo piano: guida l'atleta) */}
-                    {curStop?.lat && curStop?.lng ? (
-                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', fontSize: '13px', padding: '9px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700, marginBottom: '8px' }}>
-                        🧭 Guidami a {curStop.name.length > 22 ? curStop.name.slice(0, 20) + '…' : curStop.name}
-                      </a>
-                    ) : (
-                      <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '8px' }}>📍 Tappa extra senza coordinate — registra qui i tuoi drink.</div>
-                    )}
+                                  {!v && curStop?.lat && curStop?.lng && (
+                                    <button onClick={confirmStopPresence} disabled={checkingStop} className="btn btn-secondary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', marginBottom: '8px', fontWeight: 700, border: '1px solid var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                      {checkingStop ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
+                                      {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica la tappa'}
+                                    </button>
+                                  )}
 
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {cur > 0 && (
-                        <button onClick={handleGoBackTourStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }} title="Torna alla tappa precedente (annulla un avanzamento per errore)">
-                          ⬅️ Indietro
-                        </button>
-                      )}
-                      {nextStop ? (
-                        <button onClick={handleAdvanceTourStop} className="btn btn-primary" style={{ flex: 1, fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', fontWeight: 700 }}>
-                          ➡️ Prossima: {nextStop.name.length > 16 ? nextStop.name.slice(0, 14) + '…' : nextStop.name}
-                        </button>
-                      ) : (
-                        <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center', textAlign: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
-                      )}
-                      <button onClick={handleAddUnscheduledStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }} title="Aggiungi una tappa non prevista nel percorso">
-                        ➕ Tappa extra
-                      </button>
+                                  {tourMsg && (
+                                    <div onClick={() => setTourMsg(null)} style={{ fontSize: '12px', lineHeight: 1.45, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px', cursor: 'pointer', color: 'var(--text-dark-primary)' }}>
+                                      {tourMsg}
+                                      <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>tocca per chiudere</span>
+                                    </div>
+                                  )}
+
+                                  {/* Budget drink alla tappa */}
+                                  <div style={{ marginBottom: '10px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '4px' }}>
+                                      <span>Drink a questa tappa</span>
+                                      <strong style={{ color: atThisStop >= target ? 'var(--error)' : 'var(--secondary)' }}>{atThisStop} / {target}</strong>
+                                    </div>
+                                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                                      <div style={{ width: `${pct}%`, height: '100%', background: atThisStop >= target ? 'var(--error)' : 'var(--secondary)', transition: 'width 0.3s' }} />
+                                    </div>
+                                    {atThisStop >= target && <div style={{ fontSize: '10px', color: 'var(--error)', marginTop: '4px' }}>Target raggiunto — passa alla prossima tappa 😉</div>}
+                                  </div>
+
+                                  {curStop?.lat && curStop?.lng ? (
+                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700, marginBottom: '8px' }}>
+                                      🧭 Guidami qui
+                                    </a>
+                                  ) : (
+                                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '8px' }}>📍 Tappa extra senza coordinate — registra qui i tuoi drink.</div>
+                                  )}
+
+                                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {cur > 0 && (
+                                      <button onClick={handleGoBackTourStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }} title="Torna alla tappa precedente">⬅️</button>
+                                    )}
+                                    {nextStop ? (
+                                      <button onClick={handleAdvanceTourStop} className="btn btn-primary" style={{ flex: 1, fontSize: '12px', padding: '8px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', fontWeight: 700 }}>
+                                        ➡️ Vai a {nextStop.name.length > 14 ? nextStop.name.slice(0, 12) + '…' : nextStop.name}
+                                      </button>
+                                    ) : (
+                                      <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center', textAlign: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
+                                    )}
+                                    <button onClick={handleAddUnscheduledStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }} title="Aggiungi una tappa non prevista">➕</button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Mappa del percorso con la tappa corrente evidenziata */}
@@ -2383,7 +2410,7 @@ export default function FeedPage() {
                       const activeIdx = mapWaypoints.findIndex((s) => s.label === cur + 1);
                       return (
                         <div style={{ marginTop: '12px' }} data-no-open>
-                          <RouteMap waypoints={mapWaypoints} activeIndex={activeIdx >= 0 ? activeIdx : null} height="220px" />
+                          <RouteMap waypoints={mapWaypoints} activeIndex={activeIdx >= 0 ? activeIdx : null} height="200px" />
                         </div>
                       );
                     })()}
