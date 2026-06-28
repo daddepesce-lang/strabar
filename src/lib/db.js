@@ -2757,6 +2757,7 @@ export const db = {
         description: t.description,
         currency: t.currency,
         price_cents: o.price_cents != null ? o.price_cents : t.default_price_cents,
+        pricing: o.pricing != null ? o.pricing : t.pricing,
         enabled: o.enabled != null ? o.enabled : t.active,
       };
     }).filter((s) => s.enabled);

@@ -4,6 +4,7 @@ import { createClient as createServerSupabase } from '@/utils/supabase/server';
 import { createClient as createAdminSupabase } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { siteUrl } from '@/lib/site';
+import { computePrice, defaultOptions, describeOptions } from '@/lib/venuePricing';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +13,7 @@ export const runtime = 'nodejs';
 // (override per-locale o default del catalogo) lato server (mai fidarsi del client).
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
-  const { venueKey, serviceId, eventId, meta } = body;
+  const { venueKey, serviceId, eventId, meta, options: rawOptions } = body;
   if (!venueKey || !serviceId) return NextResponse.json({ error: 'Parametri mancanti' }, { status: 400 });
 
   // 1) Utente
@@ -40,7 +41,15 @@ export async function POST(req) {
   const { data: ov } = await admin.from('venue_service_overrides').select('*').eq('venue_key', key).eq('service_type_id', serviceId).maybeSingle();
   const enabled = ov?.enabled != null ? ov.enabled : type.active;
   if (!enabled) return NextResponse.json({ error: 'Servizio non disponibile per questo locale' }, { status: 400 });
-  const amount = ov?.price_cents != null ? ov.price_cents : type.default_price_cents;
+
+  // Prezzo AUTOREVOLE calcolato lato server dalle opzioni scelte (mai dal client).
+  const svc = {
+    code: type.code,
+    price_cents: ov?.price_cents != null ? ov.price_cents : type.default_price_cents,
+    pricing: ov?.pricing != null ? ov.pricing : type.pricing,
+  };
+  const options = { ...defaultOptions(type.code), ...(rawOptions || {}) };
+  const amount = computePrice(svc, options);
   if (!amount || amount < 50) return NextResponse.json({ error: 'Prezzo non valido' }, { status: 400 });
 
   // 5) Validazioni specifiche
@@ -59,8 +68,10 @@ export async function POST(req) {
       link: m.link ? String(m.link).slice(0, 300) : undefined,
       cta: m.cta ? String(m.cta).slice(0, 40) : undefined,
       message: m.message ? String(m.message).slice(0, 300) : undefined,
+      options, // durata/posizione/audience/spotlight: servono all'attivazione
     };
   })();
+  const optLabel = describeOptions(type.code, options);
   const { data: order, error: orderErr } = await admin.from('venue_orders').insert({
     venue_key: key, venue_name: claim.venue_name, user_id: user.id,
     service_type_id: type.id, service_code: type.code, status: 'pending',
@@ -82,7 +93,7 @@ export async function POST(req) {
         price_data: {
           currency: type.currency || 'eur',
           unit_amount: amount,
-          product_data: { name: `${type.name} — ${claim.venue_name}` },
+          product_data: { name: `${type.name} — ${claim.venue_name}${optLabel ? ` (${optLabel})` : ''}` },
         },
       }],
       success_url: siteUrl(`/locale/${encodeURIComponent(key)}/gestione?paid=1`),

@@ -3,7 +3,8 @@
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Check, Clock, ShieldCheck } from 'lucide-react';
+import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck } from 'lucide-react';
+import { OPTION_SCHEMA, defaultOptions, computePrice, euro } from '@/lib/venuePricing';
 
 // Area riservata del LOCALE (gestore). Modello: richiesta → approvazione admin.
 //  • Non gestore → form "Richiedi di gestire questo locale".
@@ -28,6 +29,8 @@ export default function VenueManagePage({ params }) {
   const [eventChoice, setEventChoice] = useState({}); // serviceId -> eventId
   const [svcInput, setSvcInput] = useState({}); // serviceId -> { title, body, link, message }
   const setInput = (id, patch) => setSvcInput((p) => ({ ...p, [id]: { ...(p[id] || {}), ...patch } }));
+  const [svcOpt, setSvcOpt] = useState({}); // serviceId -> opzioni di prezzo (durata/posizione/audience/spotlight)
+  const setOpt = (id, patch) => setSvcOpt((p) => ({ ...p, [id]: { ...(p[id] || {}), ...patch } }));
 
   useEffect(() => {
     let cancelled = false;
@@ -92,12 +95,13 @@ export default function VenueManagePage({ params }) {
       if (!inp.message?.trim()) { alert('Scrivi il messaggio da inviare ai clienti.'); return; }
       meta = { message: inp.message, link: inp.link };
     }
+    const options = { ...defaultOptions(svc.code), ...(svcOpt[svc.id] || {}) };
     setBuying(svc.id);
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venueKey: placeKey, serviceId: svc.id, eventId, meta }),
+        body: JSON.stringify({ venueKey: placeKey, serviceId: svc.id, eventId, meta, options }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -112,7 +116,6 @@ export default function VenueManagePage({ params }) {
     }
   };
 
-  const euro = (c) => `€${((c || 0) / 100).toFixed(2).replace('.', ',')}`;
   const SERVICE_ICON = { sponsored_event: Star, promo: Megaphone, notify: Bell };
   const ORDER_LABEL = { pending: '⏳ In attesa di pagamento', paid: '✅ Pagato', active: '🟢 Attivo', canceled: '✖️ Annullato', rejected: '✖️ Rifiutato' };
 
@@ -192,14 +195,39 @@ export default function VenueManagePage({ params }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {services.map((s) => {
                   const Icon = SERVICE_ICON[s.code] || Star;
+                  const opts = { ...defaultOptions(s.code), ...(svcOpt[s.id] || {}) };
+                  const price = computePrice(s, opts);
+                  const schema = OPTION_SCHEMA[s.code] || [];
                   return (
                     <div key={s.id} style={{ border: '1px solid var(--border-dark)', borderRadius: '14px', padding: '14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                         <Icon size={18} color="var(--secondary)" />
                         <strong style={{ fontSize: '15px', color: '#FFF', flex: 1 }}>{s.name}</strong>
-                        <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--secondary)' }}>{euro(s.price_cents)}</span>
+                        <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--secondary)' }}>{euro(price)}</span>
                       </div>
                       {s.description && <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '10px', lineHeight: 1.4 }}>{s.description}</p>}
+
+                      {/* Opzioni che fanno variare il prezzo (durata/posizione/audience/spotlight) */}
+                      {schema.map((opt) => {
+                        if (opt.type === 'bool') {
+                          return (
+                            <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#FFF', marginBottom: '10px', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={!!opts[opt.key]} onChange={(e) => setOpt(s.id, { [opt.key]: e.target.checked })} />
+                              {opt.label}
+                            </label>
+                          );
+                        }
+                        const choices = opt.optionsFrom ? (s.pricing?.[opt.optionsFrom] || opt.fallback || []).map((v) => ({ v, l: opt.render ? opt.render(v) : String(v) })) : opt.options;
+                        return (
+                          <div key={opt.key} style={{ marginBottom: '10px' }}>
+                            <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '4px' }}>{opt.label}</label>
+                            <select value={opts[opt.key]} onChange={(e) => setOpt(s.id, { [opt.key]: opt.optionsFrom ? Number(e.target.value) : e.target.value })} className="form-control" style={{ fontSize: '13px', height: '38px' }}>
+                              {choices.map((c) => <option key={c.v} value={c.v}>{c.l}</option>)}
+                            </select>
+                          </div>
+                        );
+                      })}
+
                       {s.code === 'sponsored_event' && (
                         <select value={eventChoice[s.id] || ''} onChange={(e) => setEventChoice((p) => ({ ...p, [s.id]: e.target.value }))} className="form-control" style={{ fontSize: '13px', height: '38px', marginBottom: '10px' }}>
                           <option value="">— Scegli il tuo evento —</option>
@@ -219,11 +247,11 @@ export default function VenueManagePage({ params }) {
                       {s.code === 'notify' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
                           <textarea value={svcInput[s.id]?.message || ''} onChange={(e) => setInput(s.id, { message: e.target.value })} placeholder="Messaggio ai clienti (es. Stasera live music dalle 21!)" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
-                          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Arriva solo a chi ha già brindato qui e ha accettato le comunicazioni commerciali.</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Inviata solo a chi rientra nella fascia scelta e ha accettato le comunicazioni commerciali.</p>
                         </div>
                       )}
                       <button onClick={() => buy(s)} disabled={buying === s.id} className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '10px', fontWeight: 700, fontSize: '14px' }}>
-                        {buying === s.id ? 'Apro il pagamento…' : `Acquista — ${euro(s.price_cents)}`}
+                        {buying === s.id ? 'Apro il pagamento…' : `Acquista — ${euro(price)}`}
                       </button>
                     </div>
                   );

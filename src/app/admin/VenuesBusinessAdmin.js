@@ -146,16 +146,33 @@ export default function VenuesBusinessAdmin() {
 
 function ServiceTypeRow({ t, euro, onSave, onDelete }) {
   const [price, setPrice] = useState(((t.default_price_cents || 0) / 100).toFixed(2));
+  const [showPricing, setShowPricing] = useState(false);
+  const [pricingTxt, setPricingTxt] = useState(JSON.stringify(t.pricing || {}, null, 2));
+  const savePricing = () => {
+    let parsed;
+    try { parsed = JSON.parse(pricingTxt); } catch { alert('JSON non valido'); return; }
+    onSave({ pricing: parsed });
+  };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border-dark)', flexWrap: 'wrap' }}>
-      <div style={{ flex: 1, minWidth: 120 }}>
-        <strong style={{ color: '#FFF', fontSize: 14 }}>{t.name}</strong>
-        <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{t.code}</div>
+    <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border-dark)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <strong style={{ color: '#FFF', fontSize: 14 }}>{t.name}</strong>
+          <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{t.code} · {t.pricing?.model || 'flat'}</div>
+        </div>
+        <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} title="prezzo base/fallback" style={{ width: 80, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+        <button onClick={() => onSave({ default_price_cents: Math.round(parseFloat(price || '0') * 100) })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>Salva</button>
+        <button onClick={() => onSave({ active: !t.active })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, color: t.active ? 'var(--success)' : 'var(--error)' }}>{t.active ? 'Attivo' : 'Spento'}</button>
+        <button onClick={() => setShowPricing((v) => !v)} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>⚙︎ Prezzi</button>
+        <button onClick={onDelete} className="btn btn-secondary" style={{ padding: '6px 8px', borderRadius: 8 }}><Trash2 size={13} /></button>
       </div>
-      <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: 80, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
-      <button onClick={() => onSave({ default_price_cents: Math.round(parseFloat(price || '0') * 100) })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>Salva</button>
-      <button onClick={() => onSave({ active: !t.active })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, color: t.active ? 'var(--success)' : 'var(--error)' }}>{t.active ? 'Attivo' : 'Spento'}</button>
-      <button onClick={onDelete} className="btn btn-secondary" style={{ padding: '6px 8px', borderRadius: 8 }}><Trash2 size={13} /></button>
+      {showPricing && (
+        <div style={{ marginTop: 8 }}>
+          <p style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginBottom: 4 }}>Config prezzi (centesimi). per_day: per_day_cents, durations, position{'{feed,top}'}, discounts[{'{minDays,pct}'}]. audience: tiers{'{venue,recent30,nearby,all}'}. flat: base_cents, spotlight_extra_cents.</p>
+          <textarea value={pricingTxt} onChange={(e) => setPricingTxt(e.target.value)} rows={7} className="form-control" style={{ fontSize: 12, fontFamily: 'monospace', resize: 'vertical' }} />
+          <button onClick={savePricing} className="btn btn-primary" style={{ marginTop: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12 }}>Salva prezzi</button>
+        </div>
+      )}
     </div>
   );
 }

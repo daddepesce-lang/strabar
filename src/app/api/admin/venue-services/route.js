@@ -7,7 +7,7 @@ import { requireAdmin } from '@/utils/supabase/admin';
 //   POST {kind:'override', ...} → imposta prezzo/abilitazione per un singolo locale
 //   DELETE ?kind=type&id= | ?kind=override&id=
 
-const TYPE_FIELDS = ['code', 'name', 'description', 'default_price_cents', 'currency', 'active', 'sort'];
+const TYPE_FIELDS = ['code', 'name', 'description', 'default_price_cents', 'currency', 'active', 'sort', 'pricing'];
 const pick = (obj, fields) => fields.reduce((o, k) => (obj[k] !== undefined ? { ...o, [k]: obj[k] } : o), {});
 
 export async function GET() {
@@ -33,6 +33,7 @@ export async function POST(req) {
       service_type_id: body.service_type_id,
       price_cents: body.price_cents === '' || body.price_cents == null ? null : Number(body.price_cents),
       enabled: body.enabled == null ? null : !!body.enabled,
+      pricing: body.pricing != null ? body.pricing : null,
     };
     const { data, error } = await gate.admin.from('venue_service_overrides')
       .upsert(row, { onConflict: 'venue_key,service_type_id' }).select().single();
