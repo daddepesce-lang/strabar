@@ -67,6 +67,15 @@ export default function VenuesBusinessAdmin() {
                   <div style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>
                     {c.requester?.display_name || c.requester?.username || c.user_id?.slice(0, 8)} · {new Date(c.created_at).toLocaleDateString('it-IT')}
                   </div>
+                  {c.details && (
+                    <div style={{ fontSize: 12, color: 'var(--text-dark-secondary)', marginTop: 6, lineHeight: 1.5 }}>
+                      {c.details.contact_name && <div>👤 {c.details.contact_name} {c.details.role ? `(${c.details.role})` : ''}</div>}
+                      {(c.details.phone || c.details.email) && <div>📞 {[c.details.phone, c.details.email].filter(Boolean).join(' · ')}</div>}
+                      {c.details.business_name && <div>🏢 {c.details.business_name}{c.details.vat ? ` · P.IVA ${c.details.vat}` : ''}</div>}
+                      {c.details.address && <div>📍 {c.details.address}</div>}
+                      {c.details.website && <div>🔗 {c.details.website}</div>}
+                    </div>
+                  )}
                   {c.note && <p style={{ fontSize: 12, color: 'var(--text-dark-secondary)', marginTop: 6, fontStyle: 'italic' }}>“{c.note}”</p>}
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', padding: '3px 8px', borderRadius: 20, flexShrink: 0,

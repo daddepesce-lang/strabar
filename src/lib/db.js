@@ -2741,11 +2741,18 @@ export const db = {
   },
 
   // Richiede di gestire un locale (status pending → approvi tu da /admin).
-  async requestVenueClaim(venueKey, venueName, note) {
+  // `details` = dati del referente/attività (jsonb): contatto, ruolo, telefono, email, ecc.
+  async requestVenueClaim(venueKey, venueName, details) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Accedi per richiedere la gestione del locale.');
+    const d = details || {};
     const { error } = await supabase.from('venue_claims').insert({
-      venue_key: venueKey, venue_name: venueName || venueKey, user_id: user.id, status: 'pending', note: note || null,
+      venue_key: venueKey,
+      venue_name: venueName || venueKey,
+      user_id: user.id,
+      status: 'pending',
+      note: d.note || null,
+      details: d,
     });
     if (error) throw error;
     return true;
