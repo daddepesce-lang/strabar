@@ -139,14 +139,33 @@ export async function GET() {
     };
   }).sort((a, b) => b.sessions - a.sessions || b.units - a.units);
 
-  // Annota verificati (registro venues) e locali con gestore approvato (claim).
+  // Annota verificati (registro venues) e l'account gestore collegato (claim approvato).
   const [{ data: reg }, { data: claims }] = await Promise.all([
     gate.admin.from('venues').select('key, name, verified'),
-    gate.admin.from('venue_claims').select('venue_key, status'),
+    gate.admin.from('venue_claims').select('id, venue_key, status, user_id'),
   ]);
   const verifiedSet = new Set((reg || []).filter((r) => r.verified).map((r) => r.key));
-  const claimedSet = new Set((claims || []).filter((c) => c.status === 'approved').map((c) => c.venue_key));
-  list.forEach((v) => { v.verified = verifiedSet.has(v.key); v.claimed = claimedSet.has(v.key); });
+  const approved = (claims || []).filter((c) => c.status === 'approved');
+  // profili dei gestori per mostrarne il nome
+  const mgrIds = [...new Set(approved.map((c) => c.user_id).filter(Boolean))];
+  let profMap = {};
+  if (mgrIds.length) {
+    const { data: profs } = await gate.admin.from('profiles').select('id, display_name, username').in('id', mgrIds);
+    (profs || []).forEach((p) => { profMap[p.id] = p; });
+  }
+  const mgrMap = {};
+  approved.forEach((c) => {
+    mgrMap[c.venue_key] = {
+      claimId: c.id,
+      userId: c.user_id || null,
+      name: c.user_id ? (profMap[c.user_id]?.display_name || profMap[c.user_id]?.username || c.user_id.slice(0, 8)) : null,
+    };
+  });
+  list.forEach((v) => {
+    v.verified = verifiedSet.has(v.key);
+    v.manager = mgrMap[v.key] || null;
+    v.claimed = !!v.manager;
+  });
 
   return NextResponse.json({
     generatedAt: new Date().toISOString(),

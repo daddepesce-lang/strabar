@@ -55,6 +55,20 @@ export default function VenuesAdmin() {
     if (r) alert(`Unito. Sessioni spostate: ${r.sessionsUpdated}.`);
   };
 
+  // Gestione associazione account↔locale (riusa l'API dei claim).
+  const claimPost = async (body) => {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/venue-claims', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await res.json();
+      if (!res.ok) { alert(d.error || 'Errore'); return false; }
+      await load();
+      return true;
+    } finally { setBusy(false); }
+  };
+  const linkAccount = (v) => { const em = prompt(`Email dell’account da collegare a "${v.name}":`) || ''; if (em.trim()) claimPost({ action: 'link_account', email: em.trim(), venue_key: v.key, venue_name: v.name }); };
+  const unlinkAccount = (v) => { if (v.manager?.claimId && confirm(`Scollegare ${v.manager.name || 'l’account'} da "${v.name}"?`)) claimPost({ action: 'unlink', id: v.manager.claimId }); };
+
   if (!data) return <div style={{ color: 'var(--text-dark-secondary)' }}><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Carico…</div>;
 
   const s = q.toLowerCase().trim();
@@ -115,6 +129,17 @@ export default function VenuesAdmin() {
                   <button type="button" disabled={busy} onClick={() => merge(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <GitMerge size={14} /> Unisci a…
                   </button>
+                </div>
+
+                {/* Account locale collegato */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: 12, padding: '10px 12px' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-dark-secondary)' }}>
+                    {v.manager ? <>🔗 Account collegato: <strong style={{ color: '#FFF' }}>{v.manager.name}</strong></> : '— Nessun account locale collegato'}
+                  </span>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    <button type="button" disabled={busy} onClick={() => linkAccount(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 10px', borderRadius: 12 }}>{v.manager ? 'Ricollega' : 'Collega account'}</button>
+                    {v.manager && <button type="button" disabled={busy} onClick={() => unlinkAccount(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 10px', borderRadius: 12, color: 'var(--error)' }}>Scollega</button>}
+                  </span>
                 </div>
 
                 {/* KPI */}
