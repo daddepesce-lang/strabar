@@ -623,49 +623,17 @@ export default function ShareActivityPage({ params }) {
           className="btn btn-primary"
           style={{ padding: '14px', borderRadius: '30px', fontSize: '16px', width: '100%' }}
         >
-          <Share2 size={18} /> Condividi (Instagram, WhatsApp…)
+          <Share2 size={18} /> Condividi
         </button>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-          <button
-            onClick={handleWhatsApp}
-            className="btn"
-            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%', background: '#25D366', color: '#fff', fontWeight: 700 }}
-          >
-            <MessageCircle size={17} /> WhatsApp
-          </button>
-          <button
-            onClick={handleTelegram}
-            className="btn"
-            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%', background: '#229ED9', color: '#fff', fontWeight: 700 }}
-          >
-            <Send size={16} /> Telegram
-          </button>
-          <button
-            onClick={handleTwitter}
-            className="btn"
-            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%', background: '#000', color: '#fff', fontWeight: 700, border: '1px solid var(--border-dark)' }}
-          >
-            𝕏 Post
-          </button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <button
-            onClick={handleCopyLink}
-            className="btn btn-secondary"
-            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%' }}
-          >
-            {copied ? <><Check size={17} /> Copiato!</> : <><Copy size={17} /> Copia link</>}
-          </button>
-          <button
-            onClick={handleDownload}
-            className="btn btn-secondary"
-            style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%' }}
-          >
-            <Download size={17} /> Scarica
-          </button>
-        </div>
+        <button
+          onClick={handleDownload}
+          className="btn btn-secondary"
+          style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%' }}
+        >
+          <Download size={17} /> Scarica
+        </button>
         <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '4px' }}>
-          Su telefono &quot;Condividi&quot; allega direttamente l&apos;immagine (con la foto scelta). Gli altri pulsanti condividono testo e link: per allegare l&apos;immagine, scaricala prima.
+          &quot;Condividi&quot; apre il menu del telefono con l&apos;immagine già allegata: scegli tu dove inviarla (WhatsApp, Instagram, Telegram…).
         </p>
       </div>
 

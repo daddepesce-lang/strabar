@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import NavSearch from '@/components/NavSearch';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users, HelpCircle,
+  Beer, Map, Trophy, Calendar, PlusCircle, Plus, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users, HelpCircle,
 } from 'lucide-react';
 
 // Email per le segnalazioni bug (stessa del contatto privacy).
@@ -343,9 +343,9 @@ export default function Navbar() {
           <Trophy size={20} />
           Classifiche
         </Link>
-        <Link href="/log" className={`mn-register ${isActive('/log') ? 'active' : ''} ${myLive ? 'live' : ''}`}>
-          <PlusCircle size={24} />
-          Registra
+        <Link href="/log" aria-label="Registra" className={`mn-register ${isActive('/log') ? 'active' : ''} ${myLive ? 'live' : ''}`}>
+          <span className="mn-register-fab"><Plus size={26} strokeWidth={2.6} /></span>
+          <span className="mn-register-label">Registra</span>
         </Link>
         <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
           <Map size={20} />

@@ -604,10 +604,36 @@ out body;`;
       const stops = stopsRaw.map((w) => ({ name: w.name, lat: w.lat, lng: w.lng ?? w.lon, note: w.note || '' }));
       const first = stops[0];
 
-      // NB: il tour parte SENZA verifica GPS — devi poterlo avviare da casa per ricevere
-      // le indicazioni verso la prima tappa. La posizione viene verificata in seguito,
-      // quando registri un drink presso una tappa (vedi handleAddDrinkToActiveSession).
-      // La prima tappa nasce "non verificata" finché non bevi sul posto.
+      // GPS all'avvio: controlliamo SUBITO se sei già alla prima tappa.
+      // - Sei sul posto (≤300m) → la prima tappa parte VERIFICATA e conta per le classifiche.
+      // - Sei lontano → il tour parte comunque (così ricevi le indicazioni con "Guidami"),
+      //   ma la prima tappa nasce "non verificata": la confermi con "Sono qui" all'arrivo.
+      let firstVerified = false;
+      let startMsg = '';
+      if (typeof first.lat === 'number' && typeof first.lng === 'number') {
+        const pos = await new Promise((resolve) => {
+          if (typeof navigator === 'undefined' || !navigator.geolocation) { resolve(null); return; }
+          const ok = (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude });
+          navigator.geolocation.getCurrentPosition(
+            ok,
+            () => navigator.geolocation.getCurrentPosition(ok, () => resolve(null), { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }),
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
+          );
+        });
+        if (pos && typeof db.checkGeofencing === 'function') {
+          const { distance } = db.checkGeofencing(first.lat, first.lng, pos.lat, pos.lng, Infinity);
+          if (distance <= 300) {
+            firstVerified = true;
+            startMsg = `✅ Sei alla prima tappa (${first.name}): sessione avviata e tappa verificata!`;
+          } else {
+            const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+            startMsg = `🧭 Non sei ancora a ${first.name} (~${d}). Il tour è avviato: usa "Guidami" per arrivarci, poi premi "Sono qui" per validare la tappa.`;
+          }
+        } else {
+          startMsg = `📍 GPS non disponibile: quando arrivi a ${first.name} premi "Sono qui" per validare la prima tappa.`;
+        }
+      }
+
       await db.createActivity({
         title: `Tour: ${selectedRoute.name}`,
         location: {
@@ -616,14 +642,14 @@ out body;`;
           lat: first.lat,
           lng: first.lng,
           share: tourVisibility,
-          unverified: true,
+          unverified: !firstVerified,
           tour: {
             route_id: selectedRoute.id,
             route_name: selectedRoute.name,
             target: tourTarget,
             current: 0,
             stops,
-            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0, verified: false }],
+            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0, verified: firstVerified }],
           },
         },
         drinks: [],
@@ -632,6 +658,7 @@ out body;`;
         total_units: 0,
         duration: 1,
       });
+      if (startMsg) alert(startMsg);
       // Vai alla home con reload COMPLETO: così il pannello live viene caricato subito
       // (router.push non rieseguiva il fetch della sessione attiva se la home era già montata).
       window.location.href = '/';

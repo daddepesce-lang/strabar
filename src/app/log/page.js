@@ -463,6 +463,14 @@ export default function LogActivityPage() {
   // Nessun blocco GPS rigido: l'utente ha scelto attivamente il locale dalla lista reale.
   const startSessionAtVenue = async (venue, skipGuard = false) => {
     if (!venue || !venue.name) return;
+    // RETE DI SICUREZZA: se NON sto aggiungendo una tappa ma ho già una sessione live attiva,
+    // non avviarne MAI una nuova in silenzio (il DB chiuderebbe la precedente senza chiedere).
+    // Mostro invece l'avviso "Sessione Live Attiva" così l'utente sceglie cosa fare.
+    if (!isAppendingToSession && activeSession) {
+      setShowLocaleSelector(false);
+      setShowActiveSessionWarning(true);
+      return;
+    }
     // "Intendevi l'evento?" — se stai per avviare una sessione normale (non una tappa) ma
     // partecipi a un evento in corso, chiedi conferma prima di procedere.
     if (!skipGuard && !isAppendingToSession) {

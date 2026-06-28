@@ -308,6 +308,27 @@ export default function EventDetailPage({ params }) {
           const un = r.profile?.username;
           return un ? `${dn} (@${un})` : dn;
         });
+      // GPS all'avvio: controlliamo se sei già alla prima tappa.
+      // - Sul posto (≤300m) → prima tappa VERIFICATA (conta per le classifiche).
+      // - Lontano → parte comunque (per ricevere le indicazioni), ma "non verificata":
+      //   la confermi con "Sono qui" all'arrivo.
+      let firstVerified = false;
+      let startMsg = '';
+      if (typeof first.lat === 'number' && typeof first.lng === 'number') {
+        const pos = await getPosition();
+        if (pos && typeof db.checkGeofencing === 'function') {
+          const { distance } = db.checkGeofencing(first.lat, first.lng, pos.lat, pos.lng, Infinity);
+          if (distance <= 300) {
+            firstVerified = true;
+            startMsg = `✅ Sei alla prima tappa (${first.name}): tour avviato e tappa verificata!`;
+          } else {
+            const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+            startMsg = `🧭 Non sei ancora a ${first.name} (~${d}). Il tour è avviato: usa "Guidami" per arrivarci, poi premi "Sono qui" per validare la tappa.`;
+          }
+        } else {
+          startMsg = `📍 GPS non disponibile: quando arrivi a ${first.name} premi "Sono qui" per validare la prima tappa.`;
+        }
+      }
       await db.createActivity({
         title: `Tour: ${route.name} · ${event.title}`,
         location: {
@@ -316,7 +337,7 @@ export default function EventDetailPage({ params }) {
           lat: first.lat,
           lng: first.lng,
           share: eventShare,
-          unverified: true,
+          unverified: !firstVerified,
           event_id: event.id,
           event_title: event.title,
           // Anche a livello "location" (oltre che dentro tour): così la classifica
@@ -329,7 +350,7 @@ export default function EventDetailPage({ params }) {
             target: 2,
             current: 0,
             stops,
-            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0, verified: false }],
+            visited: [{ name: first.name, lat: first.lat, lng: first.lng, arrived_at: new Date().toISOString(), drinksAtStart: 0, verified: firstVerified }],
           },
         },
         drank_with: companions,
@@ -339,6 +360,7 @@ export default function EventDetailPage({ params }) {
         total_units: 0,
         duration: 1,
       });
+      if (startMsg) alert(startMsg);
       window.location.href = '/';
     } catch (err) {
       alert('Errore nell\'avvio del tour: ' + (err.message || err));

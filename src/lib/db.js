@@ -436,6 +436,46 @@ export const db = {
     }
   },
 
+  // Tutte le sessioni LIVE (is_active=true) delle ultime 5 ore. Query mirata lato
+  // server: il filtro "Live" del feed non dipende più dalla paginazione (prima ne
+  // caricava solo 5 e molte live restavano nascoste). EGRESS: filtra is_active a
+  // monte e NON scarica `media`, quindi pesa meno di una pagina di feed completo.
+  async getLiveActivities() {
+    if (isSupabaseConfigured) {
+      const cutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await this._selectSessions((cols) => {
+        return supabase
+          .from('sessions')
+          .select(`
+            ${cols},
+            profiles(username, display_name, use_username, alias, name_mode, public_leaderboard, avatar_url, weight, sex),
+            cheers(count),
+            comments(count)
+          `)
+          .eq('is_active', true)
+          .gte('created_at', cutoff)
+          .order('created_at', { ascending: false });
+      });
+      if (error) throw error;
+      return data.map(act => ({
+        ...act,
+        cheer_count: Array.isArray(act.cheers) ? (act.cheers[0]?.count ?? 0) : 0,
+        cheers: [],
+        cheered_by_me: false,
+        comment_count: Array.isArray(act.comments) ? (act.comments[0]?.count ?? 0) : 0,
+        comments: [],
+      }));
+    } else {
+      const cutoff = Date.now() - 5 * 60 * 60 * 1000;
+      const activities = getStored('sb_activities');
+      const profiles = getStored('sb_profiles');
+      return activities
+        .filter((a) => a.is_active && new Date(a.created_at).getTime() >= cutoff)
+        .map((act) => ({ ...act, profiles: profiles.find((p) => p.id === act.user_id) || { username: 'utente_sconosciuto', display_name: 'Utente Sconosciuto' } }))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+  },
+
   // Commenti di una singola sessione, caricati ON-DEMAND (quando si espande la sezione
   // commenti nel feed). Tiene il feed leggero: la lista scarica solo il conteggio.
   async getComments(activityId) {
@@ -1217,9 +1257,11 @@ export const db = {
 
   // --- AUTO-CHIUSURA SESSIONI LIVE ---
   // La sessione si chiude da sola dopo N ore dall'ULTIMO drink registrato (non dall'avvio).
-  // A metà strada parte un preavviso ("aggiungi un drink per non farla chiudere").
-  SESSION_AUTOCLOSE_HOURS: 4,
-  SESSION_WARN_HOURS: 2,
+  // 5h = stessa finestra con cui una live è considerata "in corso" in tutta l'app (feed,
+  // radar, conteggi): prima era 4h e le sessioni si chiudevano "troppo presto" rispetto
+  // a quanto restavano visibili. Preavviso 2h prima (a 3h di inattività).
+  SESSION_AUTOCLOSE_HOURS: 5,
+  SESSION_WARN_HOURS: 3,
 
   // Istante (ms) dell'ultimo drink registrato nella sessione (added_times/added_at),
   // con fallback su created_at se nessun drink ha timestamp.
@@ -1309,7 +1351,7 @@ export const db = {
       if (idleHours >= this.SESSION_AUTOCLOSE_HOURS) {
         await this.closeSession(data.id, {
           feeling: data.feeling || 'Sobrio',
-          description: data.description || 'Chiusa automaticamente dopo 4 ore di inattività.',
+          description: data.description || 'Chiusa automaticamente dopo 5 ore di inattività.',
           duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
         });
         return null;
@@ -1343,7 +1385,7 @@ export const db = {
       if (idleHours >= this.SESSION_AUTOCLOSE_HOURS) {
         await this.closeSession(found.id, {
           feeling: found.feeling || 'Sobrio',
-          description: found.description || 'Chiusa automaticamente dopo 4 ore di inattività.',
+          description: found.description || 'Chiusa automaticamente dopo 5 ore di inattività.',
           duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
         });
         return null;

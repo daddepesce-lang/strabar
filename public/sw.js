@@ -1,9 +1,10 @@
 // Service worker minimale per Strabar PWA.
 // Strategia: network-first per le navigazioni (così i dati restano freschi),
 // cache-first per gli asset statici, con fallback offline.
-// v2: bump dopo il cambio dominio — forza ogni dispositivo a installare un SW
-// fresco e a svuotare la cache vecchia (legata al dominio precedente).
-const CACHE = 'strabar-v2';
+// v3: aggiunto `tag` alle notifiche push per evitare duplicati a video (se un utente
+// ha più subscription, es. l'endpoint è cambiato e la riga vecchia è rimasta, il
+// sistema riceveva più push identiche → ora collassano in UNA sola).
+const CACHE = 'strabar-v3';
 const OFFLINE_ASSETS = ['/', '/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -30,6 +31,11 @@ self.addEventListener('push', (event) => {
   } catch {
     if (event.data) data.body = event.data.text();
   }
+  // `tag`: notifiche con lo stesso tag si SOSTITUISCONO invece di accumularsi. Usiamo
+  // il testo (+ url) così due push identiche — tipiche quando un dispositivo ha più di
+  // una subscription registrata — vengono mostrate UNA volta sola. `renotify: false`
+  // evita la doppia vibrazione/suono sul rimpiazzo.
+  const tag = data.tag || `${data.url || '/'}|${data.body || ''}`;
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
@@ -37,6 +43,8 @@ self.addEventListener('push', (event) => {
       badge: '/icon-192.png',
       data: { url: data.url || '/' },
       vibrate: [80, 40, 80],
+      tag,
+      renotify: false,
     })
   );
 });

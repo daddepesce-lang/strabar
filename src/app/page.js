@@ -115,6 +115,15 @@ export default function FeedPage() {
   const addingDrinkRef = useRef(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [checkingStop, setCheckingStop] = useState(false); // verifica GPS "sono alla tappa"
+  // Selettore locale per la TAPPA EXTRA del tour: ricerca locali reali (con coordinate),
+  // così la tappa può essere geo-verificata e contare per le classifiche.
+  const [stopPicker, setStopPicker] = useState(false);
+  const [stopQuery, setStopQuery] = useState('');
+  const [stopResults, setStopResults] = useState([]);
+  const [stopNearby, setStopNearby] = useState([]);
+  const [stopCoords, setStopCoords] = useState(null);
+  const [stopLoading, setStopLoading] = useState(false);
+  const [stopSearching, setStopSearching] = useState(false);
   // Pull-to-refresh (mobile): se sei in cima al feed e trascini giù, ricarica.
   const [pullPx, setPullPx] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -307,6 +316,29 @@ export default function FeedPage() {
     return () => obs.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedHasMore, feedLoadingMore, activities.length, feedFilter]);
+
+  // Filtro "Live": carica TUTTE le sessioni attive con una query mirata e le fonde nel
+  // feed. Senza questo, il feed ne ha solo la prima pagina (5) e molte live restano
+  // nascoste. EGRESS: una sola query filtrata server-side, senza `media`.
+  useEffect(() => {
+    if (feedFilter !== 'live') return;
+    if (typeof db.getLiveActivities !== 'function') return;
+    let cancelled = false;
+    db.getLiveActivities()
+      .then((live) => {
+        if (cancelled || !live?.length) return;
+        setActivities((prev) => {
+          const seen = new Set(prev.map((a) => a.id));
+          const fresh = live.filter((a) => !seen.has(a.id));
+          if (!fresh.length) return prev;
+          return [...prev, ...fresh].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        });
+        if (currentUser) hydrateMyCheers(live);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedFilter]);
 
   // Scroll-reveal della landing (solo per utenti non loggati): aggiunge .is-visible
   // agli elementi .reveal quando entrano nel viewport.
@@ -1145,13 +1177,34 @@ export default function FeedPage() {
     const stop = stops[index];
     if (!stop) return;
 
-    // Nessuna verifica GPS qui: avanzi alla tappa per ricevere le indicazioni e
-    // raggiungerla. La verifica della posizione avviene quando registri un drink
-    // sul posto. La nuova tappa nasce quindi "non verificata".
+    // GPS al cambio tappa: controlliamo SUBITO se sei già sul posto.
+    // - Sei nel raggio (≤300m) → la tappa parte già VERIFICATA e conta per le classifiche.
+    // - Sei lontano → nasce "non verificata" e ti invitiamo a navigare fin lì
+    //   ("Guidami"), poi "Sono qui" la conferma all'arrivo.
+    let verified = false;
+    let msg = '';
+    if (typeof stop.lat === 'number' && typeof stop.lng === 'number') {
+      setCheckingStop(true);
+      const pos = await getCurrentPosition();
+      setCheckingStop(false);
+      if (pos && typeof db.checkGeofencing === 'function') {
+        const { distance } = db.checkGeofencing(stop.lat, stop.lng, pos.lat, pos.lng, Infinity);
+        if (distance <= 300) {
+          verified = true;
+          msg = `✅ Sei già a ${stop.name}: tappa verificata, conta per le classifiche!`;
+        } else {
+          const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
+          msg = `🧭 ${stop.name} è a ~${d}: usa "Guidami" per arrivarci, poi premi "Sono qui" per validare la tappa.`;
+        }
+      } else {
+        msg = `📍 GPS non disponibile: quando arrivi a ${stop.name} premi "Sono qui" per validare la tappa.`;
+      }
+    }
+
     const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
     const newVisited = [
       ...(tour.visited || []),
-      { name: stop.name, lat: stop.lat ?? null, lng: stop.lng ?? null, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks, verified: false },
+      { name: stop.name, lat: stop.lat ?? null, lng: stop.lng ?? null, arrived_at: new Date().toISOString(), drinksAtStart: totalDrinks, verified },
     ];
     const newLocation = {
       ...activeSession.location,
@@ -1160,13 +1213,13 @@ export default function FeedPage() {
       // l'atleta resta comunque visibile nel radar live.
       lat: stop.lat ?? activeSession.location?.lat ?? null,
       lng: stop.lng ?? activeSession.location?.lng ?? null,
-      unverified: true, // verrà confermata registrando un drink sul posto
+      unverified: !verified,
       tour: { ...tour, stops, current: index, visited: newVisited },
     };
     setActiveSession((prev) => (prev ? { ...prev, location: newLocation } : prev));
+    if (msg) setTourMsg(msg);
     try {
       await db.updateActivity(activeSession.id, { location: newLocation });
-      // Nessuna apertura automatica di Maps: usa il pulsante "🧭 Guidami a ..." nel pannello.
     } catch (err) {
       console.error('Errore cambio tappa:', err);
       alert('Impossibile passare alla tappa: ' + (err.message || err));
@@ -1262,18 +1315,67 @@ export default function FeedPage() {
     }
   };
 
-  // Aggiunge una tappa NON in programma (es. un bar trovato per caso) subito
-  // dopo quella corrente, senza alterare la sequenza delle tappe schedulate.
-  const handleAddUnscheduledStop = async () => {
+  // Apre il selettore locali per la TAPPA EXTRA: cerca i bar reali vicini (con coordinate)
+  // così la tappa è geo-verificabile, invece di accettare un nome libero senza posizione.
+  const openStopPicker = async () => {
+    setStopPicker(true);
+    setStopQuery('');
+    setStopResults([]);
+    setStopNearby([]);
+    setStopLoading(true);
+    const pos = await getCurrentPosition();
+    setStopCoords(pos || null);
+    try {
+      if (typeof db.getCombinedNearbyPlaces === 'function') {
+        const { venues } = await db.getCombinedNearbyPlaces(pos?.lat, pos?.lng, 200);
+        setStopNearby(venues || []);
+      }
+    } catch (e) { console.error(e); }
+    finally { setStopLoading(false); }
+  };
+
+  // Ricerca locali per nome (debounced) per la tappa extra.
+  useEffect(() => {
+    if (!stopPicker) return;
+    const q = stopQuery.trim();
+    if (q.length < 2) { setStopResults([]); setStopSearching(false); return; }
+    setStopSearching(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await db.searchVenues(q, stopCoords);
+        const annotated = (res || [])
+          .filter((v) => v.isVenue)
+          .map((v) => ({
+            ...v,
+            distance: stopCoords && v.lat && v.lng ? db.checkGeofencing(v.lat, v.lng, stopCoords.lat, stopCoords.lng, Infinity).distance : null,
+          }));
+        setStopResults(annotated);
+      } catch { setStopResults([]); }
+      finally { setStopSearching(false); }
+    }, 450);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopQuery, stopCoords, stopPicker]);
+
+  // Aggiunge il locale scelto come tappa EXTRA subito dopo quella corrente.
+  const addExtraStopVenue = async (venue) => {
     const tour = activeSession?.location?.tour;
-    if (!tour) return;
-    const name = (typeof window !== 'undefined' ? window.prompt('Tappa extra — nome del locale dove ti sei fermato:') : '') || '';
-    if (!name.trim()) return;
+    if (!tour || !venue?.name) return;
+    setStopPicker(false);
     const cur = tour.current || 0;
     const stops = [...tour.stops];
-    stops.splice(cur + 1, 0, { name: name.trim(), lat: null, lng: null, note: 'Tappa extra (non in programma)', unscheduled: true });
+    stops.splice(cur + 1, 0, {
+      name: venue.name,
+      lat: typeof venue.lat === 'number' ? venue.lat : null,
+      lng: typeof venue.lng === 'number' ? venue.lng : null,
+      note: 'Tappa extra (non in programma)',
+      unscheduled: true,
+    });
     await goToTourStop(stops, cur + 1);
   };
+
+  // Aggiunge una tappa NON in programma: apre il selettore locali (con ricerca reale).
+  const handleAddUnscheduledStop = () => { openStopPicker(); };
 
   // Annulla (elimina) la sessione live in corso, con doppia conferma
   const handleCancelActiveSession = async () => {
@@ -2294,7 +2396,7 @@ export default function FeedPage() {
                     className="btn btn-secondary"
                     style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px', alignSelf: 'flex-start' }}
                   >
-                    📍 Aggiungi Tappa / Cambia Bar
+                    📍 Cambia bar
                   </button>
                 </div>
               )}
@@ -4175,6 +4277,62 @@ export default function FeedPage() {
       )}
 
       {/* SELETTORE CONDIVISIONE: scheda social (Instagram…) oppure link del live */}
+      {/* SELETTORE LOCALE per la tappa extra del tour (ricerca locali reali con coordinate) */}
+      {stopPicker && (
+        <div
+          onClick={() => setStopPicker(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 0, backdropFilter: 'blur(6px)' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '22px 22px 0 0', padding: '20px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '85dvh' }}
+          >
+            <div style={{ width: '40px', height: '4px', borderRadius: '4px', background: 'var(--border-dark)', margin: '0 auto 2px' }} />
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', textAlign: 'center' }}>➕ Tappa extra</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '-4px' }}>Cerca il locale dove ti sei fermato: con la posizione la tappa può contare per le classifiche.</p>
+            <input
+              type="text"
+              value={stopQuery}
+              onChange={(e) => setStopQuery(e.target.value)}
+              placeholder="Cerca un locale per nome…"
+              className="form-control"
+              style={{ fontSize: '14px' }}
+              autoFocus
+            />
+            <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {(stopLoading || stopSearching) && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>
+                  <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Cerco i locali…
+                </div>
+              )}
+              {(() => {
+                const list = stopQuery.trim().length >= 2 ? stopResults : stopNearby;
+                if (!stopLoading && !stopSearching && list.length === 0) {
+                  return <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>{stopQuery.trim().length >= 2 ? 'Nessun locale trovato.' : 'Nessun locale nelle vicinanze: cercalo per nome.'}</div>;
+                }
+                return list.map((v, i) => {
+                  const dist = typeof v.distance === 'number' ? (v.distance >= 1000 ? `${(v.distance / 1000).toFixed(1)} km` : `${v.distance} m`) : null;
+                  return (
+                    <button
+                      key={`${v.name}-${i}`}
+                      onClick={() => addExtraStopVenue(v)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-dark)', background: 'transparent', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                    >
+                      <MapPin size={16} style={{ flexShrink: 0, color: 'var(--secondary)' }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', color: '#FFF', fontWeight: 600, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</span>
+                        {(v.address || dist) && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[dist, v.address].filter(Boolean).join(' · ')}</span>}
+                      </span>
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+            <button onClick={() => setStopPicker(false)} className="btn btn-secondary" style={{ width: '100%', borderRadius: '16px', padding: '10px', fontSize: '14px' }}>Annulla</button>
+          </div>
+        </div>
+      )}
+
       {shareSheet && (
         <div
           onClick={() => setShareSheet(null)}

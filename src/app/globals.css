@@ -1413,34 +1413,50 @@ select.form-control {
     to { transform: scaleX(1); opacity: 1; }
   }
 
-  /* FAB centrale — pulsante Registra */
+  /* FAB centrale — pulsante Registra.
+     Il <Link> resta un normale slot a colonna (icona-cerchio in alto, etichetta in
+     basso allineata alle altre voci): così il "+" sta da solo in un cerchio pulito e
+     "Registra" non è più schiacciato dentro al cerchio. */
   .mobile-nav .mn-register {
+    overflow: visible;
+    gap: 0;
+    justify-content: flex-end;
+  }
+  .mobile-nav .mn-register .mn-register-fab {
     position: relative;
-    top: -16px;
-    width: 58px;
-    height: 58px;
-    min-width: 58px;
-    border-radius: 50%;
-    background: linear-gradient(145deg, #FF3B1A 0%, #FF2000 55%, #D81A00 100%);
-    color: #fff !important;
-    box-shadow: 0 6px 20px rgba(255, 32, 0, 0.55), inset 0 1px 1px rgba(255,255,255,0.3);
-    flex-direction: column;
+    top: -18px;
+    margin-bottom: -14px; /* recupera lo spazio così l'etichetta resta sulla riga */
+    width: 56px;
+    height: 56px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    font-size: 9px;
-    font-weight: 800;
-    border: 3px solid var(--bg-dark);
+    border-radius: 50%;
+    background: linear-gradient(145deg, #FF4422 0%, #FF2000 55%, #D81A00 100%);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(255, 32, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.35);
+    border: 4px solid var(--bg-dark);
     transition: transform 0.3s var(--spring), box-shadow 0.3s var(--ease-out);
   }
-  .mobile-nav .mn-register:active { transform: scale(0.9); }
-  .mobile-nav .mn-register.active { color: #fff !important; }
+  .mobile-nav .mn-register .mn-register-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dark-secondary);
+    transition: color 0.25s var(--ease-out);
+  }
+  .mobile-nav .mn-register:active .mn-register-fab { transform: scale(0.9); }
+  .mobile-nav .mn-register:active svg { transform: none; }
+  .mobile-nav .mn-register.active { color: inherit; }
+  .mobile-nav .mn-register.active .mn-register-label { color: var(--primary); }
+  .mobile-nav .mn-register.active .mn-register-fab {
+    box-shadow: 0 8px 26px rgba(255, 32, 0, 0.7), inset 0 1px 1px rgba(255,255,255,0.35);
+  }
   .mobile-nav .mn-register.active::before { display: none; }
   /* Anello pulsante quando hai una diretta in corso */
-  .mobile-nav .mn-register.live::after {
+  .mobile-nav .mn-register.live .mn-register-fab::after {
     content: '';
     position: absolute;
-    inset: -3px;
+    inset: -4px;
     border-radius: 50%;
     border: 2px solid var(--primary);
     animation: fab-live 1.6s ease-out infinite;
