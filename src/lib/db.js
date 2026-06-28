@@ -2741,18 +2741,12 @@ export const db = {
   },
 
   // Richiede di gestire un locale (status pending → approvi tu da /admin).
-  // `details` = dati del referente/attività (jsonb): contatto, ruolo, telefono, email, ecc.
+  // Funziona anche da NON loggati (lead): l'RPC allega user_id se presente, altrimenti
+  // resta null e collegheremo l'account all'approvazione. `details` = dati referente/attività.
   async requestVenueClaim(venueKey, venueName, details) {
-    const user = await this.getCurrentUser();
-    if (!user) throw new Error('Accedi per richiedere la gestione del locale.');
     const d = details || {};
-    const { error } = await supabase.from('venue_claims').insert({
-      venue_key: venueKey,
-      venue_name: venueName || venueKey,
-      user_id: user.id,
-      status: 'pending',
-      note: d.note || null,
-      details: d,
+    const { error } = await supabase.rpc('submit_venue_lead', {
+      p_key: venueKey, p_name: venueName || venueKey, p_details: d,
     });
     if (error) throw error;
     return true;

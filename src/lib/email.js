@@ -83,3 +83,35 @@ export async function sendPasswordResetEmail(to, link) {
   if (error) throw new Error(error.message || 'Invio email di reset fallito');
   return { id: data?.id };
 }
+
+// Email al locale quando la richiesta di gestione è APPROVATA: invito a creare/attivare
+// l'account del locale. `link` porta alla registrazione (o all'area gestione).
+export async function sendVenueApprovalEmail(to, venueName, link) {
+  if (!apiKey) {
+    console.warn('RESEND_API_KEY non impostata: email approvazione locale saltata.');
+    return { skipped: true };
+  }
+  const resend = new Resend(apiKey);
+  const { data, error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `La tua richiesta per ${venueName} è approvata 🎉`,
+    html: `
+      <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0D0D0D;color:#F3F4F6;padding:32px;border-radius:16px;max-width:520px;margin:auto">
+        ${LOGO_IMG}
+        <h1 style="color:#FF2000;margin:0 0 12px">Benvenuto su Strabar per i locali 🍻</h1>
+        <p style="line-height:1.6;color:#9CA3AF">
+          La richiesta di gestione per <strong style="color:#fff">${venueName}</strong> è stata <strong style="color:#fff">approvata</strong>.
+          Crea (o accedi al) tuo account per gestire il locale: classifica, eventi sponsorizzati, promo e notifiche ai clienti.
+        </p>
+        <a href="${link}" style="display:inline-block;margin:16px 0;background:#FF2000;color:#fff;text-decoration:none;padding:12px 22px;border-radius:30px;font-weight:700">Attiva l'account del locale</a>
+        <p style="line-height:1.6;color:#9CA3AF;font-size:13px">
+          Usa questa stessa email per registrarti: collegheremo l'account al tuo locale.
+        </p>
+        <p style="font-size:12px;color:#6b7280;margin-top:20px">18+ · Bevi responsabilmente.</p>
+      </div>
+    `,
+  });
+  if (error) throw new Error(error.message || 'Invio email approvazione fallito');
+  return { id: data?.id };
+}

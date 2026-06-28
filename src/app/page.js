@@ -215,6 +215,15 @@ export default function FeedPage() {
       const user = await db.getCurrentUser();
       setCurrentUser(user);
 
+      // Account di tipo "locale": niente feed da utente normale → vai alla tua area gestione.
+      if (user?.account_type === 'venue') {
+        try {
+          const claims = await db.getMyVenueClaims();
+          const appr = (claims || []).find((c) => c.status === 'approved');
+          if (appr) { router.replace(`/locale/${encodeURIComponent(appr.venue_key)}/gestione`); return; }
+        } catch { /* noop */ }
+      }
+
       // PERCORSO CRITICO: solo ciò che serve a mostrare il feed e a chiudere la live
       // in modo affidabile. Poche query leggere → reggono anche col DB sotto carico.
       const [acts, active, following, followers] = await Promise.all([

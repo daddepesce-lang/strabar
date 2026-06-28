@@ -88,6 +88,12 @@ export default function VenuesBusinessAdmin() {
                   <button onClick={() => { const n = prompt('Motivo del rifiuto (facoltativo):') || ''; post('/api/admin/venue-claims', { id: c.id, action: 'reject', admin_note: n }); }} className="btn btn-secondary" style={{ flex: 1, borderRadius: 16, fontSize: 13, padding: 8, color: 'var(--error)' }}><X size={14} /> Rifiuta</button>
                 </div>
               )}
+              {/* Collega un account Strabar (per email) a questo locale → account di tipo "locale" */}
+              <button
+                onClick={() => { const em = prompt('Email dell’account da collegare a questo locale:', c.details?.email || '') || ''; if (em.trim()) post('/api/admin/venue-claims', { action: 'link_account', email: em.trim(), venue_key: c.venue_key, venue_name: c.venue_name }); }}
+                className="btn btn-secondary" style={{ width: '100%', marginTop: 8, borderRadius: 16, fontSize: 12, padding: 7 }}>
+                🔗 Collega account locale {c.user_id ? '(ricollega)' : ''}
+              </button>
             </div>
           ))}
         </div>

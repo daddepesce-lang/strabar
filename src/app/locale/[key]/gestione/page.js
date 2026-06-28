@@ -139,16 +139,8 @@ export default function VenueManagePage({ params }) {
         <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFF' }}>{venueName}</h1>
       </div>
 
-      {/* NON loggato */}
-      {user === null && (
-        <div className="card" style={{ textAlign: 'center', padding: '24px' }}>
-          <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>Accedi per richiedere la gestione di questo locale.</p>
-          <Link href="/auth" className="btn btn-primary" style={{ borderRadius: '24px', padding: '12px 22px' }}>Accedi</Link>
-        </div>
-      )}
-
-      {/* Loggato, nessun claim o rifiutato → richiesta */}
-      {user && (!claim || claim.status === 'rejected') && (
+      {/* Richiesta (anche senza account): mostrata se non sei gestore e non hai già una pendente */}
+      {!isManager && claim?.status !== 'pending' && (
         <div className="card" style={{ padding: '20px' }}>
           <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={18} color="var(--secondary)" /> Gestisci questo locale</h2>
           <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.45 }}>
@@ -182,16 +174,16 @@ export default function VenueManagePage({ params }) {
       )}
 
       {/* In attesa */}
-      {user && claim?.status === 'pending' && (
+      {claim?.status === 'pending' && (
         <div className="card" style={{ padding: '20px', textAlign: 'center', border: '1px solid var(--secondary)' }}>
           <Clock size={28} color="var(--secondary)" style={{ marginBottom: '8px' }} />
-          <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', marginBottom: '6px' }}>Richiesta in valutazione</h2>
-          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Ti avviseremo appena la gestione di <strong>{venueName}</strong> sarà approvata.</p>
+          <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', marginBottom: '6px' }}>Richiesta inviata 🎉</h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>La valutiamo al più presto. Appena approvata, riceverai un&apos;email per attivare l&apos;account del locale.</p>
         </div>
       )}
 
       {/* Gestore approvato */}
-      {user && isManager && (
+      {isManager && (
         <>
           {/* Statistiche rapide */}
           <div className="card" style={{ padding: '16px' }}>

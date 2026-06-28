@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/utils/supabase/admin';
+import { sendVenueApprovalEmail } from '@/lib/email';
+import { siteUrl } from '@/lib/site';
 
 // Richieste di gestione locale (claim). GET = elenco; POST {id, action, admin_note} = approva/rifiuta.
 
@@ -23,6 +25,30 @@ export async function POST(req) {
   const gate = await requireAdmin();
   if (gate.error) return NextResponse.json({ error: gate.error }, { status: gate.status });
   const body = await req.json().catch(() => ({}));
+
+  // Collega manualmente un ACCOUNT (per email) a un locale: lo rende account_type='venue'
+  // e crea/aggiorna un claim approvato. Usato quando il locale si è registrato dopo l'email.
+  if (body.action === 'link_account') {
+    const email = (body.email || '').trim();
+    const venueKey = (body.venue_key || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const venueName = body.venue_name || venueKey;
+    if (!email || !venueKey) return NextResponse.json({ error: 'email e venue_key obbligatori' }, { status: 400 });
+    const { data: uid, error: findErr } = await gate.admin.rpc('admin_find_user_id', { p_email: email });
+    if (findErr) return NextResponse.json({ error: findErr.message }, { status: 500 });
+    if (!uid) return NextResponse.json({ error: 'Nessun account Strabar con questa email. Chiedi al locale di registrarsi prima.' }, { status: 404 });
+    await gate.admin.from('profiles').update({ account_type: 'venue' }).eq('id', uid);
+    // collega: aggiorna un claim esistente (lead) o creane uno approvato
+    const { data: existing } = await gate.admin.from('venue_claims').select('id').eq('venue_key', venueKey).or(`user_id.is.null,user_id.eq.${uid}`).limit(1);
+    if (existing && existing.length) {
+      await gate.admin.from('venue_claims').update({ user_id: uid, status: 'approved', venue_name: venueName, resolved_at: new Date().toISOString() }).eq('id', existing[0].id);
+    } else {
+      await gate.admin.from('venue_claims').insert({ venue_key: venueKey, venue_name: venueName, user_id: uid, status: 'approved', resolved_at: new Date().toISOString() });
+    }
+    await gate.admin.from('venues').upsert({ key: venueKey, name: venueName, verified: true, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    try { await gate.admin.from('notifications').insert({ user_id: uid, type: 'venue_claim', message: `✅ Il tuo account è collegato a "${venueName}"`, link: `/locale/${encodeURIComponent(venueKey)}/gestione` }); } catch { /* noop */ }
+    return NextResponse.json({ ok: true });
+  }
+
   if (!body.id || !['approve', 'reject'].includes(body.action)) {
     return NextResponse.json({ error: 'Parametri non validi' }, { status: 400 });
   }
@@ -41,6 +67,17 @@ export async function POST(req) {
         { onConflict: 'key' }
       );
     } catch { /* noop */ }
+    // Se la richiesta era di un utente già registrato, il suo account diventa di tipo "locale".
+    if (claim.user_id) {
+      try { await gate.admin.from('profiles').update({ account_type: 'venue' }).eq('id', claim.user_id); } catch { /* noop */ }
+    }
+    // Email al referente: invito a creare/attivare l'account del locale.
+    const email = claim.details?.email;
+    if (email) {
+      try {
+        await sendVenueApprovalEmail(email, claim.venue_name, siteUrl(`/auth?next=${encodeURIComponent('/locale/' + claim.venue_key + '/gestione')}`));
+      } catch (e) { console.warn('Email approvazione locale fallita:', e.message || e); }
+    }
   }
 
   // Notifica al richiedente l'esito.
