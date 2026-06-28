@@ -2216,6 +2216,17 @@ export default function FeedPage() {
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
       <div className="feed-list">
+        {/* Finder locali / ingresso "Per i locali" — discreto, in cima al feed */}
+        {currentUser && (
+          <Link href="/business" className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', textDecoration: 'none' }}>
+            <span style={{ fontSize: '22px', lineHeight: 1 }}>🏪</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#FFF' }}>Trova un locale</span>
+              <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Cerca i bar su Strabar · sei un locale? Gestiscilo</span>
+            </span>
+            <span style={{ color: 'var(--text-dark-secondary)', flexShrink: 0 }}>→</span>
+          </Link>
+        )}
         {/* Banner sponsor (gestito da /admin) */}
         {banners.length > 0 && (() => {
           const b = banners[0];

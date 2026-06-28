@@ -143,11 +143,9 @@ export default function VenuePublicPage({ params }) {
         </div>
       )}
 
-      {isManager && (
-        <Link href={`/locale/${encodeURIComponent(placeKey)}/gestione`} style={{ textAlign: 'center', fontSize: '12px', color: 'var(--secondary)', fontWeight: 600 }}>
-          🔧 Area gestione del locale →
-        </Link>
-      )}
+      <Link href={`/locale/${encodeURIComponent(placeKey)}/gestione`} style={{ textAlign: 'center', fontSize: '12px', color: 'var(--secondary)', fontWeight: 600 }}>
+        {isManager ? '🔧 Area gestione del locale →' : 'Sei il titolare? Richiedi la gestione →'}
+      </Link>
 
       <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '20px' }}>
         Bevi responsabilmente. Strabar è un gioco sociale, non incoraggia l&apos;abuso di alcol.
