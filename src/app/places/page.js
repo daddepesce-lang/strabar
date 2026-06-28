@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import {
-  MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award, Info,
+  MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award, Info, QrCode,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 
@@ -625,10 +625,19 @@ export default function ClassifichePage() {
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-secondary"
-              style={{ width: '100%', marginBottom: '18px', fontSize: '13px' }}
+              style={{ width: '100%', marginBottom: '10px', fontSize: '13px' }}
             >
               <ExternalLink size={14} /> Apri in Google Maps
             </a>
+
+            {/* Pagina pubblica + QR del locale (condivisibile, niente login per chi la apre) */}
+            <Link
+              href={`/locale/${encodeURIComponent(selected.key)}`}
+              className="btn btn-secondary"
+              style={{ width: '100%', marginBottom: '18px', fontSize: '13px' }}
+            >
+              <QrCode size={14} /> Pagina pubblica & QR del locale
+            </Link>
 
             {/* Classifica atleti */}
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
