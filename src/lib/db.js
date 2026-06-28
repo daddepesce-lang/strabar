@@ -1556,14 +1556,18 @@ export const db = {
     if (isSupabaseConfigured) {
       const since = new Date(new Date(createdAtISO).getTime() - 6 * 3600000).toISOString();
       const [{ data: sess }, { data: prof }] = await Promise.all([
+        // INCLUDE anche un'eventuale sessione ANCORA ATTIVA: se apri una nuova live mentre
+        // ne hai una in corso (es. "cambia bar"/prosecuzione), l'alcol di quella conta come
+        // residuo → il BAC riparte dal punto giusto invece che da zero. La nuova sessione
+        // non è ancora inserita, quindi non si conta da sola.
         supabase.from('sessions').select('drinks, created_at, duration, full_stomach, is_active')
-          .eq('user_id', userId).eq('is_active', false).gte('created_at', since),
+          .eq('user_id', userId).gte('created_at', since),
         supabase.from('profiles').select('weight, sex').eq('id', userId).maybeSingle(),
       ]);
       recent = sess || [];
       weight = prof?.weight; sex = prof?.sex;
     } else {
-      recent = (getStored('sb_activities') || []).filter((a) => a.user_id === userId && !a.is_active);
+      recent = (getStored('sb_activities') || []).filter((a) => a.user_id === userId);
       const p = (getStored('sb_profiles') || []).find((x) => x.id === userId);
       weight = p?.weight; sex = p?.sex;
     }

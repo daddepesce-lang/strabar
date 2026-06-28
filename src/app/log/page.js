@@ -545,6 +545,18 @@ export default function LogActivityPage() {
   // per capire se l'utente è davvero sul posto; in caso contrario parte "non verificata" (non
   // conta per le classifiche), gestito da startSessionAtVenue tramite la distanza.
   const startFromTag = async (venue) => {
+    // Controllo FRESCO dal DB: questo handler parte dal deep-link al mount, quando lo
+    // stato `activeSession` può essere ancora null (race) → senza questo, chi è taggato
+    // mentre ha già una live ne aprirebbe un'altra (vuota), chiudendo quella in corso.
+    try {
+      const u = await db.getCurrentUser();
+      const active = u && typeof db.getActiveSession === 'function' ? await db.getActiveSession(u.id) : null;
+      if (active || activeSession) {
+        alert('Hai già una sessione live attiva: il tag è stato registrato, ma per partecipare resta nella tua live in corso.');
+        router.push('/?live=1');
+        return;
+      }
+    } catch { /* in dubbio, prosegui col controllo locale sotto */ }
     if (activeSession) {
       alert('Hai già una sessione live attiva. Chiudila prima di avviarne un\'altra.');
       return;
