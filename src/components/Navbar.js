@@ -422,9 +422,6 @@ export default function Navbar() {
                 : <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>{t('nav.areYouVenue')}</span></Link>}
               <button type="button" onClick={handleLogout}><LogOut size={22} /><span>{t('nav.logout')}</span></button>
             </div>
-            <div style={{ padding: '14px 16px 4px' }}>
-              <LanguageSwitcher />
-            </div>
           </div>
         </div>
       )}

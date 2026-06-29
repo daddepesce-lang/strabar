@@ -17,7 +17,6 @@ import { siteUrl } from '@/lib/site';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
 import DrinkSearch from '@/components/DrinkSearch';
-import StoriesBar from '@/components/StoriesBar';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
@@ -149,10 +148,6 @@ export default function FeedPage() {
       if (imgs.length) setLightbox({ images: imgs, index: Math.min(startIndex, imgs.length - 1) });
     } catch { /* in caso di errore resta visibile la sola copertina */ }
   };
-  // Apertura "storia" (carosello): stile visore foto a tutto schermo, COSTO ZERO —
-  // mostra solo la copertina GIÀ caricata dal feed (nessuna query). Per vedere tutte le
-  // foto/dettagli c'è il link "vai alla sessione" nel footer del visore.
-  const openStory = (act) => setLightbox({ images: act.cover_url ? [act.cover_url] : [], index: 0, story: act });
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false); // visore foto a schermo intero
 
@@ -2349,10 +2344,20 @@ export default function FeedPage() {
   // Aggiunta drink: poche scorciatoie + un grande pulsante che apre la RICERCA a tutto
   // schermo (catalogo completo + drink del locale). Usato sia nella tappa del tour che
   // nella live semplice, così "registrare un drink" è sempre lo stesso gesto chiaro.
+  // Garantiamo che i due drink più comuni (birra media bionda e vino) siano SEMPRE tra le
+  // scorciatoie 1-tap, in testa, anche se il catalogo è stato personalizzato da admin.
+  const ESSENTIAL_QUICK = [
+    { name: 'Birra Bionda Media (0,4L)', abv: 5, units: 2.0, label: '🍺 Birra Media Bionda' },
+    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
+  ];
+  const quickAdderList = [
+    ...ESSENTIAL_QUICK,
+    ...QUICK_DRINKS.filter((d) => !ESSENTIAL_QUICK.some((e) => e.name === d.name)),
+  ];
   const renderDrinkAdder = () => (
     <div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-        {QUICK_DRINKS.map((preset, idx) => (
+        {quickAdderList.map((preset, idx) => (
           <button
             key={idx}
             onClick={() => handleAddDrinkToActiveSession(preset)}
@@ -2413,34 +2418,6 @@ export default function FeedPage() {
       </div>
     </div>
   );
-
-  // Storie: sessioni recenti CON foto, una per utente (live in testa). Solo dati già
-  // caricati dal feed/live → nessun egress aggiuntivo.
-  const storyItems = (() => {
-    const pool = [...(activities || [])];
-    (liveFeed || []).forEach((a) => { if (!pool.some((x) => x.id === a.id)) pool.push(a); });
-    const withPhoto = pool
-      .filter(isVisibleToMe)
-      .map((a) => ({ a, photo: a.cover_url || (a.media || []).find((m) => m.type === 'image')?.url }))
-      .filter((x) => x.photo)
-      .sort((x, y) => new Date(y.a.created_at) - new Date(x.a.created_at));
-    const seen = new Set();
-    const out = [];
-    for (const { a, photo } of withPhoto) {
-      if (seen.has(a.user_id)) continue;
-      seen.add(a.user_id);
-      out.push({
-        act: a,
-        photo,
-        name: a.user_id === currentUser?.id ? 'Tu' : publicName(a.profiles, 'Atleta'),
-        live: isLiveAct(a),
-        drinks: (a.drinks || []).reduce((s, d) => s + (d.qty || 1), 0),
-      });
-      if (out.length >= 16) break;
-    }
-    out.sort((x, y) => (y.live ? 1 : 0) - (x.live ? 1 : 0));
-    return out;
-  })();
 
   return (
     <div className="dashboard-grid">
@@ -2991,11 +2968,6 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Carosello "storie": sessioni recenti con foto, sopra al filtro */}
-        {currentUser && storyItems.length > 0 && (
-          <StoriesBar stories={storyItems} onOpen={openStory} label={t('feed.stories')} />
-        )}
-
         {/* Filtro feed: Amici / Tutti / Live */}
         {currentUser && activities.length > 0 && (
           <div className="seg-tabs feed-filter-tabs" style={{ marginTop: '4px', marginBottom: '14px', maxWidth: '360px' }}>
@@ -3542,20 +3514,7 @@ export default function FeedPage() {
 
       {/* Slideshow foto a tutto schermo (apribile da feed e dettaglio) */}
       {lightbox && lightbox.images.length > 0 && (
-        <MediaLightbox
-          images={lightbox.images}
-          startIndex={lightbox.index}
-          onClose={() => setLightbox(null)}
-          footer={lightbox.story ? (
-            <button
-              onClick={() => { const a = lightbox.story; setLightbox(null); handleOpenActivity(a); }}
-              className="btn btn-primary"
-              style={{ borderRadius: 22, padding: '10px 20px', fontSize: 14, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              {publicName(lightbox.story.profiles, t('feed.userFallback'))} · {t('feed.goToSession')} →
-            </button>
-          ) : null}
-        />
+        <MediaLightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
       )}
 
       {/* MODAL DETTAGLI ATTIVITA */}
