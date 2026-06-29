@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
+import { useT } from '@/lib/i18n';
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
@@ -69,6 +70,7 @@ const VENICE_TOUR = [
 ];
 
 export default function FeedPage() {
+  const t = useT();
   // Catalogo drink dinamico (gestito da admin), con fallback statico immediato.
   const { quick: QUICK_DRINKS, extra: EXTRA_DRINKS } = useDrinkCatalog();
   const router = useRouter();
@@ -1855,27 +1857,27 @@ export default function FeedPage() {
 
           <div className="reveal is-visible" style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative', zIndex: 1 }}>
             <span className="eyebrow-pill" style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)' }}>
-              <span className="live-dot" /> Il Social Network degli Atleti da Bar
+              <span className="live-dot" /> {t('landing.hero.badge')}
             </span>
             <h1 className="hero-title">
-              Bevi con gli amici.<br />
-              Sfidali. <span className="gradient-text">Condividi tutto.</span>
+              {t('landing.hero.titleA')}<br />
+              {t('landing.hero.titleB')} <span className="gradient-text">{t('landing.hero.titleHighlight')}</span>
             </h1>
             <p className="hero-para">
-              Strabar è il <b style={{ color: '#FFF' }}>social degli atleti da bar</b>: registra le sessioni, tagga gli amici e brindate insieme. Calcoliamo <b style={{ color: '#FFF' }}>Unità Alcoliche</b> e <b style={{ color: '#FFF' }}>tasso alcolico (BAC)</b>, scali le classifiche dei locali e condividi i tuoi record. Insieme è più divertente — e più consapevole.
+              {t('landing.hero.para')}
             </p>
             <div className="hero-btns">
               <Link href="/auth" className="btn btn-primary lift" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                Inizia Gratis <ChevronRight size={18} />
+                {t('landing.hero.ctaStart')} <ChevronRight size={18} />
               </Link>
               <Link href="/routes" className="btn btn-secondary lift" style={{ padding: '16px 32px', borderRadius: '30px', fontSize: '17px' }}>
-                Esplora i Percorsi
+                {t('landing.hero.ctaExplore')}
               </Link>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', color: 'var(--text-dark-secondary)', fontSize: '13px', fontWeight: 600 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Zap size={14} color="var(--secondary)" /> Nessuna app store</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Gauge size={14} color="var(--success)" /> 100% gratis</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>🔞 Solo 18+</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Zap size={14} color="var(--secondary)" /> {t('landing.hero.pillNoStore')}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Gauge size={14} color="var(--success)" /> {t('landing.hero.pillFree')}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>🔞 {t('landing.hero.pill18')}</span>
             </div>
           </div>
 
@@ -1887,8 +1889,8 @@ export default function FeedPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div className="activity-avatar" style={{ border: '2px solid var(--primary)', width: '38px', height: '38px', fontSize: '14px' }}>S</div>
                 <div>
-                  <h4 style={{ fontSize: '14px', fontWeight: '700' }}>La tua sessione</h4>
-                  <span style={{ fontSize: '11px', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span className="live-dot" /> Live ora</span>
+                  <h4 style={{ fontSize: '14px', fontWeight: '700' }}>{t('landing.hero.mockSession')}</h4>
+                  <span style={{ fontSize: '11px', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span className="live-dot" /> {t('landing.hero.mockLiveNow')}</span>
                 </div>
               </div>
               <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
@@ -1897,26 +1899,26 @@ export default function FeedPage() {
             {/* Gauge BAC animato */}
             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tasso alcolico stimato</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('landing.hero.mockBacLabel')}</span>
                 <span style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--primary)', lineHeight: 1 }}>0,68 <span style={{ fontSize: '12px', fontFamily: 'var(--font-sans)', color: 'var(--text-dark-secondary)' }}>g/l</span></span>
               </div>
               <div className="bac-track"><div className="bac-fill" /></div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '7px', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                <span>Sobrio</span><span>Limite guida</span><span>Alto</span>
+                <span>{t('landing.hero.mockSober')}</span><span>{t('landing.hero.mockLimit')}</span><span>{t('landing.hero.mockHigh')}</span>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-dark)' }}>
               <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>Drink</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('landing.hero.mockDrinks')}</span>
                 <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--primary)' }}>5</div>
               </div>
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)', borderRight: '1px solid var(--border-dark)' }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>Tempo</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('landing.hero.mockTime')}</span>
                 <div style={{ fontSize: '18px', fontWeight: '800' }}>2h 15m</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>Carico</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('landing.hero.mockLoad')}</span>
                 <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--secondary)' }}>5.2 UA</div>
               </div>
             </div>
@@ -1927,8 +1929,8 @@ export default function FeedPage() {
             </div>
 
             <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-              <span>👥 Con Luca e Francesca</span>
-              <span style={{ color: 'var(--primary)', fontWeight: '700' }}>Stato: Molto Caldo 🔥</span>
+              <span>👥 {t('landing.hero.mockWith')}</span>
+              <span style={{ color: 'var(--primary)', fontWeight: '700' }}>{t('landing.hero.mockStatus')}</span>
             </div>
           </div>
         </section>
@@ -2890,19 +2892,19 @@ export default function FeedPage() {
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
             >
-              👥 Amici
+              👥 {t('feed.tabFriends')}
             </div>
             <div
               className={`seg-tab ${feedFilter === 'all' ? 'active' : ''}`}
               onClick={() => setFeedFilter('all')}
             >
-              🌍 Tutti
+              🌍 {t('feed.tabAll')}
             </div>
             <div
               className={`seg-tab ${feedFilter === 'live' ? 'active' : ''}`}
               onClick={() => setFeedFilter('live')}
             >
-              🔴 Live
+              🔴 {t('feed.tabLive')}
             </div>
           </div>
         )}

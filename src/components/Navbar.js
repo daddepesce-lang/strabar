@@ -4,7 +4,9 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
+import { useT } from '@/lib/i18n';
 import NavSearch from '@/components/NavSearch';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import {
   Beer, Map, Trophy, Calendar, PlusCircle, Plus, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users, HelpCircle, Store,
 } from 'lucide-react';
@@ -25,6 +27,7 @@ function timeAgo(dateString) {
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
   const [user, setUser] = useState(null);
   const [logoOk, setLogoOk] = useState(true); // mostra /logo.png se presente, altrimenti fallback inline
   const [notifs, setNotifs] = useState([]);
@@ -164,21 +167,21 @@ export default function Navbar() {
   };
 
   const navItems = [
-    { href: '/', label: 'Feed', icon: Beer },
-    { href: '/routes', label: 'Percorsi', icon: Map },
-    { href: '/places', label: 'Classifiche', icon: Trophy },
-    { href: '/groups', label: 'Leghe', icon: Users },
-    { href: '/events', label: 'Eventi', icon: Calendar },
-    { href: '/live', label: 'Radar', icon: Radar },
-    { href: '/log', label: 'Registra', icon: PlusCircle },
-    { href: '/profile', label: 'Profilo', icon: User },
+    { href: '/', label: t('nav.feed'), icon: Beer },
+    { href: '/routes', label: t('nav.routes'), icon: Map },
+    { href: '/places', label: t('nav.leaderboards'), icon: Trophy },
+    { href: '/groups', label: t('nav.leagues'), icon: Users },
+    { href: '/events', label: t('nav.events'), icon: Calendar },
+    { href: '/live', label: t('nav.radar'), icon: Radar },
+    { href: '/log', label: t('nav.register'), icon: PlusCircle },
+    { href: '/profile', label: t('nav.profile'), icon: User },
   ];
 
   const isActive = (href) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   // Voce "locale" nel menu: un solo locale → link diretto alla gestione; più locali → pagina elenco.
   const venueHref = myVenues.length === 1 ? `/locale/${encodeURIComponent(myVenues[0].key)}/gestione` : '/locale';
-  const venueLabel = myVenues.length > 1 ? 'I miei locali' : 'Il mio locale';
+  const venueLabel = myVenues.length > 1 ? t('nav.myVenues') : t('nav.myVenue');
 
   return (
     <>
@@ -275,14 +278,14 @@ export default function Navbar() {
               {notifOpen && (
                 <div className="notif-dropdown">
                   <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-dark)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong style={{ fontSize: '14px' }}>Notifiche</strong>
+                    <strong style={{ fontSize: '14px' }}>{t('nav.notifications')}</strong>
                     <Link href="/notifications" onClick={() => setNotifOpen(false)} style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 600 }}>
-                      Vedi tutte
+                      {t('nav.seeAll')}
                     </Link>
                   </div>
                   {notifs.length === 0 ? (
                     <div style={{ padding: '30px 16px', textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>
-                      Nessuna notifica per ora 🍺
+                      {t('nav.noNotifs')}
                     </div>
                   ) : (
                     notifs.slice(0, 8).map((n) => (
@@ -316,11 +319,11 @@ export default function Navbar() {
               {user.is_premium ? (
                 <span className="badge-premium">
                   <Award size={12} />
-                  <span className="badge-premium-label">Premium</span>
+                  <span className="badge-premium-label">{t('nav.premiumBadge')}</span>
                 </span>
               ) : (
                 <Link href="/premium" className="btn btn-premium btn-sm" style={{ padding: '6px 14px', fontSize: '12px' }}>
-                  Passa a Premium
+                  {t('nav.goPremium')}
                 </Link>
               )}
 
@@ -337,10 +340,10 @@ export default function Navbar() {
             <>
               <Link href="/auth" className="nav-link" style={{ fontWeight: 600 }}>
                 <LogIn size={16} />
-                Accedi
+                {t('nav.login')}
               </Link>
               <Link href="/auth" className="btn btn-primary" style={{ padding: '8px 18px', fontSize: '14px', borderRadius: '20px' }}>
-                Registrati
+                {t('nav.signup')}
               </Link>
             </>
           )}
@@ -365,19 +368,19 @@ export default function Navbar() {
           }}
         >
           <Beer size={20} />
-          Feed
+          {t('nav.feed')}
         </Link>
         <Link href="/places" className={isActive('/places') ? 'active' : ''}>
           <Trophy size={20} />
-          Classifiche
+          {t('nav.leaderboards')}
         </Link>
-        <Link href="/log" aria-label="Registra" className={`mn-register ${isActive('/log') ? 'active' : ''} ${myLive ? 'live' : ''}`}>
+        <Link href="/log" aria-label={t('nav.register')} className={`mn-register ${isActive('/log') ? 'active' : ''} ${myLive ? 'live' : ''}`}>
           <span className="mn-register-fab"><Plus size={26} strokeWidth={2.6} /></span>
-          <span className="mn-register-label">Registra</span>
+          <span className="mn-register-label">{t('nav.register')}</span>
         </Link>
         <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
           <Map size={20} />
-          Percorsi
+          {t('nav.routes')}
         </Link>
         <button
           type="button"
@@ -385,7 +388,7 @@ export default function Navbar() {
           className={['/events', '/live', '/premium', '/profile', '/groups'].some((p) => pathname.startsWith(p)) ? 'active' : ''}
         >
           <Menu size={20} />
-          Altro
+          {t('nav.more')}
         </button>
       </nav>
 
@@ -395,27 +398,30 @@ export default function Navbar() {
           <div className="more-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="more-sheet-handle" />
             <div className="more-sheet-head">
-              <strong>Menu</strong>
+              <strong>{t('nav.menu')}</strong>
               <button type="button" onClick={() => setMoreOpen(false)} aria-label="Chiudi"><X size={20} /></button>
             </div>
             <div className="more-sheet-grid">
-              <Link href="/profile" className={isActive('/profile') ? 'active' : ''}><User size={22} /><span>Profilo</span></Link>
-              <Link href="/groups" className={isActive('/groups') ? 'active' : ''}><Users size={22} /><span>Leghe</span></Link>
-              <Link href="/live" className={isActive('/live') ? 'active' : ''}><Radar size={22} /><span>Radar</span></Link>
-              <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>Eventi</span></Link>
-              <Link href="/install" className={isActive('/install') ? 'active' : ''}><Share2 size={22} /><span>Invita</span></Link>
+              <Link href="/profile" className={isActive('/profile') ? 'active' : ''}><User size={22} /><span>{t('nav.profile')}</span></Link>
+              <Link href="/groups" className={isActive('/groups') ? 'active' : ''}><Users size={22} /><span>{t('nav.leagues')}</span></Link>
+              <Link href="/live" className={isActive('/live') ? 'active' : ''}><Radar size={22} /><span>{t('nav.radar')}</span></Link>
+              <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>{t('nav.events')}</span></Link>
+              <Link href="/install" className={isActive('/install') ? 'active' : ''}><Share2 size={22} /><span>{t('nav.invite')}</span></Link>
               {!user.is_premium && (
-                <Link href="/premium" className={isActive('/premium') ? 'active' : ''}><Award size={22} /><span>Premium</span></Link>
+                <Link href="/premium" className={isActive('/premium') ? 'active' : ''}><Award size={22} /><span>{t('nav.premiumBadge')}</span></Link>
               )}
               {user.is_admin && (
-                <Link href="/admin" className={isActive('/admin') ? 'active' : ''}><ShieldCheck size={22} /><span>Admin</span></Link>
+                <Link href="/admin" className={isActive('/admin') ? 'active' : ''}><ShieldCheck size={22} /><span>{t('nav.admin')}</span></Link>
               )}
-              <button type="button" onClick={() => { setMoreOpen(false); window.dispatchEvent(new Event('strabar:open-guide')); }}><HelpCircle size={22} /><span>Come funziona</span></button>
-              <a href={`mailto:${BUG_EMAIL}?subject=${encodeURIComponent('Strabar — Segnalazione bug')}&body=${encodeURIComponent('Descrivi il problema (cosa facevi, cosa è successo):\n\n\n— Dispositivo/browser:\n')}`}><Bug size={22} /><span>Segnala bug</span></a>
+              <button type="button" onClick={() => { setMoreOpen(false); window.dispatchEvent(new Event('strabar:open-guide')); }}><HelpCircle size={22} /><span>{t('nav.howItWorks')}</span></button>
+              <a href={`mailto:${BUG_EMAIL}?subject=${encodeURIComponent('Strabar — Segnalazione bug')}&body=${encodeURIComponent('Descrivi il problema (cosa facevi, cosa è successo):\n\n\n— Dispositivo/browser:\n')}`}><Bug size={22} /><span>{t('nav.reportBug')}</span></a>
               {myVenues.length > 0
                 ? <Link href={venueHref} className={isActive('/locale') ? 'active' : ''}><Store size={22} /><span>{venueLabel}</span></Link>
-                : <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>Sei un locale?</span></Link>}
-              <button type="button" onClick={handleLogout}><LogOut size={22} /><span>Esci</span></button>
+                : <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>{t('nav.areYouVenue')}</span></Link>}
+              <button type="button" onClick={handleLogout}><LogOut size={22} /><span>{t('nav.logout')}</span></button>
+            </div>
+            <div style={{ padding: '14px 16px 4px' }}>
+              <LanguageSwitcher />
             </div>
           </div>
         </div>

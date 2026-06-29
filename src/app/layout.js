@@ -15,6 +15,7 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
   display: "swap",
 });
+import { I18nProvider } from "@/lib/i18n";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 import LegacyMigrationBanner from "@/components/LegacyMigrationBanner";
@@ -82,21 +83,23 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        <ServiceWorkerRegister />
-        <AgeGate />
-        <OnboardingGate />
-        <WelcomeGuide />
-        <PwaInstallBanner />
-        <LegacyMigrationBanner />
-        <PushReminderGate />
-        <div className="app-container">
-          <Navbar />
-          <main className="main-content">
-            {children}
-          </main>
-          <Footer />
-        </div>
-        <Analytics />
+        <I18nProvider>
+          <ServiceWorkerRegister />
+          <AgeGate />
+          <OnboardingGate />
+          <WelcomeGuide />
+          <PwaInstallBanner />
+          <LegacyMigrationBanner />
+          <PushReminderGate />
+          <div className="app-container">
+            <Navbar />
+            <main className="main-content">
+              {children}
+            </main>
+            <Footer />
+          </div>
+          <Analytics />
+        </I18nProvider>
       </body>
     </html>
   );
