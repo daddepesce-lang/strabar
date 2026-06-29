@@ -3304,9 +3304,9 @@ export default function FeedPage() {
       <div className="home-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {/* Invita amici */}
         <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', textAlign: 'center' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '6px' }}>📲 Invita i tuoi amici</h3>
+          <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '6px' }}>{t('feed.inviteTitle')}</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.4 }}>
-            Strabar è più divertente in compagnia: condividi l&apos;app e sfidatevi in classifica!
+            {t('feed.inviteDesc')}
           </p>
           <ShareAppButton style={{ width: '100%', borderRadius: '24px', padding: '12px' }} label={t('feed.shareApp')} />
         </div>
@@ -3316,27 +3316,27 @@ export default function FeedPage() {
           <div className="card">
             <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <User size={18} color="var(--primary)" />
-              Attività Recente
+              {t('feed.recentActivity')}
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Sessioni (7gg)</span>
+                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('feed.sessions7d')}</span>
                 <strong style={{ fontSize: '16px' }}>{weeklyStreak}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Drink Totali</span>
+                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('feed.totalDrinks')}</span>
                 <strong style={{ fontSize: '16px' }}>{totalDrinksCount}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Stato Premium</span>
+                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('feed.premiumStatus')}</span>
                 <strong>
                   {currentUser.is_premium ? (
                     <span style={{ color: 'var(--secondary)', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Award size={14} /> Attivo
+                      <Award size={14} /> {t('feed.premiumActive')}
                     </span>
                   ) : (
                     <Link href="/premium" style={{ color: 'var(--primary)', fontWeight: '600', fontSize: '14px' }}>
-                      Attiva
+                      {t('feed.premiumActivate')}
                     </Link>
                   )}
                 </strong>
@@ -3344,7 +3344,7 @@ export default function FeedPage() {
             </div>
             <div style={{ marginTop: '20px' }}>
               <Link href="/profile" className="btn btn-secondary" style={{ width: '100%', borderRadius: '20px', padding: '8px 0', fontSize: '13px' }}>
-                <Calendar size={14} /> Vedi Calendario
+                <Calendar size={14} /> {t('feed.seeCalendar')}
               </Link>
             </div>
           </div>
@@ -3354,10 +3354,10 @@ export default function FeedPage() {
         <div className="card">
           <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Trophy size={18} color="var(--secondary)" />
-            Leaderboard Club 🏆
+            {t('feed.leaderboardClub')}
           </h3>
           <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-            Classifica per Unità Alcoliche (U.A.) dei check-in geolocalizzati — come nella sezione Classifiche.
+            {t('feed.leaderboardDesc')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {leaderboardData.map((item, idx) => (
@@ -3376,7 +3376,7 @@ export default function FeedPage() {
                   </span>
                 </div>
                 <strong style={{ fontSize: '14px', color: idx === 0 ? 'var(--secondary)' : 'inherit' }}>
-                  {item.units} U.A.
+                  {t('feed.leaderUnits', { n: item.units })}
                 </strong>
               </div>
             ))}
@@ -3387,16 +3387,16 @@ export default function FeedPage() {
         <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 1) 0%, rgba(255, 32, 0, 0.05) 100%)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
             <Trophy size={18} color="var(--secondary)" />
-            Sfide & Premi Atleta 🏆
+            {t('feed.challengesTitle')}
           </h3>
 
           {!currentUser ? (
             <div style={{ textAlign: 'center', padding: '10px 0' }}>
               <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
-                Accedi per tracciare le tue sfide e sbloccare badge esclusivi sul tuo profilo.
+                {t('feed.challengesLoginDesc')}
               </p>
               <Link href="/auth" className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px' }}>
-                Accedi a Strabar
+                {t('feed.challengesLogin')}
               </Link>
             </div>
           ) : (
@@ -3405,62 +3405,62 @@ export default function FeedPage() {
               {/* Sfida 1: Giro d'Italia (Tour Alcolici) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🇮🇹 Giro d&apos;Italia</strong>
-                  <span style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: '700' }}>{toursCompleted}/3 Tour</span>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch1Title')}</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: '700' }}>{t('feed.ch1Count', { n: toursCompleted })}</span>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Completa 3 tour alcolici questo mese</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch1Desc')}</div>
                 <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ width: `${Math.min((toursCompleted / 3) * 100, 100)}%`, height: '100%', background: 'var(--secondary)', borderRadius: '3px' }} />
                 </div>
                 <div style={{ fontSize: '10px', color: toursCompleted >= 3 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> Premio: {toursCompleted >= 3 ? '🏆 Gomito di Bronzo (SBLOCCATO)' : '🏆 Gomito di Bronzo'}
+                  <Award size={10} /> {t('feed.rewardLabel')}{toursCompleted >= 3 ? `${t('feed.ch1Reward')}${t('feed.unlocked')}` : t('feed.ch1Reward')}
                 </div>
               </div>
 
               {/* Sfida 2: Resistenza Settimanale */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🏋️ Resistenza Settimanale</strong>
-                  <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '700' }}>{weeklyUnits.toFixed(1)}/10 U.A.</span>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch2Title')}</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '700' }}>{t('feed.ch2Count', { n: weeklyUnits.toFixed(1) })}</span>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Consuma 10 U.A. negli ultimi 7 giorni</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch2Desc')}</div>
                 <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ width: `${Math.min((weeklyUnits / 10) * 100, 100)}%`, height: '100%', background: 'var(--primary)', borderRadius: '3px' }} />
                 </div>
                 <div style={{ fontSize: '10px', color: weeklyUnits >= 10 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> Premio: {weeklyUnits >= 10 ? '🏋️ Gomito d&apos;Acciaio (SBLOCCATO)' : '🏋️ Gomito d&apos;Acciaio'}
+                  <Award size={10} /> {t('feed.rewardLabel')}{weeklyUnits >= 10 ? `${t('feed.ch2Reward')}${t('feed.unlocked')}` : t('feed.ch2Reward')}
                 </div>
               </div>
 
               {/* Sfida 3: Esploratore di Bar */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🗺️ Esploratore di Locali</strong>
-                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '700' }}>{uniqueBarsVisited}/5 Bar</span>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch3Title')}</strong>
+                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '700' }}>{t('feed.ch3Count', { n: uniqueBarsVisited })}</span>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Fai check-in in 5 diversi locali</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch3Desc')}</div>
                 <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ width: `${Math.min((uniqueBarsVisited / 5) * 100, 100)}%`, height: '100%', background: '#10B981', borderRadius: '3px' }} />
                 </div>
                 <div style={{ fontSize: '10px', color: uniqueBarsVisited >= 5 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> Premio: {uniqueBarsVisited >= 5 ? '🗺️ Bussola del Bevitore (SBLOCCATO)' : '🗺️ Bussola del Bevitore'}
+                  <Award size={10} /> {t('feed.rewardLabel')}{uniqueBarsVisited >= 5 ? `${t('feed.ch3Reward')}${t('feed.unlocked')}` : t('feed.ch3Reward')}
                 </div>
               </div>
 
               {/* Sfida 4: Bere Responsabile (Limite Giornaliero) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>🛡️ Bere Responsabile</strong>
+                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch4Title')}</strong>
                   <span style={{ fontSize: '11px', color: todayUnits > 4 ? 'var(--error)' : 'var(--success)', fontWeight: '700' }}>
-                    {todayUnits.toFixed(1)}/4.0 U.A.
+                    {t('feed.ch4Count', { n: todayUnits.toFixed(1) })}
                   </span>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Rimani sotto le 4.0 U.A. oggi</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch4Desc')}</div>
                 <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ width: `${Math.min((todayUnits / 4) * 100, 100)}%`, height: '100%', background: todayUnits > 4 ? 'var(--error)' : 'var(--success)', borderRadius: '3px' }} />
                 </div>
                 <div style={{ fontSize: '10px', color: (todayUnits > 0 && todayUnits <= 4) ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> Premio: {(todayUnits > 0 && todayUnits <= 4) ? '🛡️ Scudo del Moderatore (ATTIVO)' : todayUnits > 4 ? '❌ Superato limite oggi' : '🛡️ Scudo del Moderatore'}
+                  <Award size={10} /> {t('feed.rewardLabel')}{(todayUnits > 0 && todayUnits <= 4) ? t('feed.ch4Active') : todayUnits > 4 ? t('feed.ch4Exceeded') : t('feed.ch4Reward')}
                 </div>
               </div>
 
@@ -3468,7 +3468,7 @@ export default function FeedPage() {
           )}
           
           <Link href="/routes" className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '8px 0', fontSize: '13px', textAlign: 'center' }}>
-            Trova Percorsi & Tour
+            {t('feed.findRoutes')}
           </Link>
         </div>
       </div>
