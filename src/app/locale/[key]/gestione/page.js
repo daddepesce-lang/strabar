@@ -5,16 +5,30 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck, ShoppingCart, ImagePlus, Pencil, Trash2, BarChart3, Eye, MousePointerClick, CalendarClock, X } from 'lucide-react';
 import { OPTION_SCHEMA, defaultOptions, computePrice, euro } from '@/lib/venuePricing';
+import { useT } from '@/lib/i18n';
 
-const SERVICE_NAME = { sponsored_event: 'Evento sponsorizzato', promo: 'Promo nel feed', notify: 'Notifica clienti' };
 const SERVICE_ICON = { sponsored_event: Star, promo: Megaphone, notify: Bell };
-const ORDER_LABEL = { pending: '⏳ In attesa di pagamento', paid: '✅ Pagato', active: '🟢 Attivo', canceled: '✖️ Annullato', rejected: '✖️ Rifiutato', ended: '⏹️ Terminato (no rimborso)' };
 
 // Area riservata del LOCALE (gestore), divisa in SEZIONI con menu:
 //  Classifiche · Servizi · Carrello · Banner · Ordini.
 export default function VenueManagePage({ params }) {
   const { key } = use(params);
   const placeKey = decodeURIComponent(key || '');
+  const t = useT();
+
+  const svcName = {
+    sponsored_event: t('gestione.svcEvent'),
+    promo: t('gestione.svcPromo'),
+    notify: t('gestione.svcNotify'),
+  };
+  const orderLabel = {
+    pending: t('gestione.orderPending'),
+    paid: t('gestione.orderPaid'),
+    active: t('gestione.orderActive'),
+    canceled: t('gestione.orderCanceled'),
+    rejected: t('gestione.orderRejected'),
+    ended: t('gestione.orderEnded'),
+  };
 
   const [user, setUser] = useState(undefined); // undefined = loading
   const [claim, setClaim] = useState(null);
@@ -217,58 +231,56 @@ export default function VenueManagePage({ params }) {
   }
 
   const TABS = [
-    { id: 'classifiche', label: 'Classifiche', icon: Trophy },
-    { id: 'servizi', label: 'Servizi', icon: Star },
-    { id: 'carrello', label: `Carrello${cart.length ? ` (${cart.length})` : ''}`, icon: ShoppingCart },
-    { id: 'banner', label: 'Banner', icon: Megaphone },
-    { id: 'ordini', label: 'Ordini', icon: Clock },
+    { id: 'classifiche', label: t('gestione.tabLeaderboard'), icon: Trophy },
+    { id: 'servizi', label: t('gestione.tabServices'), icon: Star },
+    { id: 'carrello', label: `${t('gestione.tabCart')}${cart.length ? ` (${cart.length})` : ''}`, icon: ShoppingCart },
+    { id: 'banner', label: t('gestione.tabBanners'), icon: Megaphone },
+    { id: 'ordini', label: t('gestione.tabOrders'), icon: Clock },
   ];
 
   return (
     <div style={{ maxWidth: '620px', margin: '0 auto', padding: '0 4px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <Link href={`/locale/${encodeURIComponent(placeKey)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-dark-secondary)', fontSize: '13px', marginTop: '8px' }}>
-        <ArrowLeft size={16} /> Pagina pubblica
+        <ArrowLeft size={16} /> {t('gestione.backPublic')}
       </Link>
 
       <div>
-        <div style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px' }}>Area locale</div>
+        <div style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px' }}>{t('gestione.areaLabel')}</div>
         <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#FFF' }}>{venueName}</h1>
       </div>
 
       {/* Richiesta (non gestore) */}
       {!isManager && claim?.status !== 'pending' && (
         <div className="card" style={{ padding: '20px' }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={18} color="var(--secondary)" /> Gestisci questo locale</h2>
+          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={18} color="var(--secondary)" /> {t('gestione.claimTitle')}</h2>
           <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.45 }}>
-            Sei il titolare o il gestore di <strong>{venueName}</strong>? Invia una richiesta: dopo l&apos;approvazione potrai creare eventi sponsorizzati, promo e notifiche ai clienti.
+            {t('gestione.claimDesc', { name: venueName })}
           </p>
-          {claim?.status === 'rejected' && <p style={{ fontSize: '12px', color: 'var(--error)', marginBottom: '10px' }}>La richiesta precedente è stata rifiutata{claim.admin_note ? `: ${claim.admin_note}` : '.'}</p>}
+          {claim?.status === 'rejected' && <p style={{ fontSize: '12px', color: 'var(--error)', marginBottom: '10px' }}>{t('gestione.claimRejected')}{claim.admin_note ? `: ${claim.admin_note}` : '.'}</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-            <input value={form.contact_name} onChange={(e) => setF({ contact_name: e.target.value })} placeholder="Nome e cognome del referente *" className="form-control" style={{ fontSize: '13px' }} />
-            <select value={form.role} onChange={(e) => setF({ role: e.target.value })} className="form-control" style={{ fontSize: '13px', height: '38px' }}>
-              <option value="titolare">Titolare</option>
-              <option value="gestore">Gestore</option>
-              <option value="staff">Staff / collaboratore</option>
+            <input value={form.contact_name} onChange={(e) => setF({ contact_name: e.target.value })} placeholder={t(‘gestione.claimContactPh’)} className="form-control" style={{ fontSize: ‘13px’ }} />
+            <select value={form.role} onChange={(e) => setF({ role: e.target.value })} className="form-control" style={{ fontSize: ‘13px’, height: ‘38px’ }}>
+              <option value="titolare">{t(‘gestione.claimRoleOwner’)}</option>
+              <option value="gestore">{t(‘gestione.claimRoleManager’)}</option>
+              <option value="staff">{t(‘gestione.claimRoleStaff’)}</option>
             </select>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input value={form.phone} onChange={(e) => setF({ phone: e.target.value })} placeholder="Telefono *" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
-              <input value={form.email} onChange={(e) => setF({ email: e.target.value })} placeholder="Email *" type="email" disabled={!!user} title={user ? 'Sei loggato: la richiesta userà l’email del tuo account' : undefined} className="form-control" style={{ fontSize: '13px', flex: 1, opacity: user ? 0.6 : 1 }} />
+            <div style={{ display: ‘flex’, gap: ‘8px’ }}>
+              <input value={form.phone} onChange={(e) => setF({ phone: e.target.value })} placeholder={t(‘gestione.claimPhonePh’)} className="form-control" style={{ fontSize: ‘13px’, flex: 1 }} />
+              <input value={form.email} onChange={(e) => setF({ email: e.target.value })} placeholder={t(‘gestione.claimEmailPh’)} type="email" disabled={!!user} className="form-control" style={{ fontSize: ‘13px’, flex: 1, opacity: user ? 0.6 : 1 }} />
             </div>
-            <input value={form.business_name} onChange={(e) => setF({ business_name: e.target.value })} placeholder="Ragione sociale / nome attività" className="form-control" style={{ fontSize: '13px' }} />
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input value={form.vat} onChange={(e) => setF({ vat: e.target.value })} placeholder="P. IVA" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
-              <input value={form.website} onChange={(e) => setF({ website: e.target.value })} placeholder="Sito / social" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
+            <input value={form.business_name} onChange={(e) => setF({ business_name: e.target.value })} placeholder={t(‘gestione.claimBusinessPh’)} className="form-control" style={{ fontSize: ‘13px’ }} />
+            <div style={{ display: ‘flex’, gap: ‘8px’ }}>
+              <input value={form.vat} onChange={(e) => setF({ vat: e.target.value })} placeholder={t(‘gestione.claimVatPh’)} className="form-control" style={{ fontSize: ‘13px’, flex: 1 }} />
+              <input value={form.website} onChange={(e) => setF({ website: e.target.value })} placeholder={t(‘gestione.claimWebsitePh’)} className="form-control" style={{ fontSize: ‘13px’, flex: 1 }} />
             </div>
-            <input value={form.address} onChange={(e) => setF({ address: e.target.value })} placeholder="Indirizzo del locale" className="form-control" style={{ fontSize: '13px' }} />
-            <textarea value={form.note} onChange={(e) => setF({ note: e.target.value })} placeholder="Note (facoltativo)" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
+            <input value={form.address} onChange={(e) => setF({ address: e.target.value })} placeholder={t(‘gestione.claimAddressPh’)} className="form-control" style={{ fontSize: ‘13px’ }} />
+            <textarea value={form.note} onChange={(e) => setF({ note: e.target.value })} placeholder={t(‘gestione.claimNotePh’)} rows={2} className="form-control" style={{ fontSize: ‘13px’, resize: ‘none’ }} />
           </div>
-          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>
-            {user
-              ? 'Sei loggato: il locale verrà collegato a QUESTO account (email bloccata). Vuoi usarne un altro? Esci e invia la richiesta da non loggato con l’email desiderata.'
-              : '* obbligatori: referente e contatto. Userai questa email per registrarti: collegheremo l’account a quel locale.'}
+          <p style={{ fontSize: ‘11px’, color: ‘var(--text-dark-secondary)’, marginBottom: ‘10px’ }}>
+            {user ? t(‘gestione.claimNoteLogged’) : t(‘gestione.claimNoteAnon’)}
           </p>
-          <button onClick={submitClaim} disabled={submitting} className="btn btn-primary" style={{ width: '100%', borderRadius: '24px', padding: '12px', fontWeight: 700 }}>
-            {submitting ? 'Invio…' : 'Invia richiesta'}
+          <button onClick={submitClaim} disabled={submitting} className="btn btn-primary" style={{ width: ‘100%’, borderRadius: ‘24px’, padding: ‘12px’, fontWeight: 700 }}>
+            {submitting ? t(‘gestione.claimSubmitting’) : t(‘gestione.claimSend’)}
           </button>
         </div>
       )}
@@ -276,8 +288,8 @@ export default function VenueManagePage({ params }) {
       {claim?.status === 'pending' && (
         <div className="card" style={{ padding: '20px', textAlign: 'center', border: '1px solid var(--secondary)' }}>
           <Clock size={28} color="var(--secondary)" style={{ marginBottom: '8px' }} />
-          <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', marginBottom: '6px' }}>Richiesta inviata 🎉</h2>
-          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>La valutiamo al più presto. Appena approvata, riceverai un&apos;email per attivare l&apos;account del locale.</p>
+          <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', marginBottom: '6px' }}>{t('gestione.claimPendingTitle')}</h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{t('gestione.claimPendingDesc')}</p>
         </div>
       )}
 
@@ -299,28 +311,28 @@ export default function VenueManagePage({ params }) {
           {/* SEZIONE: CLASSIFICHE */}
           {tab === 'classifiche' && (
             <div className="card" style={{ padding: '16px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><Trophy size={18} color="var(--secondary)" /> Il tuo locale</h2>
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><Trophy size={18} color="var(--secondary)" /> {t('gestione.classTitle')}</h2>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '22px', fontWeight: 900, color: 'var(--secondary)' }}>{stats?.sessionsCount ?? 0}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>brindisi</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('gestione.classToasts')}</div>
                 </div>
                 <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '22px', fontWeight: 900, color: 'var(--secondary)' }}>{stats?.board?.length ?? 0}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>clienti in classifica</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('gestione.classCustomers')}</div>
                 </div>
               </div>
-              <Link href={`/locale/${encodeURIComponent(placeKey)}`} className="btn btn-secondary" style={{ width: '100%', marginTop: '12px', borderRadius: '16px', fontSize: '13px', padding: '9px' }}>Vedi la classifica pubblica & QR</Link>
+              <Link href={`/locale/${encodeURIComponent(placeKey)}`} className="btn btn-secondary" style={{ width: '100%', marginTop: '12px', borderRadius: '16px', fontSize: '13px', padding: '9px' }}>{t('gestione.classViewPublic')}</Link>
             </div>
           )}
 
           {/* SEZIONE: SERVIZI */}
           {tab === 'servizi' && (
             <div className="card" style={{ padding: '16px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>Servizi per il tuo locale</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>Aggiungi al carrello e paga tutto in una volta.</p>
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>{t('gestione.svcTitle')}</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>{t('gestione.svcSubtitle')}</p>
               {services.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '12px' }}>Nessun servizio disponibile al momento.</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '12px' }}>{t('gestione.svcEmpty')}</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {services.map((s) => {
@@ -360,18 +372,18 @@ export default function VenueManagePage({ params }) {
 
                         {s.code === 'sponsored_event' && (
                           <select value={eventChoice[s.id] || ''} onChange={(e) => setEventChoice((p) => ({ ...p, [s.id]: e.target.value }))} className="form-control" style={{ fontSize: '13px', height: '38px', marginBottom: '10px' }}>
-                            <option value="">— Scegli il tuo evento —</option>
+                            <option value="">{t('gestione.svcChooseEvent')}</option>
                             {myEvents.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
                           </select>
                         )}
                         {s.code === 'sponsored_event' && myEvents.length === 0 && (
-                          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>Non hai eventi futuri: <Link href="/events" style={{ color: 'var(--secondary)' }}>creane uno</Link> e torna qui.</p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>{t('gestione.svcNoEvents')}<Link href="/events" style={{ color: 'var(--secondary)' }}>{t('gestione.svcCreateEvent')}</Link>{t('gestione.svcCreateEventSuffix')}</p>
                         )}
                         {s.code === 'promo' && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
-                            <input value={inp.title || ''} onChange={(e) => setInput(s.id, { title: e.target.value })} placeholder="Titolo promo (es. Aperitivo 2x1)" className="form-control" style={{ fontSize: '13px' }} />
-                            <textarea value={inp.body || ''} onChange={(e) => setInput(s.id, { body: e.target.value })} placeholder="Descrizione (facoltativa)" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
-                            <input value={inp.link || ''} onChange={(e) => setInput(s.id, { link: e.target.value })} placeholder="Link (facoltativo)" className="form-control" style={{ fontSize: '13px' }} />
+                            <input value={inp.title || ''} onChange={(e) => setInput(s.id, { title: e.target.value })} placeholder={t('gestione.svcPromoPh1')} className="form-control" style={{ fontSize: '13px' }} />
+                            <textarea value={inp.body || ''} onChange={(e) => setInput(s.id, { body: e.target.value })} placeholder={t('gestione.svcPromoDesc')} rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
+                            <input value={inp.link || ''} onChange={(e) => setInput(s.id, { link: e.target.value })} placeholder={t('gestione.svcPromoLink')} className="form-control" style={{ fontSize: '13px' }} />
                             {/* Immagine del banner */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               {inp.image ? (
@@ -380,21 +392,21 @@ export default function VenueManagePage({ params }) {
                               ) : null}
                               <label className="btn btn-secondary" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                 {uploadingFor === s.id ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <ImagePlus size={13} />}
-                                {inp.image ? 'Cambia immagine' : 'Aggiungi immagine'}
+                                {inp.image ? t('gestione.svcPromoImgChange') : t('gestione.svcPromoImgAdd')}
                                 <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) uploadPromoImage(s.id, f); }} />
                               </label>
-                              {inp.image && <button type="button" onClick={() => setInput(s.id, { image: '' })} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '12px', cursor: 'pointer' }}>Rimuovi</button>}
+                              {inp.image && <button type="button" onClick={() => setInput(s.id, { image: '' })} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '12px', cursor: 'pointer' }}>{t('gestione.svcPromoImgRemove')}</button>}
                             </div>
                           </div>
                         )}
                         {s.code === 'notify' && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
-                            <textarea value={inp.message || ''} onChange={(e) => setInput(s.id, { message: e.target.value })} placeholder="Messaggio ai clienti (es. Stasera live music dalle 21!)" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
-                            <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Inviata solo a chi rientra nella fascia scelta e ha accettato le comunicazioni commerciali.</p>
+                            <textarea value={inp.message || ''} onChange={(e) => setInput(s.id, { message: e.target.value })} placeholder={t('gestione.svcNotifyPh')} rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
+                            <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('gestione.svcNotifyHint')}</p>
                           </div>
                         )}
                         <button onClick={() => addToCart(s)} className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '10px', fontWeight: 700, fontSize: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                          <ShoppingCart size={15} /> Aggiungi al carrello — {euro(price)}
+                          <ShoppingCart size={15} /> {t('gestione.svcAddCart', { price: euro(price) })}
                         </button>
                       </div>
                     );
@@ -407,9 +419,9 @@ export default function VenueManagePage({ params }) {
           {/* SEZIONE: CARRELLO */}
           {tab === 'carrello' && (
             <div className="card" style={{ padding: '16px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShoppingCart size={18} color="var(--secondary)" /> Carrello</h2>
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShoppingCart size={18} color="var(--secondary)" /> {t('gestione.cartTitle')}</h2>
               {cart.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '16px' }}>Il carrello è vuoto. Aggiungi un servizio dalla sezione <button onClick={() => setTab('servizi')} style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 700 }}>Servizi</button>.</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '16px' }}>{t('gestione.cartEmpty')}<button onClick={() => setTab('servizi')} style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 700 }}>{t('gestione.cartServicesLink')}</button>.</p>
               ) : (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
@@ -420,16 +432,16 @@ export default function VenueManagePage({ params }) {
                           <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</div>
                         </div>
                         <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--secondary)', flexShrink: 0 }}>{euro(it.price)}</span>
-                        <button type="button" onClick={() => removeFromCart(it.uid)} title="Rimuovi" style={{ background: 'rgba(239,68,68,0.12)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Trash2 size={14} /></button>
+                        <button type="button" onClick={() => removeFromCart(it.uid)} title={t('gestione.bannerDelete')} style={{ background: 'rgba(239,68,68,0.12)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Trash2 size={14} /></button>
                       </div>
                     ))}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-dark)' }}>
-                    <span style={{ fontSize: '14px', color: '#FFF', fontWeight: 700 }}>Totale</span>
+                    <span style={{ fontSize: '14px', color: '#FFF', fontWeight: 700 }}>{t('gestione.cartTotal')}</span>
                     <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--secondary)' }}>{euro(cartTotal)}</span>
                   </div>
                   <button onClick={checkoutCart} disabled={paying} className="btn btn-primary" style={{ width: '100%', borderRadius: '24px', padding: '12px', fontWeight: 800, fontSize: '15px' }}>
-                    {paying ? 'Apro il pagamento…' : `Vai al pagamento — ${euro(cartTotal)}`}
+                    {paying ? t('gestione.cartPaying') : t('gestione.cartCheckout', { price: euro(cartTotal) })}
                   </button>
                 </>
               )}
@@ -439,10 +451,10 @@ export default function VenueManagePage({ params }) {
           {/* SEZIONE: BANNER (gestione + analytics + proroga) */}
           {tab === 'banner' && (
             <div className="card" style={{ padding: '16px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Megaphone size={18} color="var(--secondary)" /> I tuoi banner</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>Modifica, proroga, elimina e controlla le statistiche dei banner che hai acquistato.</p>
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Megaphone size={18} color="var(--secondary)" /> {t('gestione.bannerTitle')}</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>{t('gestione.bannerSubtitle')}</p>
               {banners.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '12px' }}>Nessun banner. Acquista una <button onClick={() => setTab('servizi')} style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 700 }}>Promo nel feed</button>.</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '12px' }}>{t('gestione.bannerEmpty')}<button onClick={() => setTab('servizi')} style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', fontWeight: 700 }}>{t('gestione.bannerFeedLink')}</button>.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {banners.map((b) => {
@@ -459,8 +471,8 @@ export default function VenueManagePage({ params }) {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFF' }}>{b.title}</div>
                             <div style={{ fontSize: '11px', color: live ? 'var(--success)' : 'var(--text-dark-secondary)' }}>
-                              {live ? '🟢 Attivo' : expired ? '⏱️ Scaduto' : '⏸️ Non attivo'}
-                              {b.ends_at && ` · fino al ${new Date(b.ends_at).toLocaleDateString('it-IT')}`}
+                              {live ? t('gestione.bannerActive') : expired ? t('gestione.bannerExpired') : t('gestione.bannerInactive')}
+                              {b.ends_at && ` ${t('gestione.bannerUntil', { date: new Date(b.ends_at).toLocaleDateString('it-IT') })}`}
                             </div>
                           </div>
                         </div>
@@ -469,11 +481,11 @@ export default function VenueManagePage({ params }) {
                         <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                           <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '8px', textAlign: 'center' }}>
                             <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Eye size={13} /> {b.impressions || 0}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>visualizzazioni</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('gestione.bannerViews')}</div>
                           </div>
                           <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '8px', textAlign: 'center' }}>
                             <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><MousePointerClick size={13} /> {b.clicks || 0}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>click</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('gestione.bannerClicks')}</div>
                           </div>
                           <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '8px', textAlign: 'center' }}>
                             <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--secondary)' }}>{ctr}%</div>
@@ -483,13 +495,13 @@ export default function VenueManagePage({ params }) {
 
                         {/* Azioni */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
-                          <button onClick={() => openEditBanner(b)} className="btn btn-secondary" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Pencil size={13} /> Modifica</button>
-                          <button onClick={() => deleteBanner(b)} className="btn" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', border: '1px solid var(--error)', color: 'var(--error)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Trash2 size={13} /> Elimina</button>
+                          <button onClick={() => openEditBanner(b)} className="btn btn-secondary" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Pencil size={13} /> {t('gestione.bannerEdit')}</button>
+                          <button onClick={() => deleteBanner(b)} className="btn" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', border: '1px solid var(--error)', color: 'var(--error)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><Trash2 size={13} /> {t('gestione.bannerDelete')}</button>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: 'auto' }}>
                             <select value={extendDays[b.id] || 7} onChange={(e) => setExtendDays((p) => ({ ...p, [b.id]: Number(e.target.value) }))} className="form-control" style={{ fontSize: '12px', height: '34px', width: 'auto', padding: '4px 28px 4px 10px' }}>
                               {[3, 7, 14, 30].map((d) => <option key={d} value={d}>{d}g</option>)}
                             </select>
-                            <button onClick={() => extendBanner(b)} className="btn btn-primary" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><CalendarClock size={13} /> Proroga</button>
+                            <button onClick={() => extendBanner(b)} className="btn btn-primary" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><CalendarClock size={13} /> {t('gestione.bannerExtend')}</button>
                           </div>
                         </div>
                       </div>
@@ -503,9 +515,9 @@ export default function VenueManagePage({ params }) {
           {/* SEZIONE: ORDINI */}
           {tab === 'ordini' && (
             <div className="card" style={{ padding: '16px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px' }}>I tuoi ordini</h2>
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px' }}>{t('gestione.ordersTitle')}</h2>
               {orders.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '12px' }}>Nessun ordine ancora.</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '12px' }}>{t('gestione.ordersEmpty')}</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {orders.map((o) => {
@@ -514,20 +526,20 @@ export default function VenueManagePage({ params }) {
                     return (
                       <div key={o.id} style={{ borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', overflow: 'hidden' }}>
                         <button type="button" onClick={() => setOpenOrder(expanded ? null : o.id)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '10px 12px', cursor: 'pointer', textAlign: 'left' }}>
-                          <span style={{ fontSize: '13px', color: '#FFF', minWidth: 0 }}>{SERVICE_NAME[o.service_code] || o.service_code}</span>
-                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', whiteSpace: 'nowrap' }}>{ORDER_LABEL[o.status] || o.status} · {euro(o.amount_cents)}</span>
+                          <span style={{ fontSize: '13px', color: '#FFF', minWidth: 0 }}>{svcName[o.service_code] || o.service_code}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', whiteSpace: 'nowrap' }}>{orderLabel[o.status] || o.status} · {euro(o.amount_cents)}</span>
                         </button>
                         {expanded && (
                           <div style={{ padding: '0 12px 12px', borderTop: '1px solid var(--border-dark)', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div style={{ marginTop: '8px' }}>Data: {new Date(o.created_at).toLocaleString('it-IT')}</div>
-                            {m.title && <div>Titolo: <span style={{ color: '#FFF' }}>{m.title}</span></div>}
-                            {m.message && <div>Messaggio: <span style={{ color: '#FFF' }}>{m.message}</span></div>}
-                            {m.body && <div>Testo: <span style={{ color: '#FFF' }}>{m.body}</span></div>}
-                            {m.link && <div>Link: <span style={{ color: '#FFF' }}>{m.link}</span></div>}
-                            {o.paid_at && <div>Pagato il: {new Date(o.paid_at).toLocaleString('it-IT')}</div>}
+                            <div style={{ marginTop: '8px' }}>{t('gestione.orderDate')} {new Date(o.created_at).toLocaleString('it-IT')}</div>
+                            {m.title && <div>{t('gestione.orderTitleLabel')} <span style={{ color: '#FFF' }}>{m.title}</span></div>}
+                            {m.message && <div>{t('gestione.orderMsg')} <span style={{ color: '#FFF' }}>{m.message}</span></div>}
+                            {m.body && <div>{t('gestione.orderBody')} <span style={{ color: '#FFF' }}>{m.body}</span></div>}
+                            {m.link && <div>{t('gestione.orderLink')} <span style={{ color: '#FFF' }}>{m.link}</span></div>}
+                            {o.paid_at && <div>{t('gestione.orderPaidOn')} {new Date(o.paid_at).toLocaleString('it-IT')}</div>}
                             {o.status === 'pending' && (
                               <button type="button" onClick={() => cancelOrder(o)} disabled={canceling === o.id} className="btn" style={{ marginTop: '6px', alignSelf: 'flex-start', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: '16px', padding: '6px 14px', fontSize: '12px', fontWeight: 700 }}>
-                                {canceling === o.id ? 'Annullo…' : 'Annulla ordine'}
+                                {canceling === o.id ? t('gestione.orderCanceling') : t('gestione.orderCancel')}
                               </button>
                             )}
                           </div>
@@ -547,25 +559,25 @@ export default function VenueManagePage({ params }) {
         <div onClick={() => setEditBanner(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '440px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: '16px', color: '#FFF' }}>Modifica banner</strong>
+              <strong style={{ fontSize: '16px', color: '#FFF' }}>{t('gestione.bannerEditTitle')}</strong>
               <button onClick={() => setEditBanner(null)} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
-            <input value={bnForm.title} onChange={(e) => setBnForm((p) => ({ ...p, title: e.target.value }))} placeholder="Titolo" className="form-control" style={{ fontSize: '13px' }} />
-            <textarea value={bnForm.body} onChange={(e) => setBnForm((p) => ({ ...p, body: e.target.value }))} placeholder="Descrizione" rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
-            <input value={bnForm.link_url} onChange={(e) => setBnForm((p) => ({ ...p, link_url: e.target.value }))} placeholder="Link" className="form-control" style={{ fontSize: '13px' }} />
-            <input value={bnForm.cta} onChange={(e) => setBnForm((p) => ({ ...p, cta: e.target.value }))} placeholder="Testo del bottone (es. Scopri)" className="form-control" style={{ fontSize: '13px' }} />
+            <input value={bnForm.title} onChange={(e) => setBnForm((p) => ({ ...p, title: e.target.value }))} placeholder={t('gestione.bannerTitlePh')} className="form-control" style={{ fontSize: '13px' }} />
+            <textarea value={bnForm.body} onChange={(e) => setBnForm((p) => ({ ...p, body: e.target.value }))} placeholder={t('gestione.bannerDescPh')} rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
+            <input value={bnForm.link_url} onChange={(e) => setBnForm((p) => ({ ...p, link_url: e.target.value }))} placeholder={t('gestione.bannerLinkPh')} className="form-control" style={{ fontSize: '13px' }} />
+            <input value={bnForm.cta} onChange={(e) => setBnForm((p) => ({ ...p, cta: e.target.value }))} placeholder={t('gestione.bannerCtaPh')} className="form-control" style={{ fontSize: '13px' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {bnForm.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={bnForm.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
               )}
               <label className="btn btn-secondary" style={{ fontSize: '12px', padding: '7px 12px', borderRadius: '14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <ImagePlus size={13} /> {bnForm.image_url ? 'Cambia immagine' : 'Aggiungi immagine'}
+                <ImagePlus size={13} /> {bnForm.image_url ? t('gestione.bannerImgChange') : t('gestione.bannerImgAdd')}
                 <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) uploadBannerImage(f); }} />
               </label>
-              {bnForm.image_url && <button type="button" onClick={() => setBnForm((p) => ({ ...p, image_url: '' }))} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '12px', cursor: 'pointer' }}>Rimuovi</button>}
+              {bnForm.image_url && <button type="button" onClick={() => setBnForm((p) => ({ ...p, image_url: '' }))} style={{ background: 'none', border: 'none', color: 'var(--error)', fontSize: '12px', cursor: 'pointer' }}>{t('gestione.bannerImgRemove')}</button>}
             </div>
-            <button onClick={saveBanner} disabled={savingBanner} className="btn btn-primary" style={{ borderRadius: '20px', padding: '11px', fontWeight: 700, marginTop: '4px' }}>{savingBanner ? 'Salvo…' : 'Salva modifiche'}</button>
+            <button onClick={saveBanner} disabled={savingBanner} className="btn btn-primary" style={{ borderRadius: '20px', padding: '11px', fontWeight: 700, marginTop: '4px' }}>{savingBanner ? t('gestione.bannerSaving') : t('gestione.bannerSave')}</button>
           </div>
         </div>
       )}

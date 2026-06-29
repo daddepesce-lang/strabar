@@ -2644,7 +2644,7 @@ export default function FeedPage() {
               {/* Elenco drink correnti */}
               <div style={{ marginBottom: '15px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
-                  Drink in questa sessione ({(activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0)}):
+                  {t('session.liveDrinks', { n: (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0) })}
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
                   {activeSession.drinks?.length > 0 ? (
@@ -2662,7 +2662,7 @@ export default function FeedPage() {
                       </span>
                     ))
                   ) : (
-                    <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Nessun drink registrato. Aggiungi il primo!</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>{t('session.liveNoDrinks')}</span>
                   )}
                 </div>
               </div>
@@ -2672,9 +2672,9 @@ export default function FeedPage() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: 'rgba(223,255,0,0.08)', border: '1px solid rgba(223,255,0,0.35)', borderRadius: '12px', padding: '12px 14px', marginBottom: '14px' }}>
                   <span style={{ fontSize: '18px', flexShrink: 0, lineHeight: 1.2 }}>📈</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', marginBottom: '2px' }}>Registra ogni drink quando lo inizi</strong>
+                    <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', marginBottom: '2px' }}>{t('session.pacingTitle')}</strong>
                     <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.45 }}>
-                      La curva del tasso alcolico usa l&apos;orario di ogni drink. Inserirli tutti insieme la rende meno precisa (picco anticipato e più alto del reale). Aggiungili man mano che bevi per una stima accurata.
+                      {t('session.pacingBody')}
                     </span>
                   </div>
                   <button onClick={() => setPacingTip(false)} aria-label="Chiudi" style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, fontSize: '16px', lineHeight: 1, padding: '2px' }}>×</button>
@@ -2684,7 +2684,7 @@ export default function FeedPage() {
               {/* Pulsantiera Quick Add */}
               <div style={{ marginBottom: '15px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
-                  Registra un drink (1-Tap):
+                  {t('session.registerDrink')}
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {QUICK_DRINKS.map((preset, idx) => (
@@ -2709,7 +2709,7 @@ export default function FeedPage() {
                   onClick={() => setShowAllLiveDrinks((v) => !v)}
                   style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginTop: '8px' }}
                 >
-                  {showAllLiveDrinks ? '▲ Nascondi altri drink' : '▾ Altri drink (cocktail, distillati, birre…)'}
+                  {showAllLiveDrinks ? t('session.hideExtra') : t('session.showExtraFull')}
                 </button>
                 {showAllLiveDrinks && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
@@ -2734,7 +2734,7 @@ export default function FeedPage() {
               {/* Gestione Compagni (drank_with) con ricerca amici reale */}
               <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
-                  Tagga i compagni di bevuta:
+                  {t('session.tagFriends')}
                 </span>
 
                 <div style={{ position: 'relative', marginBottom: '10px' }}>
@@ -3529,7 +3529,7 @@ export default function FeedPage() {
                   {/* Nome e contatore Overlay */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)', padding: '20px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
                     <span style={{ fontSize: '14px', fontWeight: '700' }}>
-                      {`Immagine ${currentSlideIndex + 1}`}
+                      {t('session.imageN', { n: currentSlideIndex + 1 })}
                     </span>
                     <span style={{ fontSize: '12px', fontWeight: '600', background: 'rgba(0,0,0,0.5)', padding: '3px 8px', borderRadius: '20px' }}>
                       {currentSlideIndex + 1} / {images.length}
@@ -3622,25 +3622,25 @@ export default function FeedPage() {
             {/* Performance Stats */}
             <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 32, 0, 0.15)' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Drink Totali</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{t('session.drinksTotal')}</div>
                 <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
                   {selectedActivity.drinks.reduce((acc, d) => acc + d.qty, 0)}
                 </div>
               </div>
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Tempo Sforzo</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{t('session.effortTime')}</div>
                 <div style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginTop: '8px' }}>
                   {fmtEffort(selectedActivity)}
                 </div>
               </div>
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Carico Alcolico</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{t('session.alcoholLoad')}</div>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--secondary)', marginTop: '5px' }}>
                   {totalU.toFixed(1)} <span style={{ fontSize: '12px', fontWeight: '600' }}>U.A.</span>
                 </div>
               </div>
               <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>BAC Stimato <BacInfo size={12} /></div>
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>{t('session.bacLabel')} <BacInfo size={12} /></div>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: derivedBac > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '5px' }}>
                   {derivedBac.toFixed(2)} <span style={{ fontSize: '12px', fontWeight: '600' }}>g/l</span>
                 </div>
@@ -3651,26 +3651,25 @@ export default function FeedPage() {
             <div style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  📈 Curva d&apos;Ebbrezza
+                  📈 {t('session.bacCurveTitle')}
                 </h3>
-                <InfoPopover size={16} label="Come viene calcolato il tasso alcolico">
-                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '6px', fontSize: '13px' }}>Come viene calcolato — formula di Widmark</strong>
+                <InfoPopover size={16} label={t('session.bacWidmarkLabel')}>
+                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '6px', fontSize: '13px' }}>{t('session.bacWidmarkTitle')}</strong>
                   <p style={{ margin: '0 0 8px 0' }}>
-                    Il tasso alcolemico (BAC, g/l) è calcolato con la <strong style={{ color: 'var(--secondary)' }}>formula di Widmark</strong>:
+                    {t('session.bacWidmarkData')}
                   </p>
                   <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '8px 12px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--secondary)', marginBottom: '8px' }}>
                     BAC = grammi_alcol_netti / (peso_kg × r)
                   </div>
-                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '4px' }}>Dati usati per il calcolo:</strong>
                   <ul style={{ margin: '0 0 8px 0', paddingLeft: '16px' }}>
-                    <li><strong style={{ color: '#FFF' }}>Drink registrati</strong> — tipo, gradazione (ABV%) e Unità Alcoliche (U.A.). 1 U.A. = 12 g di alcol puro (standard italiano). I drink vengono distribuiti uniformemente nell&apos;arco della sessione.</li>
-                    <li><strong style={{ color: '#FFF' }}>Peso corporeo</strong> — dal tuo profilo (default: 70 kg se non impostato). Più pesi, più il BAC si diluisce.</li>
-                    <li><strong style={{ color: '#FFF' }}>Sesso biologico</strong> — dal profilo. Il coefficiente r di Widmark è 0,68 (uomo) o 0,55 (donna); la velocità di smaltimento β è 0,17 g/l/h (uomo) o 0,14 g/l/h (donna).</li>
-                    <li><strong style={{ color: '#FFF' }}>Stomaco pieno o vuoto</strong> — cambia la velocità di assorbimento. A stomaco vuoto il picco arriva prima (≈30–40 min); a stomaco pieno più tardi (≈75–90 min).</li>
-                    <li><strong style={{ color: '#FFF' }}>Residuo alcolico pregresso</strong> — grammi ancora in circolo da sessioni chiuse nelle 6 ore precedenti, che si sommano al calcolo corrente.</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD1t')}</strong> {t('session.bacWidmarkD1')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD2t')}</strong> {t('session.bacWidmarkD2')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD3t')}</strong> {t('session.bacWidmarkD3')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD4t')}</strong> {t('session.bacWidmarkD4')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD5t')}</strong> {t('session.bacWidmarkD5')}</li>
                   </ul>
                   <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>
-                    ⚠️ Stima indicativa a scopo informativo, non diagnostico. I valori reali variano in base a metabolismo, idratazione e altri fattori individuali.
+                    {t('session.bacWidmarkDiscl')}
                   </p>
                 </InfoPopover>
               </div>
@@ -3680,20 +3679,20 @@ export default function FeedPage() {
                 <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
                 <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.4 }}>
                   {selectedActivity?.is_active && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000
-                    ? <><strong style={{ color: 'var(--primary)' }}>Sessione LIVE in corso.</strong> Il BAC è calcolato in tempo reale al momento attuale.</>
-                    : <><strong style={{ color: 'var(--secondary)' }}>Curva storica di questa singola sessione.</strong> Il BAC mostrato rappresenta il picco stimato al termine della sessione, non adesso. (L&apos;alcol è già smaltito.)</>}
+                    ? <><strong style={{ color: 'var(--primary)' }}>{t('session.bacLive')}</strong> {t('session.bacLiveDesc')}</>
+                    : <><strong style={{ color: 'var(--secondary)' }}>{t('session.bacHist')}</strong> {t('session.bacHistDesc')}</>}
                 </p>
               </div>
               {bacCurve
                 ? <BacCurve curve={bacCurve} height={170} />
-                : <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', margin: '8px 0' }}>Nessun drink registrato in questa sessione.</p>}
+                : <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', margin: '8px 0' }}>{t('session.noDrinks')}</p>}
             </div>
 
             {/* SEZIONE MAPPA / INTEGRAZIONE LOCALE */}
             {selectedActivity.location && (
               <div style={{ marginBottom: '25px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  📍 Sede del Brindisi
+                  {t('session.venueTitle')}
                 </h3>
                 <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
@@ -3709,7 +3708,7 @@ export default function FeedPage() {
                         className="btn btn-secondary"
                         style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px' }}
                       >
-                        Apri in Google Maps
+                        {t('session.openMaps')}
                       </a>
                     )}
                   </div>
@@ -3722,7 +3721,7 @@ export default function FeedPage() {
                     let waypoints = [], activeIndex = null;
                     if (tour && Array.isArray(tour.stops)) {
                       waypoints = tour.stops
-                        .map((s, i) => ({ name: s.name, lat: s.lat, lng: s.lng ?? s.lon, label: i + 1, note: i === (tour.current || 0) ? 'Qui ora 📍' : '' }))
+                        .map((s, i) => ({ name: s.name, lat: s.lat, lng: s.lng ?? s.lon, label: i + 1, note: i === (tour.current || 0) ? t('session.hereNow') : '' }))
                         .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
                       activeIndex = waypoints.findIndex((s) => s.label === (tour.current || 0) + 1);
                     } else if (Array.isArray(L.sequence)) {
@@ -3730,12 +3729,12 @@ export default function FeedPage() {
                         .map((s) => ({ ...s, lng: s.lng ?? s.lon }))
                         .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number');
                     } else if (typeof L.lat === 'number' && typeof (L.lng ?? L.lon) === 'number') {
-                      waypoints = [{ name: L.name, lat: L.lat, lng: L.lng ?? L.lon, note: 'Partenza' }];
+                      waypoints = [{ name: L.name, lat: L.lat, lng: L.lng ?? L.lon, note: t('session.startPoint') }];
                     }
                     if (!waypoints.length) {
                       return (
                         <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', margin: 0 }}>
-                          🍸 Sessione senza posizione: nessuna mappa da mostrare.
+                          {t('session.noPosition')}
                         </p>
                       );
                     }
@@ -3753,7 +3752,7 @@ export default function FeedPage() {
                     return (
                       <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
                         <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          🗺️ Tappa per tappa: drink e foto
+                          {t('session.stopByStop')}
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                           {perStop.map((s, i) => {
@@ -3763,10 +3762,10 @@ export default function FeedPage() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                                 <span style={{ background: '#EF4444', color: '#fff', width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
                                 <strong style={{ fontSize: '13px', color: '#FFF' }}>{s.name}</strong>
-                                {!s.verified && <span style={{ fontSize: '9px', color: 'var(--text-dark-secondary)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '1px 6px' }}>non verificata</span>}
+                                {!s.verified && <span style={{ fontSize: '9px', color: 'var(--text-dark-secondary)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '1px 6px' }}>{t('session.unverified')}</span>}
                               </div>
                               {s.drinks.length === 0 ? (
-                                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun drink registrato qui</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('session.noDrinksHere')}</span>
                               ) : (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                   {s.drinks.map((d, k) => (
@@ -3804,17 +3803,17 @@ export default function FeedPage() {
                   {isRealVenue && (
                   <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
                     <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      🏆 Classifica del Locale (Top Atleti)
+                      {t('session.venueBoard')}
                     </h4>
                     
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       {/* Top Carico Alcolico */}
                       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)', minWidth: 0 }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
-                          🏋️‍♂️ Record Carico (Max U.A.)
+                          {t('session.recordLoad')}
                         </div>
                         {topUnitsLeaderboard.length === 0 ? (
-                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Nessun record</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('session.noRecord')}</div>
                         ) : (
                           topUnitsLeaderboard.map((item, index) => (
                             <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '6px', fontSize: '12px', padding: '4px 0', borderBottom: index < topUnitsLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
@@ -3828,10 +3827,10 @@ export default function FeedPage() {
                       {/* Top BAC */}
                       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)', minWidth: 0 }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          ⚡ Record BAC (Picco g/l) <BacInfo size={12} />
+                          {t('session.recordBac')} <BacInfo size={12} />
                         </div>
                         {topBacLeaderboard.length === 0 ? (
-                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Nessun record</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('session.noRecord')}</div>
                         ) : (
                           topBacLeaderboard.map((item, index) => (
                             <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '6px', fontSize: '12px', padding: '4px 0', borderBottom: index < topBacLeaderboard.length - 1 ? '1px solid rgba(255,255,255,0.02)' : 'none' }}>
@@ -3846,7 +3845,7 @@ export default function FeedPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(223, 255, 0,0.04)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(223, 255, 0,0.1)', marginTop: '12px', fontSize: '12px' }}>
                       <span>👑</span>
                       <div>
-                        <strong>Leggenda del Locale:</strong> {localLegend.name}{localLegend.totalUnits ? ` (${localLegend.totalUnits.toFixed(1)} U.A. totali)` : ''}.
+                        <strong>{t('session.venueLegend')}</strong> {localLegend.name}{localLegend.totalUnits ? ` (${localLegend.totalUnits.toFixed(1)} U.A. totali)` : ''}.
                       </div>
                     </div>
                   </div>
@@ -3859,7 +3858,7 @@ export default function FeedPage() {
             {selectedActivity.media && selectedActivity.media.length > 0 && (
               <div style={{ marginBottom: '25px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px' }}>
-                  🖼️ Media e Ricordi della Serata
+                  {t('session.mediaTitle')}
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
                   {selectedActivity.media.map((med, idx) => (
@@ -3883,7 +3882,7 @@ export default function FeedPage() {
 
             {/* Elenco consumazioni — ordinato, con icona per tipo, quantità e barra U.A. */}
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>Drink della sessione</span>
+              <span>{t('session.drinkListTitle')}</span>
               <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>
                 {selectedActivity.drinks.reduce((s, d) => s + (d.qty || 0), 0)} drink · {parseFloat(selectedActivity.total_units || 0).toFixed(1)} U.A.
               </span>
@@ -3925,10 +3924,10 @@ export default function FeedPage() {
             {currentUser && selectedActivity.user_id === currentUser.id && selectedActivity.is_active && (
               <div style={{ background: 'rgba(255, 32, 0, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Plus size={16} /> Aggiungi Drink in tempo reale
+                  <Plus size={16} /> {t('session.addDrinkRT')}
                 </h4>
                 <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
-                  Aggiungi un drink consumato adesso. La curva di ebbrezza e la durata della sessione verranno ricalcolate all&apos;orario corrente.
+                  {t('session.addDrinkRTDesc')}
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {QUICK_DRINKS.map((preset, pIdx) => (
@@ -3958,14 +3957,14 @@ export default function FeedPage() {
                   className="btn btn-secondary"
                   style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700 }}
                 >
-                  <Edit size={15} /> Modifica sessione
+                  <Edit size={15} /> {t('session.editSessionBtn')}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDeleteActivity(selectedActivity.id)}
                   style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700, background: 'rgba(239,68,68,0.12)', border: '1px solid var(--error)', color: '#FF7D7D', borderRadius: 'var(--radius)', cursor: 'pointer' }}
                 >
-                  <Trash2 size={15} /> Elimina
+                  <Trash2 size={15} /> {t('session.deleteBtn')}
                 </button>
               </div>
             )}
@@ -3974,15 +3973,15 @@ export default function FeedPage() {
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '20px', fontSize: '14px' }}>
               {selectedActivity.drank_with && selectedActivity.drank_with.length > 0 ? (
                 <div style={{ color: 'var(--text-dark-secondary)' }}>
-                  👥 Compagni di allenamento: <strong style={{ color: '#FFF' }}>{selectedActivity.drank_with.join(', ')}</strong>
+                  👥 {t('session.trainWith')} <strong style={{ color: '#FFF' }}>{selectedActivity.drank_with.join(', ')}</strong>
                 </div>
               ) : (
-                <div style={{ color: 'var(--text-dark-secondary)' }}>🏃 Allenamento Solitario</div>
+                <div style={{ color: 'var(--text-dark-secondary)' }}>{t('session.trainSolo')}</div>
               )}
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ color: 'var(--text-dark-secondary)' }}>
-                  🔥 Livello Sforzo: <strong style={{ color: 'var(--primary)' }}>{selectedActivity.feeling}</strong>
+                  {t('session.effortLabel')} <strong style={{ color: 'var(--primary)' }}>{selectedActivity.feeling}</strong>
                 </span>
                 <Link href={`/share/${selectedActivity.id}`} className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => setSelectedActivity(null)}>
                   <Share2 size={14} /> Esporta
@@ -4019,7 +4018,7 @@ export default function FeedPage() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255, 32, 0,0.05)', border: '1px solid rgba(255, 32, 0,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
                     <Beer size={15} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }} fill="var(--primary)" />
                     <span style={{ fontSize: '13px', color: 'var(--text-dark-primary)', lineHeight: 1.5 }}>
-                      Hanno brindato:{' '}
+                      {t('session.cheersBy')}{' '}
                       {shown.map((p, i) => (
                         <span key={p.id}>
                           <Link href={`/u/${p.id}`} style={{ color: '#FFF', fontWeight: 700 }}>{p.name}</Link>
@@ -4033,7 +4032,7 @@ export default function FeedPage() {
                             onClick={() => openCheersList(selectedActivity)}
                             style={{ color: 'var(--primary)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px' }}
                           >
-                            altri {extra}
+                            {t('session.othersN', { n: extra })}
                           </button>
                         </>
                       )}
@@ -4066,19 +4065,19 @@ export default function FeedPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Scrivi un commento..."
+                    placeholder={t('session.commentPh')}
                     value={newCommentText[selectedActivity.id] || ''}
                     onChange={(e) => handleCommentChange(selectedActivity.id, e.target.value)}
                     style={{ height: '40px', padding: '10px 15px', borderRadius: '20px', fontSize: '14px' }}
                     required
                   />
                   <button type="submit" className="btn btn-primary" style={{ padding: '0 20px', borderRadius: '20px', fontSize: '14px' }}>
-                    Invia
+                    {t('session.send')}
                   </button>
                 </form>
               ) : (
                 <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center' }}>
-                  <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: '600' }}>Accedi</Link> per commentare.
+                  <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: '600' }}>{t('nav.login')}</Link> {t('session.loginToComment')}
                 </p>
               )}
             </div>
@@ -4134,7 +4133,7 @@ export default function FeedPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Edit size={18} color="var(--primary)" />
-                Modifica Sessione Alcolica
+                {t('session.editModalTitle')}
               </h3>
               <button className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setEditingActivity(null)}>×</button>
             </div>
@@ -4142,7 +4141,7 @@ export default function FeedPage() {
             {/* Form Fields */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Titolo Attività</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('session.editFieldTitle')}</label>
                 <input
                   type="text"
                   className="form-control"
@@ -4153,7 +4152,7 @@ export default function FeedPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Descrizione / Note</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('session.editFieldDesc')}</label>
                 <textarea
                   className="form-control"
                   value={editingActivity.description || ''}
@@ -4165,7 +4164,7 @@ export default function FeedPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Durata (minuti)</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('session.editFieldDur')}</label>
                   <input
                     type="number"
                     className="form-control"
@@ -4176,7 +4175,7 @@ export default function FeedPage() {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Stato / Sforzo</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('session.editFieldFeeling')}</label>
                   <select
                     className="form-control"
                     value={editingActivity.feeling}
@@ -4196,12 +4195,12 @@ export default function FeedPage() {
 
               {/* Privacy della sessione (chi la vede) */}
               <div style={{ marginTop: '14px' }}>
-                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: '600' }}>Chi la vede</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: '600' }}>{t('session.editFieldVis')}</label>
                 <div className="seg-tabs">
                   {[
-                    { k: 'public', l: '🌍 Tutti' },
-                    { k: 'friends', l: '👥 Amici' },
-                    { k: 'private', l: '🔒 Nessuno' },
+                    { k: 'public', l: t('session.editVisAll') },
+                    { k: 'friends', l: t('session.editVisFriends') },
+                    { k: 'private', l: t('session.editVisPrivate') },
                   ].map(({ k, l }) => (
                     <div
                       key={k}
@@ -4218,7 +4217,7 @@ export default function FeedPage() {
             {/* Sezione Drinks */}
             <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', marginBottom: '20px' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                Modifica Drinks Consumati ({editingActivity.drinks?.length || 0})
+                {t('session.editDrinksLabel', { n: editingActivity.drinks?.length || 0 })}
               </span>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', marginBottom: '15px' }}>
@@ -4228,7 +4227,7 @@ export default function FeedPage() {
                       <div>
                         <strong style={{ fontSize: '13px' }}>{d.name}</strong>
                         <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                          Gradazione: {d.abv}% | ~{(d.units * d.qty).toFixed(1)} U.A.
+                          {t('session.gradazione')} {d.abv}% | ~{(d.units * d.qty).toFixed(1)} U.A.
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -4246,13 +4245,13 @@ export default function FeedPage() {
                     </div>
                   ))
                 ) : (
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Nessun drink registrato in questa sessione.</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>{t('session.noDrinks')}</span>
                 )}
               </div>
 
               {/* Quick Add Presets in Edit */}
               <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                Aggiungi Drink Preset:
+                {t('session.editAddPreset')}
               </span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {QUICK_DRINKS.map((preset, idx) => (
@@ -4275,7 +4274,7 @@ export default function FeedPage() {
                 onClick={() => setShowAllEditDrinks((v) => !v)}
                 style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '11px', fontWeight: 700, marginTop: '8px' }}
               >
-                {showAllEditDrinks ? '▲ Nascondi altri drink' : '▾ Altri drink'}
+                {showAllEditDrinks ? t('session.hideExtra') : t('session.showExtraShort')}
               </button>
               {showAllEditDrinks && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
@@ -4297,14 +4296,14 @@ export default function FeedPage() {
             {/* Tag compagni di bevuta */}
             <div style={{ marginBottom: '20px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
               <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
-                Tagga i compagni di bevuta
+                {t('session.editTagFriends')}
               </label>
               <div style={{ position: 'relative', marginBottom: '10px' }}>
                 <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Cerca un amico per nome o @username..."
+                  placeholder={t('session.editSearchFriends')}
                   value={editFriendQuery}
                   onChange={(e) => setEditFriendQuery(e.target.value)}
                   style={{ height: '36px', fontSize: '13px', padding: '0 10px 0 30px' }}
