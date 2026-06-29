@@ -3006,7 +3006,7 @@ export default function FeedPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="activity-author">
                       <Link href={`/u/${act.user_id}`} prefetch={false} style={{ color: 'inherit' }}>
-                        {publicName(act.profiles, 'Utente Strabar')}
+                        {publicName(act.profiles, t('feed.userFallback'))}
                       </Link>
                       {act.profiles?.is_premium && (
                         <span className="badge-premium" style={{ marginLeft: '8px', fontSize: '8px' }}>
@@ -3032,7 +3032,7 @@ export default function FeedPage() {
                         className={`btn ${followingIds.includes(act.user_id) ? 'btn-secondary' : 'btn-primary'}`}
                         style={{ padding: '5px 12px', fontSize: '12px', borderRadius: '16px', fontWeight: '700', whiteSpace: 'nowrap' }}
                       >
-                        {followingIds.includes(act.user_id) ? 'Segui ✓' : '+ Segui'}
+                        {followingIds.includes(act.user_id) ? t('feed.following') : t('feed.follow')}
                       </button>
                     )}
                   </div>
@@ -3091,7 +3091,7 @@ export default function FeedPage() {
                    <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
                      <span>📍 {t('session.at')} <strong>{act.location.name}</strong></span>
                      {act.location.unverified && (
-                       <span title="Registrata lontano dal locale: non conta per le classifiche" style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '1px 7px', fontWeight: 600 }}>
+                       <span title={t('feed.unverifiedTitle')} style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '1px 7px', fontWeight: 600 }}>
                          {t('session.unverified')}
                        </span>
                      )}
@@ -3100,18 +3100,18 @@ export default function FeedPage() {
 
                  {/* Avanzamento del Tour visibile ai follower */}
                  {act.location?.tour && (() => {
-                   const t = act.location.tour;
-                   const stops = t.stops || [];
-                   const cur = t.current || 0;
+                   const tour = act.location.tour;
+                   const stops = tour.stops || [];
+                   const cur = tour.current || 0;
                    const total = stops.length || 1;
                    const pct = Math.min(100, ((cur + 1) / total) * 100);
-                   const path = (t.visited || []).map((s) => s.name);
+                   const path = (tour.visited || []).map((s) => s.name);
                    return (
                      <div data-no-open style={{ marginBottom: '12px', background: 'rgba(223, 255, 0,0.05)', border: '1px solid rgba(223, 255, 0,0.2)', borderRadius: '10px', padding: '10px 12px', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '6px', flexWrap: 'wrap' }}>
-                         <strong style={{ fontSize: '12px', color: 'var(--secondary)' }}>🗺️ Tour: {t.route_name}</strong>
+                         <strong style={{ fontSize: '12px', color: 'var(--secondary)' }}>{t('feed.tourLabel')} {tour.route_name}</strong>
                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>
-                           {isReallyActive ? `Tappa ${cur + 1}/${total}` : `${path.length}/${total} tappe`}
+                           {isReallyActive ? t('feed.tourStopN', { cur: cur + 1, total }) : t('feed.tourStopsDone', { done: path.length, total })}
                          </span>
                        </div>
                        <div style={{ height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: path.length ? '6px' : 0 }}>
@@ -3137,18 +3137,18 @@ export default function FeedPage() {
                    <button
                      type="button"
                      onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
-                     aria-label="Apri le foto della serata"
+                     aria-label={t('feed.photoOpenAria')}
                      className="activity-cover"
                    >
                      {/* eslint-disable-next-line @next/next/no-img-element */}
                      <img
                        src={act.cover_url}
-                       alt="Foto della serata"
+                       alt={t('feed.photoAlt')}
                        loading="lazy"
                        decoding="async"
                      />
                      <span style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4, zIndex: 1 }}>
-                       <Camera size={12} /> Foto
+                       <Camera size={12} /> {t('feed.photoBadge')}
                      </span>
                    </button>
                  )}
@@ -3161,7 +3161,7 @@ export default function FeedPage() {
                    const lat = loc?.lat;
                    const lng = loc?.lng ?? loc?.lon;
                    if (typeof lat !== 'number' || typeof lng !== 'number') return null;
-                   const wp = [{ name: loc.name || 'Qui', lat, lng, note: loc.name || '' }];
+                   const wp = [{ name: loc.name || t('feed.hereFallback'), lat, lng, note: loc.name || '' }];
                    return (
                      <div style={{ height: '170px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: '15px', position: 'relative' }}>
                        <LazyMap waypoints={wp} height="100%" connectLine={false} interactive={false} />
@@ -3180,7 +3180,7 @@ export default function FeedPage() {
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '4px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                   >
                     <Beer size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} fill="var(--primary)" />
-                    <span><strong style={{ color: '#FFF' }}>{act.cheer_count}</strong> cheers</span>
+                    <span><strong style={{ color: '#FFF' }}>{act.cheer_count}</strong> {t('feed.cheersWord')}</span>
                   </button>
                 )}
 
@@ -3229,8 +3229,8 @@ export default function FeedPage() {
                                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{formatDate(comment.created_at)}</span>
                                 {currentUser && comment.user_id === currentUser.id && editingComment?.id !== comment.id && (
                                   <>
-                                    <button type="button" onClick={() => setEditingComment({ id: comment.id, text: comment.text })} title="Modifica" style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>✏️</button>
-                                    <button type="button" onClick={() => handleDeleteComment(act.id, comment.id)} title="Elimina" style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>🗑️</button>
+                                    <button type="button" onClick={() => setEditingComment({ id: comment.id, text: comment.text })} title={t('feed.editTitle')} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>✏️</button>
+                                    <button type="button" onClick={() => handleDeleteComment(act.id, comment.id)} title={t('feed.deleteTitle')} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>🗑️</button>
                                   </>
                                 )}
                               </span>
@@ -3245,7 +3245,7 @@ export default function FeedPage() {
                                   style={{ flex: 1, height: '32px', fontSize: '13px' }}
                                   autoFocus
                                 />
-                                <button type="button" onClick={() => handleSaveCommentEdit(act.id, comment.id)} className="btn btn-primary" style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '12px' }}>Salva</button>
+                                <button type="button" onClick={() => handleSaveCommentEdit(act.id, comment.id)} className="btn btn-primary" style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '12px' }}>{t('feed.saveBtn')}</button>
                                 <button type="button" onClick={() => setEditingComment(null)} className="btn btn-secondary" style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '12px' }}>✕</button>
                               </div>
                             ) : (
@@ -3261,19 +3261,19 @@ export default function FeedPage() {
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="Scrivi un commento di incoraggiamento..."
+                          placeholder={t('feed.commentPh')}
                           value={newCommentText[act.id] || ''}
                           onChange={(e) => handleCommentChange(act.id, e.target.value)}
                           style={{ height: '40px', padding: '10px 15px', borderRadius: '20px', fontSize: '14px' }}
                           required
                         />
                         <button type="submit" className="btn btn-primary" style={{ padding: '0 20px', borderRadius: '20px', fontSize: '14px' }}>
-                          Invia
+                          {t('feed.sendBtn')}
                         </button>
                       </form>
                     ) : (
                       <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center' }}>
-                        <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: '600' }}>Accedi</Link> per commentare questa attività.
+                        <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: '600' }}>{t('feed.loginLink')}</Link>{t('feed.loginToCommentRest')}
                       </p>
                     )}
                   </div>
