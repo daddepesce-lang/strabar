@@ -8,15 +8,17 @@ import { BADGE_ICON } from '@/lib/badges';
 // Coriandoli leggeri (CSS, nessuna libreria/egress), auto-chiusura dopo qualche secondo.
 const CONFETTI = ['#FF2000', '#DFFF00', '#10B981', '#3B82F6', '#FF9F1C', '#FFFFFF'];
 
-export default function BadgeUnlock({ badgeId, onClose }) {
+export default function BadgeUnlock({ badgeId, onClose, remaining = 0, onSkip }) {
   const t = useT();
   const [leaving, setLeaving] = useState(false);
-
+  // Auto-avanza solo se NON ce ne sono altri in coda: con la coda l'utente decide
+  // (avanti / salta tutti), così non spariscono da soli senza poterli vedere/skippare.
   useEffect(() => {
+    if (remaining > 0) return;
     const a = setTimeout(() => setLeaving(true), 4200);
     const b = setTimeout(() => onClose?.(), 4600);
     return () => { clearTimeout(a); clearTimeout(b); };
-  }, [badgeId, onClose]);
+  }, [badgeId, onClose, remaining]);
 
   if (!badgeId) return null;
   const icon = BADGE_ICON[badgeId] || '🏅';
@@ -52,13 +54,27 @@ export default function BadgeUnlock({ badgeId, onClose }) {
         <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 12, animation: 'buBounce 1.2s ease-in-out infinite' }}>{icon}</div>
         <div style={{ fontSize: 22, fontWeight: 900, color: '#FFF', marginBottom: 6 }}>{t(`profile.bdg.${badgeId}.t`)}</div>
         <div style={{ fontSize: 13, color: 'var(--text-dark-secondary)', lineHeight: 1.45, marginBottom: 18 }}>{t(`profile.bdg.${badgeId}.d`)}</div>
-        <button
-          onClick={() => { setLeaving(true); setTimeout(() => onClose?.(), 250); }}
-          className="btn btn-primary"
-          style={{ borderRadius: 24, padding: '10px 28px', fontSize: 14, fontWeight: 700 }}
-        >
-          {t('badge.nice')}
-        </button>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', alignItems: 'center' }}>
+          <button
+            onClick={() => { setLeaving(true); setTimeout(() => onClose?.(), 250); }}
+            className="btn btn-primary"
+            style={{ borderRadius: 24, padding: '10px 24px', fontSize: 14, fontWeight: 700 }}
+          >
+            {remaining > 0 ? t('badge.next') : t('badge.nice')}
+          </button>
+          {remaining > 0 && (
+            <button
+              onClick={() => { setLeaving(true); setTimeout(() => onSkip?.(), 250); }}
+              className="btn btn-secondary"
+              style={{ borderRadius: 24, padding: '10px 18px', fontSize: 13, fontWeight: 700 }}
+            >
+              {t('badge.skip', { n: remaining })}
+            </button>
+          )}
+        </div>
+        {remaining > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 10 }}>{t('badge.more', { n: remaining })}</div>
+        )}
       </div>
 
       <style jsx>{`

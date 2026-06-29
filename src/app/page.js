@@ -130,6 +130,7 @@ export default function FeedPage() {
   const [feedHasMore, setFeedHasMore] = useState(false);
   const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [myActivities, setMyActivities] = useState([]); // sessioni dell'utente (statistiche personali)
+  const [myActivitiesLoaded, setMyActivitiesLoaded] = useState(false); // sessioni utente caricate?
   const [topDrinkers, setTopDrinkers] = useState([]); // classifica globale top atleti
   const [loading, setLoading] = useState(true);
   const [newCommentText, setNewCommentText] = useState({});
@@ -312,7 +313,7 @@ export default function FeedPage() {
         // SECONDARIO (non blocca il feed né la chiusura live): profili per i tag,
         // statistiche personali e classifica. Caricati dopo, in modo indipendente.
         if (typeof db.getAllProfiles === 'function') db.getAllProfiles().then(setProfilesList).catch(() => {});
-        if (typeof db.getUserActivities === 'function') db.getUserActivities(user.id).then(setMyActivities).catch(() => {});
+        if (typeof db.getUserActivities === 'function') db.getUserActivities(user.id).then((a) => { setMyActivities(a || []); setMyActivitiesLoaded(true); }).catch(() => setMyActivitiesLoaded(true));
         // Leaderboard Club: STESSA fonte e regola della classifica generale (/places) — solo
         // check-in geolocalizzati verificati — così i numeri coincidono e non risultano più alti qui.
         if (typeof db.getUserLeaderboard === 'function') {
@@ -513,7 +514,10 @@ export default function FeedPage() {
   // corrente aggiornata) con quelli già noti; se ne sblocchi uno DURANTE la sessione →
   // celebrazione a schermo + notifica. Baseline su localStorage: niente festa al 1° load.
   useEffect(() => {
-    if (!currentUser) return;
+    // IMPORTANTISSIMO: aspetta che le sessioni dell'utente siano DAVVERO caricate, altrimenti
+    // la baseline verrebbe fissata con 0 badge e, al caricamento, sembrerebbero tutti "nuovi"
+    // (festa di massa). Con il gate la baseline riflette i badge reali già posseduti.
+    if (!currentUser || !myActivitiesLoaded) return;
     const base = myActivities || [];
     let merged = base;
     if (activeSession) {
@@ -545,7 +549,7 @@ export default function FeedPage() {
       try { notify(t('badge.notifyTitle'), t(`profile.bdg.${newOnes[0]}.t`)); } catch { /* noop */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myActivities, activeSession?.total_units, activeSession?.id, currentUser?.id]);
+  }, [myActivities, myActivitiesLoaded, activeSession?.total_units, activeSession?.id, currentUser?.id]);
 
   // NOTIFICA LIVE "ongoing" (stile EasyPark): mentre una sessione è attiva mostra/aggiorna
   // una notifica con statistiche in tempo reale (U.A. · BAC · minuti). Si aggiorna ad ogni
@@ -3604,11 +3608,13 @@ export default function FeedPage() {
         <MediaLightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
       )}
 
-      {/* Celebrazione badge sbloccato in sessione (mostra la coda uno alla volta) */}
+      {/* Celebrazione badge sbloccato in sessione (mostra la coda uno alla volta, con skip) */}
       {badgeCelebration && (
         <BadgeUnlock
           badgeId={badgeCelebration}
+          remaining={badgeQueueRef.current.length}
           onClose={() => setBadgeCelebration(badgeQueueRef.current.shift() || null)}
+          onSkip={() => { badgeQueueRef.current = []; setBadgeCelebration(null); }}
         />
       )}
 

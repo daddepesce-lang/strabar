@@ -784,6 +784,9 @@ export const it = {
   badge: {
     unlocked: '🎉 Badge sbloccato!',
     nice: 'Forte!',
+    next: 'Avanti →',
+    skip: 'Salta ({n})',
+    more: 'altri {n} in coda',
     notifyTitle: '🏅 Badge sbloccato su Strabar!',
   },
   profile: {

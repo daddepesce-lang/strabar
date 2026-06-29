@@ -783,6 +783,9 @@ export const en = {
   badge: {
     unlocked: '🎉 Badge unlocked!',
     nice: 'Awesome!',
+    next: 'Next →',
+    skip: 'Skip ({n})',
+    more: '{n} more queued',
     notifyTitle: '🏅 Badge unlocked on Strabar!',
   },
   profile: {
