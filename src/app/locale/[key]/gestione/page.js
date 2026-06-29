@@ -8,7 +8,7 @@ import { OPTION_SCHEMA, defaultOptions, computePrice, euro } from '@/lib/venuePr
 
 const SERVICE_NAME = { sponsored_event: 'Evento sponsorizzato', promo: 'Promo nel feed', notify: 'Notifica clienti' };
 const SERVICE_ICON = { sponsored_event: Star, promo: Megaphone, notify: Bell };
-const ORDER_LABEL = { pending: '⏳ In attesa di pagamento', paid: '✅ Pagato', active: '🟢 Attivo', canceled: '✖️ Annullato', rejected: '✖️ Rifiutato' };
+const ORDER_LABEL = { pending: '⏳ In attesa di pagamento', paid: '✅ Pagato', active: '🟢 Attivo', canceled: '✖️ Annullato', rejected: '✖️ Rifiutato', ended: '⏹️ Terminato (no rimborso)' };
 
 // Area riservata del LOCALE (gestore), divisa in SEZIONI con menu:
 //  Classifiche · Servizi · Carrello · Banner · Ordini.
@@ -182,9 +182,17 @@ export default function VenueManagePage({ params }) {
     finally { setSavingBanner(false); }
   };
   const deleteBanner = async (b) => {
-    if (!confirm('Eliminare definitivamente questo banner?')) return;
-    try { await db.deleteMyBanner(b.id); setBanners((prev) => prev.filter((x) => x.id !== b.id)); }
-    catch (e) { alert('Errore: ' + (e.message || e)); }
+    const expired = b.ends_at && new Date(b.ends_at) < new Date();
+    const msg = expired
+      ? 'Eliminare definitivamente questo banner?'
+      : 'Eliminando ora il banner perdi i giorni rimanenti e NON verrà rimborsato. L’ordine collegato risulterà “Terminato”. Confermi?';
+    if (!confirm(msg)) return;
+    try {
+      await db.deleteMyBanner(b.id);
+      setBanners((prev) => prev.filter((x) => x.id !== b.id));
+      // Riflette subito lo stato dell'ordine collegato (terminato, senza rimborso).
+      if (b.order_id) setOrders((prev) => prev.map((o) => (o.id === b.order_id ? { ...o, status: 'ended' } : o)));
+    } catch (e) { alert('Errore: ' + (e.message || e)); }
   };
   const uploadBannerImage = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
