@@ -21,7 +21,7 @@ import BadgeUnlock from '@/components/BadgeUnlock';
 import { earnedBadgeIds } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
@@ -2481,8 +2481,8 @@ export default function FeedPage() {
               <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 'calc(12px + env(safe-area-inset-top, 0px)) 16px 24px', overflowY: 'auto' }}>
               <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginBottom: '40px' }}>
             <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 32, 0, 0.25)', borderRadius: '16px' }}>
-              <button onClick={() => setShowLivePanel(false)} aria-label="Chiudi" className="btn btn-secondary" style={{ position: 'absolute', top: '12px', right: '12px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingRight: '40px' }}>
+              <button onClick={() => setShowLivePanel(false)} aria-label="Chiudi" className="btn btn-secondary" style={{ position: 'absolute', top: '10px', right: '10px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingRight: '48px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
                   <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
@@ -2930,6 +2930,7 @@ export default function FeedPage() {
 
               {/* Toggle Form Termina */}
               {!showCloseForm ? (
+                <>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => setShowCloseForm(true)}
@@ -2947,6 +2948,11 @@ export default function FeedPage() {
                     <Trash2 size={15} /> Annulla
                   </button>
                 </div>
+                <p style={{ margin: '10px 2px 0', fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', lineHeight: 1.45 }}>
+                  Chiudi con <strong style={{ color: 'var(--text-dark-primary)' }}>×</strong> per continuare a bere: la diretta resta attiva in background.
+                  <br /><strong style={{ color: 'var(--text-dark-primary)' }}>Termina</strong> la salva, <strong style={{ color: 'var(--error)' }}>Annulla</strong> la elimina.
+                </p>
+                </>
               ) : (
                 <form onSubmit={handleCloseActiveSession} style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -3021,19 +3027,19 @@ export default function FeedPage() {
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
             >
-              👥 {t('feed.tabFriends')}
+              <Users size={15} /> {t('feed.tabFriends')}
             </div>
             <div
               className={`seg-tab ${feedFilter === 'all' ? 'active' : ''}`}
               onClick={() => setFeedFilter('all')}
             >
-              🌍 {t('feed.tabAll')}
+              <Globe size={15} /> {t('feed.tabAll')}
             </div>
             <div
               className={`seg-tab ${feedFilter === 'live' ? 'active' : ''}`}
               onClick={() => setFeedFilter('live')}
             >
-              🔴 {t('feed.tabLive')}
+              <span className="filter-live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block', flexShrink: 0 }} /> {t('feed.tabLive')}
             </div>
           </div>
         )}
@@ -3100,7 +3106,10 @@ export default function FeedPage() {
                       )}
                     </div>
                     <div className="activity-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {formatDate(act.created_at)} · <strong style={{ color: 'var(--primary)' }}>{act.feeling}</strong>
+                      {formatDate(act.created_at)}
+                      {act.feeling && act.feeling !== 'Normale' && (
+                        <> · <strong style={{ color: 'var(--primary)' }}>{act.feeling}</strong></>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
