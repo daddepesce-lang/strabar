@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { CONSENT_VERSION } from '@/lib/consent';
-import { Beer, Mail, Lock, User, AtSign } from 'lucide-react';
+import { Beer, Mail, Lock, User, AtSign, Eye, EyeOff } from 'lucide-react';
 
 export default function AuthPage() {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [logoOk, setLogoOk] = useState(true); // logo ufficiale /logo.png, con fallback all'icona
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -227,16 +228,25 @@ export default function AuthPage() {
             <div style={{ position: 'relative' }}>
               <Lock size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 name="password"
                 autoComplete={isLogin ? 'current-password' : 'new-password'}
                 className="form-control"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{ paddingLeft: '45px' }}
+                style={{ paddingLeft: '45px', paddingRight: '45px' }}
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
+                title={showPassword ? 'Nascondi password' : 'Mostra password'}
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '4px', display: 'flex' }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 

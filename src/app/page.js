@@ -551,41 +551,6 @@ export default function FeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myActivities, myActivitiesLoaded, activeSession?.total_units, activeSession?.id, currentUser?.id]);
 
-  // NOTIFICA LIVE "ongoing" (stile EasyPark): mentre una sessione è attiva mostra/aggiorna
-  // una notifica con statistiche in tempo reale (U.A. · BAC · minuti). Si aggiorna ad ogni
-  // drink e ogni 60s finché l'app/SW è viva. Silenziosa (stesso tag = sostituisce, no suono).
-  useEffect(() => {
-    if (!activeSession || typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    let stopped = false;
-    const tag = 'strabar-live';
-    const push = () => {
-      if (stopped) return;
-      const mins = Math.max(1, Math.round((Date.now() - new Date(activeSession.created_at).getTime()) / 60000));
-      const ua = activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0';
-      const bac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, mins, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
-      const where = activeSession.location?.name || t('session.liveNotifFree');
-      notify(
-        t('session.liveNotifTitle', { where }),
-        t('session.liveNotifBody', { ua, bac: bac.toFixed(2), min: mins }),
-        { tag, silent: true, renotify: false, requireInteraction: false }
-      );
-    };
-    push();
-    const id = setInterval(push, 60000);
-    return () => {
-      stopped = true;
-      clearInterval(id);
-      // Chiudi la notifica quando la sessione finisce / si smonta.
-      try {
-        navigator.serviceWorker?.getRegistration().then((reg) => {
-          reg?.getNotifications?.({ tag }).then((ns) => ns.forEach((n) => n.close()));
-        });
-      } catch { /* noop */ }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSession?.id, activeSession?.total_units, activeSession?.full_stomach, liveResidualGrams, currentUser?.weight, currentUser?.sex]);
-
   // Calcola alcol residuo da sessioni precedenti per la live
   useEffect(() => {
     if (!activeSession) { setLiveResidualGrams(0); return; }
