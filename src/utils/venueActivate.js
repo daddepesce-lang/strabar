@@ -43,10 +43,19 @@ export async function activateVenueOrder(admin, order) {
 
   if (code === 'promo') {
     const days = Number(opt.days) || 7;
+    // PROROGA: estende un banner già esistente invece di crearne uno nuovo.
+    if (meta.extend_banner_id) {
+      const { data: existing } = await admin.from('ad_banners').select('ends_at').eq('id', meta.extend_banner_id).maybeSingle();
+      const base = existing?.ends_at && new Date(existing.ends_at) > new Date() ? new Date(existing.ends_at) : new Date();
+      const newEnds = new Date(base.getTime() + days * DAY).toISOString();
+      await admin.from('ad_banners').update({ ends_at: newEnds, active: true, order_id: order.id }).eq('id', meta.extend_banner_id);
+      return { applied: 'promo_extend', days };
+    }
     const endsAt = new Date(Date.now() + days * DAY).toISOString();
     await admin.from('ad_banners').insert({
       title: meta.title || order.venue_name || 'Promo',
       body: meta.body || null,
+      image_url: meta.image || null,
       link_url: meta.link || `/locale/${encodeURIComponent(key)}`,
       cta: meta.cta || 'Scopri',
       partner: order.venue_name || null,
@@ -54,6 +63,9 @@ export async function activateVenueOrder(admin, order) {
       active: true,
       priority: opt.position === 'top' ? 10 : 5,
       ends_at: endsAt,
+      venue_key: key,
+      owner_id: order.user_id || null,
+      order_id: order.id,
     });
     return { applied: 'promo', days };
   }

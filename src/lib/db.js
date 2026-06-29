@@ -2859,6 +2859,46 @@ export const db = {
     return data || [];
   },
 
+  // I banner promo dell'utente corrente (anche scaduti/disattivati) per la gestione.
+  async getMyVenueBanners(venueKey) {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.rpc('my_banners', { p_venue_key: venueKey || null });
+    if (error) return [];
+    return data || [];
+  },
+
+  async updateMyBanner(id, fields = {}) {
+    if (!isSupabaseConfigured) throw new Error('Non disponibile');
+    const { error } = await supabase.rpc('update_my_banner', {
+      p_id: id,
+      p_title: fields.title ?? '',
+      p_body: fields.body ?? null,
+      p_link_url: fields.link_url ?? null,
+      p_cta: fields.cta ?? '',
+      p_image_url: fields.image_url ?? null,
+      p_active: fields.active ?? null,
+    });
+    if (error) throw error;
+    return true;
+  },
+
+  async deleteMyBanner(id) {
+    if (!isSupabaseConfigured) throw new Error('Non disponibile');
+    const { error } = await supabase.rpc('delete_my_banner', { p_id: id });
+    if (error) throw error;
+    return true;
+  },
+
+  // Analytics best-effort (non bloccano mai il feed).
+  async bumpBannerImpressions(ids) {
+    if (!isSupabaseConfigured || !ids?.length) return;
+    await supabase.rpc('bump_banner_impressions', { p_ids: ids });
+  },
+  async bumpBannerClick(id) {
+    if (!isSupabaseConfigured || !id) return;
+    await supabase.rpc('bump_banner_click', { p_id: id });
+  },
+
   // Annulla un ordine non ancora pagato (status pending). Solo il proprietario.
   async cancelVenueOrder(orderId) {
     if (!isSupabaseConfigured) throw new Error('Non disponibile');

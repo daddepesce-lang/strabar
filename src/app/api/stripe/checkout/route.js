@@ -68,6 +68,8 @@ export async function POST(req) {
       link: m.link ? String(m.link).slice(0, 300) : undefined,
       cta: m.cta ? String(m.cta).slice(0, 40) : undefined,
       message: m.message ? String(m.message).slice(0, 300) : undefined,
+      image: m.image ? String(m.image).slice(0, 600) : undefined, // URL immagine del banner
+      extend_banner_id: m.extend_banner_id ? String(m.extend_banner_id).slice(0, 60) : undefined, // proroga
       options, // durata/posizione/audience/spotlight: servono all'attivazione
     };
   })();
