@@ -522,18 +522,24 @@ export default function FeedPage() {
         : [...base, activeSession];
     }
     const earned = earnedBadgeIds(merged);
+    // Baseline = badge "visti" salvati sul PROFILO (cross-device). Al primo caricamento, se
+    // il profilo non ne ha ancora (lista vuota ma badge già ottenuti) facciamo il backfill
+    // SENZA festa retroattiva e allineiamo il server.
     if (badgeKnownRef.current === null) {
-      let known = null;
-      try { known = JSON.parse(localStorage.getItem('sb_badges_' + currentUser.id) || 'null'); } catch { /* noop */ }
-      if (!Array.isArray(known)) known = earned;
+      const serverSeen = Array.isArray(currentUser.seen_badges) ? currentUser.seen_badges : [];
+      let known = serverSeen;
+      if (serverSeen.length === 0 && earned.length > 0) {
+        known = earned;
+        db.updateProfile(currentUser.id, { seen_badges: known }).catch(() => {});
+      }
       badgeKnownRef.current = known;
-      try { localStorage.setItem('sb_badges_' + currentUser.id, JSON.stringify(known)); } catch { /* noop */ }
       return;
     }
     const newOnes = earned.filter((id) => !badgeKnownRef.current.includes(id));
     if (newOnes.length) {
       badgeKnownRef.current = earned;
-      try { localStorage.setItem('sb_badges_' + currentUser.id, JSON.stringify(earned)); } catch { /* noop */ }
+      db.updateProfile(currentUser.id, { seen_badges: earned }).catch(() => {});
+      setCurrentUser((prev) => (prev ? { ...prev, seen_badges: earned } : prev));
       badgeQueueRef.current.push(...newOnes.slice(1));
       setBadgeCelebration((cur) => cur || newOnes[0]);
       try { notify(t('badge.notifyTitle'), t(`profile.bdg.${newOnes[0]}.t`)); } catch { /* noop */ }
