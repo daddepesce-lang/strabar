@@ -2420,42 +2420,43 @@ export default function FeedPage() {
     </div>
   );
 
-  // Striscia foto: miniature + pulsante "Aggiungi". `label` chiarisce DOVE finisce la foto
-  // (in un tour la foto viene taggata con la tappa corrente).
-  const renderPhotoStrip = (label) => (
-    <div>
-      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
-        {label}
-      </span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-        {activeSession?.media?.filter((m) => m.type === 'image').map((med, idx) => (
-          <div key={idx} style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={med.url} alt={med.name || 'foto'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button
-              onClick={async () => {
-                const updated = (activeSession.media || []).filter((m) => m.url !== med.url);
-                setActiveSession((prev) => ({ ...prev, media: updated }));
-                await db.updateActivity(activeSession.id, { media: updated });
-              }}
-              style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', color: '#FFF', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '12px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >×</button>
-          </div>
-        ))}
-        <label style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed var(--border-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: photoUploading ? 'wait' : 'pointer', color: 'var(--text-dark-secondary)', gap: '2px' }}>
-          {photoUploading ? (
-            <Loader size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-          ) : (
-            <>
-              <Camera size={18} />
-              <span style={{ fontSize: '9px' }}>Aggiungi</span>
-            </>
-          )}
+  // Sezione foto: un PULSANTE pieno ed esplicito ("📷 {addLabel}") così è chiarissimo
+  // dove si aggiungono le foto; sotto, le miniature già caricate (tap → slideshow, × per
+  // rimuovere). `addLabel` dice dove finiscono (es. "alla sessione" / "a questa tappa").
+  const renderPhotoStrip = (addLabel) => {
+    const imgs = activeSession?.media?.filter((m) => m.type === 'image') || [];
+    return (
+      <div>
+        <label
+          className="btn btn-secondary"
+          style={{ width: '100%', padding: '11px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1.5px dashed var(--primary)', background: 'rgba(255,32,0,0.06)', color: 'var(--primary)', cursor: photoUploading ? 'wait' : 'pointer' }}
+        >
+          {photoUploading ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} />}
+          {photoUploading ? 'Carico la foto…' : `📷 ${addLabel}`}
           <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
         </label>
+        {imgs.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginTop: '10px', paddingBottom: '2px' }}>
+            {imgs.map((med, idx) => (
+              <div key={idx} style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0, borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={med.url} alt={med.name || 'foto'} onClick={() => openSessionPhotos(activeSession, idx)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
+                <button
+                  onClick={async () => {
+                    const updated = (activeSession.media || []).filter((m) => m.url !== med.url);
+                    setActiveSession((prev) => ({ ...prev, media: updated }));
+                    await db.updateActivity(activeSession.id, { media: updated });
+                  }}
+                  aria-label="Rimuovi foto"
+                  style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(0,0,0,0.65)', color: '#FFF', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '13px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >×</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="dashboard-grid">
@@ -2625,34 +2626,19 @@ export default function FeedPage() {
                                     {renderDrinkAdder()}
                                   </div>
 
-                                  {/* Azioni: foto + guidami sulla stessa riga */}
-                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch', marginBottom: '8px' }}>
-                                    <label title="Aggiungi una foto a questa tappa" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0 14px', borderRadius: '12px', border: '1px solid var(--border-dark)', background: 'var(--bg-input-dark)', color: 'var(--text-dark-secondary)', cursor: photoUploading ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
-                                      {photoUploading ? <Loader size={15} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} /> : <Camera size={15} />}
-                                      {(activeSession.media?.filter((m) => m.type === 'image').length || 0) > 0 ? activeSession.media.filter((m) => m.type === 'image').length : 'Foto'}
-                                      <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
-                                    </label>
-                                    {curStop?.lat && curStop?.lng ? (
-                                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ flex: 1, fontSize: '13px', padding: '10px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700 }}>
-                                        🧭 Guidami qui
-                                      </a>
-                                    ) : (
-                                      <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>📍 Tappa extra: registra qui i drink.</span>
-                                    )}
-                                  </div>
-
-                                  {/* Miniature foto (tap per rimuovere) */}
-                                  {(activeSession.media?.filter((m) => m.type === 'image').length || 0) > 0 && (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
-                                      {activeSession.media.filter((m) => m.type === 'image').map((med, mi) => (
-                                        <div key={mi} style={{ position: 'relative', width: '46px', height: '46px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
-                                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                                          <img src={med.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                          <button onClick={async () => { const updated = (activeSession.media || []).filter((m) => m.url !== med.url); setActiveSession((prev) => ({ ...prev, media: updated })); await db.updateActivity(activeSession.id, { media: updated }); }} style={{ position: 'absolute', top: '1px', right: '1px', background: 'rgba(0,0,0,0.6)', color: '#FFF', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '11px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                                        </div>
-                                      ))}
-                                    </div>
+                                  {/* Guidami alla tappa */}
+                                  {curStop?.lat && curStop?.lng ? (
+                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700, marginBottom: '8px' }}>
+                                      🧭 Guidami qui
+                                    </a>
+                                  ) : (
+                                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '8px' }}>📍 Tappa extra: registra qui i drink.</div>
                                   )}
+
+                                  {/* Foto di questa tappa: pulsante esplicito */}
+                                  <div style={{ marginBottom: '10px' }}>
+                                    {renderPhotoStrip('Aggiungi una foto a questa tappa')}
+                                  </div>
 
                                   {/* Navigazione tappe */}
                                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -2938,7 +2924,7 @@ export default function FeedPage() {
               {/* Foto — solo nella live SEMPLICE (nel tour sono dentro la tappa corrente) */}
               {!activeSession.location?.tour && (
                 <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
-                  {renderPhotoStrip('📸 Foto della serata')}
+                  {renderPhotoStrip('Aggiungi una foto alla sessione')}
                 </div>
               )}
 
