@@ -22,6 +22,8 @@ export default function VenuesAdmin() {
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(false);
   const [picker, setPicker] = useState(null); // venue per cui collegare un account
+  const [mergeFrom, setMergeFrom] = useState(null); // venue da unire (sorgente)
+  const [mergeQuery, setMergeQuery] = useState(''); // ricerca destinazione
 
   const load = async () => {
     try {
@@ -49,11 +51,12 @@ export default function VenuesAdmin() {
     const r = await post({ action: 'rename', fromKey: v.key, toName: toName.trim() });
     if (r) alert(`Rinominato. Sessioni aggiornate: ${r.sessionsUpdated}.`);
   };
-  const merge = async (v) => {
-    const toName = prompt(`Unisci "${v.name}" in un altro locale.\nScrivi il NOME canonico di destinazione (le sessioni di "${v.name}" verranno spostate lì):`);
-    if (!toName || !toName.trim()) return;
-    if (!confirm(`Confermi? Tutte le ${v.sessions} presenze di "${v.name}" passeranno a "${toName.trim()}". L'operazione riscrive le sessioni.`)) return;
-    const r = await post({ action: 'merge', fromKey: v.key, toName: toName.trim() });
+  // Unione: scegli dalla LISTA il locale da TENERE (destinazione). Le presenze del locale
+  // sorgente vengono spostate lì. Niente più nome da digitare a mano.
+  const doMerge = async (from, to) => {
+    if (!confirm(`Unisci "${from.name}" → "${to.name}".\nTutte le ${from.sessions} presenze di "${from.name}" passeranno a "${to.name}" (che resta). Confermi?`)) return;
+    const r = await post({ action: 'merge', fromKey: from.key, toName: to.name });
+    setMergeFrom(null); setMergeQuery('');
     if (r) alert(`Unito. Sessioni spostate: ${r.sessionsUpdated}.`);
   };
 
@@ -128,7 +131,7 @@ export default function VenuesAdmin() {
                   <button type="button" disabled={busy} onClick={() => rename(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <Pencil size={14} /> Rinomina
                   </button>
-                  <button type="button" disabled={busy} onClick={() => merge(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <button type="button" disabled={busy} onClick={() => { setMergeFrom(v); setMergeQuery(''); }} className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 12px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                     <GitMerge size={14} /> Unisci a…
                   </button>
                 </div>
@@ -210,6 +213,47 @@ export default function VenuesAdmin() {
           onPick={async (u) => { setPicker(null); await claimPost({ action: 'link_account', user_id: u.id, venue_key: picker.key, venue_name: picker.name }); }}
         />
       )}
+
+      {/* SELEZIONE DESTINAZIONE UNIONE: cerca e scegli quale locale TENERE */}
+      {mergeFrom && (() => {
+        const sm = mergeQuery.toLowerCase().trim();
+        const candidates = (data.venues || [])
+          .filter((v) => v.key !== mergeFrom.key)
+          .filter((v) => !sm || v.name.toLowerCase().includes(sm))
+          .sort((a, b) => (b.verified ? 1 : 0) - (a.verified ? 1 : 0) || b.sessions - a.sessions);
+        return (
+          <div onClick={() => setMergeFrom(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 1500, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '20px', overflowY: 'auto' }}>
+            <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 460, marginTop: 40, padding: 18 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}><GitMerge size={17} color="var(--primary)" /> Unisci locale</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-dark-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                Sposta le <strong style={{ color: '#FFF' }}>{mergeFrom.sessions}</strong> presenze di <strong style={{ color: 'var(--primary)' }}>{mergeFrom.name}</strong> nel locale che scegli (quello che <strong>resta</strong>):
+              </p>
+              <div style={{ position: 'relative', marginBottom: 12 }}>
+                <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
+                <input autoFocus className="form-control" placeholder="Cerca il locale da tenere…" value={mergeQuery} onChange={(e) => setMergeQuery(e.target.value)} style={{ paddingLeft: 36, fontSize: 14 }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '50vh', overflowY: 'auto' }}>
+                {candidates.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-dark-secondary)', textAlign: 'center', padding: 16 }}>Nessun altro locale trovato.</p>
+                ) : candidates.slice(0, 40).map((v) => (
+                  <button key={v.key} type="button" disabled={busy} onClick={() => doMerge(mergeFrom, v)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, textAlign: 'left', padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', cursor: 'pointer' }}>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: '#FFF', fontWeight: 600 }}>
+                        <MapPin size={13} color="var(--primary)" /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</span>
+                        {v.verified && <BadgeCheck size={14} color="var(--secondary)" />}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{v.sessions} presenze · {v.uniqueUsers} clienti</span>
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--secondary)', flexShrink: 0 }}>Tieni questo →</span>
+                  </button>
+                ))}
+              </div>
+              <button type="button" onClick={() => setMergeFrom(null)} className="btn btn-secondary" style={{ width: '100%', marginTop: 12, borderRadius: 14, fontSize: 13, padding: 10 }}>Annulla</button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
