@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 // Slideshow a tutto schermo per le foto di una sessione. Leggero: monta solo l'immagine
 // corrente (le altre non vengono scaricate finché non ci si arriva → egress minimo).
-export default function MediaLightbox({ images = [], startIndex = 0, onClose }) {
+export default function MediaLightbox({ images = [], startIndex = 0, onClose, footer = null }) {
   const [i, setI] = useState(startIndex);
   const n = images.length;
 
@@ -55,10 +55,16 @@ export default function MediaLightbox({ images = [], startIndex = 0, onClose }) 
             style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', cursor: 'pointer' }}>
             <ChevronRight size={26} />
           </button>
-          <div style={{ position: 'absolute', bottom: 'max(20px, env(safe-area-inset-bottom))', left: 0, right: 0, textAlign: 'center', color: '#FFF', fontSize: 13, fontWeight: 600 }}>
+          <div style={{ position: 'absolute', bottom: footer ? 'max(64px, calc(env(safe-area-inset-bottom) + 56px))' : 'max(20px, env(safe-area-inset-bottom))', left: 0, right: 0, textAlign: 'center', color: '#FFF', fontSize: 13, fontWeight: 600 }}>
             {i + 1} / {n}
           </div>
         </>
+      )}
+
+      {footer && (
+        <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: 'max(16px, env(safe-area-inset-bottom))', left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+          {footer}
+        </div>
       )}
     </div>
   );

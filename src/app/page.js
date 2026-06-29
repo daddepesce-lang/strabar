@@ -149,6 +149,10 @@ export default function FeedPage() {
       if (imgs.length) setLightbox({ images: imgs, index: Math.min(startIndex, imgs.length - 1) });
     } catch { /* in caso di errore resta visibile la sola copertina */ }
   };
+  // Apertura "storia" (carosello): stile visore foto a tutto schermo, COSTO ZERO —
+  // mostra solo la copertina GIÀ caricata dal feed (nessuna query). Per vedere tutte le
+  // foto/dettagli c'è il link "vai alla sessione" nel footer del visore.
+  const openStory = (act) => setLightbox({ images: act.cover_url ? [act.cover_url] : [], index: 0, story: act });
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false); // visore foto a schermo intero
 
@@ -198,6 +202,7 @@ export default function FeedPage() {
   const [editSearchingFriends, setEditSearchingFriends] = useState(false);
   const [showAllLiveDrinks, setShowAllLiveDrinks] = useState(false);
   const [drinkSearchOpen, setDrinkSearchOpen] = useState(false); // foglio ricerca drink (live)
+  const [liveVenueDrinks, setLiveVenueDrinks] = useState([]); // drink propri del locale corrente
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
   const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
@@ -490,6 +495,18 @@ export default function FeedPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Drink del locale: caricati SOLO quando apri la ricerca drink (lazy, una query
+  // leggera per il locale corrente). Niente costo all'apertura della home.
+  useEffect(() => {
+    if (!drinkSearchOpen || !activeSession) { return; }
+    const tour = activeSession.location?.tour;
+    const venueName = tour ? (tour.stops?.[tour.current || 0]?.name) : activeSession.location?.name;
+    if (!venueName) { setLiveVenueDrinks([]); return; }
+    let alive = true;
+    db.getVenueDrinks(venueName).then((d) => { if (alive) setLiveVenueDrinks(d || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, [drinkSearchOpen, activeSession?.id, activeSession?.location?.tour?.current]);
 
   // Calcola alcol residuo da sessioni precedenti per la live
   useEffect(() => {
@@ -2946,6 +2963,7 @@ export default function FeedPage() {
               {drinkSearchOpen && (
                 <DrinkSearch
                   scope={activeSession.location?.tour ? 'stop' : 'session'}
+                  venueDrinks={liveVenueDrinks}
                   onPick={handleAddDrinkToActiveSession}
                   onClose={() => setDrinkSearchOpen(false)}
                 />
@@ -2975,7 +2993,7 @@ export default function FeedPage() {
 
         {/* Carosello "storie": sessioni recenti con foto, sopra al filtro */}
         {currentUser && storyItems.length > 0 && (
-          <StoriesBar stories={storyItems} onOpen={handleOpenActivity} label={t('feed.stories')} />
+          <StoriesBar stories={storyItems} onOpen={openStory} label={t('feed.stories')} />
         )}
 
         {/* Filtro feed: Amici / Tutti / Live */}
@@ -3524,7 +3542,20 @@ export default function FeedPage() {
 
       {/* Slideshow foto a tutto schermo (apribile da feed e dettaglio) */}
       {lightbox && lightbox.images.length > 0 && (
-        <MediaLightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
+        <MediaLightbox
+          images={lightbox.images}
+          startIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+          footer={lightbox.story ? (
+            <button
+              onClick={() => { const a = lightbox.story; setLightbox(null); handleOpenActivity(a); }}
+              className="btn btn-primary"
+              style={{ borderRadius: 22, padding: '10px 20px', fontSize: 14, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {publicName(lightbox.story.profiles, t('feed.userFallback'))} · {t('feed.goToSession')} →
+            </button>
+          ) : null}
+        />
       )}
 
       {/* MODAL DETTAGLI ATTIVITA */}

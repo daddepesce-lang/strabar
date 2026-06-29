@@ -3,7 +3,7 @@
 import { useEffect, useState, use, useRef } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck, ShoppingCart, ImagePlus, Pencil, Trash2, BarChart3, Eye, MousePointerClick, CalendarClock, X } from 'lucide-react';
+import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck, ShoppingCart, ImagePlus, Pencil, Trash2, BarChart3, Eye, MousePointerClick, CalendarClock, X, Beer, Plus } from 'lucide-react';
 import { OPTION_SCHEMA, defaultOptions, computePrice, euro } from '@/lib/venuePricing';
 import { useT } from '@/lib/i18n';
 
@@ -64,14 +64,39 @@ export default function VenueManagePage({ params }) {
   const [savingBanner, setSavingBanner] = useState(false);
   const [extendDays, setExtendDays] = useState({}); // bannerId -> giorni proroga
 
+  const [venueDrinks, setVenueDrinks] = useState([]); // drink propri del locale
+  const [drinkForm, setDrinkForm] = useState({ name: '', abv: '', units: '' });
+  const [addingDrink, setAddingDrink] = useState(false);
+
   const loadManagerData = async () => {
-    const [svc, ord, evs, bns] = await Promise.all([
+    const [svc, ord, evs, bns, drk] = await Promise.all([
       db.getVenueServices(placeKey).catch(() => []),
       db.getMyVenueOrders(placeKey).catch(() => []),
       db.getMyUpcomingEvents().catch(() => []),
       db.getMyVenueBanners(placeKey).catch(() => []),
+      db.getVenueDrinks(placeKey).catch(() => []),
     ]);
-    setServices(svc); setOrders(ord); setMyEvents(evs); setBanners(bns);
+    setServices(svc); setOrders(ord); setMyEvents(evs); setBanners(bns); setVenueDrinks(drk);
+  };
+
+  // ---- Drink del locale ----
+  const addVenueDrink = async () => {
+    const name = drinkForm.name.trim();
+    if (!name) { alert(t('gestione.drinkNeedName')); return; }
+    setAddingDrink(true);
+    try {
+      const abv = parseFloat(String(drinkForm.abv).replace(',', '.')) || 0;
+      const units = parseFloat(String(drinkForm.units).replace(',', '.')) || 0;
+      await db.addVenueDrink(placeKey, { name, abv, units, label: `🍸 ${name}` });
+      setDrinkForm({ name: '', abv: '', units: '' });
+      setVenueDrinks(await db.getVenueDrinks(placeKey).catch(() => venueDrinks));
+    } catch (e) { alert('Errore: ' + (e.message || e)); }
+    finally { setAddingDrink(false); }
+  };
+  const removeVenueDrink = async (id) => {
+    if (!confirm('Rimuovere questo drink?')) return;
+    try { await db.deleteVenueDrink(id); setVenueDrinks((prev) => prev.filter((d) => d.id !== id)); }
+    catch (e) { alert('Errore: ' + (e.message || e)); }
   };
 
   useEffect(() => {
@@ -236,6 +261,7 @@ export default function VenueManagePage({ params }) {
 
   const TABS = [
     { id: 'classifiche', label: t('gestione.tabLeaderboard'), icon: Trophy },
+    { id: 'drinks', label: t('gestione.tabMyDrinks'), icon: Beer },
     { id: 'servizi', label: t('gestione.tabServices'), icon: Star },
     { id: 'carrello', label: `${t('gestione.tabCart')}${cart.length ? ` (${cart.length})` : ''}`, icon: ShoppingCart },
     { id: 'banner', label: t('gestione.tabBanners'), icon: Megaphone },
@@ -327,6 +353,40 @@ export default function VenueManagePage({ params }) {
                 </div>
               </div>
               <Link href={`/locale/${encodeURIComponent(placeKey)}`} className="btn btn-secondary" style={{ width: '100%', marginTop: '12px', borderRadius: '16px', fontSize: '13px', padding: '9px' }}>{t('gestione.classViewPublic')}</Link>
+            </div>
+          )}
+
+          {/* SEZIONE: I MIEI DRINK */}
+          {tab === 'drinks' && (
+            <div className="card" style={{ padding: '16px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}><Beer size={18} color="var(--secondary)" /> {t('gestione.drinksTitle')}</h2>
+              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.45 }}>{t('gestione.drinksDesc')}</p>
+
+              {venueDrinks.length === 0 ? (
+                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginBottom: '14px' }}>{t('gestione.drinksEmpty')}</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                  {venueDrinks.map((d) => (
+                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)' }}>
+                      <span style={{ flex: 1, minWidth: 0, color: '#FFF', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{d.abv > 0 ? `${d.abv}° · ${(d.units || 0).toFixed(1)} U.A.` : 'analc.'}</span>
+                      <button type="button" onClick={() => removeVenueDrink(d.id)} style={{ background: 'rgba(239,68,68,0.12)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
+                <input value={drinkForm.name} onChange={(e) => setDrinkForm((p) => ({ ...p, name: e.target.value }))} placeholder={t('gestione.drinkNamePh')} className="form-control" style={{ fontSize: '13px' }} />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input value={drinkForm.abv} onChange={(e) => setDrinkForm((p) => ({ ...p, abv: e.target.value }))} placeholder={t('gestione.drinkAbvPh')} type="number" step="0.1" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
+                  <input value={drinkForm.units} onChange={(e) => setDrinkForm((p) => ({ ...p, units: e.target.value }))} placeholder={t('gestione.drinkUnitsPh')} type="number" step="0.1" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
+                  <button onClick={addVenueDrink} disabled={addingDrink} className="btn btn-primary" style={{ borderRadius: '12px', fontSize: '13px', padding: '8px 14px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    <Plus size={15} /> {addingDrink ? t('gestione.drinkAdding') : t('gestione.drinkAdd')}
+                  </button>
+                </div>
+                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', lineHeight: 1.4 }}>{t('gestione.drinksHint')}</p>
+              </div>
             </div>
           )}
 
