@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
+import { useT } from '@/lib/i18n';
 import {
   Calendar, Plus, MapPin, Users, Clock, X, Check,
   CalendarPlus, Route as RouteIcon, Crown, Loader,
@@ -17,9 +18,9 @@ function formatEventDate(ds) {
   return d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 }
 
-const RSVP_LABEL = { going: 'Partecipo', maybe: 'Forse', no: 'Non posso' };
-
 export default function EventsPage() {
+  const t = useT();
+  const RSVP_LABEL = { going: t('events.rsvpGoing'), maybe: t('events.rsvpMaybe'), no: t('events.rsvpNo') };
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
   const [events, setEvents] = useState([]);
@@ -147,8 +148,8 @@ export default function EventsPage() {
   };
 
   const handleCreate = async () => {
-    if (!title.trim()) { alert('Dai un titolo al tuo evento!'); return; }
-    if (!date) { alert('Scegli una data e un orario!'); return; }
+    if (!title.trim()) { alert(t('events.needTitle')); return; }
+    if (!date) { alert(t('events.needDate')); return; }
     setSaving(true);
     try {
       const selectedRoute = routes.find((r) => r.id === routeId);
@@ -168,7 +169,7 @@ export default function EventsPage() {
       setLocQuery(''); setLocResults([]); setSelectedLoc(null);
       router.push(`/events/${ev.id}`);
     } catch (err) {
-      alert(err.message || 'Errore');
+      alert(err.message || t('events.genericError'));
     } finally {
       setSaving(false);
     }
@@ -187,7 +188,7 @@ export default function EventsPage() {
   };
 
   if (!loading && !currentUser) {
-    return <RequireAuth feature="gli eventi" />;
+    return <RequireAuth feature={t('events.requireFeature')} />;
   }
 
   return (
@@ -196,45 +197,45 @@ export default function EventsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '30px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={30} color="var(--primary)" /> Eventi & Date 🍻
+            <Calendar size={30} color="var(--primary)" /> {t('events.title')}
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-            Organizza bevute, invita gli amici e gestisci gli itinerari come una vera squadra.
+            {t('events.subtitle')}
           </p>
         </div>
         <button onClick={openCreate} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-          <Plus size={16} /> Crea Evento
+          <Plus size={16} /> {t('events.create')}
         </button>
       </div>
 
       {/* Tab */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', flexWrap: 'wrap' }}>
         {[
-          { key: 'upcoming', label: 'In programma' },
-          { key: 'mine', label: 'I miei eventi' },
-          { key: 'invites', label: 'Inviti ricevuti' },
-        ].map((t) => (
+          { key: 'upcoming', label: t('events.tabUpcoming') },
+          { key: 'mine', label: t('events.tabMine') },
+          { key: 'invites', label: t('events.tabInvites') },
+        ].map((tb) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`btn ${tab === t.key ? 'btn-primary' : 'btn-secondary'}`}
+            key={tb.key}
+            onClick={() => setTab(tb.key)}
+            className={`btn ${tab === tb.key ? 'btn-primary' : 'btn-secondary'}`}
             style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}
           >
-            {t.label}
+            {tb.label}
           </button>
         ))}
       </div>
 
       {/* Lista eventi */}
       {loading ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dark-secondary)' }}>Carico gli eventi...</div>
+        <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dark-secondary)' }}>{t('events.loadingList')}</div>
       ) : visibleEvents.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '44px' }}>
           <Calendar size={36} color="var(--text-dark-secondary)" style={{ marginBottom: '12px' }} />
           <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '18px' }}>
-            {tab === 'invites' ? 'Nessun invito ricevuto al momento.' : tab === 'mine' ? 'Non hai ancora creato eventi.' : 'Nessun evento in programma. Sii tu a organizzare il prossimo giro!'}
+            {tab === 'invites' ? t('events.emptyInvites') : tab === 'mine' ? t('events.emptyMine') : t('events.emptyUpcoming')}
           </p>
-          <button onClick={openCreate} className="btn btn-primary"><Plus size={16} /> Crea il primo evento</button>
+          <button onClick={openCreate} className="btn btn-primary"><Plus size={16} /> {t('events.createFirst')}</button>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
@@ -242,7 +243,7 @@ export default function EventsPage() {
             <Link key={ev.id} href={`/events/${ev.id}`} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', ...(ev.isSponsored ? { border: '1px solid var(--secondary)' } : {}) }}>
               {ev.isSponsored && (
                 <span style={{ alignSelf: 'flex-start', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.4px', padding: '3px 8px', borderRadius: '20px', background: 'rgba(223, 255, 0,0.16)', color: 'var(--secondary)', border: '1px solid rgba(223,255,0,0.35)' }}>
-                  ⭐ Sponsorizzato
+                  {t('events.sponsored')}
                 </span>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -276,7 +277,7 @@ export default function EventsPage() {
                   <Crown size={13} color="var(--secondary)" /> {ev.host?.display_name || ev.host_name}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Users size={13} /> {ev.goingCount} partecipano
+                  <Users size={13} /> {ev.goingCount} {t('events.going')}
                 </span>
               </div>
             </Link>
@@ -293,26 +294,26 @@ export default function EventsPage() {
           <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '560px', border: '2px solid var(--primary)', marginTop: '30px', marginBottom: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarPlus size={20} color="var(--primary)" /> Nuovo Evento
+                <CalendarPlus size={20} color="var(--primary)" /> {t('events.newEvent')}
               </h2>
               <button onClick={() => setShowForm(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '34px', height: '34px' }}><X size={16} /></button>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Titolo</label>
-              <input className="form-control" placeholder="es. Pub Crawl del Sabato" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <label className="form-label">{t('events.fTitle')}</label>
+              <input className="form-control" placeholder={t('events.fTitlePh')} value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Data e ora</label>
+                <label className="form-label">{t('events.fDate')}</label>
                 <input type="datetime-local" className="form-control" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
               <div className="form-group" style={{ position: 'relative' }}>
-                <label className="form-label">Luogo di ritrovo</label>
+                <label className="form-label">{t('events.fPlace')}</label>
                 <input
                   className="form-control"
-                  placeholder="Cerca un locale, una via o scrivi libero…"
+                  placeholder={t('events.fPlacePh')}
                   value={locQuery}
                   onChange={(e) => { setLocQuery(e.target.value); setSelectedLoc(null); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); useFreeTextLocation(); } }}
@@ -320,8 +321,8 @@ export default function EventsPage() {
                 {/* Conferma selezione corrente */}
                 {locationName && (
                   <div style={{ fontSize: '11px', marginTop: '4px', color: 'var(--text-dark-secondary)' }}>
-                    Luogo scelto: <strong style={{ color: 'var(--primary)' }}>{locationName}</strong>
-                    {selectedLoc?.lat != null ? ' 📍 (posizione reale)' : ' ✍️ (testo libero)'}
+                    {t('events.placeChosen')} <strong style={{ color: 'var(--primary)' }}>{locationName}</strong>
+                    {selectedLoc?.lat != null ? t('events.realPos') : t('events.freeText')}
                   </div>
                 )}
                 {/* Risultati ricerca */}
@@ -329,7 +330,7 @@ export default function EventsPage() {
                   <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                     {locSearching && (
                       <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco luoghi…
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('events.searchingPlaces')}
                       </div>
                     )}
                     {locResults.map((v, i) => (
@@ -351,7 +352,7 @@ export default function EventsPage() {
                         onClick={useFreeTextLocation}
                         style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-dark-secondary)' }}
                       >
-                        ✍️ Usa &quot;<strong style={{ color: 'var(--primary)' }}>{locQuery.trim()}</strong>&quot; come testo libero
+                        {t('events.useFreeText', { q: locQuery.trim() })}
                       </button>
                     )}
                   </div>
@@ -360,7 +361,7 @@ export default function EventsPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Itinerario collegato (opzionale)</label>
+              <label className="form-label">{t('events.fRoute')}</label>
               {(() => {
                 // Collegabili: solo i MIEI itinerari (qualunque privacy) o quelli PUBBLICI.
                 // Un tour "amici" di un altro non si può collegare: l'evento potrebbe avere
@@ -371,15 +372,15 @@ export default function EventsPage() {
                 return (
                   <>
                     <select className="form-control" value={routeId} onChange={(e) => setRouteId(e.target.value)}>
-                      <option value="">Nessun itinerario</option>
+                      <option value="">{t('events.noRoute')}</option>
                       {selectable.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.name}{r.user_id === currentUser?.id ? ' · il mio' : ' · pubblico'}{(r.user_id === currentUser?.id && (r.visibility || 'public') !== 'public') ? (r.visibility === 'private' ? ' 🔒' : ' 👥') : ''}
+                          {r.name}{r.user_id === currentUser?.id ? t('events.routeMine') : t('events.routePublic')}{(r.user_id === currentUser?.id && (r.visibility || 'public') !== 'public') ? (r.visibility === 'private' ? ' 🔒' : ' 👥') : ''}
                         </option>
                       ))}
                     </select>
                     <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
-                      Puoi collegare i <strong>tuoi</strong> itinerari o quelli <strong>pubblici</strong>.
+                      {t('events.routeHint')}
                       {mineNonPublic && (
                         <> <br />⚠️ <span style={{ color: 'var(--secondary)' }}>Questo è un tuo itinerario {sel.visibility === 'private' ? 'privato' : 'riservato agli amici'}: collegandolo, le sue tappe saranno visibili <strong>dentro l&apos;evento</strong> a chi può vederlo (secondo la privacy dell&apos;evento). Resta comunque fuori dalla lista pubblica dei tour.</span></>
                       )}
@@ -390,12 +391,12 @@ export default function EventsPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Descrizione</label>
-              <textarea className="form-control" rows={2} placeholder="Dettagli, dress code, cosa portare..." value={desc} onChange={(e) => setDesc(e.target.value)} style={{ resize: 'vertical' }} />
+              <label className="form-label">{t('events.fDesc')}</label>
+              <textarea className="form-control" rows={2} placeholder={t('events.fDescPh')} value={desc} onChange={(e) => setDesc(e.target.value)} style={{ resize: 'vertical' }} />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Invita amici ({invited.length} selezionati)</label>
+              <label className="form-label">{t('events.fInvite', { n: invited.length })}</label>
 
               {/* Persone già selezionate (chip rimovibili) */}
               {invitedPeople.length > 0 && (
@@ -417,7 +418,7 @@ export default function EventsPage() {
               <div style={{ position: 'relative' }}>
                 <input
                   className="form-control"
-                  placeholder="Cerca per nome o @username…"
+                  placeholder={t('events.searchPeoplePh')}
                   value={inviteQuery}
                   onChange={(e) => setInviteQuery(e.target.value)}
                 />
@@ -425,7 +426,7 @@ export default function EventsPage() {
                   <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '220px', overflowY: 'auto' }}>
                     {inviteSearching && (
                       <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco atleti…
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('events.searchingAthletes')}
                       </div>
                     )}
                     {inviteResults.map((p) => {
@@ -441,12 +442,12 @@ export default function EventsPage() {
                             <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</span>
                             {p.username && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
                           </span>
-                          {sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>+ Invita</span>}
+                          {sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>{t('events.inviteBtn')}</span>}
                         </button>
                       );
                     })}
                     {!inviteSearching && inviteResults.length === 0 && inviteQuery.trim().length >= 2 && (
-                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun atleta trovato.</div>
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('events.noAthletes')}</div>
                     )}
                   </div>
                 )}
@@ -455,12 +456,12 @@ export default function EventsPage() {
 
             {/* ACCESSO — due concetti distinti e indipendenti */}
             <div className="form-group" style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
-              <label className="form-label">Rendi visibile a:</label>
+              <label className="form-label">{t('events.visibleTo')}</label>
               <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
                 {[
-                  { v: 'public', t: '🌍 Tutti' },
-                  { v: 'friends', t: '👥 Amici' },
-                  { v: 'private', t: '🔒 Nessuno' },
+                  { v: 'public', t: t('events.visAll') },
+                  { v: 'friends', t: t('events.visFriends') },
+                  { v: 'private', t: t('events.visNobody') },
                 ].map((o) => (
                   <div
                     key={o.v}
@@ -471,10 +472,10 @@ export default function EventsPage() {
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
                 {visibility === 'public'
-                  ? '🌍 Compare nella lista eventi a tutti gli utenti.'
+                  ? t('events.visAllHint')
                   : visibility === 'friends'
-                  ? '👥 Compare nella lista solo ai tuoi amici (chi segui / ti segue).'
-                  : '🔒 Non compare nella lista a nessuno: lo vedono solo tu e le persone che inviti.'}
+                  ? t('events.visFriendsHint')
+                  : t('events.visPrivateHint')}
               </p>
             </div>
 
@@ -483,20 +484,18 @@ export default function EventsPage() {
                 onClick={() => setLinkSharing((v) => !v)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', cursor: 'pointer' }}
               >
-                <span style={{ fontWeight: 700, fontSize: '14px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Link di invito</span>
+                <span style={{ fontWeight: 700, fontSize: '14px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px' }}>{t('events.inviteLink')}</span>
                 <span style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0, transition: 'var(--transition)', background: linkSharing ? 'var(--primary)' : 'var(--border-dark)' }}>
                   <span style={{ position: 'absolute', top: '2px', left: linkSharing ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'var(--transition)' }} />
                 </span>
               </label>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
-                {linkSharing
-                  ? '✅ Chiunque riceva il link può aprire e partecipare — anche senza account e anche se non lo vede nella lista. Perfetto per invitare non-amici.'
-                  : '⛔ Solo tu e le persone che inviti per nome potete accedere. Un link inoltrato non funzionerà.'}
+                {linkSharing ? t('events.inviteLinkOn') : t('events.inviteLinkOff')}
               </p>
             </div>
 
             <button onClick={handleCreate} disabled={saving} className="btn btn-primary" style={{ width: '100%', marginTop: '6px' }}>
-              {saving ? 'Creo evento...' : 'Crea e invita'}
+              {saving ? t('events.creating') : t('events.createAndInvite')}
             </button>
           </div>
         </div>
