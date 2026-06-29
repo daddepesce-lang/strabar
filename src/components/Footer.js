@@ -1,6 +1,10 @@
+'use client';
+
 import Link from 'next/link';
+import { useT } from '@/lib/i18n';
 
 export default function Footer() {
+  const t = useT();
   return (
     <footer
       style={{
@@ -19,15 +23,15 @@ export default function Footer() {
       }}
     >
       <div style={{ fontWeight: 700, color: 'var(--secondary)' }}>
-        🍻 Bevi responsabilmente · Riservato ai maggiorenni (18+) · Se bevi non guidare
+        {t('footer.responsible')}
       </div>
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <Link href="/terms" style={{ color: 'var(--text-dark-secondary)' }}>Termini di Servizio</Link>
-        <Link href="/privacy" style={{ color: 'var(--text-dark-secondary)' }}>Privacy</Link>
-        <Link href="/install" style={{ color: 'var(--text-dark-secondary)' }}>Installa / Invita</Link>
+        <Link href="/terms" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.terms')}</Link>
+        <Link href="/privacy" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.privacy')}</Link>
+        <Link href="/install" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.install')}</Link>
       </div>
       <div style={{ fontSize: '11px', opacity: 0.7 }}>
-        Strabar — progetto indipendente, non affiliato ad alcun altro marchio. Le stime di BAC sono puramente indicative.
+        {t('footer.disclaimer')}
       </div>
     </footer>
   );

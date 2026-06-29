@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
+import { useT } from '@/lib/i18n';
 import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera, Info } from 'lucide-react';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import BeerPicker from '@/components/BeerPicker';
@@ -10,6 +11,7 @@ import EventStartGuard from '@/components/EventStartGuard';
 
 export default function LogActivityPage() {
   const router = useRouter();
+  const t = useT();
   // Catalogo drink dinamico (gestito da admin), con fallback statico immediato.
   const { quick: QUICK_DRINKS, extra: EXTRA_DRINKS } = useDrinkCatalog();
   const [currentUser, setCurrentUser] = useState(null);
@@ -632,7 +634,7 @@ export default function LogActivityPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <Loader size={36} className="pulse" style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
         <div style={{ color: 'var(--primary)', fontSize: '18px', fontWeight: 'bold' }}>
-          {checkingGps ? "Agganciando il satellite GPS... 📡" : "Versando una fresca... 🍺"}
+          {checkingGps ? t('common.gps') : t('common.pouring')}
         </div>
         <style jsx global>{`
           @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

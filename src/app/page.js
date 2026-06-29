@@ -1890,7 +1890,7 @@ export default function FeedPage() {
     return (
       <div style={{ paddingTop: '8px' }}>
         <div className="pulse" style={{ color: 'var(--primary)', fontSize: '15px', fontWeight: 700, textAlign: 'center', marginBottom: '18px' }}>
-          Versando una fresca... 🍺
+          {t('common.pouring')}
         </div>
         <div className="skeleton-feed">
           {[0, 1, 2].map((i) => (
