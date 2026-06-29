@@ -314,7 +314,8 @@ export default function Navbar() {
             </div>
           )}
 
-          <LanguageSwitcher compact />
+          {/* Bandierine solo su DESKTOP: su mobile il selettore lingua sta nel menu "Altro" */}
+          <span className="lang-desktop-only"><LanguageSwitcher compact /></span>
 
           {user ? (
             <>
@@ -421,6 +422,9 @@ export default function Navbar() {
                 ? <Link href={venueHref} className={isActive('/locale') ? 'active' : ''}><Store size={22} /><span>{venueLabel}</span></Link>
                 : <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>{t('nav.areYouVenue')}</span></Link>}
               <button type="button" onClick={handleLogout}><LogOut size={22} /><span>{t('nav.logout')}</span></button>
+            </div>
+            <div style={{ padding: '14px 16px 4px' }}>
+              <LanguageSwitcher />
             </div>
           </div>
         </div>

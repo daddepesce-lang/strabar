@@ -1314,6 +1314,8 @@ select.form-control {
   .nav-actions { gap: 10px; }
   .nav-user-name { display: none !important; }
   .nav-action-mobile { display: inline-flex; }
+  /* Su mobile niente bandierine in alto: il selettore lingua sta nel menu "Altro" */
+  .lang-desktop-only { display: none !important; }
   /* Su mobile il badge Premium è solo la medaglia (niente testo): occupa molto meno
      spazio nella barra in alto e non sembra sovradimensionato. */
   .badge-premium-label { display: none; }
