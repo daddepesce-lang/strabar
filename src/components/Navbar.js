@@ -314,6 +314,8 @@ export default function Navbar() {
             </div>
           )}
 
+          <LanguageSwitcher compact />
+
           {user ? (
             <>
               {user.is_premium ? (
