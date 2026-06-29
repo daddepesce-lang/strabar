@@ -7,9 +7,11 @@ import { Download, Share2, ArrowLeft, Beer, MessageCircle, Send, Copy, Check } f
 import Link from 'next/link';
 import { siteUrl, SITE_HOST } from '@/lib/site';
 import { publicName } from '@/lib/names';
+import { useI18n } from '@/lib/i18n';
 
 export default function ShareActivityPage({ params }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   // Unwrap params using React.use()
   const unwrappedParams = use(params);
   const activityId = unwrappedParams.id;
@@ -182,42 +184,42 @@ export default function ShareActivityPage({ params }) {
 
       // Badge della serata: derivato dall'intensità (displayBac) ma SENZA mostrare il numero.
       const badge = (() => {
-        if (totalDrinks === 0) return { t: 'PRIMO SORSO', e: '🍸', c: '#9CA3AF' };
-        if (displayBac < 0.2) return { t: 'SOBRIO', e: '🟢', c: '#2ED573' };
-        if (displayBac < 0.5) return { t: 'IN RISCALDAMENTO', e: '🟡', c: '#DFFF00' };
-        if (displayBac < 0.8) return { t: 'IN PARTITA', e: '🟠', c: '#FF9F1C' };
-        return { t: 'FUORI CATEGORIA', e: '🔴', c: '#FF2000' };
+        if (totalDrinks === 0) return { t: t('share.badgeFirstSip'), e: '🍸', c: '#9CA3AF' };
+        if (displayBac < 0.2) return { t: t('share.badgeSober'), e: '🟢', c: '#2ED573' };
+        if (displayBac < 0.5) return { t: t('share.badgeWarmup'), e: '🟡', c: '#DFFF00' };
+        if (displayBac < 0.8) return { t: t('share.badgeInGame'), e: '🟠', c: '#FF9F1C' };
+        return { t: t('share.badgeOffScale'), e: '🔴', c: '#FF2000' };
       })();
 
       // Frase automatica in base alla prestazione (deterministica per sessione).
       const phrasePool = (() => {
-        if (totalDrinks === 0) return ['La serata è appena iniziata.', 'Si comincia.'];
-        if (displayBac < 0.2) return ['Partenza prudente.', 'Tutto sotto controllo.'];
-        if (displayBac < 0.5) return ['Ottimo riscaldamento.', 'Il motore si scalda.'];
-        if (displayBac < 0.8) return ['Bella gestione.', 'Sei in partita.', 'Hai dato spettacolo.'];
-        return ['Domani rileggi le chat.', 'Leggenda della serata.'];
+        if (totalDrinks === 0) return [t('share.phraseFirst1'), t('share.phraseFirst2')];
+        if (displayBac < 0.2) return [t('share.phraseSober1'), t('share.phraseSober2')];
+        if (displayBac < 0.5) return [t('share.phraseWarm1'), t('share.phraseWarm2')];
+        if (displayBac < 0.8) return [t('share.phraseGame1'), t('share.phraseGame2'), t('share.phraseGame3')];
+        return [t('share.phraseOff1'), t('share.phraseOff2')];
       })();
       const phrase = phrasePool[totalDrinks % phrasePool.length];
 
       // Statistica principale: "1 SPRITZ" se un solo tipo, altrimenti "N DRINK".
       const mainStat = grouped.length === 1
         ? `${grouped[0].qty} ${grouped[0].name.toUpperCase()}`
-        : `${totalDrinks} DRINK`;
+        : `${totalDrinks} ${t('share.drinkUnit')}`;
 
       const hrs = Math.floor(displayDuration / 60), mins = displayDuration % 60;
-      const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
-      const secondary = `⏱ ${timeStr}      🍺 ${activity.total_units} UA`;
+      const timeStr = hrs > 0 ? t('share.timeHM', { h: hrs, m: mins }) : t('share.timeM', { m: mins });
+      const secondary = `⏱ ${timeStr}      🍺 ${activity.total_units} ${t('share.uaUnit')}`;
 
-      const author = publicName(activity.profiles, 'Atleta Strabar');
-      const dateStr = new Date(activity.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
-      const meta = `Registrato da ${author} · ${dateStr}`;
+      const author = publicName(activity.profiles, t('share.authorFallback'));
+      const dateStr = new Date(activity.created_at).toLocaleDateString(locale === 'en' ? 'en-GB' : 'it-IT', { day: 'numeric', month: 'long' });
+      const meta = t('share.recordedBy', { author, date: dateStr });
 
       const perf = grouped.length
         ? grouped.slice(0, 3).map((d) => `${drinkEmoji(d.name)} ${d.name} ×${d.qty}`).join('    ')
         : '';
 
       // CTA variabile ma STABILE per sessione (hash dell'id → stessa frase a ogni render).
-      const ctaPool = ['E tu quanto fai?', 'Batti questa prestazione.', 'Registra il tuo brindisi.', 'Tocca a te.', 'Reggi il confronto?'];
+      const ctaPool = [t('share.cta1'), t('share.cta2'), t('share.cta3'), t('share.cta4'), t('share.cta5')];
       const idHash = String(activity.id || '').split('').reduce((s, c) => s + c.charCodeAt(0), 0);
       const ctaText = ctaPool[idHash % ctaPool.length];
 
@@ -250,7 +252,7 @@ export default function ShareActivityPage({ params }) {
       const titleSize = compact ? 58 : 74;
       const stat = fitText(mainStat, '800', compact ? 104 : 148, 44);
       const statSize = stat.size;
-      let titleLines = wrap(activity.title || 'Brindisi', `800 ${titleSize}px "DM Sans", sans-serif`, maxW);
+      let titleLines = wrap(activity.title || t('share.cardTitleFallback'), `800 ${titleSize}px "DM Sans", sans-serif`, maxW);
       if (titleLines.length > 2) { titleLines = titleLines.slice(0, 2); titleLines[1] = titleLines[1].slice(0, -1) + '…'; }
 
       // altezze blocchi (per ancorare il contenuto in basso, sopra la CTA)
@@ -408,7 +410,7 @@ export default function ShareActivityPage({ params }) {
     // (i nomi lunghi venivano misurati col font di fallback e poi sforavano).
     if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(render);
     else render();
-  }, [activity, sharingTheme, cardFormat, selectedPhotoIdx, logoReady]);
+  }, [activity, sharingTheme, cardFormat, selectedPhotoIdx, logoReady, locale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDownload = async () => {
     const canvas = canvasRef.current;
@@ -437,7 +439,8 @@ export default function ShareActivityPage({ params }) {
   const shareCaption = () => {
     const drinks = activity.drinks.reduce((acc, d) => acc + d.qty, 0);
     const installUrl = siteUrl('/install');
-    return `🍻 ${activity.title}\n${drinks} drink • ${activity.total_units} U.A. • Stato: ${activity.feeling}\n\nUnisciti a me su Strabar 👉 ${installUrl}`;
+    const line = t('share.captionLine', { drinks, units: activity.total_units, feeling: activity.feeling });
+    return `🍻 ${activity.title}\n${line}\n\n${t('share.captionJoin')} ${installUrl}`;
   };
 
   // Condivisione nativa con l'immagine (apre il foglio di sistema: WhatsApp, IG, ecc.)
@@ -483,7 +486,7 @@ export default function ShareActivityPage({ params }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      alert('Copia non riuscita. Copia manualmente il link dalla barra del browser.');
+      alert(t('share.copyFail'));
     }
   };
 
@@ -491,7 +494,7 @@ export default function ShareActivityPage({ params }) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold' }}>
-          Generando la tua scheda social... 📊
+          {t('share.loading')}
         </div>
       </div>
     );
@@ -500,8 +503,8 @@ export default function ShareActivityPage({ params }) {
   if (!activity) {
     return (
       <div style={{ textAlign: 'center', padding: '40px' }}>
-        <h2>Attività non trovata.</h2>
-        <Link href="/" style={{ color: 'var(--primary)' }}>Torna al Feed</Link>
+        <h2>{t('share.notFound')}</h2>
+        <Link href="/" style={{ color: 'var(--primary)' }}>{t('share.backFeed')}</Link>
       </div>
     );
   }
@@ -510,14 +513,14 @@ export default function ShareActivityPage({ params }) {
     <div style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '50px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-dark-secondary)', fontSize: '14px', fontWeight: '600' }}>
-          <ArrowLeft size={16} /> Torna al Feed
+          <ArrowLeft size={16} /> {t('share.backFeed')}
         </Link>
-        <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--primary)' }}>Condividi le tue imprese!</span>
+        <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--primary)' }}>{t('share.shareYourFeats')}</span>
       </div>
 
-      <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '10px' }}>Esporta Card Social</h1>
+      <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '10px' }}>{t('share.title')}</h1>
       <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginBottom: '25px' }}>
-        La tua serata in una card: foto a tutto schermo, perfetta per le storie di Instagram o i post. Scegli formato e sfondo, poi condividi.
+        {t('share.subtitle')}
       </p>
 
       {/* Selettore sfondo: Foto (se c'è) · Mappa (se geolocalizzata) · Gradiente */}
@@ -526,9 +529,9 @@ export default function ShareActivityPage({ params }) {
         const l = activity.location;
         const geo = l && typeof l.lat === 'number' && typeof (l.lng ?? l.lon) === 'number' && !l.hidden;
         const opts = [
-          ...(hasImg ? [{ v: 'photo', label: '📸 Foto' }] : []),
-          ...(geo ? [{ v: 'map', label: '🗺️ Mappa' }] : []),
-          { v: 'gradient', label: '🎨 Gradiente' },
+          ...(hasImg ? [{ v: 'photo', label: t('share.bgPhoto') }] : []),
+          ...(geo ? [{ v: 'map', label: t('share.bgMap') }] : []),
+          { v: 'gradient', label: t('share.bgGradient') },
         ];
         if (opts.length < 2) return null; // nessuna scelta utile → niente selettore
         return (
@@ -561,7 +564,7 @@ export default function ShareActivityPage({ params }) {
       {sharingTheme === 'photo' && activity.media?.filter(m => m.type === 'image').length > 0 && (
         <div style={{ marginBottom: '20px' }}>
           <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
-            Scegli la foto di copertina
+            {t('share.chooseCover')}
           </span>
           <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
             {activity.media.filter(m => m.type === 'image').map((med, idx) => (
@@ -576,7 +579,7 @@ export default function ShareActivityPage({ params }) {
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={med.url} alt={`foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={med.url} alt={t('share.photoAlt', { n: idx + 1 })} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </button>
             ))}
           </div>
@@ -586,8 +589,8 @@ export default function ShareActivityPage({ params }) {
       {/* Selettore formato: Storia 9:16 o Post 1:1 */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
         {[
-          { v: 'story', label: '📱 Storia', sub: '9:16' },
-          { v: 'post', label: '⬛ Post', sub: '1:1' },
+          { v: 'story', label: t('share.fmtStory'), sub: '9:16' },
+          { v: 'post', label: t('share.fmtPost'), sub: '1:1' },
         ].map((f) => {
           const on = cardFormat === f.v;
           return (
@@ -623,30 +626,30 @@ export default function ShareActivityPage({ params }) {
           className="btn btn-primary"
           style={{ padding: '14px', borderRadius: '30px', fontSize: '16px', width: '100%' }}
         >
-          <Share2 size={18} /> Condividi
+          <Share2 size={18} /> {t('share.shareBtn')}
         </button>
         <button
           onClick={handleDownload}
           className="btn btn-secondary"
           style={{ padding: '12px', borderRadius: '20px', fontSize: '14px', width: '100%' }}
         >
-          <Download size={17} /> Scarica
+          <Download size={17} /> {t('share.downloadBtn')}
         </button>
         <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '4px' }}>
-          &quot;Condividi&quot; apre il menu del telefono con l&apos;immagine già allegata: scegli tu dove inviarla (WhatsApp, Instagram, Telegram…).
+          {t('share.shareHint')}
         </p>
       </div>
 
       {/* Riquadro Iscrizione / Partecipazione per Non-Utenti */}
       <div className="card" style={{ marginTop: '30px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', textAlign: 'center', padding: '24px', borderRadius: 'var(--radius)' }}>
         <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#FFF' }}>
-          🍻 Vuoi partecipare anche tu alle sfide di Strabar?
+          {t('share.joinTitle')}
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '18px', lineHeight: '1.4' }}>
-          Unisciti alla community degli atleti del brindisi! Registrati in pochi secondi per tracciare le tue bevute, taggare i tuoi amici, calcolare il tasso alcolico (BAC) e sfidare gli altri nelle classifiche dei bar!
+          {t('share.joinDesc')}
         </p>
         <Link href="/auth" className="btn btn-primary" style={{ display: 'inline-block', padding: '12px 28px', borderRadius: '30px', fontSize: '14px', textDecoration: 'none', fontWeight: '700' }}>
-          Registrati Ora su Strabar 🚀
+          {t('share.joinBtn')}
         </Link>
       </div>
     </div>
