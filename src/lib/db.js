@@ -2849,6 +2849,47 @@ export const db = {
     }).filter((s) => s.enabled);
   },
 
+  // ===== DRINK PROPRI DEL LOCALE ================================================
+  // I drink della carta del bar: lettura pubblica (compaiono nella live a chi è lì),
+  // scrittura solo dal gestore approvato (RLS via manages_venue). Tollerante: se la
+  // tabella non esiste ancora (migrazione non applicata) ritorna lista vuota.
+  async getVenueDrinks(venueKey) {
+    if (!isSupabaseConfigured || !venueKey) return [];
+    const key = this.normalizePlaceKey(venueKey);
+    const { data, error } = await supabase
+      .from('venue_drinks').select('*').eq('venue_key', key)
+      .order('sort', { ascending: true }).order('created_at', { ascending: true });
+    if (error) return [];
+    return (data || []).map((d) => ({
+      id: d.id,
+      name: d.name,
+      abv: Number(d.abv) || 0,
+      units: Number(d.units) || 0,
+      label: d.label || d.name,
+    }));
+  },
+
+  // Aggiunge un drink alla carta del locale. `venueKey` = nome del locale (verrà normalizzato).
+  async addVenueDrink(venueKey, drink) {
+    const key = this.normalizePlaceKey(venueKey);
+    const { data, error } = await supabase.from('venue_drinks').insert({
+      venue_key: key,
+      name: String(drink.name || '').trim().slice(0, 80),
+      abv: Number(drink.abv) || 0,
+      units: Number(drink.units) || 0,
+      label: (drink.label || drink.name || '').trim().slice(0, 60) || null,
+    }).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  // Rimuove un drink della carta del locale (RLS: solo il gestore).
+  async deleteVenueDrink(id) {
+    const { error } = await supabase.from('venue_drinks').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+
   // Ordini dell'utente corrente (eventualmente filtrati per locale).
   async getMyVenueOrders(venueKey) {
     const user = await this.getCurrentUser();

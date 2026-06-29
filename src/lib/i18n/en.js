@@ -740,6 +740,11 @@ export const en = {
     orderPaidOn: 'Paid on:',
     orderCancel: 'Cancel order',
     orderCanceling: 'Canceling…',
+    orderSend: 'Send order',
+    orderSending: 'Sending…',
+    orderSent: 'Order sent! We\'ll contact you for invoice and payment. You can find it below in your orders.',
+    orderSendError: 'Could not send the order.',
+    orderNote: 'No online payment: you send the request and we contact you for invoice and payment. The service starts once confirmed.',
   },
   drink: {
     title: 'Add a drink',

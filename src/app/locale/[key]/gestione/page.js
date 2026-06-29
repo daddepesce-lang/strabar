@@ -161,13 +161,17 @@ export default function VenueManagePage({ params }) {
     if (!cart.length) return;
     setPaying(true);
     try {
-      const res = await fetch('/api/stripe/checkout-cart', {
+      // Niente pagamento online: inviamo gli ordini (pending). Fattura e incasso fuori app.
+      const res = await fetch('/api/venue/order', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ venueKey: placeKey, items: cart.map((x) => ({ serviceId: x.serviceId, eventId: x.eventId, meta: x.meta, options: x.options })) }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || 'Pagamento non disponibile.'); return; }
-      if (data.url) { window.location.href = data.url; }
+      if (!res.ok) { alert(data.error || t('gestione.orderSendError')); return; }
+      setCart([]);
+      await loadManagerData();
+      setTab('ordini');
+      alert(t('gestione.orderSent'));
     } catch (e) { alert('Errore: ' + (e.message || e)); }
     finally { setPaying(false); }
   };
@@ -441,8 +445,11 @@ export default function VenueManagePage({ params }) {
                     <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--secondary)' }}>{euro(cartTotal)}</span>
                   </div>
                   <button onClick={checkoutCart} disabled={paying} className="btn btn-primary" style={{ width: '100%', borderRadius: '24px', padding: '12px', fontWeight: 800, fontSize: '15px' }}>
-                    {paying ? t('gestione.cartPaying') : t('gestione.cartCheckout', { price: euro(cartTotal) })}
+                    {paying ? t('gestione.orderSending') : t('gestione.orderSend')}
                   </button>
+                  <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '8px', lineHeight: 1.4 }}>
+                    {t('gestione.orderNote')}
+                  </p>
                 </>
               )}
             </div>

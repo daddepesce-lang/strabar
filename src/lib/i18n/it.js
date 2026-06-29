@@ -741,6 +741,11 @@ export const it = {
     orderPaidOn: 'Pagato il:',
     orderCancel: 'Annulla ordine',
     orderCanceling: 'Annullo…',
+    orderSend: 'Invia ordine',
+    orderSending: 'Invio…',
+    orderSent: 'Ordine inviato! Ti contatteremo per fattura e pagamento. Lo trovi qui sotto tra gli ordini.',
+    orderSendError: 'Invio ordine non riuscito.',
+    orderNote: 'Nessun pagamento online: invii la richiesta e ti contattiamo per fattura e pagamento. Il servizio parte una volta confermato.',
   },
   drink: {
     title: 'Aggiungi un drink',
