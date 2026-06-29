@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
+import { useI18n } from '@/lib/i18n';
 import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
@@ -15,6 +16,8 @@ const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { t, locale } = useI18n();
+  const dloc = locale === 'en' ? 'en-GB' : 'it-IT';
   const [currentUser, setCurrentUser] = useState(null);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +66,7 @@ export default function ProfilePage() {
   const handleSaveWeight = async () => {
     const w = parseInt(weightInput, 10);
     if (!w || w < 30 || w > 250) {
-      alert('Inserisci un peso valido (tra 30 e 250 kg).');
+      alert(t('profile.weightInvalid'));
       return;
     }
     setSavingWeight(true);
@@ -252,7 +255,7 @@ export default function ProfilePage() {
       lat: p.lat,
       lng: p.lng,
       label: p.visits,
-      note: `${p.visits} ${p.visits === 1 ? 'visita' : 'visite'} · ${p.units.toFixed(1)} U.A.`,
+      note: `${p.visits} ${p.visits === 1 ? t('profile.visit') : t('profile.visits')} · ${p.units.toFixed(1)} U.A.`,
     }));
   })();
 
@@ -263,7 +266,7 @@ export default function ProfilePage() {
       drinkCounts[d.name] = (drinkCounts[d.name] || 0) + d.qty;
     });
   });
-  let favoriteDrink = 'Nessuno';
+  let favoriteDrink = t('profile.favNone');
   let maxQty = 0;
   Object.entries(drinkCounts).forEach(([name, qty]) => {
     if (qty > maxQty) {
@@ -277,7 +280,7 @@ export default function ProfilePage() {
   const calYear = calNow.getFullYear();
   const calMonth = calNow.getMonth(); // 0-indexed
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const monthName = calNow.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  const monthName = calNow.toLocaleDateString(dloc, { month: 'long', year: 'numeric' });
 
   // Mappa le attività sui giorni del mese corrente basandosi sulla data di creazione
   const getDayAlcolLevel = (dayNum) => {
@@ -316,7 +319,7 @@ export default function ProfilePage() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold' }}>
-          Stiamo caricando la tua scheda atleti... 🍺
+          {t('profile.loading')}
         </div>
       </div>
     );
@@ -330,7 +333,7 @@ export default function ProfilePage() {
         <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: '8px' }}>
           <button
             onClick={() => setActiveTab('friends')}
-            title="Cerca atleti"
+            title={t('profile.searchAthletes')}
             className="btn btn-secondary"
             style={{ borderRadius: '50%', width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
@@ -338,7 +341,7 @@ export default function ProfilePage() {
           </button>
           <Link
             href="/settings"
-            title="Impostazioni profilo"
+            title={t('profile.settingsTitle')}
             className="btn btn-secondary"
             style={{ borderRadius: '50%', width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}
           >
@@ -352,11 +355,11 @@ export default function ProfilePage() {
           <h1 style={{ fontSize: '26px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', margin: 0 }}>
             {currentUser?.display_name}
             {currentUser?.is_premium && (
-              <span className="badge-premium"><Award size={14} /> Premium</span>
+              <span className="badge-premium"><Award size={14} /> {t('nav.premiumBadge')}</span>
             )}
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: 0 }}>
-            @{currentUser?.username} • dal {new Date(currentUser?.created_at).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+            @{currentUser?.username} • {t('profile.memberSince')} {new Date(currentUser?.created_at).toLocaleDateString(dloc, { month: 'long', year: 'numeric' })}
           </p>
         </div>
       </div>
@@ -367,16 +370,16 @@ export default function ProfilePage() {
         const hasAlcohol = currentBAC > 0;
         const color = overLimit ? 'var(--error)' : hasAlcohol ? 'var(--primary)' : 'var(--success)';
         const msg = overLimit
-          ? '🚫 Sopra il limite legale alla guida (0,5 g/l). Non metterti al volante.'
+          ? t('profile.bacOver')
           : hasAlcohol
-          ? '⚠️ Hai ancora alcol in circolo. Aspetta prima di guidare.'
-          : '✅ Sei sobrio: nessun alcol stimato in circolo adesso.';
+          ? t('profile.bacSome')
+          : t('profile.bacSober');
         return (
           <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', border: `1px solid ${color}`, background: `linear-gradient(135deg, rgba(22,24,34,1) 0%, ${hasAlcohol ? 'rgba(255, 32, 0,0.06)' : 'rgba(16,185,129,0.06)'} 100%)` }}>
             <span style={{ background: 'rgba(255,255,255,0.04)', width: 52, height: 52, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '24px' }}>🍺</span>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tasso alcolico attuale</strong>
+                <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('profile.bacNowTitle')}</strong>
                 <BacInfo />
                 {hasActiveLive && (
                   <span className="pulse" style={{ fontSize: '10px', fontWeight: 800, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -415,7 +418,7 @@ export default function ProfilePage() {
           }}
         >
           <TrendingUp size={16} color={activeTab === 'stats' ? 'var(--primary)' : 'currentColor'} />
-          Statistiche & Attività
+          {t('profile.tabStats')}
         </button>
         <button 
           onClick={() => setActiveTab('friends')} 
@@ -435,7 +438,7 @@ export default function ProfilePage() {
           }}
         >
           <Users size={16} color={activeTab === 'friends' ? 'var(--primary)' : 'currentColor'} />
-          Social & Amici
+          {t('profile.tabFriends')}
         </button>
         <button
           onClick={() => setActiveTab('data')}
@@ -449,7 +452,7 @@ export default function ProfilePage() {
           }}
         >
           <User size={16} color={activeTab === 'data' ? 'var(--primary)' : 'currentColor'} />
-          Dati
+          {t('profile.tabData')}
         </button>
       </div>
 
@@ -461,7 +464,7 @@ export default function ProfilePage() {
               <div style={{ color: 'var(--primary)', marginBottom: '10px' }}>
                 <Beer size={32} />
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>Drink Totali</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statDrinks')}</span>
               <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '5px' }}>{totalDrinksCount}</div>
             </div>
 
@@ -469,7 +472,7 @@ export default function ProfilePage() {
               <div style={{ color: 'var(--secondary)', marginBottom: '10px' }}>
                 <TrendingUp size={32} />
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>Unità Alcoliche (U.A.)</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statUnits')}</span>
               <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '5px' }}>{totalUnits.toFixed(1)}</div>
             </div>
 
@@ -477,7 +480,7 @@ export default function ProfilePage() {
               <div style={{ color: '#10B981', marginBottom: '10px' }}>
                 <Clock size={32} />
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>Tempo Al Tavolo</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statTime')}</span>
               <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '5px' }}>
                 {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m
               </div>
@@ -487,7 +490,7 @@ export default function ProfilePage() {
               <div style={{ color: '#3B82F6', marginBottom: '10px' }}>
                 <Heart size={32} />
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>Drink Preferito</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statFav')}</span>
               <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '12px', color: 'var(--primary)', minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.25 }}>
                 {favoriteDrink}
               </div>
@@ -501,17 +504,17 @@ export default function ProfilePage() {
             <div className="card">
               <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Calendar size={20} color="var(--primary)" />
-                Calendario delle Bevute (Heatmap)
+                {t('profile.calTitle')}
               </h3>
               <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '20px' }}>
-                Visualizza l&apos;intensità dei tuoi allenamenti alcolici. Più il colore è scuro, più intensa è stata la serata. Clicca sui giorni colorati per i dettagli.
+                {t('profile.calDesc')}
               </p>
 
               <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', padding: '20px', borderRadius: 'var(--radius)' }}>
                 <h4 style={{ textAlign: 'center', marginBottom: '15px', fontWeight: '700', color: '#FFF' }}>{monthName}</h4>
                 
                 <div className="calendar-grid">
-                  {['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map(day => (
+                  {[t('profile.dMon'), t('profile.dTue'), t('profile.dWed'), t('profile.dThu'), t('profile.dFri'), t('profile.dSat'), t('profile.dSun')].map(day => (
                     <div key={day} className="calendar-day-header">{day}</div>
                   ))}
                   
@@ -533,13 +536,13 @@ export default function ProfilePage() {
 
                 {/* Legenda Calore */}
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '20px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-                  <span>Meno alcol</span>
+                  <span>{t('profile.calLess')}</span>
                   <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)' }}></div>
                   <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(223, 255, 0, 0.2)' }}></div>
                   <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 32, 0, 0.4)' }}></div>
                   <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 32, 0, 0.7)' }}></div>
                   <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#D81A00' }}></div>
-                  <span>Più alcol</span>
+                  <span>{t('profile.calMore')}</span>
                 </div>
               </div>
             </div>
@@ -548,7 +551,7 @@ export default function ProfilePage() {
             <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'fit-content' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Info size={18} color="var(--secondary)" />
-                Dettaglio Giorno
+                {t('profile.dayDetailTitle')}
               </h3>
 
               {selectedDayDetails ? (
@@ -557,11 +560,11 @@ export default function ProfilePage() {
                     {selectedDayDetails.day} {monthName}
                   </h4>
                   <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
-                    <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>U.A. Consumate</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.dayUnits')}</div>
                     <div style={{ fontSize: '28px', fontWeight: '800' }}>{selectedDayDetails.units.toFixed(1)}</div>
                   </div>
 
-                  <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>Attività del giorno:</strong>
+                  <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>{t('profile.dayActs')}</strong>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {selectedDayDetails.activities.map((act) => (
                       <div key={act.id} style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '12px', paddingY: '4px' }}>
@@ -575,7 +578,7 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-                  Clicca su un giorno evidenziato nel calendario per vederne i dettagli e le bevute associate.
+                  {t('profile.dayEmpty')}
                 </div>
               )}
             </div>
@@ -601,19 +604,19 @@ export default function ProfilePage() {
                   <div style={{ width: `${Math.min((value / max) * 100, 100)}%`, height: '100%', background: color, borderRadius: '3px' }} />
                 </div>
                 <div style={{ fontSize: '10px', color: done ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> Premio: {reward}{done ? ' (SBLOCCATO)' : ''}
+                  <Award size={10} /> {t('feed.rewardLabel')}{reward}{done ? t('feed.unlocked') : ''}
                 </div>
               </div>
             );
             return (
               <div className="card" style={{ marginTop: '10px', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,32,0,0.05) 100%)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
-                  <TrendingUp size={18} color="var(--secondary)" /> Sfide & Premi 🏆
+                  <TrendingUp size={18} color="var(--secondary)" /> {t('profile.challengesTitle')}
                 </h3>
-                <Bar label="🇮🇹 Giro d'Italia" sub="Completa 3 tour questo mese" value={toursCompleted} max={3} color="var(--secondary)" valueText={`${toursCompleted}/3 Tour`} reward="🏆 Gomito di Bronzo" done={toursCompleted >= 3} />
-                <Bar label="🏋️ Resistenza Settimanale" sub="Consuma 10 U.A. negli ultimi 7 giorni" value={weeklyUnits} max={10} color="var(--primary)" valueText={`${weeklyUnits.toFixed(1)}/10 U.A.`} reward="🏋️ Gomito d'Acciaio" done={weeklyUnits >= 10} />
-                <Bar label="🗺️ Esploratore di Locali" sub="Fai check-in in 5 diversi locali" value={uniqueBarsVisited} max={5} color="#10B981" valueText={`${uniqueBarsVisited}/5 Bar`} reward="🗺️ Bussola del Bevitore" done={uniqueBarsVisited >= 5} />
-                <Bar label="🛡️ Bere Responsabile" sub="Rimani sotto le 4.0 U.A. oggi" value={Math.min(todayUnits, 4)} max={4} color={todayUnits > 4 ? 'var(--error)' : 'var(--success)'} valueText={`${todayUnits.toFixed(1)}/4.0 U.A.`} reward={todayUnits > 4 ? '❌ Limite superato oggi' : '🛡️ Scudo del Moderatore'} done={todayUnits > 0 && todayUnits <= 4} />
+                <Bar label={t('feed.ch1Title')} sub={t('feed.ch1Desc')} value={toursCompleted} max={3} color="var(--secondary)" valueText={t('feed.ch1Count', { n: toursCompleted })} reward={t('feed.ch1Reward')} done={toursCompleted >= 3} />
+                <Bar label={t('feed.ch2Title')} sub={t('feed.ch2Desc')} value={weeklyUnits} max={10} color="var(--primary)" valueText={t('feed.ch2Count', { n: weeklyUnits.toFixed(1) })} reward={t('feed.ch2Reward')} done={weeklyUnits >= 10} />
+                <Bar label={t('feed.ch3Title')} sub={t('feed.ch3Desc')} value={uniqueBarsVisited} max={5} color="#10B981" valueText={t('feed.ch3Count', { n: uniqueBarsVisited })} reward={t('feed.ch3Reward')} done={uniqueBarsVisited >= 5} />
+                <Bar label={t('feed.ch4Title')} sub={t('feed.ch4Desc')} value={Math.min(todayUnits, 4)} max={4} color={todayUnits > 4 ? 'var(--error)' : 'var(--success)'} valueText={t('feed.ch4Count', { n: todayUnits.toFixed(1) })} reward={todayUnits > 4 ? t('feed.ch4Exceeded') : t('feed.ch4Reward')} done={todayUnits > 0 && todayUnits <= 4} />
               </div>
             );
           })()}
@@ -622,15 +625,15 @@ export default function ProfilePage() {
           <div className="card" style={{ marginTop: '10px' }}>
             <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Beer size={20} color="var(--primary)" />
-              Le mie sessioni ({activities.length})
+              {t('profile.sessionsTitle', { n: activities.length })}
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-              {showPastSessions ? 'Tutte le tue sessioni, dalla più recente.' : 'La tua sessione più recente.'} Tocca per aprirne il dettaglio.
+              {showPastSessions ? t('profile.sessionsAll') : t('profile.sessionsLast')} {t('profile.sessionsTap')}
             </p>
 
             {activities.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '34px', color: 'var(--text-dark-secondary)', fontSize: '14px', border: '1px dashed var(--border-dark)', borderRadius: '10px' }}>
-                Non hai ancora registrato sessioni. 🍻
+                {t('profile.sessionsEmpty')}
               </div>
             ) : (() => {
               const sorted = [...activities].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -644,20 +647,20 @@ export default function ProfilePage() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
                             <h4 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '15px' }}>{act.title}</h4>
                             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>
-                              {new Date(act.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {new Date(act.created_at).toLocaleDateString(dloc, { day: 'numeric', month: 'short', year: 'numeric' })}
                             </span>
                           </div>
                           <div className="activity-stats">
                             <div className="stat-box">
-                              <span className="stat-label">Drink</span>
+                              <span className="stat-label">{t('profile.sDrink')}</span>
                               <span className="stat-value highlight">{(act.drinks || []).reduce((s, d) => s + (d.qty || 0), 0)}</span>
                             </div>
                             <div className="stat-box">
-                              <span className="stat-label">Durata</span>
+                              <span className="stat-label">{t('profile.sDuration')}</span>
                               <span className="stat-value">{Math.floor((act.duration || 0) / 60)}h {(act.duration || 0) % 60}m</span>
                             </div>
                             <div className="stat-box">
-                              <span className="stat-label">Carico</span>
+                              <span className="stat-label">{t('profile.sLoad')}</span>
                               <span className="stat-value">{act.total_units} U.A.</span>
                             </div>
                           </div>
@@ -677,7 +680,7 @@ export default function ProfilePage() {
                       className="btn btn-secondary"
                       style={{ width: '100%', marginTop: '12px', borderRadius: '20px', padding: '12px', fontSize: '14px', fontWeight: 700 }}
                     >
-                      {showPastSessions ? '▴ Nascondi sessioni passate' : `▾ Sessioni passate (${sorted.length - 1})`}
+                      {showPastSessions ? t('profile.hidePast') : t('profile.showPast', { n: sorted.length - 1 })}
                     </button>
                   )}
                 </>
@@ -689,10 +692,10 @@ export default function ProfilePage() {
           <div className="card" style={{ marginTop: '10px' }}>
             <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <MapPin size={20} color="var(--primary)" />
-              Mappa delle Bevute 🗺️
+              {t('profile.mapTitle')}
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-              Dove hai brindato. Il numero su ogni marker indica quante volte hai registrato una sessione in quel locale.
+              {t('profile.mapDesc')}
             </p>
             {drinkPlaces.length > 0 ? (
               <>
@@ -700,13 +703,13 @@ export default function ProfilePage() {
                 <div style={{ display: 'flex', gap: '20px', marginTop: '14px', flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{drinkPlaces.length}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>Locali visitati</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('profile.mapVenues')}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--secondary)' }}>
                       {drinkPlaces.reduce((s, p) => s + p.label, 0)}
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>Check-in totali</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('profile.mapCheckins')}</div>
                   </div>
                 </div>
               </>
@@ -714,7 +717,7 @@ export default function ProfilePage() {
               <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--bg-input-dark)', borderRadius: 'var(--radius)', border: '1px dashed var(--border-dark)' }}>
                 <MapPin size={32} color="var(--text-dark-secondary)" style={{ marginBottom: '10px' }} />
                 <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-                  Nessun luogo ancora sulla mappa. Registra una sessione indicando il <strong>locale</strong> e comparirà qui! 📍
+                  {t('profile.mapEmptyPre')}<strong>{t('profile.mapEmptyBold')}</strong>{t('profile.mapEmptyPost')}
                 </p>
               </div>
             )}
@@ -731,21 +734,22 @@ export default function ProfilePage() {
             const maxSingleUnits = activities.reduce((max, a) => Math.max(max, parseFloat(a.total_units || 0)), 0);
             const daysWithSession = new Set(activities.map(a => new Date(a.created_at).toDateString())).size;
 
+            const bdg = (id, earned) => ({ id, earned, title: t(`profile.bdg.${id}.t`), desc: t(`profile.bdg.${id}.d`), threshold: t(`profile.bdg.${id}.th`) });
             const allBadges = [
-              { id: 'first_sip',       icon: '🍺', title: 'Primo Sorso',              desc: 'Prima sessione registrata!',                earned: sessionsCount >= 1,  threshold: '1 sessione' },
-              { id: 'habitue',         icon: '🥂', title: 'Habitué',                  desc: '5 sessioni nel taccuino.',                  earned: sessionsCount >= 5,  threshold: '5 sessioni' },
-              { id: 'veteran',         icon: '🏅', title: 'Veterano da Bar',           desc: '10 sessioni registrate.',                   earned: sessionsCount >= 10, threshold: '10 sessioni' },
-              { id: 'champion',        icon: '🏆', title: 'Campione del Terzo Tempo', desc: '20 sessioni. Sei un\'istituzione.',          earned: sessionsCount >= 20, threshold: '20 sessioni' },
-              { id: 'ua_10',           icon: '💪', title: 'Forza Vitale',             desc: '10 U.A. totali consumate.',                 earned: totalU >= 10,        threshold: '10 U.A.' },
-              { id: 'ua_50',           icon: '🔥', title: 'Fuoco Sacro',              desc: '50 U.A. totali consumate.',                 earned: totalU >= 50,        threshold: '50 U.A.' },
-              { id: 'ua_100',          icon: '💥', title: 'Centometrista',            desc: '100 U.A. totali. Leggendario.',             earned: totalU >= 100,       threshold: '100 U.A.' },
-              { id: 'bar_3',           icon: '📍', title: 'Esploratore',              desc: '3 bar diversi visitati.',                   earned: uniqueBars >= 3,     threshold: '3 bar' },
-              { id: 'bar_10',          icon: '🗺️', title: 'Cartografo del Bere',     desc: '10 locali diversi sulla mappa.',            earned: uniqueBars >= 10,    threshold: '10 bar' },
-              { id: 'barhop_1',        icon: '🔄', title: 'Giramondo',                desc: 'Cambiato bar durante una sessione live.',   earned: barHopSessions >= 1, threshold: '1 giro dei bar' },
-              { id: 'barhop_3',        icon: '🎯', title: 'Re del Giro',              desc: '3 sessioni con cambio di bar.',             earned: barHopSessions >= 3, threshold: '3 giri dei bar' },
-              { id: 'heavy_session',   icon: '⚡', title: 'Sessione Pesante',         desc: 'Oltre 5 U.A. in una singola sessione.',     earned: maxSingleUnits >= 5, threshold: '5 U.A. in 1 sessione' },
-              { id: 'active_7',        icon: '📅', title: 'Settimana di Fuoco',       desc: 'Sessioni in 7 giorni diversi.',             earned: daysWithSession >= 7, threshold: '7 giorni attivi' },
-              { id: 'active_30',       icon: '📊', title: 'Allenamento Mensile',      desc: 'Sessioni in 30 giorni diversi.',            earned: daysWithSession >= 30, threshold: '30 giorni attivi' },
+              { ...bdg('first_sip', sessionsCount >= 1), icon: '🍺' },
+              { ...bdg('habitue', sessionsCount >= 5), icon: '🥂' },
+              { ...bdg('veteran', sessionsCount >= 10), icon: '🏅' },
+              { ...bdg('champion', sessionsCount >= 20), icon: '🏆' },
+              { ...bdg('ua_10', totalU >= 10), icon: '💪' },
+              { ...bdg('ua_50', totalU >= 50), icon: '🔥' },
+              { ...bdg('ua_100', totalU >= 100), icon: '💥' },
+              { ...bdg('bar_3', uniqueBars >= 3), icon: '📍' },
+              { ...bdg('bar_10', uniqueBars >= 10), icon: '🗺️' },
+              { ...bdg('barhop_1', barHopSessions >= 1), icon: '🔄' },
+              { ...bdg('barhop_3', barHopSessions >= 3), icon: '🎯' },
+              { ...bdg('heavy_session', maxSingleUnits >= 5), icon: '⚡' },
+              { ...bdg('active_7', daysWithSession >= 7), icon: '📅' },
+              { ...bdg('active_30', daysWithSession >= 30), icon: '📊' },
             ];
 
             const earnedBadges = allBadges.filter(b => b.earned);
@@ -754,18 +758,18 @@ export default function ProfilePage() {
             return (
               <div className="card" style={{ marginTop: '10px' }}>
                 <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🏅 Premi &amp; Badge
+                  {t('profile.badgesTitle')}
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '18px' }}>
-                  Achievement sbloccati automaticamente dalle tue sessioni reali.{' '}
+                  {t('profile.badgesDescPre')}
                   <strong style={{ color: earnedBadges.length > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>
-                    {earnedBadges.length}/{allBadges.length} ottenuti
+                    {t('profile.badgesEarned', { n: earnedBadges.length, total: allBadges.length })}
                   </strong>
                 </p>
 
                 {earnedBadges.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dark-secondary)', fontSize: '14px', border: '1px dashed var(--border-dark)', borderRadius: '10px', marginBottom: '16px' }}>
-                    🎯 Nessun badge ancora. Registra la tua prima sessione per iniziare!
+                    {t('profile.badgesEmpty')}
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 155px), 1fr))', gap: '10px', marginBottom: '16px' }}>
@@ -782,11 +786,11 @@ export default function ProfilePage() {
                 {lockedBadges.length > 0 && (
                   <>
                     <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
-                      🔒 Da sbloccare:
+                      {t('profile.badgesLocked')}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                       {lockedBadges.map(b => (
-                        <div key={b.id} title={`Sblocca con: ${b.threshold}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '20px', padding: '4px 10px' }}>
+                        <div key={b.id} title={t('profile.badgeUnlockWith', { th: b.threshold })} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '20px', padding: '4px 10px' }}>
                           <span style={{ fontSize: '13px', filter: 'grayscale(1)', opacity: 0.5 }}>{b.icon}</span>
                           <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{b.title}</span>
                           <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)' }}>({b.threshold})</span>
@@ -807,7 +811,7 @@ export default function ProfilePage() {
               // Calcola picco BAC reale per ciascuno degli ultimi 7 giorni
               // sommando tutti i drink di TUTTE le sessioni di quel giorno
               const weekDays = [];
-              const shortDays = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+              const shortDays = [t('profile.dSun'), t('profile.dMon'), t('profile.dTue'), t('profile.dWed'), t('profile.dThu'), t('profile.dFri'), t('profile.dSat')];
               const now = new Date();
               for (let i = 6; i >= 0; i--) {
                 const d = new Date(now);
@@ -836,7 +840,7 @@ export default function ProfilePage() {
               return (
                 <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', overflow: 'hidden' }}>
                   <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    📈 Curva di Ebbrezza BAC Settimanale
+                    {t('profile.bacWeekTitle')}
                     <BacInfo size={15} />
                     {(!currentUser?.is_premium) && (
                       <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
@@ -847,8 +851,7 @@ export default function ProfilePage() {
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'rgba(223, 255, 0,0.06)', border: '1px solid rgba(223, 255, 0,0.18)', borderRadius: '8px', padding: '10px 12px' }}>
                     <span style={{ fontSize: '14px', flexShrink: 0 }}>ℹ️</span>
                     <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-                      <strong style={{ color: 'var(--secondary)' }}>Riepilogo cumulativo di tutte le sessioni.</strong>{' '}
-                      Ogni barra mostra il <em>picco BAC stimato</em> (formula Widmark) raggiunto in quel giorno sommando i drink di <strong>tutte le sessioni</strong> registrate in quella giornata. Non è la curva di una singola sessione.
+                      <strong style={{ color: 'var(--secondary)' }}>{t('profile.bacWeekNoteBold')}</strong>{t('profile.bacWeekNote')}
                     </p>
                   </div>
 
@@ -860,7 +863,7 @@ export default function ProfilePage() {
                       <div style={{ position: 'relative', height: '160px' }}>
                         {/* Linea limite guida 0.5 g/l, ancorata al fondo del grafico */}
                         <div style={{ position: 'absolute', bottom: `${(0.5 / maxBac) * 100}%`, left: 0, right: 0, height: '0', borderTop: '1px dashed var(--error)', zIndex: 3, pointerEvents: 'none' }} />
-                        <span style={{ position: 'absolute', bottom: `calc(${(0.5 / maxBac) * 100}% + 3px)`, right: '4px', fontSize: '9px', color: 'var(--error)', fontWeight: '700', zIndex: 4, pointerEvents: 'none' }}>Limite guida 0.5 g/l</span>
+                        <span style={{ position: 'absolute', bottom: `calc(${(0.5 / maxBac) * 100}% + 3px)`, right: '4px', fontSize: '9px', color: 'var(--error)', fontWeight: '700', zIndex: 4, pointerEvents: 'none' }}>{t('profile.limitLine')}</span>
 
                         {/* Riga barre: stesso contenitore della linea, fondo allineato */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: '100%' }}>
@@ -903,28 +906,28 @@ export default function ProfilePage() {
 
                       {!hasSomeData && (
                         <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '12px', fontStyle: 'italic' }}>
-                          Nessuna sessione negli ultimi 7 giorni. Inizia a tracciare le tue bevute! 🍻
+                          {t('profile.bacWeekEmpty')}
                         </p>
                       )}
 
                       <div style={{ display: 'flex', gap: '12px', marginTop: '12px', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <div style={{ width: '10px', height: '10px', background: 'var(--success)', borderRadius: '2px' }} /> Sotto limite guida
+                          <div style={{ width: '10px', height: '10px', background: 'var(--success)', borderRadius: '2px' }} /> {t('profile.underLimit')}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <div style={{ width: '10px', height: '10px', background: 'var(--error)', borderRadius: '2px' }} /> Sopra limite guida (0.5 g/l)
+                          <div style={{ width: '10px', height: '10px', background: 'var(--error)', borderRadius: '2px' }} /> {t('profile.overLimitLeg')}
                         </span>
-                        <span style={{ marginLeft: 'auto' }}>s = sessioni del giorno</span>
+                        <span style={{ marginLeft: 'auto' }}>{t('profile.sLegend')}</span>
                       </div>
                     </div>
                   ) : (
                     <div style={{ flex: 1, background: 'rgba(0,0,0,0.5)', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '40px', textAlign: 'center', border: '1px dashed var(--border-dark)', minHeight: '220px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '8px' }}>Contenuto Protetto da Strabar Summit 🏔️</div>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '8px' }}>{t('profile.summitTitle')}</div>
                       <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', maxWidth: '350px', marginBottom: '20px' }}>
-                        L&apos;analisi scientifica avanzata del tasso alcolico nel sangue (BAC) e lo storico grafico settimanale è riservata ai membri Summit.
+                        {t('profile.summitDesc')}
                       </p>
                       <Link href="/premium" className="btn btn-premium" style={{ padding: '8px 18px', fontSize: '13px' }}>
-                        Abbonati a Premium (€4.99)
+                        {t('profile.summitCta')}
                       </Link>
                     </div>
                   )}
@@ -935,30 +938,30 @@ export default function ProfilePage() {
             {/* Classifiche Bar */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🏆 Le tue Classifiche Bar
+                {t('profile.barRankTitle')}
                 {(!currentUser?.is_premium) && (
                   <span className="badge-premium" style={{ fontSize: '9px' }}>SUMMIT</span>
                 )}
               </h3>
               <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
-                Vedi il tuo posizionamento storico nei locali reali in cui hai gareggiato.
+                {t('profile.barRankDesc')}
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {barRankings.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-dark-secondary)', fontSize: '13px', border: '1px dashed var(--border-dark)', borderRadius: '8px' }}>
-                    Non hai ancora classifiche nei locali. Fai check-in in un bar reale durante un brindisi per entrare in classifica! 🍻
+                    {t('profile.barRankEmpty')}
                   </div>
                 ) : (
                   barRankings.map((b, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <strong style={{ fontSize: '13px', color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.name}</strong>
-                        <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{b.units.toFixed(1)} U.A. · {b.visits} {b.visits === 1 ? 'visita' : 'visite'}</span>
+                        <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{b.units.toFixed(1)} U.A. · {b.visits} {b.visits === 1 ? t('profile.visit') : t('profile.visits')}</span>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '10px' }}>
                         <span style={{ fontSize: '13px', fontWeight: '800', color: b.rank === 1 ? 'var(--secondary)' : 'var(--primary)' }}>{b.rank === 1 ? '👑 #1' : `#${b.rank}`}</span>
-                        <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>su {b.total} {b.total === 1 ? 'atleta' : 'atleti'}</span>
+                        <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('profile.outOf', { n: b.total, label: b.total === 1 ? t('profile.athlete') : t('profile.athletes') })}</span>
                       </div>
                     </div>
                   ))
@@ -976,10 +979,10 @@ export default function ProfilePage() {
           <div className="card">
             <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Search size={20} color="var(--primary)" />
-              Trova altri Atleti su Strabar
+              {t('profile.friendsTitle')}
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '20px' }}>
-              Cerca i tuoi amici per username o nome visualizzato per seguire le loro bevute e attività nel feed.
+              {t('profile.friendsDesc')}
             </p>
 
             <div style={{ position: 'relative', maxWidth: '500px', marginBottom: '24px' }}>
@@ -987,7 +990,7 @@ export default function ProfilePage() {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Cerca per username o nome visualizzato..."
+                placeholder={t('profile.friendsSearchPh')}
                 value={friendsSearchQuery}
                 onChange={(e) => handleSearchFriends(e.target.value)}
                 style={{ paddingLeft: '44px', height: '46px', fontSize: '14px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px' }}
@@ -995,11 +998,11 @@ export default function ProfilePage() {
             </div>
 
             {isSearchingFriends ? (
-              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Ricerca in corso...</p>
+              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('profile.searching')}</p>
             ) : !friendsSearchQuery.trim() ? (
-              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', fontStyle: 'italic' }}>Digita un nome o username per cercare atleti...</p>
+              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', fontStyle: 'italic' }}>{t('profile.friendsTypeHint')}</p>
             ) : searchResults.length === 0 ? (
-              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Nessun utente registrato trovato.</p>
+              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('profile.noUsers')}</p>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '15px' }}>
                 {searchResults.map((user) => {
@@ -1025,12 +1028,12 @@ export default function ProfilePage() {
                         {isFollowing ? (
                           <>
                             <UserMinus size={12} />
-                            Non seguire
+                            {t('profile.unfollow')}
                           </>
                         ) : (
                           <>
                             <UserPlus size={12} />
-                            Segui
+                            {t('profile.follow')}
                           </>
                         )}
                       </button>
@@ -1044,10 +1047,10 @@ export default function ProfilePage() {
             {!friendsSearchQuery.trim() && suggestions.length > 0 && (
               <div style={{ marginTop: '24px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <UserPlus size={18} color="var(--primary)" /> Potresti conoscere
+                  <UserPlus size={18} color="var(--primary)" /> {t('profile.mightKnow')}
                 </h3>
                 <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px' }}>
-                  Atleti che non segui ancora, magari amici dei tuoi amici.
+                  {t('profile.mightKnowDesc')}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '12px' }}>
                   {suggestions.slice(0, suggestionsShown).map((user) => {
@@ -1063,7 +1066,7 @@ export default function ProfilePage() {
                               {user.display_name}
                             </Link>
                             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block' }}>
-                              {user.mutualCount > 0 ? `${user.mutualCount} ${user.mutualCount === 1 ? 'amico' : 'amici'} in comune` : `@${user.username}`}
+                              {user.mutualCount > 0 ? t('profile.mutual', { n: user.mutualCount, label: user.mutualCount === 1 ? t('profile.friend') : t('profile.friends') }) : `@${user.username}`}
                             </span>
                           </div>
                         </div>
@@ -1072,7 +1075,7 @@ export default function ProfilePage() {
                           className={`btn ${isFollowing ? 'btn-secondary' : 'btn-primary'}`}
                           style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
-                          {isFollowing ? <><UserMinus size={12} /> Segui già</> : <><UserPlus size={12} /> Segui</>}
+                          {isFollowing ? <><UserMinus size={12} /> {t('profile.followingAlready')}</> : <><UserPlus size={12} /> {t('profile.follow')}</>}
                         </button>
                       </div>
                     );
@@ -1085,7 +1088,7 @@ export default function ProfilePage() {
                     className="btn btn-secondary"
                     style={{ marginTop: '12px', borderRadius: '20px', padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', marginRight: 'auto' }}
                   >
-                    <UserPlus size={14} /> Carica altri ({suggestions.length - suggestionsShown})
+                    <UserPlus size={14} /> {t('profile.loadMore', { n: suggestions.length - suggestionsShown })}
                   </button>
                 )}
               </div>
@@ -1098,11 +1101,11 @@ export default function ProfilePage() {
             <div className="card" style={{ display: 'flex', gap: '12px' }}>
               <button type="button" onClick={() => setFollowsModal('following')} style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '16px', cursor: 'pointer', textAlign: 'center' }}>
                 <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--primary)' }}>{followCounts.following}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>Seguiti</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>{t('profile.following')}</div>
               </button>
               <button type="button" onClick={() => setFollowsModal('followers')} style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '16px', cursor: 'pointer', textAlign: 'center' }}>
                 <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--secondary)' }}>{followCounts.followers}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>Seguaci</div>
+                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>{t('profile.followers')}</div>
               </button>
             </div>
           </div>
@@ -1112,7 +1115,7 @@ export default function ProfilePage() {
       {activeTab === 'data' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-            Questi dati servono a calcolare il tuo <strong style={{ color: '#FFF' }}>tasso alcolico</strong> e la curva d&apos;ebbrezza in modo preciso. Restano privati.
+            {t('profile.dataIntroPre')}<strong style={{ color: '#FFF' }}>{t('profile.dataIntroBold')}</strong>{t('profile.dataIntroPost')}
           </p>
 
           {/* Peso corporeo */}
@@ -1120,15 +1123,15 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
               <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
               <div style={{ minWidth: 0 }}>
-                <strong style={{ fontSize: '15px', display: 'block' }}>Peso corporeo</strong>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Se non impostato usiamo 70&nbsp;kg.</span>
+                <strong style={{ fontSize: '15px', display: 'block' }}>{t('profile.weightTitle')}</strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('profile.weightSub')}</span>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <input type="number" inputMode="numeric" min="30" max="250" value={weightInput} onChange={(e) => setWeightInput(e.target.value)} placeholder="70" className="form-control" style={{ width: '90px', height: '42px', textAlign: 'center', fontSize: '16px' }} />
               <span style={{ fontSize: '14px', color: 'var(--text-dark-secondary)' }}>kg</span>
               <button onClick={handleSaveWeight} disabled={savingWeight} className="btn btn-primary" style={{ borderRadius: '20px', padding: '10px 16px', fontSize: '14px', fontWeight: 700 }}>
-                {weightSaved ? '✓ Salvato' : savingWeight ? '...' : 'Salva'}
+                {weightSaved ? t('profile.saved') : savingWeight ? '...' : t('profile.save')}
               </button>
             </div>
           </div>
@@ -1138,13 +1141,13 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
               <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚧️</span>
               <div style={{ minWidth: 0 }}>
-                <strong style={{ fontSize: '15px', display: 'block' }}>Sesso biologico</strong>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Migliora la stima del BAC. Opzionale.</span>
+                <strong style={{ fontSize: '15px', display: 'block' }}>{t('profile.sexTitle')}</strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('profile.sexSub')}</span>
               </div>
             </div>
             <div className="seg-tabs" style={{ flexShrink: 0, width: 'auto', opacity: savingSex ? 0.6 : 1 }}>
-              <div className={`seg-tab ${currentUser?.sex === 'm' ? 'active' : ''}`} onClick={() => handleSaveSex('m')}>♂ Uomo</div>
-              <div className={`seg-tab ${currentUser?.sex === 'f' ? 'active' : ''}`} onClick={() => handleSaveSex('f')}>♀ Donna</div>
+              <div className={`seg-tab ${currentUser?.sex === 'm' ? 'active' : ''}`} onClick={() => handleSaveSex('m')}>{t('profile.male')}</div>
+              <div className={`seg-tab ${currentUser?.sex === 'f' ? 'active' : ''}`} onClick={() => handleSaveSex('f')}>{t('profile.female')}</div>
             </div>
           </div>
 
@@ -1153,8 +1156,8 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
               <span style={{ background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
               <div style={{ minWidth: 0 }}>
-                <strong style={{ fontSize: '15px', display: 'block' }}>Invita i tuoi amici</strong>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Sfidatevi in classifica e taggatevi nelle sessioni!</span>
+                <strong style={{ fontSize: '15px', display: 'block' }}>{t('profile.inviteTitle')}</strong>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('profile.inviteSub')}</span>
               </div>
             </div>
             <ShareAppButton style={{ borderRadius: '20px', padding: '10px 18px', fontSize: '14px', flexShrink: 0 }} />
@@ -1162,7 +1165,7 @@ export default function ProfilePage() {
 
           {/* Impostazioni complete */}
           <Link href="/settings" className="btn btn-secondary" style={{ borderRadius: '20px', padding: '12px', fontSize: '14px', justifyContent: 'center' }}>
-            ⚙️ Tutte le impostazioni
+            {t('profile.allSettings')}
           </Link>
         </div>
       )}
