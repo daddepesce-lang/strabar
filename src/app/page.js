@@ -131,7 +131,6 @@ export default function FeedPage() {
   const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [myActivities, setMyActivities] = useState([]); // sessioni dell'utente (statistiche personali)
   const [myActivitiesLoaded, setMyActivitiesLoaded] = useState(false); // sessioni utente caricate?
-  const [topDrinkers, setTopDrinkers] = useState([]); // classifica globale top atleti
   const [loading, setLoading] = useState(true);
   const [newCommentText, setNewCommentText] = useState({});
   const [editingComment, setEditingComment] = useState(null); // { id, text } commento in modifica
@@ -314,13 +313,7 @@ export default function FeedPage() {
         // statistiche personali e classifica. Caricati dopo, in modo indipendente.
         if (typeof db.getAllProfiles === 'function') db.getAllProfiles().then(setProfilesList).catch(() => {});
         if (typeof db.getUserActivities === 'function') db.getUserActivities(user.id).then((a) => { setMyActivities(a || []); setMyActivitiesLoaded(true); }).catch(() => setMyActivitiesLoaded(true));
-        // Leaderboard Club: STESSA fonte e regola della classifica generale (/places) — solo
-        // check-in geolocalizzati verificati — così i numeri coincidono e non risultano più alti qui.
-        if (typeof db.getUserLeaderboard === 'function') {
-          db.getUserLeaderboard(user.id)
-            .then((rows) => setTopDrinkers((rows || []).slice(0, 5).map((u) => ({ user_id: u.user_id, name: u.name, units: u.units, isPremium: u.is_premium }))))
-            .catch(() => {});
-        }
+        // (La classifica nel feed è stata rimossa: vive in /places. Niente query qui → meno egress.)
 
         // Backfill una-tantum: congela il residuo sulle MIE sessioni recenti che ne sono
         // prive (vecchie o live già in corso). Dopo, ricarico così il valore compare
@@ -1945,9 +1938,6 @@ export default function FeedPage() {
     act.description?.includes('tour')
   ).length;
 
-  // Classifica REALE (atleti veri) aggregata dalle sessioni del feed, per U.A. totali
-  // Classifica globale: calcolata dal DB (getTopDrinkers), non dal feed paginato.
-  const leaderboardData = topDrinkers;
 
   if (loading) {
     return (
@@ -3258,7 +3248,7 @@ export default function FeedPage() {
                    if (typeof lat !== 'number' || typeof lng !== 'number') return null;
                    const wp = [{ name: loc.name || t('feed.hereFallback'), lat, lng, note: loc.name || '' }];
                    return (
-                     <div style={{ height: '170px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: '15px', position: 'relative' }}>
+                     <div className="feed-map-wrap" style={{ height: '170px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: '15px', position: 'relative' }}>
                        <LazyMap waypoints={wp} height="100%" connectLine={false} interactive={false} />
                      </div>
                    );
@@ -3392,180 +3382,6 @@ export default function FeedPage() {
             )}
           </div>
         )}
-      </div>
-
-      {/* Colonna Destra: Sidebar Statistiche e Leaderboard — NASCOSTA su mobile (le card
-          non hanno senso sotto il feed; la classifica è in /places, i premi sul profilo). */}
-      <div className="home-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* Invita amici */}
-        <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', textAlign: 'center' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '6px' }}>{t('feed.inviteTitle')}</h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.4 }}>
-            {t('feed.inviteDesc')}
-          </p>
-          <ShareAppButton style={{ width: '100%', borderRadius: '24px', padding: '12px' }} label={t('feed.shareApp')} />
-        </div>
-
-        {/* Widget Profilo Rapido */}
-        {currentUser && (
-          <div className="card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <User size={18} color="var(--primary)" />
-              {t('feed.recentActivity')}
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('feed.sessions7d')}</span>
-                <strong style={{ fontSize: '16px' }}>{weeklyStreak}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
-                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('feed.totalDrinks')}</span>
-                <strong style={{ fontSize: '16px' }}>{totalDrinksCount}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('feed.premiumStatus')}</span>
-                <strong>
-                  {currentUser.is_premium ? (
-                    <span style={{ color: 'var(--secondary)', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Award size={14} /> {t('feed.premiumActive')}
-                    </span>
-                  ) : (
-                    <Link href="/premium" style={{ color: 'var(--primary)', fontWeight: '600', fontSize: '14px' }}>
-                      {t('feed.premiumActivate')}
-                    </Link>
-                  )}
-                </strong>
-              </div>
-            </div>
-            <div style={{ marginTop: '20px' }}>
-              <Link href="/profile" className="btn btn-secondary" style={{ width: '100%', borderRadius: '20px', padding: '8px 0', fontSize: '13px' }}>
-                <Calendar size={14} /> {t('feed.seeCalendar')}
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Widget Classifica */}
-        <div className="card">
-          <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Trophy size={18} color="var(--secondary)" />
-            {t('feed.leaderboardClub')}
-          </h3>
-          <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
-            {t('feed.leaderboardDesc')}
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {leaderboardData.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: item.user_id === currentUser?.id ? 'rgba(255, 32, 0, 0.08)' : 'rgba(255,255,255,0.01)', borderRadius: '8px', border: item.user_id === currentUser?.id ? '1px dashed var(--primary)' : '1px solid transparent' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '800', width: '20px', color: idx === 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>
-                    #{idx + 1}
-                  </span>
-                  <span style={{ fontSize: '14px', fontWeight: '600' }}>
-                    {item.name}
-                    {item.isPremium && (
-                      <span className="badge-premium" style={{ fontSize: '7px', padding: '1px 4px', marginLeft: '5px' }}>
-                        P
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <strong style={{ fontSize: '14px', color: idx === 0 ? 'var(--secondary)' : 'inherit' }}>
-                  {t('feed.leaderUnits', { n: item.units })}
-                </strong>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Sfide & Premi Strabar */}
-        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 1) 0%, rgba(255, 32, 0, 0.05) 100%)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
-            <Trophy size={18} color="var(--secondary)" />
-            {t('feed.challengesTitle')}
-          </h3>
-
-          {!currentUser ? (
-            <div style={{ textAlign: 'center', padding: '10px 0' }}>
-              <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
-                {t('feed.challengesLoginDesc')}
-              </p>
-              <Link href="/auth" className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px' }}>
-                {t('feed.challengesLogin')}
-              </Link>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              
-              {/* Sfida 1: Giro d'Italia (Tour Alcolici) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch1Title')}</strong>
-                  <span style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: '700' }}>{t('feed.ch1Count', { n: toursCompleted })}</span>
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch1Desc')}</div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min((toursCompleted / 3) * 100, 100)}%`, height: '100%', background: 'var(--secondary)', borderRadius: '3px' }} />
-                </div>
-                <div style={{ fontSize: '10px', color: toursCompleted >= 3 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> {t('feed.rewardLabel')}{toursCompleted >= 3 ? `${t('feed.ch1Reward')}${t('feed.unlocked')}` : t('feed.ch1Reward')}
-                </div>
-              </div>
-
-              {/* Sfida 2: Resistenza Settimanale */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch2Title')}</strong>
-                  <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '700' }}>{t('feed.ch2Count', { n: weeklyUnits.toFixed(1) })}</span>
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch2Desc')}</div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min((weeklyUnits / 10) * 100, 100)}%`, height: '100%', background: 'var(--primary)', borderRadius: '3px' }} />
-                </div>
-                <div style={{ fontSize: '10px', color: weeklyUnits >= 10 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> {t('feed.rewardLabel')}{weeklyUnits >= 10 ? `${t('feed.ch2Reward')}${t('feed.unlocked')}` : t('feed.ch2Reward')}
-                </div>
-              </div>
-
-              {/* Sfida 3: Esploratore di Bar */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch3Title')}</strong>
-                  <span style={{ fontSize: '11px', color: '#10B981', fontWeight: '700' }}>{t('feed.ch3Count', { n: uniqueBarsVisited })}</span>
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch3Desc')}</div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min((uniqueBarsVisited / 5) * 100, 100)}%`, height: '100%', background: '#10B981', borderRadius: '3px' }} />
-                </div>
-                <div style={{ fontSize: '10px', color: uniqueBarsVisited >= 5 ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> {t('feed.rewardLabel')}{uniqueBarsVisited >= 5 ? `${t('feed.ch3Reward')}${t('feed.unlocked')}` : t('feed.ch3Reward')}
-                </div>
-              </div>
-
-              {/* Sfida 4: Bere Responsabile (Limite Giornaliero) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{t('feed.ch4Title')}</strong>
-                  <span style={{ fontSize: '11px', color: todayUnits > 4 ? 'var(--error)' : 'var(--success)', fontWeight: '700' }}>
-                    {t('feed.ch4Count', { n: todayUnits.toFixed(1) })}
-                  </span>
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('feed.ch4Desc')}</div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min((todayUnits / 4) * 100, 100)}%`, height: '100%', background: todayUnits > 4 ? 'var(--error)' : 'var(--success)', borderRadius: '3px' }} />
-                </div>
-                <div style={{ fontSize: '10px', color: (todayUnits > 0 && todayUnits <= 4) ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> {t('feed.rewardLabel')}{(todayUnits > 0 && todayUnits <= 4) ? t('feed.ch4Active') : todayUnits > 4 ? t('feed.ch4Exceeded') : t('feed.ch4Reward')}
-                </div>
-              </div>
-
-            </div>
-          )}
-          
-          <Link href="/routes" className="btn btn-primary" style={{ width: '100%', borderRadius: '20px', padding: '8px 0', fontSize: '13px', textAlign: 'center' }}>
-            {t('feed.findRoutes')}
-          </Link>
-        </div>
       </div>
 
       {/* Slideshow foto a tutto schermo (apribile da feed e dettaglio) */}

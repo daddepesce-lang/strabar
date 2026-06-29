@@ -236,17 +236,18 @@ export default function Navbar() {
                   key={href}
                   href={href}
                   prefetch={false}
+                  title={label}
                   className={isReg ? `nav-link-register` : `nav-link ${isActive(href) ? 'active' : ''}`}
                 >
                   <Icon size={18} />
-                  {label}
+                  <span className="nav-link-label">{label}</span>
                 </Link>
               );
             })}
             {myVenues.length > 0 && (
-              <Link href={venueHref} prefetch={false} className={`nav-link ${pathname.startsWith('/locale') ? 'active' : ''}`}>
+              <Link href={venueHref} prefetch={false} title={venueLabel} className={`nav-link ${pathname.startsWith('/locale') ? 'active' : ''}`}>
                 <Store size={18} />
-                {venueLabel}
+                <span className="nav-link-label">{venueLabel}</span>
               </Link>
             )}
           </div>
