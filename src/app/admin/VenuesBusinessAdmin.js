@@ -181,32 +181,191 @@ export default function VenuesBusinessAdmin() {
 function ServiceTypeRow({ t, euro, onSave, onDelete }) {
   const [price, setPrice] = useState(((t.default_price_cents || 0) / 100).toFixed(2));
   const [showPricing, setShowPricing] = useState(false);
-  const [pricingTxt, setPricingTxt] = useState(JSON.stringify(t.pricing || {}, null, 2));
-  const savePricing = () => {
-    let parsed;
-    try { parsed = JSON.parse(pricingTxt); } catch { alert('JSON non valido'); return; }
-    onSave({ pricing: parsed });
-  };
+  const modelLabel = { flat: 'prezzo fisso', per_day: 'a giornata', audience: 'per pubblico' }[t.pricing?.model || 'flat'];
   return (
     <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border-dark)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 120 }}>
           <strong style={{ color: '#FFF', fontSize: 14 }}>{t.name}</strong>
-          <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{t.code} · {t.pricing?.model || 'flat'}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{t.code} · {modelLabel}</div>
         </div>
-        <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} title="prezzo base/fallback" style={{ width: 80, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+        <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} title="prezzo base/fallback (usato se la config prezzi non lo specifica)" style={{ width: 80, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
         <button onClick={() => onSave({ default_price_cents: Math.round(parseFloat(price || '0') * 100) })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>Salva</button>
         <button onClick={() => onSave({ active: !t.active })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, color: t.active ? 'var(--success)' : 'var(--error)' }}>{t.active ? 'Attivo' : 'Spento'}</button>
-        <button onClick={() => setShowPricing((v) => !v)} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>⚙︎ Prezzi</button>
+        <button onClick={() => setShowPricing((v) => !v)} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, color: showPricing ? 'var(--primary)' : undefined }}>⚙︎ Prezzi</button>
         <button onClick={onDelete} className="btn btn-secondary" style={{ padding: '6px 8px', borderRadius: 8 }}><Trash2 size={13} /></button>
       </div>
       {showPricing && (
-        <div style={{ marginTop: 8 }}>
-          <p style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginBottom: 4 }}>Config prezzi (centesimi). per_day: per_day_cents, durations, position{'{feed,top}'}, discounts[{'{minDays,pct}'}]. audience: tiers{'{venue,recent30,nearby,all}'}. flat: base_cents, spotlight_extra_cents.</p>
-          <textarea value={pricingTxt} onChange={(e) => setPricingTxt(e.target.value)} rows={7} className="form-control" style={{ fontSize: 12, fontFamily: 'monospace', resize: 'vertical' }} />
-          <button onClick={savePricing} className="btn btn-primary" style={{ marginTop: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12 }}>Salva prezzi</button>
+        <PricingEditor pricing={t.pricing} fallbackCents={t.default_price_cents} euro={euro} onSave={(pricing) => { onSave({ pricing }); setShowPricing(false); }} />
+      )}
+    </div>
+  );
+}
+
+// ——— Editor prezzi visuale (niente più JSON a mano) ———
+// Tre modelli: prezzo fisso (flat), a giornata (per_day), per pubblico (audience).
+// I prezzi si inseriscono in EURO e vengono salvati in centesimi nel campo `pricing`.
+const toCents = (eur) => Math.round(parseFloat(String(eur).replace(',', '.') || '0') * 100);
+const toEur = (cents) => ((cents || 0) / 100).toFixed(2);
+
+const MODELS = [
+  { v: 'flat', label: 'Prezzo fisso', hint: 'Un prezzo unico (con eventuale extra opzionale).' },
+  { v: 'per_day', label: 'A giornata', hint: 'Prezzo al giorno × durata scelta, con sconti volume e posizione.' },
+  { v: 'audience', label: 'Per pubblico', hint: 'Prezzo diverso in base a quante persone raggiunge.' },
+];
+
+const AUDIENCE_ROWS = [
+  { key: 'venue', label: 'Clienti del locale' },
+  { key: 'recent30', label: 'Clienti ultimi 30 giorni' },
+  { key: 'nearby', label: 'Utenti in zona' },
+  { key: 'all', label: 'Tutti gli utenti' },
+];
+
+function NumField({ label, value, onChange, suffix = '€', step = '0.01', width = 90, hint }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{label}</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        <input type="number" step={step} value={value} onChange={(e) => onChange(e.target.value)} style={{ width, padding: '7px 9px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+        <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>{suffix}</span>
+      </span>
+      {hint && <span style={{ fontSize: 10, color: 'var(--text-dark-secondary)' }}>{hint}</span>}
+    </label>
+  );
+}
+
+function PricingEditor({ pricing, fallbackCents, euro, onSave }) {
+  const init = pricing && Object.keys(pricing).length ? pricing : { model: 'flat' };
+  const [model, setModel] = useState(init.model || 'flat');
+
+  // flat
+  const [base, setBase] = useState(toEur(init.base_cents ?? fallbackCents));
+  const [spotlight, setSpotlight] = useState(toEur(init.spotlight_extra_cents));
+
+  // per_day
+  const [perDay, setPerDay] = useState(toEur(init.per_day_cents ?? fallbackCents));
+  const [durations, setDurations] = useState((init.durations || [3, 7, 14, 30]).join(', '));
+  const [topMult, setTopMult] = useState(String(init.position?.top ?? 1.5));
+  const [discounts, setDiscounts] = useState(init.discounts || []);
+
+  // audience
+  const [tiers, setTiers] = useState({
+    venue: toEur(init.tiers?.venue ?? fallbackCents),
+    recent30: toEur(init.tiers?.recent30),
+    nearby: toEur(init.tiers?.nearby),
+    all: toEur(init.tiers?.all),
+  });
+  const [nearbyKm, setNearbyKm] = useState(String(init.nearby_km ?? 3));
+
+  const build = () => {
+    if (model === 'per_day') {
+      const durs = durations.split(',').map((d) => parseInt(d.trim(), 10)).filter((n) => n > 0);
+      return {
+        model: 'per_day',
+        per_day_cents: toCents(perDay),
+        durations: durs.length ? durs : [7],
+        position: { feed: 1, top: parseFloat(topMult) || 1 },
+        discounts: discounts
+          .map((d) => ({ minDays: parseInt(d.minDays, 10) || 0, pct: parseInt(d.pct, 10) || 0 }))
+          .filter((d) => d.minDays > 0 && d.pct > 0),
+      };
+    }
+    if (model === 'audience') {
+      return {
+        model: 'audience',
+        tiers: {
+          venue: toCents(tiers.venue),
+          recent30: toCents(tiers.recent30),
+          nearby: toCents(tiers.nearby),
+          all: toCents(tiers.all),
+        },
+        nearby_km: parseFloat(nearbyKm) || 3,
+      };
+    }
+    return { model: 'flat', base_cents: toCents(base), spotlight_extra_cents: toCents(spotlight) };
+  };
+
+  // Anteprima del prezzo "minimo" che vedrà il locale (orientativo).
+  const preview = (() => {
+    const p = build();
+    if (p.model === 'per_day') return `${euro(p.per_day_cents)}/giorno · es. ${p.durations[0]}gg = ${euro(p.per_day_cents * p.durations[0])}`;
+    if (p.model === 'audience') return `da ${euro(Math.min(...Object.values(p.tiers).filter((x) => x > 0)) || 0)} a ${euro(Math.max(...Object.values(p.tiers)))}`;
+    return `${euro(p.base_cents)}${p.spotlight_extra_cents ? ` (+${euro(p.spotlight_extra_cents)} extra)` : ''}`;
+  })();
+
+  return (
+    <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Modello */}
+      <div>
+        <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>Come si calcola il prezzo</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {MODELS.map((m) => (
+            <button key={m.v} onClick={() => setModel(m.v)} className="btn btn-secondary"
+              style={{ padding: '7px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700, border: model === m.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: model === m.v ? 'var(--primary)' : undefined }}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 6 }}>{MODELS.find((m) => m.v === model).hint}</p>
+      </div>
+
+      {/* Campi per modello */}
+      {model === 'flat' && (
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <NumField label="Prezzo" value={base} onChange={setBase} />
+          <NumField label="Extra Spotlight+ (opz.)" value={spotlight} onChange={setSpotlight} hint="0 = nessun extra" />
         </div>
       )}
+
+      {model === 'per_day' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <NumField label="Prezzo al giorno" value={perDay} onChange={setPerDay} />
+            <NumField label="Moltiplicatore 'in cima'" value={topMult} onChange={setTopMult} suffix="×" step="0.1" width={70} hint="es. 1.5 = +50%" />
+          </div>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>Durate acquistabili (giorni, separati da virgola)</span>
+            <input value={durations} onChange={(e) => setDurations(e.target.value)} placeholder="3, 7, 14, 30" style={{ padding: '7px 9px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+          </label>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>Sconti volume (da X giorni → −Y%)</span>
+              <button onClick={() => setDiscounts((d) => [...d, { minDays: '', pct: '' }])} className="btn btn-secondary" style={{ padding: '3px 8px', borderRadius: 8, fontSize: 11 }}><Plus size={12} /> sconto</button>
+            </div>
+            {discounts.map((d, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>da</span>
+                <input type="number" value={d.minDays} onChange={(e) => setDiscounts((arr) => arr.map((x, j) => j === i ? { ...x, minDays: e.target.value } : x))} style={{ width: 60, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>gg →</span>
+                <input type="number" value={d.pct} onChange={(e) => setDiscounts((arr) => arr.map((x, j) => j === i ? { ...x, pct: e.target.value } : x))} style={{ width: 60, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>%</span>
+                <button onClick={() => setDiscounts((arr) => arr.filter((_, j) => j !== i))} className="btn btn-secondary" style={{ padding: '4px 7px', borderRadius: 8 }}><Trash2 size={12} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {model === 'audience' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {AUDIENCE_ROWS.map((r) => (
+            <div key={r.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, color: '#FFF' }}>{r.label}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <input type="number" step="0.01" value={tiers[r.key]} onChange={(e) => setTiers((tt) => ({ ...tt, [r.key]: e.target.value }))} style={{ width: 90, padding: '7px 9px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>€</span>
+              </span>
+            </div>
+          ))}
+          <NumField label="Raggio 'in zona'" value={nearbyKm} onChange={setNearbyKm} suffix="km" step="0.5" width={70} />
+        </div>
+      )}
+
+      {/* Anteprima + salva */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border-dark)', paddingTop: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>Anteprima: <strong style={{ color: 'var(--secondary)' }}>{preview}</strong></span>
+        <button onClick={() => onSave(build())} className="btn btn-primary" style={{ padding: '7px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700 }}>Salva prezzi</button>
+      </div>
     </div>
   );
 }
