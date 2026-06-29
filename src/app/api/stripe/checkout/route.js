@@ -99,7 +99,7 @@ export async function POST(req) {
         },
       }],
       // Sull'estratto conto della carta comparirà "STRABAR" (non il nome legale del conto).
-      payment_intent_data: { statement_descriptor: 'STRABAR', statement_descriptor_suffix: 'STRABAR' },
+      payment_intent_data: { statement_descriptor: 'STRABAR' },
       success_url: siteUrl(`/locale/${encodeURIComponent(key)}/gestione?paid=1`),
       cancel_url: siteUrl(`/locale/${encodeURIComponent(key)}/gestione?canceled=1`),
       metadata: { order_id: order.id },
