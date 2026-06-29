@@ -1935,6 +1935,61 @@ export default function FeedPage() {
           </div>
         </section>
 
+        {/* PROMO VIDEO — reveal cinematografico stile Apple. Il video è statico in
+            /public (CDN-cached): nessuna query, nessun egress Supabase. autoplay muto in
+            loop, con sfondo gradiente brand così non c'è flash nero prima del play. */}
+        <section className="reveal" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '34px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <span className="eyebrow-pill" style={{ background: 'rgba(223,255,0,0.1)', color: 'var(--secondary)' }}>
+              <span className="live-dot" /> Guarda Strabar
+            </span>
+            <h2 style={{ fontSize: 'clamp(30px, 5vw, 52px)', fontWeight: 900, color: '#FFF', lineHeight: 1.05, letterSpacing: '-0.02em', maxWidth: '720px' }}>
+              La tua serata, <span className="gradient-text">in tempo reale</span>.
+            </h2>
+            <p className="hero-para" style={{ maxWidth: '620px' }}>
+              Registra ogni drink, segui la tua curva del tasso alcolico, scala le classifiche dei locali e parti per i tour guidati. Tutto in un&apos;app, con gli amici.
+            </p>
+          </div>
+
+          <div
+            className="promo-video-frame lift"
+            style={{ position: 'relative', width: '100%', maxWidth: '960px', aspectRatio: '16 / 9', borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #16181F 0%, rgba(255,32,0,0.22) 100%)', boxShadow: '0 30px 80px rgba(255,32,0,0.22)' }}
+          >
+            <video
+              src="/promo/strabar-hero.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label="Strabar — video promozionale"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+            {/* Wordmark in sovraimpressione: rende il clip riconoscibile come Strabar */}
+            <div style={{ position: 'absolute', left: '24px', bottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', zIndex: 2, textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 900, color: '#FFF', letterSpacing: '-0.01em' }}>stra<span style={{ color: 'var(--primary)' }}>bar</span></span>
+            </div>
+          </div>
+
+          {/* Le cose migliori che puoi fare */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px', maxWidth: '760px' }}>
+            {[
+              '📈 Curva del tasso alcolico',
+              '🏆 Classifiche dei locali',
+              '🗺️ Tour guidati a tappe',
+              '📡 Radar di chi beve vicino',
+              '👥 Feed, tag e brindisi',
+              '📲 Condividi i tuoi record',
+            ].map((t, i) => (
+              <span key={i} className="drink-tag" style={{ fontSize: '13px', padding: '8px 14px' }}>{t}</span>
+            ))}
+          </div>
+
+          <Link href="/auth" className="btn btn-primary lift" style={{ padding: '16px 34px', borderRadius: '30px', fontSize: '17px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            Inizia Gratis <ChevronRight size={18} />
+          </Link>
+        </section>
+
         {/* CAPABILITY CHIPS — sostituiscono le statistiche inventate con fatti reali */}
         <section className="cap-grid reveal">
           {[
