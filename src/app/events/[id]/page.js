@@ -5,17 +5,18 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { siteUrl } from '@/lib/site';
+import { useI18n } from '@/lib/i18n';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
   Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
   Edit3, Loader, Beer, Search,
 } from 'lucide-react';
 
-function formatEventDate(ds) {
-  if (!ds) return 'Data da definire';
+function formatEventDate(ds, locale = 'it', tbdLabel = 'Data da definire') {
+  if (!ds) return tbdLabel;
   const d = new Date(ds);
   if (isNaN(d)) return ds;
-  return d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString(locale === 'en' ? 'en-GB' : 'it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // ISO (UTC) → stringa per <input type="datetime-local"> in ORA LOCALE (no shift di fuso).
@@ -39,13 +40,14 @@ const getPosition = () =>
   });
 
 const RSVP = [
-  { key: 'going', label: 'Partecipo', icon: Check, color: 'var(--success)' },
-  { key: 'maybe', label: 'Forse', icon: HelpCircle, color: 'var(--secondary)' },
-  { key: 'no', label: 'Non posso', icon: X, color: 'var(--error)' },
+  { key: 'going', labelKey: 'events.rsvpGoing', icon: Check, color: 'var(--success)' },
+  { key: 'maybe', labelKey: 'events.rsvpMaybe', icon: HelpCircle, color: 'var(--secondary)' },
+  { key: 'no', labelKey: 'events.rsvpNo', icon: X, color: 'var(--error)' },
 ];
 
 export default function EventDetailPage({ params }) {
   const router = useRouter();
+  const { t, locale } = useI18n();
   const { id } = use(params);
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -166,16 +168,16 @@ export default function EventDetailPage({ params }) {
     setLocResults([]);
   };
   const useFreeTextLocation = () => {
-    const t = locQuery.trim();
-    if (!t) return;
+    const txt = locQuery.trim();
+    if (!txt) return;
     setSelectedLoc(null);
-    setEditLocName(t);
+    setEditLocName(txt);
     setLocResults([]);
   };
 
   const handleSaveEdit = async () => {
-    if (!edit.title.trim()) { alert('Il titolo non può essere vuoto.'); return; }
-    if (!edit.date) { alert('Scegli data e ora.'); return; }
+    if (!edit.title.trim()) { alert(t('events.evAlertNoTitle')); return; }
+    if (!edit.date) { alert(t('events.evAlertNoDate')); return; }
     setSavingEdit(true);
     try {
       const selectedRoute = routes.find((r) => r.id === edit.routeId);
@@ -194,7 +196,7 @@ export default function EventDetailPage({ params }) {
       setShowEdit(false);
       await load();
     } catch (err) {
-      alert(err.message || 'Errore nel salvataggio');
+      alert(err.message || t('events.evAlertSaveError'));
     } finally {
       setSavingEdit(false);
     }
@@ -206,7 +208,7 @@ export default function EventDetailPage({ params }) {
     const ms = event?.date ? new Date(event.date).getTime() : null;
     if (ms == null || isNaN(ms)) return false;
     if (Date.now() < ms - 2 * 60 * 60 * 1000) {
-      alert('Potrai avviare il brindisi/tour solo a partire da 2 ore prima dell\'inizio dell\'evento.');
+      alert(t('events.evAlertWindow'));
       return true;
     }
     return false;
@@ -219,7 +221,7 @@ export default function EventDetailPage({ params }) {
     try {
       const active = await db.getActiveSession(currentUser.id);
       if (active) {
-        alert('Hai già una sessione live attiva. Chiudila prima di iniziarne una nuova.');
+        alert(t('events.evAlertActiveSession'));
         setStartingSession(false);
         return;
       }
@@ -227,7 +229,7 @@ export default function EventDetailPage({ params }) {
       const companions = (event.responses || [])
         .filter((r) => r.status === 'going' && r.user_id !== currentUser.id)
         .map((r) => {
-          const dn = r.profile?.display_name || r.user_name || 'Atleta';
+          const dn = r.profile?.display_name || r.user_name || t('events.evAthleteDefault');
           const un = r.profile?.username;
           return un ? `${dn} (@${un})` : dn;
         });
@@ -238,13 +240,13 @@ export default function EventDetailPage({ params }) {
       if (hasCoords) {
         const pos = await getPosition();
         if (!pos) {
-          if (!window.confirm('GPS non disponibile: la sessione non conterà per le classifiche del locale. Procedere?')) { setStartingSession(false); return; }
+          if (!window.confirm(t('events.evConfirmNoGps'))) { setStartingSession(false); return; }
           unverified = true;
         } else {
           const { distance } = db.checkGeofencing(event.location.lat, event.location.lng, pos.lat, pos.lng, Infinity);
           if (distance > 300) {
             const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-            if (!window.confirm(`Sei a circa ${d} dal luogo dell'evento.\nLa sessione verrà segnata "non verificata". Procedere?`)) { setStartingSession(false); return; }
+            if (!window.confirm(t('events.evConfirmFar', { d }))) { setStartingSession(false); return; }
             unverified = true;
           }
         }
@@ -261,7 +263,7 @@ export default function EventDetailPage({ params }) {
         ...(event.route_id ? { route_id: event.route_id, route_name: event.route_name || null } : {}),
       };
       await db.createActivity({
-        title: `Brindisi · ${event.title}`,
+        title: t('events.evToastTitle', { title: event.title }),
         location: loc,
         drank_with: companions,
         drinks: [],
@@ -272,7 +274,7 @@ export default function EventDetailPage({ params }) {
       });
       router.push('/');
     } catch (err) {
-      alert('Errore nell\'avvio della sessione: ' + (err.message || err));
+      alert(t('events.evAlertStartError') + (err.message || err));
       setStartingSession(false);
     }
   };
@@ -287,14 +289,14 @@ export default function EventDetailPage({ params }) {
     try {
       const active = await db.getActiveSession(currentUser.id);
       if (active) {
-        alert('Hai già una sessione live attiva. Chiudila prima di iniziarne una nuova.');
+        alert(t('events.evAlertActiveSession'));
         setStartingSession(false);
         return;
       }
       const route = await db.getRoute(event.route_id);
       const stopsRaw = route?.waypoints || [];
       if (stopsRaw.length === 0) {
-        alert('L\'itinerario collegato non ha tappe: avvia un brindisi semplice.');
+        alert(t('events.evAlertTourNoStops'));
         setStartingSession(false);
         return;
       }
@@ -304,7 +306,7 @@ export default function EventDetailPage({ params }) {
       const companions = (event.responses || [])
         .filter((r) => r.status === 'going' && r.user_id !== currentUser.id)
         .map((r) => {
-          const dn = r.profile?.display_name || r.user_name || 'Atleta';
+          const dn = r.profile?.display_name || r.user_name || t('events.evAthleteDefault');
           const un = r.profile?.username;
           return un ? `${dn} (@${un})` : dn;
         });
@@ -320,17 +322,17 @@ export default function EventDetailPage({ params }) {
           const { distance } = db.checkGeofencing(first.lat, first.lng, pos.lat, pos.lng, Infinity);
           if (distance <= 300) {
             firstVerified = true;
-            startMsg = `✅ Sei alla prima tappa (${first.name}): tour avviato e tappa verificata!`;
+            startMsg = t('events.evTourAtFirst', { name: first.name });
           } else {
             const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-            startMsg = `🧭 Non sei ancora a ${first.name} (~${d}). Il tour è avviato: usa "Guidami" per arrivarci, poi premi "Sono qui" per validare la tappa.`;
+            startMsg = t('events.evTourNotAtFirst', { name: first.name, d });
           }
         } else {
-          startMsg = `📍 GPS non disponibile: quando arrivi a ${first.name} premi "Sono qui" per validare la prima tappa.`;
+          startMsg = t('events.evTourNoGps', { name: first.name });
         }
       }
       await db.createActivity({
-        title: `Tour: ${route.name} · ${event.title}`,
+        title: t('events.evTourTitle', { route: route.name, title: event.title }),
         location: {
           name: first.name,
           address: '',
@@ -363,7 +365,7 @@ export default function EventDetailPage({ params }) {
       try { if (startMsg) sessionStorage.setItem('strabar_tour_msg', startMsg); } catch { /* noop */ }
       window.location.href = '/?live=1';
     } catch (err) {
-      alert('Errore nell\'avvio del tour: ' + (err.message || err));
+      alert(t('events.evAlertTourError') + (err.message || err));
       setStartingSession(false);
     }
   };
@@ -377,14 +379,14 @@ export default function EventDetailPage({ params }) {
       await db.respondToEvent(id, status, shareToken);
       await load();
     } catch (err) {
-      alert(err.message || 'Errore');
+      alert(err.message || t('events.genericError'));
     } finally {
       setResponding(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Vuoi davvero eliminare questo evento?')) return;
+    if (!confirm(t('events.evConfirmDelete'))) return;
     await db.deleteEvent(id);
     router.push('/events');
   };
@@ -436,7 +438,7 @@ export default function EventDetailPage({ params }) {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold' }}>Carico l&apos;evento... 🍻</div>
+        <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold' }}>{t('events.evLoading')}</div>
       </div>
     );
   }
@@ -444,8 +446,8 @@ export default function EventDetailPage({ params }) {
   if (!event) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '50px 20px' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '10px' }}>Evento non trovato</h2>
-        <Link href="/events" className="btn btn-primary">Torna agli eventi</Link>
+        <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '10px' }}>{t('events.evNotFound')}</h2>
+        <Link href="/events" className="btn btn-primary">{t('events.evBackList')}</Link>
       </div>
     );
   }
@@ -457,7 +459,7 @@ export default function EventDetailPage({ params }) {
   const startOpensAtMs = eventStartMs != null && !isNaN(eventStartMs) ? eventStartMs - START_WINDOW_MS : null;
   const canStart = startOpensAtMs == null || (now > 0 && now >= startOpensAtMs);
   const startOpensLabel = startOpensAtMs != null
-    ? new Date(startOpensAtMs).toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    ? new Date(startOpensAtMs).toLocaleString(locale === 'en' ? 'en-GB' : 'it-IT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     : null;
   const grouped = { going: [], maybe: [], no: [] };
   (event.responses || []).forEach((r) => { if (grouped[r.status]) grouped[r.status].push(r); });
@@ -466,7 +468,7 @@ export default function EventDetailPage({ params }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <Link href="/events" className="action-btn" style={{ fontSize: '14px', width: 'fit-content' }}>
-        <ArrowLeft size={16} /> Tutti gli eventi
+        <ArrowLeft size={16} /> {t('events.evAllEvents')}
       </Link>
 
       {/* Intestazione evento */}
@@ -477,10 +479,10 @@ export default function EventDetailPage({ params }) {
             {(() => {
               const v = event.visibility || 'public';
               const meta = v === 'private'
-                ? { icon: '🔒', label: 'Nella lista: nessuno', color: 'var(--error)' }
+                ? { icon: '🔒', label: t('events.evListNobody'), color: 'var(--error)' }
                 : v === 'friends'
-                ? { icon: '👥', label: 'Nella lista: amici', color: 'var(--secondary)' }
-                : { icon: '🌍', label: 'Nella lista: tutti', color: 'var(--success)' };
+                ? { icon: '👥', label: t('events.evListFriends'), color: 'var(--secondary)' }
+                : { icon: '🌍', label: t('events.evListAll'), color: 'var(--success)' };
               const linkOn = event.link_sharing !== false;
               return (
                 <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
@@ -488,7 +490,7 @@ export default function EventDetailPage({ params }) {
                     {meta.icon} {meta.label}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${linkOn ? 'var(--primary)' : 'var(--border-dark)'}`, color: linkOn ? 'var(--primary)' : 'var(--text-dark-secondary)' }}>
-                    🔗 Link {linkOn ? 'attivo' : 'disattivato'}
+                    {linkOn ? t('events.evLinkActive') : t('events.evLinkDisabled')}
                   </span>
                 </span>
               );
@@ -499,16 +501,16 @@ export default function EventDetailPage({ params }) {
               <MessageCircle size={15} /> WhatsApp
             </button>
             <button onClick={shareEvent} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px', color: copied ? 'var(--success)' : 'var(--text-dark-primary)' }}>
-              <Share2 size={15} /> {copied ? 'Link copiato!' : 'Condividi'}
+              <Share2 size={15} /> {copied ? t('events.evLinkCopied') : t('events.evShare')}
             </button>
             {isHost && (
               <button onClick={openEdit} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px' }}>
-                <Edit3 size={15} /> Modifica
+                <Edit3 size={15} /> {t('events.evEdit')}
               </button>
             )}
             {isHost && (
               <button onClick={handleDelete} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px', color: 'var(--error)' }}>
-                <Trash2 size={15} /> Elimina
+                <Trash2 size={15} /> {t('events.evDelete')}
               </button>
             )}
           </div>
@@ -516,35 +518,35 @@ export default function EventDetailPage({ params }) {
 
         {isHost && (event.link_sharing === false ? (
           <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-            🔗 <strong style={{ color: 'var(--text-dark-primary)' }}>Link di invito disattivato</strong>: accedono solo tu e le persone che inviti per nome. Un link inoltrato non funziona. Puoi riattivarlo da “Modifica”.
+            🔗 <strong style={{ color: 'var(--text-dark-primary)' }}>{t('events.evHostLinkOffBold')}</strong>{t('events.evHostLinkOffRest')}
           </p>
         ) : (event.visibility || 'public') !== 'public' ? (
           <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-            🔗 Non compare nella lista {(event.visibility === 'private') ? 'a nessuno' : '(solo agli amici)'}, ma <strong style={{ color: 'var(--text-dark-primary)' }}>chiunque riceva il link qui sotto può aprirlo e partecipare — anche senza account</strong>. Condividilo solo con chi vuoi invitare.
+            {(event.visibility === 'private') ? t('events.evHostNPpreNobody') : t('events.evHostNPpreFriends')}<strong style={{ color: 'var(--text-dark-primary)' }}>{t('events.evHostNPbold')}</strong>{t('events.evHostNPpost')}
           </p>
         ) : null)}
         {!isHost && event.viaLink && (event.visibility || 'public') !== 'public' && (
           <p style={{ fontSize: '12px', color: 'var(--secondary)', marginTop: '8px', lineHeight: 1.4 }}>
-            👋 Sei qui tramite un <strong>link condiviso</strong>: l&apos;organizzatore ti ha invitato a questo evento {(event.visibility === 'private') ? 'privato' : 'riservato agli amici'}.
+            {t('events.evViaPre')}<strong>{t('events.evViaBold')}</strong>{(event.visibility === 'private') ? t('events.evViaMidPrivate') : t('events.evViaMidFriends')}
           </p>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: 'var(--primary)', fontWeight: 600 }}>
-            <Calendar size={16} /> {formatEventDate(event.date)}
+            <Calendar size={16} /> {formatEventDate(event.date, locale, t('events.dateTbd'))}
           </div>
           {event.location_name && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
               <MapPin size={16} /> {event.location_name}
               <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location_name)}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '12px' }}>
-                <ExternalLink size={12} /> Mappa
+                <ExternalLink size={12} /> {t('events.evMap')}
               </a>
             </div>
           )}
           {event.route_name && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <RouteIcon size={16} /> Itinerario: <strong style={{ color: 'var(--primary)' }}>{event.route_name}</strong>
+                <RouteIcon size={16} /> {t('events.evItinerary')} <strong style={{ color: 'var(--primary)' }}>{event.route_name}</strong>
               </span>
               {/* Link al tour solo se NON è mostrato inline (cioè non è il tour del proprietario):
                   per i tour del proprietario — anche privati — mostriamo le tappe qui sotto, così
@@ -555,7 +557,7 @@ export default function EventDetailPage({ params }) {
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
-                  <RouteIcon size={14} /> Vedi itinerario
+                  <RouteIcon size={14} /> {t('events.evSeeItinerary')}
                 </Link>
               )}
             </div>
@@ -564,7 +566,7 @@ export default function EventDetailPage({ params }) {
           {event.route && Array.isArray(event.route.waypoints) && event.route.waypoints.length > 0 && (
             <div style={{ marginTop: '4px', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: '12px' }}>
               <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <RouteIcon size={14} color="var(--primary)" /> Tappe dell&apos;itinerario
+                <RouteIcon size={14} color="var(--primary)" /> {t('events.evItineraryStops')}
               </div>
               <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {event.route.waypoints.map((w, i) => {
@@ -576,12 +578,12 @@ export default function EventDetailPage({ params }) {
                     <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                       <span style={{ flexShrink: 0, width: '22px', height: '22px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '1px' }}>{i + 1}</span>
                       <span style={{ minWidth: 0, fontSize: '14px', color: '#FFF' }}>
-                        {w.name || `Tappa ${i + 1}`}
+                        {w.name || t('events.evStopN', { n: i + 1 })}
                         {w.address && <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{w.address}</span>}
                       </span>
                       {mapHref && (
                         <a href={mapHref} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto', color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', flexShrink: 0 }}>
-                          <ExternalLink size={11} /> Mappa
+                          <ExternalLink size={11} /> {t('events.evMap')}
                         </a>
                       )}
                     </li>
@@ -591,7 +593,7 @@ export default function EventDetailPage({ params }) {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
-            <Crown size={16} color="var(--secondary)" /> Organizzato da{' '}
+            <Crown size={16} color="var(--secondary)" /> {t('events.evOrganizedBy')}{' '}
             <Link href={`/u/${event.host_id}`} style={{ color: '#FFF', fontWeight: 600 }}>{event.host?.display_name || event.host_name}</Link>
           </div>
         </div>
@@ -605,24 +607,24 @@ export default function EventDetailPage({ params }) {
 
       {/* RSVP */}
       <div className="card">
-        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Ci sarai?</h3>
+        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>{t('events.evWillYouBeThere')}</h3>
         {!currentUser && (
           <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'rgba(255,32,0,0.06)', textAlign: 'center' }}>
             <p style={{ fontSize: '14px', color: 'var(--text-dark-primary)', lineHeight: 1.5, marginBottom: '12px' }}>
-              👋 Sei stato invitato! Per <strong>partecipare</strong> ti basta un account gratuito.
+              {t('events.evInvitedPre')}<strong>{t('events.evInvitedBold')}</strong>{t('events.evInvitedPost')}
             </p>
             <button
               onClick={() => router.push(`/auth?next=${encodeURIComponent(`/events/${id}${shareToken ? `?t=${shareToken}` : ''}`)}`)}
               className="btn btn-primary"
               style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700 }}
             >
-              Accedi o registrati per partecipare
+              {t('events.evLoginToJoin')}
             </button>
           </div>
         )}
         {currentUser && (
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {RSVP.map(({ key, label, icon: Icon, color }) => {
+          {RSVP.map(({ key, labelKey, icon: Icon, color }) => {
             const active = event.myResponse === key;
             return (
               <button
@@ -640,7 +642,7 @@ export default function EventDetailPage({ params }) {
                   cursor: responding ? 'default' : 'pointer',
                 }}
               >
-                <Icon size={16} /> {label}
+                <Icon size={16} /> {t(labelKey)}
               </button>
             );
           })}
@@ -651,11 +653,11 @@ export default function EventDetailPage({ params }) {
         {currentUser && (isHost || event.isInvited || event.myResponse) && (
           <>
             <div style={{ marginTop: '14px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>Chi vede la tua sessione?</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>{t('events.evWhoSeesSession')}</span>
               <div className="seg-tabs">
-                <div className={`seg-tab ${eventShare === 'public' ? 'active' : ''}`} onClick={() => setEventShare('public')}>🌍 Tutti</div>
-                <div className={`seg-tab ${eventShare === 'friends' ? 'active' : ''}`} onClick={() => setEventShare('friends')}>👥 Amici</div>
-                <div className={`seg-tab ${eventShare === 'private' ? 'active' : ''}`} onClick={() => setEventShare('private')}>🔒 Nessuno</div>
+                <div className={`seg-tab ${eventShare === 'public' ? 'active' : ''}`} onClick={() => setEventShare('public')}>{t('events.visAll')}</div>
+                <div className={`seg-tab ${eventShare === 'friends' ? 'active' : ''}`} onClick={() => setEventShare('friends')}>{t('events.visFriends')}</div>
+                <div className={`seg-tab ${eventShare === 'private' ? 'active' : ''}`} onClick={() => setEventShare('private')}>{t('events.visNobody')}</div>
               </div>
             </div>
             <button
@@ -665,17 +667,20 @@ export default function EventDetailPage({ params }) {
               style={{ width: '100%', borderRadius: '14px', padding: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: canStart ? 1 : 0.55, cursor: canStart ? 'pointer' : 'not-allowed' }}
             >
               {startingSession ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : event.route_id ? <RouteIcon size={16} /> : <Beer size={16} />}
-              {event.route_id ? 'Avvia tour guidato' : 'Registra brindisi all’evento'}
+              {event.route_id ? t('events.evStartTour') : t('events.evStartToast')}
             </button>
           </>
         )}
         {currentUser && (isHost || event.isInvited || event.myResponse) && (
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '6px' }}>
             {!canStart
-              ? `⏳ Potrai avviare ${event.route_id ? 'il tour' : 'il brindisi'} da 2 ore prima dell’inizio${startOpensLabel ? ` — dalle ${startOpensLabel}` : ''}.`
+              ? t('events.evStartHintClosed', {
+                  what: event.route_id ? t('events.evTheTour') : t('events.evTheToast'),
+                  when: startOpensLabel ? t('events.evFromTime', { time: startOpensLabel }) : '',
+                })
               : event.route_id
-                ? 'Avvia il tour guidato sulle tappe dell’itinerario, con i partecipanti pre-taggati. Conta per la classifica dell’evento.'
-                : 'Avvia una sessione live già con il luogo dell’evento e i partecipanti pre-taggati.'}
+                ? t('events.evStartHintTour')
+                : t('events.evStartHintSession')}
           </p>
         )}
       </div>
@@ -684,7 +689,7 @@ export default function EventDetailPage({ params }) {
       {board && board.participants > 0 && (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <Crown size={18} color="var(--secondary)" /> Classifica dell&apos;evento
+            <Crown size={18} color="var(--secondary)" /> {t('events.evBoard')}
             {board.routeName && (
               <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 <RouteIcon size={13} /> {board.routeName}
@@ -695,24 +700,24 @@ export default function EventDetailPage({ params }) {
           {/* Statistiche aggregate */}
           <div className="r-grid-stat-4" style={{ background: 'rgba(255,32,0,0.04)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,32,0,0.15)' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Partecipanti</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{t('events.evParticipants')}</div>
               <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{board.participants}</div>
             </div>
             <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>U.A. totali</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{t('events.evTotalUnits')}</div>
               <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFF', marginTop: '4px' }}>{board.totalUnits}</div>
             </div>
             <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Drink</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{t('events.evDrinksStat')}</div>
               <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFF', marginTop: '4px' }}>{board.totalDrinks}</div>
             </div>
             <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Media U.A.</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{t('events.evAvgUnits')}</div>
               <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--secondary)', marginTop: '4px' }}>{board.avgUnits}</div>
             </div>
           </div>
           {board.activeNow > 0 && (
-            <p style={{ fontSize: '12px', color: 'var(--success)', margin: 0, fontWeight: 600 }}>🔴 {board.activeNow} live in corso adesso</p>
+            <p style={{ fontSize: '12px', color: 'var(--success)', margin: 0, fontWeight: 600 }}>{t('events.evLiveNow', { n: board.activeNow })}</p>
           )}
 
           {/* Classifica per U.A. */}
@@ -729,8 +734,8 @@ export default function EventDetailPage({ params }) {
                   <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '14px', color: u.revealed ? '#FFF' : 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {u.name}
                   </span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{u.drinks} drink</span>
-                  <strong style={{ fontSize: '15px', color: 'var(--primary)', flexShrink: 0, minWidth: 54, textAlign: 'right' }}>{u.units} U.A.</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{t('events.evNDrinks', { n: u.drinks })}</span>
+                  <strong style={{ fontSize: '15px', color: 'var(--primary)', flexShrink: 0, minWidth: 54, textAlign: 'right' }}>{u.units} {t('events.evUnits')}</strong>
                 </>
               );
               return u.revealed ? (
@@ -744,12 +749,12 @@ export default function EventDetailPage({ params }) {
           {/* Top BAC */}
           {board.topBac.length > 0 && board.topBac[0].bac > 0 && (
             <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>🥴 Picco tasso alcolico</span>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('events.evPeakBac')}</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
-                {board.topBac.map((t, i) => (
+                {board.topBac.map((tb, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <span style={{ color: t.revealed ? '#FFF' : 'var(--text-dark-secondary)' }}>{t.revealed ? '' : '🥷 '}{t.name}</span>
-                    <strong style={{ color: 'var(--secondary)' }}>{t.bac.toFixed(2)} g/L</strong>
+                    <span style={{ color: tb.revealed ? '#FFF' : 'var(--text-dark-secondary)' }}>{tb.revealed ? '' : '🥷 '}{tb.name}</span>
+                    <strong style={{ color: 'var(--secondary)' }}>{tb.bac.toFixed(2)} g/L</strong>
                   </div>
                 ))}
               </div>
@@ -757,7 +762,7 @@ export default function EventDetailPage({ params }) {
           )}
 
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-            🔒 Contano le sessioni avviate da questo evento. Il nome è visibile solo per te e per chi segui o ti segue; gli altri restano coperti.
+            {t('events.evBoardNote')}
           </p>
         </div>
       )}
@@ -766,18 +771,18 @@ export default function EventDetailPage({ params }) {
       <div className="r-grid-2">
         <div className="card">
           <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Users size={18} color="var(--success)" /> Partecipano ({grouped.going.length})
+            <Users size={18} color="var(--success)" /> {t('events.evGoingTitle', { n: grouped.going.length })}
           </h3>
-          <AttendeeList list={grouped.going} emptyText="Nessun partecipante confermato ancora." />
+          <AttendeeList list={grouped.going} emptyText={t('events.evNoConfirmed')} />
           {grouped.maybe.length > 0 && (
             <>
-              <h4 style={{ fontSize: '13px', fontWeight: 700, margin: '16px 0 10px', color: 'var(--secondary)' }}>Forse ({grouped.maybe.length})</h4>
+              <h4 style={{ fontSize: '13px', fontWeight: 700, margin: '16px 0 10px', color: 'var(--secondary)' }}>{t('events.evMaybeTitle', { n: grouped.maybe.length })}</h4>
               <AttendeeList list={grouped.maybe} />
             </>
           )}
           {grouped.no.length > 0 && (
             <>
-              <h4 style={{ fontSize: '13px', fontWeight: 700, margin: '16px 0 10px', color: 'var(--error)' }}>Non possono ({grouped.no.length})</h4>
+              <h4 style={{ fontSize: '13px', fontWeight: 700, margin: '16px 0 10px', color: 'var(--error)' }}>{t('events.evNoTitle', { n: grouped.no.length })}</h4>
               <AttendeeList list={grouped.no} />
             </>
           )}
@@ -787,11 +792,11 @@ export default function EventDetailPage({ params }) {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <UserPlus size={18} color="var(--primary)" /> Invitati ({(event.invited || []).length})
+              <UserPlus size={18} color="var(--primary)" /> {t('events.evInvitedTitle', { n: (event.invited || []).length })}
             </h3>
             {isHost && (
               <button onClick={() => setShowInvite((s) => !s)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                {showInvite ? 'Chiudi' : 'Invita amici'}
+                {showInvite ? t('events.evClose') : t('events.evInviteFriends')}
               </button>
             )}
           </div>
@@ -813,12 +818,12 @@ export default function EventDetailPage({ params }) {
               {/* Ricerca persone (server-side) */}
               <div style={{ position: 'relative', marginBottom: '10px' }}>
                 <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-                <input className="form-control" placeholder="Cerca per nome o @username…" value={inviteQuery} onChange={(e) => setInviteQuery(e.target.value)} style={{ paddingLeft: 32 }} />
+                <input className="form-control" placeholder={t('events.searchPeoplePh')} value={inviteQuery} onChange={(e) => setInviteQuery(e.target.value)} style={{ paddingLeft: 32 }} />
                 {(inviteSearching || inviteResults.length > 0) && (
                   <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', maxHeight: '220px', overflowY: 'auto' }}>
                     {inviteSearching && (
                       <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco atleti…
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('events.searchingAthletes')}
                       </div>
                     )}
                     {inviteResults.map((p) => {
@@ -826,40 +831,40 @@ export default function EventDetailPage({ params }) {
                       const sel = toInvite.includes(p.id);
                       return (
                         <button key={p.id} type="button" disabled={involved}
-                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: p.display_name || p.username || 'Atleta', username: p.username || null }))}
+                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: p.display_name || p.username || t('events.evAthleteDefault'), username: p.username || null }))}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,32,0,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: involved ? 'default' : 'pointer', opacity: involved ? 0.5 : 1 }}>
                           <span style={{ minWidth: 0 }}>
                             <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</span>
                             {p.username && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
                           </span>
-                          {involved ? <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>già coinvolto</span> : sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>+ Invita</span>}
+                          {involved ? <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('events.evAlreadyInvolved')}</span> : sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>{t('events.inviteBtn')}</span>}
                         </button>
                       );
                     })}
                     {!inviteSearching && inviteResults.length === 0 && inviteQuery.trim().length >= 2 && (
-                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun atleta trovato.</div>
+                      <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('events.noAthletes')}</div>
                     )}
                   </div>
                 )}
               </div>
 
               <button onClick={sendInvites} disabled={toInvite.length === 0} className="btn btn-primary" style={{ width: '100%', fontSize: '13px', opacity: toInvite.length === 0 ? 0.6 : 1 }}>
-                Invia {toInvite.length > 0 ? `(${toInvite.length})` : ''} inviti
+                {toInvite.length > 0 ? t('events.evSendInvites', { n: toInvite.length }) : t('events.evSendInvitesEmpty')}
               </button>
             </div>
           )}
 
           {(event.invited || []).length === 0 ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Nessun invitato. Usa &quot;Invita amici&quot; per coinvolgere il gruppo.</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{t('events.evNoInvitees')}</p>
           ) : (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {(event.invitedProfiles || []).map((p) => {
                   const status = (event.responses || []).find((r) => r.user_id === p.id)?.status;
-                  const badge = status === 'going' ? { t: 'Partecipa', c: 'var(--success)' }
-                    : status === 'maybe' ? { t: 'Forse', c: 'var(--secondary)' }
-                    : status === 'no' ? { t: 'Non può', c: 'var(--error)' }
-                    : { t: 'In attesa', c: 'var(--text-dark-secondary)' };
+                  const badge = status === 'going' ? { t: t('events.evBadgeGoing'), c: 'var(--success)' }
+                    : status === 'maybe' ? { t: t('events.evBadgeMaybe'), c: 'var(--secondary)' }
+                    : status === 'no' ? { t: t('events.evBadgeNo'), c: 'var(--error)' }
+                    : { t: t('events.evBadgePending'), c: 'var(--text-dark-secondary)' };
                   return (
                     <Link key={p.id} href={`/u/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: 'var(--bg-input-dark)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                       <div className="activity-avatar" style={{ width: 30, height: 30, fontSize: 12 }}>
@@ -875,7 +880,7 @@ export default function EventDetailPage({ params }) {
                 })}
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '10px' }}>
-                {(event.invited || []).length} persone invitate • {grouped.going.length} hanno confermato.
+                {t('events.evInviteSummary', { invited: (event.invited || []).length, going: grouped.going.length })}
               </p>
             </>
           )}
@@ -891,41 +896,41 @@ export default function EventDetailPage({ params }) {
           <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '560px', border: '2px solid var(--primary)', marginTop: '30px', marginBottom: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Edit3 size={20} color="var(--primary)" /> Modifica Evento
+                <Edit3 size={20} color="var(--primary)" /> {t('events.evEditTitle')}
               </h2>
               <button onClick={() => setShowEdit(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '34px', height: '34px' }}><X size={16} /></button>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Titolo</label>
+              <label className="form-label">{t('events.fTitle')}</label>
               <input className="form-control" value={edit.title} onChange={(e) => setEdit((p) => ({ ...p, title: e.target.value }))} />
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Data e ora</label>
+                <label className="form-label">{t('events.fDate')}</label>
                 <input type="datetime-local" className="form-control" value={edit.date} onChange={(e) => setEdit((p) => ({ ...p, date: e.target.value }))} />
               </div>
               <div className="form-group" style={{ position: 'relative' }}>
-                <label className="form-label">Luogo di ritrovo</label>
+                <label className="form-label">{t('events.fPlace')}</label>
                 <input
                   className="form-control"
-                  placeholder="Cerca un locale, una via o scrivi libero…"
+                  placeholder={t('events.fPlacePh')}
                   value={locQuery}
                   onChange={(e) => { setLocQuery(e.target.value); setSelectedLoc(null); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); useFreeTextLocation(); } }}
                 />
                 {editLocName && (
                   <div style={{ fontSize: '11px', marginTop: '4px', color: 'var(--text-dark-secondary)' }}>
-                    Luogo: <strong style={{ color: 'var(--primary)' }}>{editLocName}</strong>
-                    {selectedLoc?.lat != null ? ' 📍 (reale)' : ' ✍️ (libero)'}
+                    {t('events.evLocLabel')} <strong style={{ color: 'var(--primary)' }}>{editLocName}</strong>
+                    {selectedLoc?.lat != null ? t('events.evLocReal') : t('events.evLocFree')}
                   </div>
                 )}
                 {(locSearching || locResults.length > 0) && (
                   <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                     {locSearching && (
                       <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco luoghi…
+                        <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('events.searchingPlaces')}
                       </div>
                     )}
                     {locResults.map((v, i) => (
@@ -938,7 +943,7 @@ export default function EventDetailPage({ params }) {
                     ))}
                     {!locSearching && locQuery.trim().length >= 2 && (
                       <button type="button" onClick={useFreeTextLocation} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-                        ✍️ Usa &quot;<strong style={{ color: 'var(--primary)' }}>{locQuery.trim()}</strong>&quot; come testo libero
+                        {t('events.useFreeText', { q: locQuery.trim() })}
                       </button>
                     )}
                   </div>
@@ -947,7 +952,7 @@ export default function EventDetailPage({ params }) {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Itinerario collegato (opzionale)</label>
+              <label className="form-label">{t('events.fRoute')}</label>
               {(() => {
                 // Collegabili: i MIEI itinerari (qualunque privacy) o quelli PUBBLICI.
                 // Mantengo selezionabile l'itinerario già collegato anche se non rientra nel filtro.
@@ -957,17 +962,17 @@ export default function EventDetailPage({ params }) {
                 return (
                   <>
                     <select className="form-control" value={edit.routeId} onChange={(e) => setEdit((p) => ({ ...p, routeId: e.target.value }))}>
-                      <option value="">Nessun itinerario</option>
+                      <option value="">{t('events.noRoute')}</option>
                       {selectable.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.name}{r.user_id === currentUser?.id ? ' · il mio' : ' · pubblico'}{(r.user_id === currentUser?.id && (r.visibility || 'public') !== 'public') ? (r.visibility === 'private' ? ' 🔒' : ' 👥') : ''}
+                          {r.name}{r.user_id === currentUser?.id ? t('events.routeMine') : t('events.routePublic')}{(r.user_id === currentUser?.id && (r.visibility || 'public') !== 'public') ? (r.visibility === 'private' ? ' 🔒' : ' 👥') : ''}
                         </option>
                       ))}
                     </select>
                     <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
-                      Puoi collegare i <strong>tuoi</strong> itinerari o quelli <strong>pubblici</strong>.
+                      {t('events.routeHint')}
                       {mineNonPublic && (
-                        <> <br />⚠️ <span style={{ color: 'var(--secondary)' }}>Itinerario {sel.visibility === 'private' ? 'privato' : 'riservato agli amici'}: le tappe saranno visibili <strong>dentro l&apos;evento</strong> secondo la privacy dell&apos;evento, ma resta fuori dalla lista pubblica dei tour.</span></>
+                        <> <br />⚠️ <span style={{ color: 'var(--secondary)' }}>{sel.visibility === 'private' ? t('events.evRouteWarnPrivate') : t('events.evRouteWarnFriends')}</span></>
                       )}
                     </p>
                   </>
@@ -977,12 +982,12 @@ export default function EventDetailPage({ params }) {
 
             {/* ACCESSO — due concetti distinti */}
             <div className="form-group" style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
-              <label className="form-label">Rendi visibile a:</label>
+              <label className="form-label">{t('events.visibleTo')}</label>
               <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
                 {[
-                  { v: 'public', t: '🌍 Tutti' },
-                  { v: 'friends', t: '👥 Amici' },
-                  { v: 'private', t: '🔒 Nessuno' },
+                  { v: 'public', t: t('events.visAll') },
+                  { v: 'friends', t: t('events.visFriends') },
+                  { v: 'private', t: t('events.visNobody') },
                 ].map((o) => (
                   <div
                     key={o.v}
@@ -993,10 +998,10 @@ export default function EventDetailPage({ params }) {
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
                 {edit.visibility === 'public'
-                  ? '🌍 Compare nella lista eventi a tutti gli utenti.'
+                  ? t('events.visAllHint')
                   : edit.visibility === 'friends'
-                  ? '👥 Compare nella lista solo ai tuoi amici.'
-                  : '🔒 Non compare nella lista: lo vedono solo tu e le persone che inviti.'}
+                  ? t('events.visFriendsHint')
+                  : t('events.visPrivateHint')}
               </p>
             </div>
 
@@ -1005,25 +1010,25 @@ export default function EventDetailPage({ params }) {
                 onClick={() => setEdit((p) => ({ ...p, linkSharing: !p.linkSharing }))}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', cursor: 'pointer' }}
               >
-                <span style={{ fontWeight: 700, fontSize: '14px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Link di invito</span>
+                <span style={{ fontWeight: 700, fontSize: '14px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px' }}>{t('events.inviteLink')}</span>
                 <span style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', flexShrink: 0, transition: 'var(--transition)', background: edit.linkSharing ? 'var(--primary)' : 'var(--border-dark)' }}>
                   <span style={{ position: 'absolute', top: '2px', left: edit.linkSharing ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'var(--transition)' }} />
                 </span>
               </label>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
                 {edit.linkSharing
-                  ? '✅ Chiunque riceva il link può aprire e partecipare — anche senza account e anche se non lo vede nella lista.'
-                  : '⛔ Solo tu e le persone che inviti per nome potete accedere. Un link inoltrato non funzionerà.'}
+                  ? t('events.inviteLinkOn')
+                  : t('events.inviteLinkOff')}
               </p>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Descrizione</label>
+              <label className="form-label">{t('events.fDesc')}</label>
               <textarea className="form-control" rows={2} value={edit.description} onChange={(e) => setEdit((p) => ({ ...p, description: e.target.value }))} style={{ resize: 'vertical' }} />
             </div>
 
             <button onClick={handleSaveEdit} disabled={savingEdit} className="btn btn-primary" style={{ width: '100%', marginTop: '6px' }}>
-              {savingEdit ? 'Salvo...' : 'Salva modifiche'}
+              {savingEdit ? t('events.evSaving') : t('events.evSaveChanges')}
             </button>
           </div>
         </div>
