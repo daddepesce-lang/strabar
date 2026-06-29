@@ -16,6 +16,7 @@ import { publicName } from '@/lib/names';
 import { siteUrl } from '@/lib/site';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
+import DrinkSearch from '@/components/DrinkSearch';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
@@ -195,6 +196,7 @@ export default function FeedPage() {
   const [editFriendResults, setEditFriendResults] = useState([]);
   const [editSearchingFriends, setEditSearchingFriends] = useState(false);
   const [showAllLiveDrinks, setShowAllLiveDrinks] = useState(false);
+  const [drinkSearchOpen, setDrinkSearchOpen] = useState(false); // foglio ricerca drink (live)
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
   const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
@@ -2325,6 +2327,75 @@ export default function FeedPage() {
           return true;
         });
 
+  // ——— Blocchi riutilizzabili del pannello live ———
+  // Aggiunta drink: poche scorciatoie + un grande pulsante che apre la RICERCA a tutto
+  // schermo (catalogo completo + drink del locale). Usato sia nella tappa del tour che
+  // nella live semplice, così "registrare un drink" è sempre lo stesso gesto chiaro.
+  const renderDrinkAdder = () => (
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+        {QUICK_DRINKS.map((preset, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleAddDrinkToActiveSession(preset)}
+            disabled={addingDrink}
+            className="btn btn-secondary"
+            style={{ padding: '7px 12px', fontSize: '12px', borderRadius: '15px', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+          >
+            {preset.label}
+            <span style={{ fontSize: '10px', fontWeight: 700, color: preset.abv > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)', background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '1px 5px' }}>
+              {preset.abv > 0 ? `${preset.abv}°` : 'analc.'}
+            </span>
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => setDrinkSearchOpen(true)}
+        className="btn btn-primary"
+        style={{ width: '100%', padding: '11px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+      >
+        <Search size={16} /> {t('drink.open')}
+      </button>
+    </div>
+  );
+
+  // Striscia foto: miniature + pulsante "Aggiungi". `label` chiarisce DOVE finisce la foto
+  // (in un tour la foto viene taggata con la tappa corrente).
+  const renderPhotoStrip = (label) => (
+    <div>
+      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+        {activeSession?.media?.filter((m) => m.type === 'image').map((med, idx) => (
+          <div key={idx} style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={med.url} alt={med.name || 'foto'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <button
+              onClick={async () => {
+                const updated = (activeSession.media || []).filter((m) => m.url !== med.url);
+                setActiveSession((prev) => ({ ...prev, media: updated }));
+                await db.updateActivity(activeSession.id, { media: updated });
+              }}
+              style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', color: '#FFF', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '12px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >×</button>
+          </div>
+        ))}
+        <label style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed var(--border-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: photoUploading ? 'wait' : 'pointer', color: 'var(--text-dark-secondary)', gap: '2px' }}>
+          {photoUploading ? (
+            <Loader size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+          ) : (
+            <>
+              <Camera size={18} />
+              <span style={{ fontSize: '9px' }}>Aggiungi</span>
+            </>
+          )}
+          <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
+        </label>
+      </div>
+    </div>
+  );
+
   return (
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
@@ -2484,6 +2555,16 @@ export default function FeedPage() {
                                     )}
                                   </div>
 
+                                  {/* Registra un drink A QUESTA TAPPA (apre la ricerca) */}
+                                  <div style={{ marginBottom: '12px' }}>
+                                    {renderDrinkAdder()}
+                                  </div>
+
+                                  {/* Foto DI QUESTA TAPPA: chiaro dove finiscono */}
+                                  <div style={{ marginBottom: '12px' }}>
+                                    {renderPhotoStrip('📸 Foto di questa tappa')}
+                                  </div>
+
                                   {curStop?.lat && curStop?.lng ? (
                                     <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700, marginBottom: '8px' }}>
                                       🧭 Guidami qui
@@ -2641,7 +2722,9 @@ export default function FeedPage() {
                 );
               })()}
 
-              {/* Elenco drink correnti */}
+              {/* Elenco drink correnti — solo nella live SEMPLICE (nel tour i drink sono
+                  già divisi per tappa nella timeline qui sopra) */}
+              {!activeSession.location?.tour && (
               <div style={{ marginBottom: '15px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
                   {t('session.liveDrinks', { n: (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0) })}
@@ -2666,6 +2749,7 @@ export default function FeedPage() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Consiglio pacing: evita di loggare i drink tutti insieme (curva più realistica) */}
               {pacingTip && (
@@ -2681,55 +2765,15 @@ export default function FeedPage() {
                 </div>
               )}
 
-              {/* Pulsantiera Quick Add */}
+              {/* Registra un drink — solo nella live SEMPLICE (nel tour è dentro la tappa) */}
+              {!activeSession.location?.tour && (
               <div style={{ marginBottom: '15px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
                   {t('session.registerDrink')}
                 </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {QUICK_DRINKS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleAddDrinkToActiveSession(preset)}
-                      disabled={addingDrink}
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                    >
-                      {preset.label}
-                      <span style={{ fontSize: '10px', fontWeight: 700, color: preset.abv > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)', background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '1px 5px' }}>
-                        {preset.abv > 0 ? `${preset.abv}°` : 'analc.'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div style={{ marginTop: '12px' }}>
-                  <BeerPicker onPick={handleAddDrinkToActiveSession} disabled={addingDrink} />
-                </div>
-                <button
-                  onClick={() => setShowAllLiveDrinks((v) => !v)}
-                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginTop: '8px' }}
-                >
-                  {showAllLiveDrinks ? t('session.hideExtra') : t('session.showExtraFull')}
-                </button>
-                {showAllLiveDrinks && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
-                    {EXTRA_DRINKS.map((preset, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleAddDrinkToActiveSession(preset)}
-                        disabled={addingDrink}
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                      >
-                        {preset.label}
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: preset.abv > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)', background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '1px 5px' }}>
-                          {preset.abv > 0 ? `${preset.abv}°` : 'analc.'}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {renderDrinkAdder()}
               </div>
+              )}
 
               {/* Gestione Compagni (drank_with) con ricerca amici reale */}
               <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
@@ -2809,50 +2853,12 @@ export default function FeedPage() {
                 </div>
               </div>
 
-              {/* Foto della sessione live */}
-              <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
-                  Foto della serata:
-                </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                  {activeSession.media?.filter(m => m.type === 'image').map((med, idx) => (
-                    <div key={idx} style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={med.url} alt={med.name || 'foto'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button
-                        onClick={async () => {
-                          const updated = (activeSession.media || []).filter((_, i) => i !== idx);
-                          setActiveSession(prev => ({ ...prev, media: updated }));
-                          await db.updateActivity(activeSession.id, { media: updated });
-                        }}
-                        style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(0,0,0,0.6)', color: '#FFF', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '12px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <label
-                    style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px dashed var(--border-dark)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: photoUploading ? 'wait' : 'pointer', color: 'var(--text-dark-secondary)', gap: '2px' }}
-                  >
-                    {photoUploading ? (
-                      <Loader size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-                    ) : (
-                      <>
-                        <Camera size={18} />
-                        <span style={{ fontSize: '9px' }}>Aggiungi</span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handleAddSessionPhoto}
-                      disabled={photoUploading}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
+              {/* Foto — solo nella live SEMPLICE (nel tour sono dentro la tappa corrente) */}
+              {!activeSession.location?.tour && (
+                <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
+                  {renderPhotoStrip('📸 Foto della serata')}
                 </div>
-              </div>
+              )}
 
               {/* Toggle Form Termina */}
               {!showCloseForm ? (
@@ -2905,6 +2911,15 @@ export default function FeedPage() {
             </div>
               </div>
               </div>
+              )}
+
+              {/* Ricerca drink a tutto schermo (apribile dal pannello live / dalla tappa) */}
+              {drinkSearchOpen && (
+                <DrinkSearch
+                  scope={activeSession.location?.tour ? 'stop' : 'session'}
+                  onPick={handleAddDrinkToActiveSession}
+                  onClose={() => setDrinkSearchOpen(false)}
+                />
               )}
             </>
           ) : null
