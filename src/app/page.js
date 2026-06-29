@@ -198,6 +198,7 @@ export default function FeedPage() {
   const [showAllLiveDrinks, setShowAllLiveDrinks] = useState(false);
   const [drinkSearchOpen, setDrinkSearchOpen] = useState(false); // foglio ricerca drink (live)
   const [liveVenueDrinks, setLiveVenueDrinks] = useState([]); // drink propri del locale corrente
+  const [expandedStop, setExpandedStop] = useState(null); // tappa passata espansa (mostra i drink)
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
   const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
@@ -2506,21 +2507,42 @@ export default function FeedPage() {
 
                             {/* Colonna contenuto */}
                             <div style={{ flex: 1, minWidth: 0, paddingBottom: isLast ? 0 : '14px' }}>
-                              <div style={{ fontSize: isCur ? '17px' : '14px', fontWeight: isCur ? 800 : 600, color: '#FFF', opacity: isPast ? 0.6 : 1, paddingTop: isCur ? 0 : '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{st.name}</div>
-                              {isPast && <div style={{ fontSize: '11px', color: v ? 'var(--success)' : 'var(--text-dark-secondary)' }}>{v ? '✓ verificata' : '— non verificata'}</div>}
-                              {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>in programma</div>}
+                              {(() => {
+                                const pastDrinks = isPast ? (perStopLive[i]?.drinks || []) : [];
+                                const pastCount = pastDrinks.reduce((s, d) => s + (d.qty || 1), 0);
+                                const open = expandedStop === i;
+                                return (
+                                  <>
+                                    {/* Riga tappa: passata = tappabile (espandi i drink) */}
+                                    <button
+                                      type="button"
+                                      onClick={isPast ? () => setExpandedStop(open ? null : i) : undefined}
+                                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: isPast ? 'pointer' : 'default' }}
+                                    >
+                                      <span style={{ fontSize: isCur ? '17px' : '14px', fontWeight: isCur ? 800 : 600, color: '#FFF', opacity: isPast ? 0.7 : 1, paddingTop: isCur ? 0 : '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>{st.name}</span>
+                                      {isPast && (
+                                        <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
+                                          {pastCount > 0 && <span style={{ color: 'var(--secondary)', fontWeight: 700 }}>🍸{pastCount}</span>}
+                                          <span style={{ color: v ? 'var(--success)' : 'var(--text-dark-secondary)' }}>{v ? '✓' : '—'}</span>
+                                          <span style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>▾</span>
+                                        </span>
+                                      )}
+                                    </button>
+                                    {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', paddingTop: '2px' }}>in programma</div>}
 
-                              {/* Tappa PASSATA: cosa hai bevuto qui (sola lettura) */}
-                              {isPast && (perStopLive[i]?.drinks?.length > 0
-                                ? (
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
-                                    {perStopLive[i].drinks.map((d, k) => (
-                                      <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '10px', padding: '2px 7px', opacity: 0.85 }}>{drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}</span>
-                                    ))}
-                                  </div>
-                                )
-                                : <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginTop: '4px' }}>nessun drink qui</div>
-                              )}
+                                    {/* Tappa PASSATA espansa: cosa hai bevuto qui */}
+                                    {isPast && open && (
+                                      pastDrinks.length > 0 ? (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                                          {pastDrinks.map((d, k) => (
+                                            <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '10px', padding: '2px 7px', opacity: 0.85 }}>{drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}</span>
+                                          ))}
+                                        </div>
+                                      ) : <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginTop: '4px' }}>nessun drink qui</div>
+                                    )}
+                                  </>
+                                );
+                              })()}
 
                               {/* TAPPA CORRENTE: card "hero" — versione snella */}
                               {isCur && (
