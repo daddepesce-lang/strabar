@@ -17,6 +17,8 @@ import { siteUrl } from '@/lib/site';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
 import DrinkSearch from '@/components/DrinkSearch';
+import BadgeUnlock from '@/components/BadgeUnlock';
+import { earnedBadgeIds } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
@@ -199,6 +201,9 @@ export default function FeedPage() {
   const [drinkSearchOpen, setDrinkSearchOpen] = useState(false); // foglio ricerca drink (live)
   const [liveVenueDrinks, setLiveVenueDrinks] = useState([]); // drink propri del locale corrente
   const [expandedStop, setExpandedStop] = useState(null); // tappa passata espansa (mostra i drink)
+  const [badgeCelebration, setBadgeCelebration] = useState(null); // id badge appena sbloccato
+  const badgeKnownRef = useRef(null); // baseline badge già posseduti (per rilevare i nuovi)
+  const badgeQueueRef = useRef([]); // coda badge sbloccati insieme
   const [showAllEditDrinks, setShowAllEditDrinks] = useState(false);
   const [showCheersList, setShowCheersList] = useState(false);
   const [cheersListActivity, setCheersListActivity] = useState(null); // attività di cui mostrare i cheers
@@ -503,6 +508,38 @@ export default function FeedPage() {
     db.getVenueDrinks(venueName).then((d) => { if (alive) setLiveVenueDrinks(d || []); }).catch(() => {});
     return () => { alive = false; };
   }, [drinkSearchOpen, activeSession?.id, activeSession?.location?.tour?.current]);
+
+  // RILEVAMENTO BADGE in tempo reale: confronta i badge ottenuti (sessioni utente + live
+  // corrente aggiornata) con quelli già noti; se ne sblocchi uno DURANTE la sessione →
+  // celebrazione a schermo + notifica. Baseline su localStorage: niente festa al 1° load.
+  useEffect(() => {
+    if (!currentUser) return;
+    const base = myActivities || [];
+    let merged = base;
+    if (activeSession) {
+      merged = base.some((a) => a.id === activeSession.id)
+        ? base.map((a) => (a.id === activeSession.id ? { ...a, ...activeSession } : a))
+        : [...base, activeSession];
+    }
+    const earned = earnedBadgeIds(merged);
+    if (badgeKnownRef.current === null) {
+      let known = null;
+      try { known = JSON.parse(localStorage.getItem('sb_badges_' + currentUser.id) || 'null'); } catch { /* noop */ }
+      if (!Array.isArray(known)) known = earned;
+      badgeKnownRef.current = known;
+      try { localStorage.setItem('sb_badges_' + currentUser.id, JSON.stringify(known)); } catch { /* noop */ }
+      return;
+    }
+    const newOnes = earned.filter((id) => !badgeKnownRef.current.includes(id));
+    if (newOnes.length) {
+      badgeKnownRef.current = earned;
+      try { localStorage.setItem('sb_badges_' + currentUser.id, JSON.stringify(earned)); } catch { /* noop */ }
+      badgeQueueRef.current.push(...newOnes.slice(1));
+      setBadgeCelebration((cur) => cur || newOnes[0]);
+      try { notify(t('badge.notifyTitle'), t(`profile.bdg.${newOnes[0]}.t`)); } catch { /* noop */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myActivities, activeSession?.total_units, activeSession?.id, currentUser?.id]);
 
   // Calcola alcol residuo da sessioni precedenti per la live
   useEffect(() => {
@@ -3537,6 +3574,14 @@ export default function FeedPage() {
       {/* Slideshow foto a tutto schermo (apribile da feed e dettaglio) */}
       {lightbox && lightbox.images.length > 0 && (
         <MediaLightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
+      )}
+
+      {/* Celebrazione badge sbloccato in sessione (mostra la coda uno alla volta) */}
+      {badgeCelebration && (
+        <BadgeUnlock
+          badgeId={badgeCelebration}
+          onClose={() => setBadgeCelebration(badgeQueueRef.current.shift() || null)}
+        />
       )}
 
       {/* MODAL DETTAGLI ATTIVITA */}

@@ -776,6 +776,11 @@ export const it = {
     tapToAdd: 'Tocca un drink per aggiungerlo · puoi aggiungerne più di uno',
     open: 'Aggiungi un drink',
   },
+  badge: {
+    unlocked: '🎉 Badge sbloccato!',
+    nice: 'Forte!',
+    notifyTitle: '🏅 Badge sbloccato su Strabar!',
+  },
   profile: {
     loading: 'Stiamo caricando la tua scheda atleti... 🍺',
     memberSince: 'dal',

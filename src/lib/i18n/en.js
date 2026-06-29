@@ -775,6 +775,11 @@ export const en = {
     tapToAdd: 'Tap a drink to add it · you can add more than one',
     open: 'Add a drink',
   },
+  badge: {
+    unlocked: '🎉 Badge unlocked!',
+    nice: 'Awesome!',
+    notifyTitle: '🏅 Badge unlocked on Strabar!',
+  },
   profile: {
     loading: 'Loading your athlete card... 🍺',
     memberSince: 'since',
