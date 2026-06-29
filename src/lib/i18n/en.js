@@ -774,6 +774,8 @@ export const en = {
     perUnit: '{abv}° · {units} A.U.',
     tapToAdd: 'Tap a drink to add it · you can add more than one',
     open: 'Add a drink',
+    removeOne: 'Remove one',
+    pacingNote: 'Log each drink when you actually drink it: the BAC curve uses each one\'s time. Logging them all at once makes it less realistic.',
   },
   badge: {
     unlocked: '🎉 Badge unlocked!',

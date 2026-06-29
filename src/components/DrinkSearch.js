@@ -12,14 +12,18 @@ const norm = (s = '') => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''
 // categorie ordinate, un tap per aggiungere (anche più di uno). Sostituisce il muro di
 // bottoni. `venueDrinks` (opz.) sono i drink propri del locale, mostrati in cima.
 // `scope` = 'session' | 'stop' cambia solo l'etichetta del contatore.
-export default function DrinkSearch({ onPick, onClose, venueDrinks = [], scope = 'session' }) {
+export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [], scope = 'session' }) {
   const t = useT();
   const { quick, extra, beerFamilies } = useDrinkCatalog();
   const [q, setQ] = useState('');
   const [openBeer, setOpenBeer] = useState(null);
-  const [addedCount, setAddedCount] = useState(0);
+  const [addedCounts, setAddedCounts] = useState({}); // { name: quantità aggiunta in questo foglio }
   const [lastAdded, setLastAdded] = useState(null); // nome dell'ultimo aggiunto (per il flash ✓)
+  const [showPacing, setShowPacing] = useState(false); // avviso "non loggarli tutti insieme"
+  const lastAddTs = useRef(0);
   const inputRef = useRef(null);
+
+  const addedTotal = Object.values(addedCounts).reduce((s, n) => s + n, 0);
 
   useEffect(() => {
     // Autofocus dopo il montaggio (così la tastiera si apre subito su mobile).
@@ -36,9 +40,24 @@ export default function DrinkSearch({ onPick, onClose, venueDrinks = [], scope =
 
   const add = (preset) => {
     onPick?.(preset);
-    setAddedCount((n) => n + 1);
+    setAddedCounts((m) => ({ ...m, [preset.name]: (m[preset.name] || 0) + 1 }));
     setLastAdded(preset.name);
     setTimeout(() => setLastAdded((cur) => (cur === preset.name ? null : cur)), 900);
+    // Pacing: due drink entro 60s → suggerisci di registrarli quando li bevi davvero.
+    const now = Date.now();
+    if (lastAddTs.current && now - lastAddTs.current < 60000) setShowPacing(true);
+    lastAddTs.current = now;
+  };
+
+  const remove = (preset) => {
+    if (!(addedCounts[preset.name] > 0)) return;
+    onRemove?.(preset.name);
+    setAddedCounts((m) => {
+      const n = (m[preset.name] || 0) - 1;
+      const next = { ...m };
+      if (n > 0) next[preset.name] = n; else delete next[preset.name];
+      return next;
+    });
   };
 
   // Tutte le taglie birra "appiattite" per la ricerca testuale.
@@ -70,31 +89,50 @@ export default function DrinkSearch({ onPick, onClose, venueDrinks = [], scope =
   }, [q, venue, quick, beerFlat, extra]);
 
   const Pill = ({ d }) => {
+    const count = addedCounts[d.name] || 0;
     const just = lastAdded === d.name;
+    const active = count > 0;
     return (
-      <button
-        type="button"
-        onClick={() => add(d)}
-        className="btn btn-secondary"
+      <div
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px',
-          fontSize: '13px', borderRadius: '14px', textAlign: 'left',
-          border: just ? '1px solid var(--success)' : '1px solid var(--border-dark)',
-          background: just ? 'rgba(16,185,129,0.15)' : 'var(--bg-input-dark)',
+          display: 'inline-flex', alignItems: 'stretch', borderRadius: '14px', overflow: 'hidden',
+          border: just ? '1px solid var(--success)' : active ? '1px solid rgba(16,185,129,0.6)' : '1px solid var(--border-dark)',
+          background: active ? 'rgba(16,185,129,0.10)' : 'var(--bg-input-dark)',
           transition: 'background .15s, border-color .15s',
         }}
       >
-        <span style={{ fontSize: '15px', lineHeight: 1 }}>{(d.label || '').match(/^\p{Emoji}/u)?.[0] || '🍸'}</span>
-        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <span style={{ color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
-            {(d.label || d.name).replace(/^\p{Emoji}\s*/u, '')}
+        <button
+          type="button"
+          onClick={() => add(d)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+        >
+          <span style={{ fontSize: '15px', lineHeight: 1 }}>{(d.label || '').match(/^\p{Emoji}/u)?.[0] || '🍸'}</span>
+          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ color: '#FFF', fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
+              {(d.label || d.name).replace(/^\p{Emoji}\s*/u, '')}
+            </span>
+            <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
+              {d.abv > 0 ? t('drink.perUnit', { abv: d.abv, units: (d.units || 0).toFixed(1) }) : t('drink.analc')}
+            </span>
           </span>
-          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-            {d.abv > 0 ? t('drink.perUnit', { abv: d.abv, units: (d.units || 0).toFixed(1) }) : t('drink.analc')}
-          </span>
-        </span>
-        {just ? <Check size={15} color="var(--success)" style={{ marginLeft: 'auto', flexShrink: 0 }} /> : <Plus size={14} style={{ marginLeft: 'auto', flexShrink: 0, opacity: 0.6 }} />}
-      </button>
+          {count > 0 ? (
+            <span style={{ marginLeft: '6px', flexShrink: 0, background: 'var(--success)', color: '#06281b', fontWeight: 800, fontSize: '11px', borderRadius: '10px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+              {just && <Check size={11} />}×{count}
+            </span>
+          ) : (
+            <Plus size={14} style={{ marginLeft: '4px', flexShrink: 0, opacity: 0.6 }} />
+          )}
+        </button>
+        {count > 0 && (
+          <button
+            type="button"
+            onClick={() => remove(d)}
+            title={t('drink.removeOne')}
+            aria-label={t('drink.removeOne')}
+            style={{ flexShrink: 0, width: '34px', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.08)', background: 'rgba(239,68,68,0.12)', color: '#EF4444', cursor: 'pointer', fontSize: '18px', lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          >−</button>
+        )}
+      </div>
     );
   };
 
@@ -202,10 +240,20 @@ export default function DrinkSearch({ onPick, onClose, venueDrinks = [], scope =
           )}
         </div>
 
+        {/* Nota pacing: compare quando registri 2+ drink ravvicinati (il consiglio del
+            pannello live resta nascosto dietro questo foglio, quindi lo mostriamo qui). */}
+        {showPacing && (
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-start', gap: '8px', margin: '0 12px', padding: '10px 12px', background: 'rgba(223,255,0,0.08)', border: '1px solid rgba(223,255,0,0.35)', borderRadius: '12px' }}>
+            <span style={{ fontSize: '15px', flexShrink: 0 }}>📈</span>
+            <span style={{ flex: 1, fontSize: '11.5px', color: 'var(--text-dark-secondary)', lineHeight: 1.4 }}>{t('drink.pacingNote')}</span>
+            <button onClick={() => setShowPacing(false)} aria-label="ok" style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', fontSize: '15px', lineHeight: 1, flexShrink: 0 }}>×</button>
+          </div>
+        )}
+
         {/* Barra inferiore: contatore + Fatto */}
         <div style={{ flexShrink: 0, padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ flex: 1, fontSize: 13, color: addedCount ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: addedCount ? 700 : 400 }}>
-            {addedCount > 0 ? t(scope === 'stop' ? 'drink.addedCountStop' : 'drink.addedCount', { n: addedCount }) : ''}
+          <span style={{ flex: 1, fontSize: 13, color: addedTotal ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: addedTotal ? 700 : 400 }}>
+            {addedTotal > 0 ? t(scope === 'stop' ? 'drink.addedCountStop' : 'drink.addedCount', { n: addedTotal }) : ''}
           </span>
           <button onClick={onClose} className="btn btn-primary" style={{ borderRadius: 24, padding: '11px 28px', fontSize: 15, fontWeight: 700 }}>
             {t('drink.done')}

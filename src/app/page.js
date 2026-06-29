@@ -3001,6 +3001,7 @@ export default function FeedPage() {
                   scope={activeSession.location?.tour ? 'stop' : 'session'}
                   venueDrinks={liveVenueDrinks}
                   onPick={handleAddDrinkToActiveSession}
+                  onRemove={handleRemoveDrinkFromActiveSession}
                   onClose={() => setDrinkSearchOpen(false)}
                 />
               )}

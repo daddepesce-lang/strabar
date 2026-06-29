@@ -775,6 +775,8 @@ export const it = {
     perUnit: '{abv}° · {units} U.A.',
     tapToAdd: 'Tocca un drink per aggiungerlo · puoi aggiungerne più di uno',
     open: 'Aggiungi un drink',
+    removeOne: 'Rimuovi uno',
+    pacingNote: 'Registra ogni drink quando lo bevi davvero: la curva del tasso usa l\'orario di ciascuno. Loggarli tutti insieme la rende meno realistica.',
   },
   badge: {
     unlocked: '🎉 Badge sbloccato!',
