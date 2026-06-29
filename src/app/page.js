@@ -2958,14 +2958,14 @@ export default function FeedPage() {
             {feedFilter === 'friends' ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
                 <p style={{ color: 'var(--text-dark-secondary)' }}>
-                  Nessuna sessione dai tuoi amici. Invitali su Strabar, oppure passa a <strong style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setFeedFilter('all')}>🌍 Tutti</strong>.
+                  {t('feed.emptyFriendsPre')} <strong style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setFeedFilter('all')}>🌍 {t('feed.tabAll')}</strong>.
                 </p>
-                <ShareAppButton style={{ borderRadius: '24px', padding: '11px 22px' }} label="Invita amici su Strabar" />
+                <ShareAppButton style={{ borderRadius: '24px', padding: '11px 22px' }} label={t('feed.inviteFriends')} />
               </div>
             ) : feedFilter === 'live' ? (
-              <p style={{ color: 'var(--text-dark-secondary)' }}>Nessuna sessione 🔴 live in questo momento. Avviane una tu! 🍻</p>
+              <p style={{ color: 'var(--text-dark-secondary)' }}>{t('feed.emptyLive')}</p>
             ) : (
-              <p style={{ color: 'var(--text-dark-secondary)' }}>Nessuna attività registrata. Sii il primo a brindare! 🥂</p>
+              <p style={{ color: 'var(--text-dark-secondary)' }}>{t('feed.emptyAll')}</p>
             )}
           </div>
         ) : (
@@ -3047,27 +3047,27 @@ export default function FeedPage() {
 
                 <div className="activity-stats">
                   <div className="stat-box">
-                    <span className="stat-label">Drink Totali</span>
+                    <span className="stat-label">{t('session.drinksTotal')}</span>
                     <span className="stat-value highlight">
                       {act.drinks.reduce((acc, d) => acc + d.qty, 0)}
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Tempo a Tavola</span>
+                    <span className="stat-label">{t('session.timeAtTable')}</span>
                     <span className="stat-value">
                       {fmtEffort(act)}
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Carico (U.A.)</span>
+                    <span className="stat-label">{t('session.load')}</span>
                     <span className="stat-value highlight">
-                      {act.total_units} U.A.
+                      {act.total_units} {t('session.units')}
                     </span>
                   </div>
                   <div className="stat-box">
                     {/* Se la sessione non ha drink propri, il valore è il RESIDUO da sessioni
                         precedenti: lo etichettiamo come tale (non è il tasso "di qui"). */}
-                    <span className="stat-label" style={{ gap: '4px' }}>{(act.drinks && act.drinks.length) ? 'Tasso Alcolico Est.' : 'BAC residuo'} <BacInfo size={12} /></span>
+                    <span className="stat-label" style={{ gap: '4px' }}>{(act.drinks && act.drinks.length) ? t('session.bacEst') : t('session.bacResidual')} <BacInfo size={12} /></span>
                     <span className={`bac-pill ${displayBac(act) >= 0.5 ? 'high' : displayBac(act) >= 0.2 ? 'mid' : 'low'}`}>
                       {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.7 }}>g/l</span>
                     </span>
@@ -3089,10 +3089,10 @@ export default function FeedPage() {
 
                  {act.location && (
                    <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
-                     <span>📍 presso <strong>{act.location.name}</strong></span>
+                     <span>📍 {t('session.at')} <strong>{act.location.name}</strong></span>
                      {act.location.unverified && (
                        <span title="Registrata lontano dal locale: non conta per le classifiche" style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '1px 7px', fontWeight: 600 }}>
-                         non verificata
+                         {t('session.unverified')}
                        </span>
                      )}
                    </div>
@@ -3191,24 +3191,24 @@ export default function FeedPage() {
                     className={`action-btn ${hasCheered ? 'active' : ''}`}
                   >
                     <Beer size={18} fill={hasCheered ? 'var(--primary)' : 'none'} />
-                    <span>Cheers ({act.cheer_count ?? act.cheers?.length ?? 0})</span>
+                    <span>{t('session.cheers')} ({act.cheer_count ?? act.cheers?.length ?? 0})</span>
                   </button>
 
                   <button onClick={() => toggleCommentsSection(act.id)} className="action-btn">
                     <MessageSquare size={18} />
-                    <span>Commenta ({act.comments?.length || act.comment_count || 0})</span>
+                    <span>{t('session.comment')} ({act.comments?.length || act.comment_count || 0})</span>
                   </button>
 
                   <Link href={`/share/${act.id}`} prefetch={false} className="action-btn">
                     <Share2 size={18} />
-                    <span className="action-btn-label-long">Esporta Social</span>
-                    <span className="action-btn-label-short" style={{ display: 'none' }}>Esporta</span>
+                    <span className="action-btn-label-long">{t('session.exportSocial')}</span>
+                    <span className="action-btn-label-short" style={{ display: 'none' }}>{t('session.exportShort')}</span>
                   </Link>
 
                   {currentUser && act.user_id === currentUser.id && (
                     <button onClick={() => handleEditActivity(act)} className="action-btn">
                       <Edit size={18} />
-                      <span>Modifica</span>
+                      <span>{t('session.edit')}</span>
                     </button>
                   )}
                 </div>
@@ -3292,7 +3292,7 @@ export default function FeedPage() {
               <Loader size={20} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
             ) : (
               <button onClick={loadMoreFeed} className="btn btn-secondary" style={{ borderRadius: '14px', padding: '8px 16px', fontSize: '13px' }}>
-                Carica altre
+                {t('feed.loadMore')}
               </button>
             )}
           </div>
@@ -3308,7 +3308,7 @@ export default function FeedPage() {
           <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.4 }}>
             Strabar è più divertente in compagnia: condividi l&apos;app e sfidatevi in classifica!
           </p>
-          <ShareAppButton style={{ width: '100%', borderRadius: '24px', padding: '12px' }} label="Condividi Strabar" />
+          <ShareAppButton style={{ width: '100%', borderRadius: '24px', padding: '12px' }} label={t('feed.shareApp')} />
         </div>
 
         {/* Widget Profilo Rapido */}
