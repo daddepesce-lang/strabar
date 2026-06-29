@@ -2522,81 +2522,81 @@ export default function FeedPage() {
                                 : <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginTop: '4px' }}>nessun drink qui</div>
                               )}
 
-                              {/* TAPPA CORRENTE: card "hero" con tutte le azioni guidate */}
+                              {/* TAPPA CORRENTE: card "hero" — versione snella */}
                               {isCur && (
                                 <div style={{ marginTop: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '12px' }}>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '20px', marginBottom: '10px',
-                                    background: v ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: v ? 'var(--success)' : 'var(--text-dark-secondary)', border: `1px solid ${v ? 'var(--success)' : 'var(--border-dark)'}` }}>
-                                    {v ? '✅ Verificata — conta per le classifiche' : '○ Non ancora verificata'}
-                                  </span>
-
-                                  {!v && curStop?.lat && curStop?.lng && (
-                                    <button onClick={confirmStopPresence} disabled={checkingStop} className="btn btn-secondary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', marginBottom: '8px', fontWeight: 700, border: '1px solid var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                  {/* Verifica posizione: bottone se manca, pill verde se fatta */}
+                                  {!v && curStop?.lat && curStop?.lng ? (
+                                    <button onClick={confirmStopPresence} disabled={checkingStop} className="btn btn-secondary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', marginBottom: '12px', fontWeight: 700, border: '1px solid var(--secondary)', color: 'var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                       {checkingStop ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
                                       {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica la tappa'}
                                     </button>
-                                  )}
+                                  ) : v ? (
+                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success)', marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>✅ Verificata · conta per le classifiche</div>
+                                  ) : null}
 
                                   {tourMsg && (
-                                    <div onClick={() => setTourMsg(null)} style={{ fontSize: '12px', lineHeight: 1.45, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px', cursor: 'pointer', color: 'var(--text-dark-primary)' }}>
+                                    <div onClick={() => setTourMsg(null)} style={{ fontSize: '12px', lineHeight: 1.45, background: 'rgba(223,255,0,0.07)', border: '1px solid rgba(223,255,0,0.25)', borderRadius: '10px', padding: '10px 12px', marginBottom: '12px', cursor: 'pointer', color: 'var(--text-dark-primary)' }}>
                                       {tourMsg}
-                                      <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>tocca per chiudere</span>
                                     </div>
                                   )}
 
-                                  {/* Budget drink alla tappa */}
+                                  {/* Drink di questa tappa: header con contatore + chip rimovibili */}
                                   <div style={{ marginBottom: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '4px' }}>
-                                      <span>Drink a questa tappa</span>
-                                      <strong style={{ color: atThisStop >= target ? 'var(--error)' : 'var(--secondary)' }}>{atThisStop} / {target}</strong>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFF' }}>🍸 Bevuti qui</span>
+                                      <span style={{ fontSize: '11px', fontWeight: 800, color: atThisStop >= target ? 'var(--error)' : 'var(--secondary)', background: 'rgba(255,255,255,0.05)', borderRadius: '20px', padding: '2px 10px' }}>{atThisStop}/{target}</span>
                                     </div>
-                                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden' }}>
-                                      <div style={{ width: `${pct}%`, height: '100%', background: atThisStop >= target ? 'var(--error)' : 'var(--secondary)', transition: 'width 0.3s' }} />
-                                    </div>
-                                    {atThisStop >= target && <div style={{ fontSize: '10px', color: 'var(--error)', marginTop: '4px' }}>Target raggiunto — passa alla prossima tappa 😉</div>}
-                                  </div>
-
-                                  {/* Drink registrati a QUESTA tappa (rimovibili). Sotto trovi i pulsanti 1-tap. */}
-                                  <div style={{ marginBottom: '10px' }}>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '5px' }}>I tuoi drink qui</div>
                                     {perStopLive[cur]?.drinks?.length > 0 ? (
                                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                                         {perStopLive[cur].drinks.map((d, k) => (
                                           <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 4px 3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                             {drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveDrinkFromActiveSession(d.name)}
-                                              title="Rimuovi un drink"
-                                              style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 16, height: 16, cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                                            >×</button>
+                                            <button type="button" onClick={() => handleRemoveDrinkFromActiveSession(d.name)} title="Rimuovi un drink" style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 16, height: 16, cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>×</button>
                                           </span>
                                         ))}
                                       </div>
                                     ) : (
-                                      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Ancora niente — registra il primo drink qui sotto 👇</span>
+                                      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Niente ancora — aggiungi qui sotto 👇</span>
                                     )}
                                   </div>
 
-                                  {/* Registra un drink A QUESTA TAPPA (apre la ricerca) */}
-                                  <div style={{ marginBottom: '12px' }}>
+                                  {/* Aggiungi drink (1-tap + ricerca) */}
+                                  <div style={{ marginBottom: '10px' }}>
                                     {renderDrinkAdder()}
                                   </div>
 
-                                  {/* Foto DI QUESTA TAPPA: chiaro dove finiscono */}
-                                  <div style={{ marginBottom: '12px' }}>
-                                    {renderPhotoStrip('📸 Foto di questa tappa')}
+                                  {/* Azioni: foto + guidami sulla stessa riga */}
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch', marginBottom: '8px' }}>
+                                    <label title="Aggiungi una foto a questa tappa" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0 14px', borderRadius: '12px', border: '1px solid var(--border-dark)', background: 'var(--bg-input-dark)', color: 'var(--text-dark-secondary)', cursor: photoUploading ? 'wait' : 'pointer', fontSize: '13px', fontWeight: 700 }}>
+                                      {photoUploading ? <Loader size={15} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} /> : <Camera size={15} />}
+                                      {(activeSession.media?.filter((m) => m.type === 'image').length || 0) > 0 ? activeSession.media.filter((m) => m.type === 'image').length : 'Foto'}
+                                      <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
+                                    </label>
+                                    {curStop?.lat && curStop?.lng ? (
+                                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ flex: 1, fontSize: '13px', padding: '10px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700 }}>
+                                        🧭 Guidami qui
+                                      </a>
+                                    ) : (
+                                      <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>📍 Tappa extra: registra qui i drink.</span>
+                                    )}
                                   </div>
 
-                                  {curStop?.lat && curStop?.lng ? (
-                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700, marginBottom: '8px' }}>
-                                      🧭 Guidami qui
-                                    </a>
-                                  ) : (
-                                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '8px' }}>📍 Tappa extra senza coordinate — registra qui i tuoi drink.</div>
+                                  {/* Miniature foto (tap per rimuovere) */}
+                                  {(activeSession.media?.filter((m) => m.type === 'image').length || 0) > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                                      {activeSession.media.filter((m) => m.type === 'image').map((med, mi) => (
+                                        <div key={mi} style={{ position: 'relative', width: '46px', height: '46px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={med.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                          <button onClick={async () => { const updated = (activeSession.media || []).filter((m) => m.url !== med.url); setActiveSession((prev) => ({ ...prev, media: updated })); await db.updateActivity(activeSession.id, { media: updated }); }} style={{ position: 'absolute', top: '1px', right: '1px', background: 'rgba(0,0,0,0.6)', color: '#FFF', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '11px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                                        </div>
+                                      ))}
+                                    </div>
                                   )}
 
-                                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  {/* Navigazione tappe */}
+                                  <div style={{ display: 'flex', gap: '8px' }}>
                                     {cur > 0 && (
                                       <button onClick={handleGoBackTourStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }} title="Torna alla tappa precedente">⬅️</button>
                                     )}
