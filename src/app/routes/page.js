@@ -6,10 +6,12 @@ import { db } from '@/lib/db';
 import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import RequireAuth from '@/components/RequireAuth';
+import { useT } from '@/lib/i18n';
 import EventStartGuard from '@/components/EventStartGuard';
 import { siteUrl } from '@/lib/site';
 
 export default function RoutesPage() {
+  const t = useT();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
   const [routes, setRoutes] = useState([]);
@@ -815,14 +817,14 @@ out body;`;
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Loader size={24} style={{ animation: 'spin 1s linear infinite' }} />
-          Caricamento pianificatore tour...
+          {t('routes.loading')}
         </div>
       </div>
     );
   }
 
   if (!currentUser) {
-    return <RequireAuth feature="i percorsi" />;
+    return <RequireAuth feature={t('routes.requireFeature')} />;
   }
 
   // --- RENDER ---
@@ -839,10 +841,10 @@ out body;`;
         <div>
           <h1 style={{ fontSize: '32px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Map size={32} color="var(--primary)" />
-            Pianificatore Itinerari & Pub Crawl 🗺️
+            {t('routes.title')}
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-            Scopri bar e pub in tutto il mondo e crea il tuo percorso ideale per brindare.
+            {t('routes.subtitle')}
           </p>
         </div>
 
@@ -850,10 +852,10 @@ out body;`;
           {isCreating && currentUser?.is_premium ? (
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={handleCancelCreation} className="btn btn-secondary" style={{ borderRadius: '20px' }}>
-                <X size={16} /> Annulla
+                <X size={16} /> {t('common.cancel')}
               </button>
               <button onClick={handleSaveRoute} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-                <Save size={16} /> {editingRouteId ? 'Aggiorna Tour' : 'Salva Tour'}
+                <Save size={16} /> {editingRouteId ? t('routes.update') : t('routes.saveTour')}
               </button>
             </div>
           ) : (
@@ -863,7 +865,7 @@ out body;`;
                 className={`btn ${currentUser?.is_premium ? 'btn-primary' : 'btn-premium'}`}
                 style={{ borderRadius: '20px' }}
               >
-                <Plus size={16} /> Crea Nuovo Itinerario
+                <Plus size={16} /> {t('routes.create')}
               </button>
             )
           )}
@@ -880,12 +882,12 @@ out body;`;
           {detailMode && (
             <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button onClick={() => { setSelectedRoute(null); setActiveWaypointIndex(null); setDiscoveredBars([]); }} className="action-btn" style={{ fontSize: '13px', width: 'fit-content' }}>
-                <ArrowLeft size={15} /> Torna alla lista
+                <ArrowLeft size={15} /> {t('routes.back')}
               </button>
               <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 {selectedRoute?.name}
                 {selectedRoute?.user_id === currentUser?.id && (
-                  <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 5px' }}>I MIEI</span>
+                  <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 5px' }}>{t('routes.myBadge')}</span>
                 )}
               </h2>
               {selectedRoute?.description && (
@@ -896,7 +898,7 @@ out body;`;
                   <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {(selectedRoute.creator.display_name || selectedRoute.creator.username).charAt(0).toUpperCase()}
                   </span>
-                  Creato da {selectedRoute.creator.display_name || `@${selectedRoute.creator.username}`}
+                  {t('routes.createdBy', { name: selectedRoute.creator.display_name || `@${selectedRoute.creator.username}` })}
                 </span>
               )}
             </div>
@@ -906,24 +908,24 @@ out body;`;
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Beer size={16} color="var(--primary)" /> 1. Dettagli del Tour
+                <Beer size={16} color="var(--primary)" /> {t('routes.form1')}
               </h3>
               <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Nome del Tour</label>
+                <label className="form-label" style={{ fontSize: '10px' }}>{t('routes.nameLabel')}</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="es. Giro dei Bacari di Venezia"
+                  placeholder={t('routes.namePh')}
                   value={newRouteName}
                   onChange={(e) => setNewRouteName(e.target.value)}
                   style={{ height: '38px', fontSize: '13px' }}
                 />
               </div>
               <div className="form-group" style={{ marginBottom: '0' }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Descrizione</label>
+                <label className="form-label" style={{ fontSize: '10px' }}>{t('routes.descLabel')}</label>
                 <textarea
                   className="form-control"
-                  placeholder="Descrivi l'itinerario e i locali consigliati..."
+                  placeholder={t('routes.descPh')}
                   value={newRouteDesc}
                   onChange={(e) => setNewRouteDesc(e.target.value)}
                   rows={2}
@@ -932,11 +934,11 @@ out body;`;
               </div>
               {/* Chi può vedere questo percorso salvato */}
               <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '10px' }}>Chi può vedere questo itinerario</label>
+                <label className="form-label" style={{ fontSize: '10px' }}>{t('routes.visLabel')}</label>
                 <div className="seg-tabs feed-filter-tabs">
-                  <div className={`seg-tab ${newRouteVisibility === 'public' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('public')}>🌍 Tutti</div>
-                  <div className={`seg-tab ${newRouteVisibility === 'friends' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('friends')}>👥 Amici</div>
-                  <div className={`seg-tab ${newRouteVisibility === 'private' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('private')}>🔒 Solo io</div>
+                  <div className={`seg-tab ${newRouteVisibility === 'public' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('public')}>{t('routes.visAll')}</div>
+                  <div className={`seg-tab ${newRouteVisibility === 'friends' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('friends')}>{t('routes.visFriends')}</div>
+                  <div className={`seg-tab ${newRouteVisibility === 'private' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('private')}>{t('routes.visPrivate')}</div>
                 </div>
               </div>
             </div>
@@ -946,10 +948,10 @@ out body;`;
           {isCreating && currentUser?.is_premium && (
             <div className="card" style={{ border: '1px solid var(--primary)', padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Search size={16} /> 2. Cerca un locale
+                <Search size={16} /> {t('routes.form2')}
               </h3>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
-                Cerca un bar/pub/osteria <em>oppure</em> una via, una piazza o un indirizzo (es. &quot;Strada Nuova Venezia&quot;) e aggiungilo come tappa. Se non trovi nulla, usa &quot;tappa manuale&quot; qui sotto.
+                {t('routes.searchHint')}
               </p>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
@@ -957,7 +959,7 @@ out body;`;
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Nome locale + città..."
+                    placeholder={t('routes.searchPh')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleVenueSearch(); }}
@@ -976,7 +978,7 @@ out body;`;
 
               {justAdded && (
                 <div style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid var(--success)', color: 'var(--success)', borderRadius: '8px', padding: '8px 10px', fontSize: '12px', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Plus size={13} /> Tappa aggiunta: {justAdded}
+                  <Plus size={13} /> {t('routes.justAdded', { name: justAdded })}
                 </div>
               )}
 
@@ -1025,13 +1027,13 @@ out body;`;
                 className="btn btn-secondary"
                 style={{ width: '100%', borderRadius: '10px', fontSize: '12px', height: '36px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
-                <Plus size={13} /> Non lo trovi? Aggiungilo per indirizzo
+                <Plus size={13} /> {t('routes.addManual')}
               </button>
 
               {/* Opzione secondaria: esplora bar sulla mappa */}
               <details style={{ marginTop: '4px' }}>
                 <summary style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}>
-                  …oppure esplora i bar nella zona visibile sulla mappa
+                  {t('routes.exploreToggle')}
                 </summary>
                 <button
                   onClick={handleLoadBars}
@@ -1040,14 +1042,14 @@ out body;`;
                   style={{ width: '100%', borderRadius: '10px', fontSize: '13px', height: '38px', marginTop: '8px' }}
                 >
                   {isLoadingBars ? (
-                    <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Ricerca bar reali...</>
+                    <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> {t('routes.loadingBars')}</>
                   ) : (
-                    <><Beer size={14} /> Carica Bar in Questa Zona</>
+                    <><Beer size={14} /> {t('routes.loadBars')}</>
                   )}
                 </button>
                 {discoveredBars.length > 0 && (
                   <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', textAlign: 'center' }}>
-                    Trovati <strong style={{ color: '#F59E0B' }}>{discoveredBars.length}</strong> bar/pub — clicca sui marker arancioni per aggiungerli
+                    {t('routes.foundBars', { n: discoveredBars.length })}
                   </p>
                 )}
               </details>
@@ -1059,19 +1061,19 @@ out body;`;
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={16} color="var(--primary)" /> 3. Tappe del Tour
+                  <MapPin size={16} color="var(--primary)" /> {t('routes.form3')}
                 </span>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-dark-secondary)' }}>
-                  {newRouteWaypoints.length} {newRouteWaypoints.length === 1 ? 'tappa' : 'tappe'}
+                  {t('routes.stopsCount', { n: newRouteWaypoints.length })}
                 </span>
               </h3>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
-                Imposta per ogni tappa il fabbisogno alcolico previsto (U.A.).
+                {t('routes.stopsHint')}
               </p>
 
               {newRouteWaypoints.length === 0 ? (
                 <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
-                  Usa la ricerca qui sopra per trovare un locale e premi <strong style={{ color: 'var(--primary)' }}>+ Tappa</strong> per aggiungerlo all&apos;itinerario.
+                  {t('routes.stopsEmpty')}
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1146,7 +1148,7 @@ out body;`;
           {listMode && (
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-                Itinerari Disponibili 🍺
+                {t('routes.listTitle')}
               </h3>
 
               {/* Ricerca per TITOLO */}
@@ -1155,7 +1157,7 @@ out body;`;
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Cerca per titolo..."
+                  placeholder={t('routes.searchTitlePh')}
                   value={routeSearchQuery}
                   onChange={(e) => setRouteSearchQuery(e.target.value)}
                   style={{
@@ -1219,7 +1221,7 @@ out body;`;
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="Cerca per luogo (città, via, locale)..."
+                      placeholder={t('routes.searchPlacePh')}
                       value={placeQuery}
                       onChange={(e) => setPlaceQuery(e.target.value)}
                       style={{
@@ -1235,7 +1237,7 @@ out body;`;
                       <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
                         {placeSearching && (
                           <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Cerco luoghi…
+                            <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('routes.searchingPlaces')}
                           </div>
                         )}
                         {placeResults.map((v, i) => (
@@ -1249,7 +1251,7 @@ out body;`;
                           </button>
                         ))}
                         {!placeSearching && placeResults.length === 0 && placeQuery.trim().length >= 2 && (
-                          <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Nessun luogo trovato.</div>
+                          <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('routes.noPlaces')}</div>
                         )}
                       </div>
                     )}
@@ -1260,7 +1262,7 @@ out body;`;
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '2px' }}>
                 {filteredRoutes.length === 0 ? (
                   <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
-                    {routes.length === 0 ? 'Nessun tour salvato al momento. Crea il tuo primo itinerario!' : 'Nessun itinerario corrisponde alla ricerca.'}
+                    {routes.length === 0 ? t('routes.noRoutes') : t('routes.noResults')}
                   </p>
                 ) : (
                   filteredRoutes.map((route) => {
@@ -1286,7 +1288,7 @@ out body;`;
                           <strong style={{ fontSize: '13px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{route.name}</span>
                             {route.user_id === currentUser?.id && (
-                              <span style={{ fontSize: '8px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 4px', flexShrink: 0 }}>I MIEI</span>
+                              <span style={{ fontSize: '8px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 4px', flexShrink: 0 }}>{t('routes.myBadge')}</span>
                             )}
                           </strong>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -1313,7 +1315,7 @@ out body;`;
                         </p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px', marginTop: '4px' }}>
                           <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                            {route.waypoints?.length || 0} tappe
+                            {t('routes.stopsCount', { n: route.waypoints?.length || 0 })}
                           </span>
                           {route.user_id !== currentUser?.id && (route.creator?.display_name || route.creator?.username) && (
                             <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
@@ -1337,7 +1339,7 @@ out body;`;
           {/* Route Statistics (solo in dettaglio/creazione, non nella lista) */}
           <div className="card" style={{ padding: '16px', display: listMode ? 'none' : undefined }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              📊 Dati del Percorso
+              {t('routes.statsTitle')}
             </h3>
             
             {/* Selettore modalità di viaggio */}
@@ -1361,7 +1363,7 @@ out body;`;
                   gap: '4px'
                 }}
               >
-                🚶‍♂️ A piedi
+                {t('routes.walkMode')}
               </button>
               <button
                 type="button"
@@ -1382,34 +1384,34 @@ out body;`;
                   gap: '4px'
                 }}
               >
-                🚗 In auto
+                {t('routes.driveMode')}
               </button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={14} color="var(--primary)" /> Tappe Totali
+                  <MapPin size={14} color="var(--primary)" /> {t('routes.stopsTotal')}
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>{currentActiveWaypoints.length}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={14} color="var(--primary)" /> Distanza <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>(linea d&apos;aria)</span>
+                  <MapPin size={14} color="var(--primary)" /> {t('routes.distance')} <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('routes.distanceNote')}</span>
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>{routeDistance} km</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {travelMode === 'foot' ? <Footprints size={14} color="var(--primary)" /> : <MapPin size={14} color="var(--primary)" />} Tempo Stimato
+                  {travelMode === 'foot' ? <Footprints size={14} color="var(--primary)" /> : <MapPin size={14} color="var(--primary)" />} {t('routes.estTime')}
                 </span>
-                <strong className="stat-value" style={{ fontSize: '15px' }}>~ {travelTime} min {travelMode === 'foot' ? 'a piedi' : 'in auto'}</strong>
+                <strong className="stat-value" style={{ fontSize: '15px' }}>{travelMode === 'foot' ? t('routes.estTimeWalk', { n: travelTime }) : t('routes.estTimeDrive', { n: travelTime })}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Beer size={14} color="var(--secondary)" /> Fabbisogno Alcolico
+                  <Beer size={14} color="var(--secondary)" /> {t('routes.alcoholLoad')}
                 </span>
-                <strong className="stat-value" style={{ fontSize: '15px', color: 'var(--secondary)' }}>{routeTotalUnits.toFixed(1)} U.A.</strong>
+                <strong className="stat-value" style={{ fontSize: '15px', color: 'var(--secondary)' }}>{routeTotalUnits.toFixed(1)} {t('places.rowMetricUnits')}</strong>
               </div>
             </div>
 
@@ -1431,7 +1433,7 @@ out body;`;
                 className="btn btn-secondary"
                 style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '14px' }}
               >
-                🧭 Apri in Google Maps
+                {t('routes.openMaps')}
               </button>
             )}
 
@@ -1440,7 +1442,7 @@ out body;`;
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px', borderTop: '1px solid var(--border-dark)', paddingTop: '16px' }}>
                 {/* Impostazioni Tour: target drink/tappa + privacy */}
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>🎯 Target drink/tappa:</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('routes.tourTarget')}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <button type="button" onClick={() => setTourTarget((t) => Math.max(1, t - 1))} className="btn btn-secondary" style={{ width: 28, height: 28, borderRadius: '50%', padding: 0 }}>−</button>
                     <strong style={{ minWidth: 16, textAlign: 'center' }}>{tourTarget}</strong>
@@ -1448,9 +1450,9 @@ out body;`;
                   </div>
                 </div>
                 <div className="seg-tabs feed-filter-tabs">
-                  <div className={`seg-tab ${tourVisibility === 'public' ? 'active' : ''}`} onClick={() => setTourVisibility('public')}>🌍 Tutti</div>
-                  <div className={`seg-tab ${tourVisibility === 'friends' ? 'active' : ''}`} onClick={() => setTourVisibility('friends')}>👥 Amici</div>
-                  <div className={`seg-tab ${tourVisibility === 'private' ? 'active' : ''}`} onClick={() => setTourVisibility('private')}>🔒 Privata</div>
+                  <div className={`seg-tab ${tourVisibility === 'public' ? 'active' : ''}`} onClick={() => setTourVisibility('public')}>{t('routes.visAll')}</div>
+                  <div className={`seg-tab ${tourVisibility === 'friends' ? 'active' : ''}`} onClick={() => setTourVisibility('friends')}>{t('routes.visFriends')}</div>
+                  <div className={`seg-tab ${tourVisibility === 'private' ? 'active' : ''}`} onClick={() => setTourVisibility('private')}>{t('routes.visPrivate')}</div>
                 </div>
                 <button
                   type="button"
@@ -1459,7 +1461,7 @@ out body;`;
                   className="btn btn-primary"
                   style={{ width: '100%', borderRadius: '20px', padding: '12px 14px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '700' }}
                 >
-                  {startingTour ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <>🗺️ Avvia Tour Guidato</>}
+                  {startingTour ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <>{t('routes.startTour')}</>}
                 </button>
                 <button
                   type="button"
@@ -1471,7 +1473,7 @@ out body;`;
                   className="btn btn-secondary"
                   style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  🔗 Condividi Percorso
+                  {t('routes.shareRoute')}
                 </button>
 
                 {/* Gestione percorso: solo il proprietario può modificarlo/eliminarlo */}
@@ -1483,7 +1485,7 @@ out body;`;
                       className="btn btn-secondary"
                       style={{ flex: 1, borderRadius: '20px', padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     >
-                      <Edit3 size={14} /> Modifica
+                      <Edit3 size={14} /> {t('common.edit')}
                     </button>
                     <button
                       type="button"
@@ -1492,7 +1494,7 @@ out body;`;
                       className="btn btn-secondary"
                       style={{ flex: 1, borderRadius: '20px', padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--error)', borderColor: 'var(--error)' }}
                     >
-                      {deletingRoute ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={14} />} Elimina
+                      {deletingRoute ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={14} />} {t('common.delete')}
                     </button>
                   </div>
                 )}
@@ -1514,17 +1516,17 @@ out body;`;
             <div className="paywall-overlay">
               <span className="paywall-badge">Strabar Summit 🏔️</span>
               <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#FFF', marginBottom: '12px' }}>
-                Pianifica i tuoi Pub Crawl
+                {t('routes.paywallTitle')}
               </h2>
               <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', maxWidth: '420px', marginBottom: '25px', lineHeight: '1.5' }}>
-                Il pianificatore avanzato di itinerari con mappatura automatica dei bar reali è una funzionalità Premium. Cerca bar in tutto il mondo, crea percorsi personalizzati e salvali.
+                {t('routes.paywallDesc')}
               </p>
               <div style={{ display: 'flex', gap: '15px' }}>
                 <button onClick={handleCancelCreation} className="btn btn-secondary">
-                  Guarda Tour Pubblici
+                  {t('routes.paywallPublic')}
                 </button>
                 <Link href="/premium" className="btn btn-premium">
-                  Sblocca con Premium
+                  {t('routes.paywallPremium')}
                 </Link>
               </div>
             </div>
@@ -1535,7 +1537,7 @@ out body;`;
             <div className="card" style={{ marginTop: '16px', padding: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700' }}>
-                  {selectedRoute?.name || 'Tour'} — Tappe ({currentActiveWaypoints.length})
+                  {selectedRoute?.name || 'Tour'} — {t('routes.waypointsTitle', { n: currentActiveWaypoints.length })}
                 </h3>
                 {/* Step-through prev/next */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1566,7 +1568,7 @@ out body;`;
                   className="btn btn-primary"
                   style={{ width: '100%', borderRadius: '20px', padding: '10px', fontSize: '13px', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >
-                  <MapPin size={15} /> Naviga l&apos;itinerario (Google Maps)
+                  <MapPin size={15} /> {t('routes.navigateRoute')}
                 </a>
               )}
 

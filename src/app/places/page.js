@@ -7,6 +7,7 @@ import {
   MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award, Info, QrCode, BadgeCheck,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
+import { useT } from '@/lib/i18n';
 
 const PLACE_SORTS = [
   { key: 'sessions', label: 'Più registrazioni', icon: Beer },
@@ -40,6 +41,7 @@ function Stars({ value, size = 14, onPick }) {
 const medal = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`);
 
 export default function ClassifichePage() {
+  const t = useT();
   const [tab, setTab] = useState('atleti'); // atleti | locali
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -343,13 +345,13 @@ export default function ClassifichePage() {
     });
 
   const userMetric = (u) => {
-    if (userSort === 'sessions') return `${u.sessions} sessioni`;
-    if (userSort === 'places') return `${u.placesCount} locali`;
-    return `${u.units} U.A.`;
+    if (userSort === 'sessions') return `${u.sessions} ${t('places.rowMetricSessions')}`;
+    if (userSort === 'places') return `${u.placesCount} ${t('places.rowMetricPlaces')}`;
+    return `${u.units} ${t('places.rowMetricUnits')}`;
   };
 
   if (!loading && !currentUser) {
-    return <RequireAuth feature="le classifiche" />;
+    return <RequireAuth feature={t('places.requireFeature')} />;
   }
 
   return (
@@ -357,20 +359,20 @@ export default function ClassifichePage() {
       {/* Header */}
       <div>
         <h1 style={{ fontSize: '30px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Trophy size={30} color="var(--secondary)" /> Classifiche 🏆
+          <Trophy size={30} color="var(--secondary)" /> {t('places.title')}
         </h1>
         <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-          Gli atleti e i locali in cima a Strabar. Scala la classifica registrando sessioni e diventa la Leggenda del Locale.
+          {t('places.subtitle')}
         </p>
       </div>
 
       {/* Tab Atleti / Locali */}
       <div className="seg-tabs">
         <button onClick={() => setTab('atleti')} className={`seg-tab ${tab === 'atleti' ? 'active' : ''}`}>
-          <Users size={16} /> Atleti
+          <Users size={16} /> {t('places.tabAthletes')}
         </button>
         <button onClick={() => setTab('locali')} className={`seg-tab ${tab === 'locali' ? 'active' : ''}`}>
-          <MapPin size={16} /> Locali
+          <MapPin size={16} /> {t('places.tabVenues')}
         </button>
       </div>
 
@@ -378,12 +380,12 @@ export default function ClassifichePage() {
       {tab === 'atleti' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'stretch' }}>
           <div className="seg-tabs feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
-            <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>📅 Settimana</div>
-            <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>♾️ Sempre</div>
+            <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>{t('places.periodWeek')}</div>
+            <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>{t('places.periodAll')}</div>
           </div>
           <div className="seg-tabs feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
-            <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>🏆 Verificata</div>
-            <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>📊 Tutte</div>
+            <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>{t('places.boardVerified')}</div>
+            <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>{t('places.boardAll')}</div>
           </div>
           <button onClick={() => setShowInfo(true)} aria-label="Come funziona la classifica" title="Come funziona" className="action-btn" style={{ flexShrink: 0, alignSelf: 'center' }}>
             <Info size={18} />
@@ -395,7 +397,7 @@ export default function ClassifichePage() {
         <div onClick={() => setShowInfo(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', width: '100%', position: 'relative' }}>
             <button onClick={() => setShowInfo(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={20} /></button>
-            <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '12px', paddingRight: '36px' }}>Come funziona la classifica</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '12px', paddingRight: '36px' }}>{t('places.howTitle')}</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: 1.55 }}>
               <p><strong style={{ color: '#FFF' }}>🏆 Verificata</strong> — la classifica ufficiale: contano solo i check-in <strong>geolocalizzati e verificati</strong> sul posto. È quella che vale (premi e Leggenda del Locale).</p>
               <p><strong style={{ color: '#FFF' }}>📊 Tutte</strong> — include <strong>tutte le sessioni, anche libere</strong> (non verificate). Solo per divertimento.</p>
@@ -408,17 +410,17 @@ export default function ClassifichePage() {
 
       {loading ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dark-secondary)' }}>
-          <Loader size={22} style={{ animation: 'spin 1s linear infinite' }} /> Carico le classifiche...
+          <Loader size={22} style={{ animation: 'spin 1s linear infinite' }} /> {t('places.loading')}
         </div>
       ) : tab === 'atleti' ? (
         /* ================= ATLETI ================= */
         <>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {USER_SORTS.map(({ key, label, icon: Icon }) => (
+            {USER_SORTS.map(({ key, icon: Icon }) => (
               <button key={key} onClick={() => setUserSort(key)}
                 className={`btn ${userSort === key ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ padding: '8px 14px', fontSize: '13px', borderRadius: '20px' }}>
-                <Icon size={14} /> {label}
+                <Icon size={14} /> {key === 'units' ? t('places.sortUnits') : key === 'sessions' ? t('places.sortSessions') : t('places.sortPlacesL')}
               </button>
             ))}
           </div>
@@ -426,13 +428,9 @@ export default function ClassifichePage() {
           {sortedUsers.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-                {period === 'week'
-                  ? 'Nessuna sessione questa settimana. Aprila tu la race! 🍺'
-                  : period === 'weekend'
-                  ? 'Nessuna sessione nel weekend. Sii il primo a brindare! 🍺'
-                  : 'Nessun atleta in classifica. Registra la prima sessione! 🍺'}
+                {period === 'week' ? t('places.emptyWeek') : t('places.emptyAllTime')}
               </p>
-              <Link href="/log" className="btn btn-primary">Registra una sessione</Link>
+              <Link href="/log" className="btn btn-primary">{t('places.logSession')}</Link>
             </div>
           ) : (
             <>
@@ -480,13 +478,13 @@ export default function ClassifichePage() {
                         {u.is_premium && u.revealed && <Award size={12} color="var(--secondary)" style={{ flexShrink: 0 }} />}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
-                        {u.sessions} sessioni · {u.placesCount} locali
+                        {t('places.rowInfo', { s: u.sessions, p: u.placesCount })}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <strong style={{ fontSize: '15px', color: 'var(--primary)' }}>{userMetric(u).split(' ')[0]}</strong>
                       <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>
-                        {userSort === 'units' ? 'U.A.' : userSort === 'sessions' ? 'sessioni' : 'locali'}
+                        {userSort === 'units' ? t('places.rowMetricUnits') : userSort === 'sessions' ? t('places.rowMetricSessions') : t('places.rowMetricPlaces')}
                       </span>
                     </div>
                     </>
@@ -509,18 +507,18 @@ export default function ClassifichePage() {
               <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
               <input
                 className="form-control"
-                placeholder="Cerca un bar, pub o locale per nome o città..."
+                placeholder={t('places.searchVenues')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 style={{ paddingLeft: '44px', height: '46px' }}
               />
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {PLACE_SORTS.map(({ key, label, icon: Icon }) => (
+              {PLACE_SORTS.map(({ key, icon: Icon }) => (
                 <button key={key} onClick={() => setPlaceSort(key)}
                   className={`btn ${placeSort === key ? 'btn-primary' : 'btn-secondary'}`}
                   style={{ padding: '8px 14px', fontSize: '13px', borderRadius: '20px' }}>
-                  <Icon size={14} /> {label}
+                  <Icon size={14} /> {key === 'sessions' ? t('places.sortVenueSessions') : key === 'units' ? t('places.sortUnits') : t('places.sortVenueRating')}
                 </button>
               ))}
             </div>
@@ -529,9 +527,9 @@ export default function ClassifichePage() {
           {sortedPlaces.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-                Nessun locale registrato ancora. Registra una sessione con una posizione per far comparire il primo bar in classifica! 🍺
+                {t('places.emptyVenues')}
               </p>
-              <Link href="/log" className="btn btn-primary">Registra una sessione</Link>
+              <Link href="/log" className="btn btn-primary">{t('places.logSession')}</Link>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
@@ -566,21 +564,21 @@ export default function ClassifichePage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', background: 'var(--bg-input-dark)', borderRadius: '10px', padding: '12px', border: '1px solid var(--border-dark)' }}>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>{place.sessionsCount}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>Sessioni</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('places.sessionsLabel')}</div>
                     </div>
                     <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)', borderRight: '1px solid var(--border-dark)' }}>
                       <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--secondary)' }}>{place.totalUnits}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>U.A.</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('places.rowMetricUnits')}</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: '18px', fontWeight: 800 }}>{place.uniqueDrinkers}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>Atleti</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('places.athletesLabel')}</div>
                     </div>
                   </div>
 
                   {place.localLegend && place.localLegend.units > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--secondary)' }}>
-                      <Crown size={14} /> Leggenda del Locale: <strong>{place.localLegend.name}</strong> ({place.localLegend.units.toFixed(1)} U.A.)
+                      <Crown size={14} /> {t('places.legend')} <strong>{place.localLegend.name}</strong> ({place.localLegend.units.toFixed(1)} {t('places.rowMetricUnits')})
                     </div>
                   )}
                 </button>
@@ -618,7 +616,7 @@ export default function ClassifichePage() {
               style={{ width: '100%', marginBottom: '10px', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
               <Beer size={16} />
-              {checkingGps ? 'Verifico posizione GPS...' : 'Inizia Brindisi Qui 🍻'}
+              {checkingGps ? t('places.checkingGps') : t('places.startToast')}
             </button>
 
             <a
@@ -628,7 +626,7 @@ export default function ClassifichePage() {
               className="btn btn-secondary"
               style={{ width: '100%', marginBottom: '10px', fontSize: '13px' }}
             >
-              <ExternalLink size={14} /> Apri in Google Maps
+              <ExternalLink size={14} /> {t('places.openMaps')}
             </a>
 
             {/* Pagina pubblica + QR del locale (condivisibile, niente login per chi la apre) */}
@@ -637,21 +635,21 @@ export default function ClassifichePage() {
               className="btn btn-secondary"
               style={{ width: '100%', marginBottom: '18px', fontSize: '13px' }}
             >
-              <QrCode size={14} /> Pagina pubblica & QR del locale
+              <QrCode size={14} /> {t('places.publicPage')}
             </Link>
 
             {/* Classifica atleti */}
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Trophy size={18} color="var(--secondary)" /> Classifica Atleti del Locale
+              <Trophy size={18} color="var(--secondary)" /> {t('places.placeLeaderboard')}
             </h3>
             <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '380px', marginBottom: '12px' }}>
-              {[{ k: 'week', l: '📅 Settimana' }, { k: 'all', l: '♾️ Sempre' }].map((p) => (
+              {[{ k: 'week', l: t('places.periodWeek') }, { k: 'all', l: t('places.periodAll') }].map((p) => (
                 <div key={p.k} className={`seg-tab ${placePeriod === p.k ? 'active' : ''}`} onClick={() => setPlacePeriod(p.k)}>{p.l}</div>
               ))}
             </div>
             {leaderboard.length === 0 ? (
               <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: '13px', marginBottom: '24px' }}>
-                Nessuna sessione verificata {placePeriod === 'week' ? 'questa settimana' : placePeriod === 'weekend' ? 'nel weekend' : 'qui'}.
+                {t('places.emptyLeaderboard', { period: placePeriod === 'week' ? t('places.periodThisWeek') : t('places.periodHere') })}
               </div>
             ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
@@ -662,8 +660,8 @@ export default function ClassifichePage() {
                     <Link href={`/u/${u.user_id}`} onClick={() => setSelected(null)} style={{ fontWeight: 600, fontSize: '14px', color: '#FFF' }}>{u.name}</Link>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <strong style={{ color: 'var(--secondary)', fontSize: '14px' }}>{u.units} U.A.</strong>
-                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{u.visits} visite</span>
+                    <strong style={{ color: 'var(--secondary)', fontSize: '14px' }}>{u.units} {t('places.rowMetricUnits')}</strong>
+                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{u.visits} {t('places.visits')}</span>
                   </div>
                 </div>
               ))}
@@ -672,10 +670,10 @@ export default function ClassifichePage() {
 
             {/* Recensioni */}
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Star size={18} color="var(--secondary)" /> Recensioni ({reviews.length})
+              <Star size={18} color="var(--secondary)" /> {t('places.reviewsTitle', { n: reviews.length })}
               {selected.reviewsCount > 0 && (
                 <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 500 }}>
-                  • media {selected.avgRating}/5
+                  {t('places.avgRating', { n: selected.avgRating })}
                 </span>
               )}
             </h3>
@@ -684,31 +682,31 @@ export default function ClassifichePage() {
             {currentUser ? (
               <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>Il tuo voto:</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{t('places.yourRating')}</span>
                   <Stars value={newRating} size={22} onPick={setNewRating} />
                 </div>
                 <textarea
                   className="form-control"
-                  placeholder="Com'era l'atmosfera, i drink, il rapporto qualità/prezzo?"
+                  placeholder={t('places.reviewPh')}
                   value={newReview}
                   onChange={(e) => setNewReview(e.target.value)}
                   rows={2}
                   style={{ fontSize: '14px', resize: 'vertical', marginBottom: '10px' }}
                 />
                 <button onClick={submitReview} disabled={submitting} className="btn btn-primary" style={{ width: '100%' }}>
-                  {submitting ? 'Invio...' : 'Pubblica recensione'}
+                  {submitting ? t('places.submitting') : t('places.submitReview')}
                 </button>
               </div>
             ) : (
               <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-                <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: 600 }}>Accedi</Link> per lasciare una recensione.
+                <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('nav.login')}</Link> {t('places.loginToReview')}
               </p>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {reviews.length === 0 ? (
                 <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '14px' }}>
-                  Ancora nessuna recensione. Sii il primo a recensire questo locale!
+                  {t('places.emptyReviews')}
                 </p>
               ) : (
                 reviews.map((r) => (
@@ -734,22 +732,22 @@ export default function ClassifichePage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '480px', border: '2px solid var(--primary)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'scaleUp 0.2s ease' }}>
             <div style={{ fontSize: '50px' }}>⚠️</div>
-            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Fuori Portata GPS!</h3>
-            
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>{t('places.geoTitle')}</h3>
+
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: '1.6' }}>
               {geofencingData.error ? (
                 geofencingData.error
               ) : (
-                `Ti trovi a circa ${geofencingData.distance} metri da "${selected?.name}".`
+                t('places.geoDistance', { d: geofencingData.distance, name: selected?.name })
               )}
             </p>
-            
+
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.5' }}>
-              Per garantire l&apos;integrità delle classifiche locali, puoi avviare un brindisi solo se sei entro <strong>200 metri</strong> dal locale.
+              {t('places.geoMsg')}
             </p>
 
             <div style={{ background: 'rgba(255, 32, 0, 0.05)', border: '1px dashed rgba(255, 32, 0, 0.3)', padding: '12px', borderRadius: '8px', fontSize: '12px', color: 'var(--primary)' }}>
-              <strong>Sviluppatore o Tester?</strong> Puoi forzare l&apos;avvio per simulare e testare le funzionalità.
+              {t('places.devHint')}
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -761,7 +759,7 @@ export default function ClassifichePage() {
                 className="btn btn-secondary"
                 style={{ flex: 1 }}
               >
-                Annulla
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -772,7 +770,7 @@ export default function ClassifichePage() {
                 className="btn btn-primary"
                 style={{ flex: 1.5, fontWeight: 'bold' }}
               >
-                Forza Demo Mode 🚀
+                {t('places.forceDemo')}
               </button>
             </div>
           </div>
@@ -784,14 +782,14 @@ export default function ClassifichePage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div className="card" style={{ width: '100%', maxWidth: '480px', border: '2px solid var(--primary)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'scaleUp 0.2s ease' }}>
             <div style={{ fontSize: '50px' }}>🚨</div>
-            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Sessione Live in Corso!</h3>
-            
+            <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>{t('places.activeTitle')}</h3>
+
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: '1.6' }}>
-              Hai già una sessione attiva avviata presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong>.
+              {t('places.activeMsg', { place: activeSession.location ? activeSession.location.name : t('session.freeSession') })}
             </p>
-            
+
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.5' }}>
-              Per iniziare un nuovo brindisi presso <strong>{pendingPlace?.name}</strong>, devi chiudere quella precedente. Vuoi procedere?
+              {t('places.activeConfirm', { place: pendingPlace?.name })}
             </p>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -803,7 +801,7 @@ export default function ClassifichePage() {
                 className="btn btn-secondary"
                 style={{ flex: 1 }}
               >
-                Annulla
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -812,14 +810,14 @@ export default function ClassifichePage() {
                 className="btn btn-secondary"
                 style={{ flex: 1, border: '1px dashed var(--primary)' }}
               >
-                Gestisci Live 🧭
+                {t('places.manageLive')}
               </button>
               <button
                 onClick={handleCloseAndStartNewSession}
                 className="btn btn-primary"
                 style={{ flex: 1.5, fontWeight: 'bold' }}
               >
-                Chiudi e Inizia Qui 🍻
+                {t('places.closeAndStart')}
               </button>
             </div>
           </div>
