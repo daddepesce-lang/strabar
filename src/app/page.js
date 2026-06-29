@@ -541,6 +541,41 @@ export default function FeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myActivities, activeSession?.total_units, activeSession?.id, currentUser?.id]);
 
+  // NOTIFICA LIVE "ongoing" (stile EasyPark): mentre una sessione è attiva mostra/aggiorna
+  // una notifica con statistiche in tempo reale (U.A. · BAC · minuti). Si aggiorna ad ogni
+  // drink e ogni 60s finché l'app/SW è viva. Silenziosa (stesso tag = sostituisce, no suono).
+  useEffect(() => {
+    if (!activeSession || typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    let stopped = false;
+    const tag = 'strabar-live';
+    const push = () => {
+      if (stopped) return;
+      const mins = Math.max(1, Math.round((Date.now() - new Date(activeSession.created_at).getTime()) / 60000));
+      const ua = activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0';
+      const bac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, mins, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
+      const where = activeSession.location?.name || t('session.liveNotifFree');
+      notify(
+        t('session.liveNotifTitle', { where }),
+        t('session.liveNotifBody', { ua, bac: bac.toFixed(2), min: mins }),
+        { tag, silent: true, renotify: false, requireInteraction: false }
+      );
+    };
+    push();
+    const id = setInterval(push, 60000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      // Chiudi la notifica quando la sessione finisce / si smonta.
+      try {
+        navigator.serviceWorker?.getRegistration().then((reg) => {
+          reg?.getNotifications?.({ tag }).then((ns) => ns.forEach((n) => n.close()));
+        });
+      } catch { /* noop */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.id, activeSession?.total_units, activeSession?.full_stomach, liveResidualGrams, currentUser?.weight, currentUser?.sex]);
+
   // Calcola alcol residuo da sessioni precedenti per la live
   useEffect(() => {
     if (!activeSession) { setLiveResidualGrams(0); return; }
@@ -2478,8 +2513,8 @@ export default function FeedPage() {
               </button>
 
               {showLivePanel && (
-              <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '16px', overflowY: 'auto' }}>
-              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginTop: 'calc(78px + env(safe-area-inset-top, 0px))', marginBottom: '40px' }}>
+              <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 'calc(12px + env(safe-area-inset-top, 0px)) 16px 24px', overflowY: 'auto' }}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginBottom: '40px' }}>
             <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 32, 0, 0.25)', borderRadius: '16px' }}>
               <button onClick={() => setShowLivePanel(false)} aria-label="Chiudi" className="btn btn-secondary" style={{ position: 'absolute', top: '12px', right: '12px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingRight: '40px' }}>
