@@ -25,21 +25,28 @@ export async function POST(req) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const orderId = session.metadata?.order_id || session.client_reference_id;
-    if (orderId) {
+    // Un ordine singolo (order_id) o più ordini da carrello (order_ids csv).
+    const ids = [];
+    if (session.metadata?.order_ids) session.metadata.order_ids.split(',').forEach((x) => x && ids.push(x.trim()));
+    const single = session.metadata?.order_id || session.client_reference_id;
+    if (single && !ids.includes(single)) ids.push(single);
+
+    if (ids.length) {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const admin = createAdminSupabase(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-      const { data: order } = await admin.from('venue_orders').select('*').eq('id', orderId).maybeSingle();
-      // Idempotenza: applica l'effetto solo se non già attivo.
-      if (order && order.status !== 'active') {
-        try { await activateVenueOrder(admin, order); } catch (e) { console.error('Attivazione ordine fallita:', e.message || e); }
-        await admin.from('venue_orders').update({
-          status: 'active',
-          paid_at: new Date().toISOString(),
-          activated_at: new Date().toISOString(),
-          stripe_payment_intent: session.payment_intent || null,
-        }).eq('id', order.id);
+      for (const orderId of ids) {
+        const { data: order } = await admin.from('venue_orders').select('*').eq('id', orderId).maybeSingle();
+        // Idempotenza: applica l'effetto solo se non già attivo.
+        if (order && order.status !== 'active') {
+          try { await activateVenueOrder(admin, order); } catch (e) { console.error('Attivazione ordine fallita:', e.message || e); }
+          await admin.from('venue_orders').update({
+            status: 'active',
+            paid_at: new Date().toISOString(),
+            activated_at: new Date().toISOString(),
+            stripe_payment_intent: session.payment_intent || null,
+          }).eq('id', order.id);
+        }
       }
     }
   }
