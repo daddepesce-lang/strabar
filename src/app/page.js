@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -68,6 +68,53 @@ const VENICE_TOUR = [
   { name: 'Osteria Al Mercà', lat: 45.4386, lng: 12.3360, note: 'Spritz al volo davanti al mercato di Rialto.' },
   { name: 'Cantina Aziende Agricole', lat: 45.4430, lng: 12.3300, note: 'Ottimo vino della casa e polpettine.' },
 ];
+
+// Banner promo COMPATTO nel feed: più basso di una sessione (una riga). Traccia
+// l'impression quando entra nel viewport e il click quando lo si apre.
+function FeedBanner({ b, onSeen, onClick }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { onSeen?.(b.id); return; }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { onSeen?.(b.id); io.disconnect(); } });
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [b.id]);
+
+  const inner = (
+    <div ref={ref} className="card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, border: '1px solid var(--border-dark)' }}>
+      {b.image_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={b.image_url} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+      )}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Sponsor{b.partner ? ` · ${b.partner}` : ''}
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#FFF', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
+        {b.body && <div style={{ fontSize: 12, color: 'var(--text-dark-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.body}</div>}
+      </div>
+      {b.link_url && (
+        <span className="btn btn-primary" style={{ flexShrink: 0, borderRadius: 18, padding: '7px 14px', fontSize: 12 }}>{b.cta || 'Scopri'}</span>
+      )}
+    </div>
+  );
+  if (!b.link_url) return inner;
+  const internal = b.link_url.startsWith('/');
+  return (
+    <a
+      href={b.link_url}
+      onClick={() => onClick?.(b.id)}
+      {...(internal ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+      style={{ textDecoration: 'none', display: 'block' }}
+    >
+      {inner}
+    </a>
+  );
+}
 
 export default function FeedPage() {
   const t = useT();
@@ -339,6 +386,29 @@ export default function FeedPage() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedFilter]);
+
+  // Banner promo mescolati: ordine casuale stabile finché non cambia l'insieme attivo,
+  // così i locali paganti RUOTANO e non resta sempre lo stesso identico in cima.
+  const shuffledBanners = useMemo(() => {
+    const arr = [...(banners || [])];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [banners.map((b) => b.id).join(',')]);
+
+  // Conteggio impression: una sola volta per banner per sessione di pagina (best-effort).
+  const seenBannersRef = useRef(new Set());
+  const trackBannerImpression = (id) => {
+    if (!id || seenBannersRef.current.has(id)) return;
+    seenBannersRef.current.add(id);
+    if (typeof db.bumpBannerImpressions === 'function') db.bumpBannerImpressions([id]).catch(() => {});
+  };
+  const trackBannerClick = (id) => {
+    if (id && typeof db.bumpBannerClick === 'function') db.bumpBannerClick(id).catch(() => {});
+  };
 
   // Scroll-reveal della landing (solo per utenti non loggati): aggiunge .is-visible
   // agli elementi .reveal quando entrano nel viewport.
@@ -2260,32 +2330,6 @@ export default function FeedPage() {
       {/* Colonna Sinistra: Feed delle Attività */}
       <div className="feed-list">
         {/* Banner sponsor (gestito da /admin) */}
-        {banners.length > 0 && (() => {
-          const b = banners[0];
-          const inner = (
-            <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {b.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={b.image_url} alt={b.title} style={{ width: '100%', maxHeight: 160, objectFit: 'cover' }} />
-              )}
-              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Sponsor{b.partner ? ` · ${b.partner}` : ''}
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#FFF', marginTop: 2 }}>{b.title}</div>
-                  {b.body && <div style={{ fontSize: 13, color: 'var(--text-dark-secondary)', marginTop: 2 }}>{b.body}</div>}
-                </div>
-                {b.link_url && (
-                  <span className="btn btn-primary" style={{ flexShrink: 0, borderRadius: 20, padding: '8px 16px', fontSize: 13 }}>{b.cta || 'Scopri'}</span>
-                )}
-              </div>
-            </div>
-          );
-          return b.link_url
-            ? <a href={b.link_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block', marginBottom: 16 }}>{inner}</a>
-            : <div style={{ marginBottom: 16 }}>{inner}</div>;
-        })()}
         {currentUser ? (
           activeSession ? (
             <>
@@ -2925,12 +2969,20 @@ export default function FeedPage() {
             )}
           </div>
         ) : (
-          visibleActivities.map((act) => {
+          visibleActivities.map((act, idx) => {
             const hasCheered = act.cheered_by_me || act.cheers?.includes(currentUser?.id);
             const isReallyActive = act.is_active && (new Date().getTime() - new Date(act.created_at).getTime() < 5 * 60 * 60 * 1000);
+            // Banner interlacciato: primo DOPO 2 sessioni (dopo idx 1), poi ogni 3 sessioni.
+            // Ruota tra i banner attivi mescolati, così i paganti non finiscono mai sepolti.
+            let bannerSlot = null;
+            if (feedFilter !== 'live' && shuffledBanners.length > 0 && idx >= 1 && (idx - 1) % 3 === 0) {
+              const b = shuffledBanners[((idx - 1) / 3) % shuffledBanners.length];
+              if (b) bannerSlot = <FeedBanner key={`banner-${b.id}-${idx}`} b={b} onSeen={trackBannerImpression} onClick={trackBannerClick} />;
+            }
             return (
-              <article 
-                key={act.id} 
+              <Fragment key={act.id}>
+              {bannerSlot}
+              <article
                 className="card activity-card"
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => {
@@ -3227,6 +3279,7 @@ export default function FeedPage() {
                   </div>
                 )}
               </article>
+              </Fragment>
             );
           })
         )}
