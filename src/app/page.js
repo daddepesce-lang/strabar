@@ -1160,7 +1160,12 @@ export default function FeedPage() {
     setPhotoUploading(true);
     try {
       const { url, thumb } = await db.uploadImage(file);
-      const newMedia = [...(activeSession.media || []), { type: 'image', name: file.name, url, thumb }];
+      // Se è un tour, tagghiamo la foto con la tappa corrente (indice + nome) così nel
+      // recap le foto finiscono SOTTO la tappa giusta, come i drink.
+      const tour = activeSession.location?.tour;
+      const stopIdx = tour ? (tour.current || 0) : null;
+      const stopName = tour ? (tour.stops?.[stopIdx]?.name || null) : null;
+      const newMedia = [...(activeSession.media || []), { type: 'image', name: file.name, url, thumb, at: new Date().toISOString(), ...(stopIdx != null ? { stopIdx, stopName } : {}) }];
       setActiveSession((prev) => (prev ? { ...prev, media: newMedia } : prev));
       await db.updateActivity(activeSession.id, { media: newMedia });
     } catch (err) {
@@ -1728,6 +1733,7 @@ export default function FeedPage() {
     if (!tour || !Array.isArray(tour.visited) || tour.visited.length === 0) return null;
     const visited = tour.visited;
     const drinks = (act.drinks || []).filter((d) => d.added_at);
+    const photos = (act.media || []).filter((m) => m.type === 'image' && m.url);
     return visited.map((v, i) => {
       const start = new Date(v.arrived_at || act.created_at).getTime();
       const end = i + 1 < visited.length ? new Date(visited[i + 1].arrived_at).getTime() : Infinity;
@@ -1735,7 +1741,14 @@ export default function FeedPage() {
         const t = new Date(d.added_at).getTime();
         return t >= start && t < end;
       });
-      return { name: v.name, verified: !!v.verified, drinks: groupDrinks(stopDrinks) };
+      // Foto della tappa: per stopIdx esplicito (caricamenti nuovi) o, in fallback, per
+      // finestra temporale (foto vecchie senza tag).
+      const stopPhotos = photos.filter((m) => {
+        if (typeof m.stopIdx === 'number') return m.stopIdx === i;
+        if (m.at) { const t = new Date(m.at).getTime(); return t >= start && t < end; }
+        return false;
+      });
+      return { name: v.name, verified: !!v.verified, drinks: groupDrinks(stopDrinks), photos: stopPhotos };
     });
   };
 
@@ -2306,6 +2319,9 @@ export default function FeedPage() {
                 const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
                 const drinksAtStart = tour.visited?.[cur]?.drinksAtStart || 0;
                 const atThisStop = Math.max(0, totalDrinks - drinksAtStart);
+                // Drink divisi per tappa (stessa logica del recap): così ogni tappa mostra
+                // ESATTAMENTE cosa hai bevuto lì, non solo un contatore.
+                const perStopLive = tourDrinksByStop(activeSession) || [];
                 const target = tour.target || 2;
                 const pct = Math.min(100, (atThisStop / target) * 100);
                 return (
@@ -2346,6 +2362,18 @@ export default function FeedPage() {
                               {isPast && <div style={{ fontSize: '11px', color: v ? 'var(--success)' : 'var(--text-dark-secondary)' }}>{v ? '✓ verificata' : '— non verificata'}</div>}
                               {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>in programma</div>}
 
+                              {/* Tappa PASSATA: cosa hai bevuto qui (sola lettura) */}
+                              {isPast && (perStopLive[i]?.drinks?.length > 0
+                                ? (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
+                                    {perStopLive[i].drinks.map((d, k) => (
+                                      <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '10px', padding: '2px 7px', opacity: 0.85 }}>{drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}</span>
+                                    ))}
+                                  </div>
+                                )
+                                : <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginTop: '4px' }}>nessun drink qui</div>
+                              )}
+
                               {/* TAPPA CORRENTE: card "hero" con tutte le azioni guidate */}
                               {isCur && (
                                 <div style={{ marginTop: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '12px' }}>
@@ -2378,6 +2406,28 @@ export default function FeedPage() {
                                       <div style={{ width: `${pct}%`, height: '100%', background: atThisStop >= target ? 'var(--error)' : 'var(--secondary)', transition: 'width 0.3s' }} />
                                     </div>
                                     {atThisStop >= target && <div style={{ fontSize: '10px', color: 'var(--error)', marginTop: '4px' }}>Target raggiunto — passa alla prossima tappa 😉</div>}
+                                  </div>
+
+                                  {/* Drink registrati a QUESTA tappa (rimovibili). Sotto trovi i pulsanti 1-tap. */}
+                                  <div style={{ marginBottom: '10px' }}>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '5px' }}>I tuoi drink qui</div>
+                                    {perStopLive[cur]?.drinks?.length > 0 ? (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                        {perStopLive[cur].drinks.map((d, k) => (
+                                          <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 4px 3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                            {drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveDrinkFromActiveSession(d.name)}
+                                              title="Rimuovi un drink"
+                                              style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 16, height: 16, cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                                            >×</button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Ancora niente — registra il primo drink qui sotto 👇</span>
+                                    )}
                                   </div>
 
                                   {curStop?.lat && curStop?.lng ? (
@@ -2953,7 +3003,9 @@ export default function FeedPage() {
                     </span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label" style={{ gap: '4px' }}>Tasso Alcolico Est. <BacInfo size={12} /></span>
+                    {/* Se la sessione non ha drink propri, il valore è il RESIDUO da sessioni
+                        precedenti: lo etichettiamo come tale (non è il tasso "di qui"). */}
+                    <span className="stat-label" style={{ gap: '4px' }}>{(act.drinks && act.drinks.length) ? 'Tasso Alcolico Est.' : 'BAC residuo'} <BacInfo size={12} /></span>
                     <span className={`bac-pill ${displayBac(act) >= 0.5 ? 'high' : displayBac(act) >= 0.2 ? 'mid' : 'low'}`}>
                       {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.7 }}>g/l</span>
                     </span>
@@ -3638,10 +3690,12 @@ export default function FeedPage() {
                     return (
                       <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
                         <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          🗺️ Cosa ha bevuto, tappa per tappa
+                          🗺️ Tappa per tappa: drink e foto
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {perStop.map((s, i) => (
+                          {perStop.map((s, i) => {
+                            const allImgs = selectedActivity.media?.filter((m) => m.type === 'image') || [];
+                            return (
                             <div key={i} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px 12px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                                 <span style={{ background: '#EF4444', color: '#fff', width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
@@ -3657,8 +3711,27 @@ export default function FeedPage() {
                                   ))}
                                 </div>
                               )}
+                              {/* Foto scattate a questa tappa (thumbnail → apre lo slideshow) */}
+                              {s.photos?.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                                  {s.photos.map((p, k) => {
+                                    const gi = allImgs.findIndex((m) => m.url === p.url);
+                                    return (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        key={k}
+                                        src={p.thumb || p.url}
+                                        alt="foto tappa"
+                                        onClick={() => { if (gi >= 0) { setCurrentSlideIndex(gi); setLightboxOpen(true); } }}
+                                        style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-dark)', cursor: 'zoom-in' }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );

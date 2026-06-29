@@ -31,7 +31,7 @@ export default function Navbar() {
   const [unread, setUnread] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
   const [myLive, setMyLive] = useState(false); // l'utente corrente ha una sessione live attiva?
-  const [myVenueKey, setMyVenueKey] = useState(null); // locale che gestisco (claim approvato)
+  const [myVenues, setMyVenues] = useState([]); // locali che gestisco (claim approvati)
   const [notifOpen, setNotifOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false); // foglio "Altro" su mobile
   const notifRef = useRef(null);
@@ -95,12 +95,16 @@ export default function Navbar() {
   // Locale gestito: se ho un claim approvato, mostro "Il mio locale" nel menu (extra,
   // SENZA togliere nulla dell'esperienza utente normale).
   useEffect(() => {
-    if (!user || typeof db.getMyVenueClaims !== 'function') { setMyVenueKey(null); return; }
+    if (!user || typeof db.getMyVenueClaims !== 'function') { setMyVenues([]); return; }
     let cancelled = false;
     db.getMyVenueClaims().then((cs) => {
       if (cancelled) return;
-      const appr = (cs || []).find((c) => c.status === 'approved');
-      setMyVenueKey(appr ? appr.venue_key : null);
+      // Tutti i locali APPROVATI (un account può gestirne più di uno).
+      const appr = (cs || []).filter((c) => c.status === 'approved');
+      const seen = new Set();
+      const list = [];
+      appr.forEach((c) => { if (!seen.has(c.venue_key)) { seen.add(c.venue_key); list.push({ key: c.venue_key, name: c.venue_name || c.venue_key }); } });
+      setMyVenues(list);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [user?.id]);
@@ -172,6 +176,10 @@ export default function Navbar() {
 
   const isActive = (href) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
+  // Voce "locale" nel menu: un solo locale → link diretto alla gestione; più locali → pagina elenco.
+  const venueHref = myVenues.length === 1 ? `/locale/${encodeURIComponent(myVenues[0].key)}/gestione` : '/locale';
+  const venueLabel = myVenues.length > 1 ? 'I miei locali' : 'Il mio locale';
+
   return (
     <>
       <nav className="navbar">
@@ -232,10 +240,10 @@ export default function Navbar() {
                 </Link>
               );
             })}
-            {myVenueKey && (
-              <Link href={`/locale/${encodeURIComponent(myVenueKey)}/gestione`} prefetch={false} className={`nav-link ${pathname.startsWith('/locale') ? 'active' : ''}`}>
+            {myVenues.length > 0 && (
+              <Link href={venueHref} prefetch={false} className={`nav-link ${pathname.startsWith('/locale') ? 'active' : ''}`}>
                 <Store size={18} />
-                Il mio locale
+                {venueLabel}
               </Link>
             )}
           </div>
@@ -404,8 +412,8 @@ export default function Navbar() {
               )}
               <button type="button" onClick={() => { setMoreOpen(false); window.dispatchEvent(new Event('strabar:open-guide')); }}><HelpCircle size={22} /><span>Come funziona</span></button>
               <a href={`mailto:${BUG_EMAIL}?subject=${encodeURIComponent('Strabar — Segnalazione bug')}&body=${encodeURIComponent('Descrivi il problema (cosa facevi, cosa è successo):\n\n\n— Dispositivo/browser:\n')}`}><Bug size={22} /><span>Segnala bug</span></a>
-              {myVenueKey
-                ? <Link href={`/locale/${encodeURIComponent(myVenueKey)}/gestione`} className={isActive('/locale') ? 'active' : ''}><Store size={22} /><span>Il mio locale</span></Link>
+              {myVenues.length > 0
+                ? <Link href={venueHref} className={isActive('/locale') ? 'active' : ''}><Store size={22} /><span>{venueLabel}</span></Link>
                 : <Link href="/business" className={isActive('/business') ? 'active' : ''}><Store size={22} /><span>Sei un locale?</span></Link>}
               <button type="button" onClick={handleLogout}><LogOut size={22} /><span>Esci</span></button>
             </div>

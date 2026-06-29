@@ -27,6 +27,8 @@ export default function VenueManagePage({ params }) {
   const setF = (patch) => setForm((p) => ({ ...p, ...patch }));
   const [submitting, setSubmitting] = useState(false);
   const [buying, setBuying] = useState(null); // service id in corso
+  const [openOrder, setOpenOrder] = useState(null); // ordine espanso (id)
+  const [canceling, setCanceling] = useState(null); // ordine in annullamento (id)
   const [eventChoice, setEventChoice] = useState({}); // serviceId -> eventId
   const [svcInput, setSvcInput] = useState({}); // serviceId -> { title, body, link, message }
   const setInput = (id, patch) => setSvcInput((p) => ({ ...p, [id]: { ...(p[id] || {}), ...patch } }));
@@ -126,6 +128,20 @@ export default function VenueManagePage({ params }) {
     }
   };
 
+  const cancelOrder = async (o) => {
+    if (!confirm('Annullare questo ordine non pagato?')) return;
+    setCanceling(o.id);
+    try {
+      await db.cancelVenueOrder(o.id);
+      setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, status: 'canceled' } : x)));
+    } catch (e) {
+      alert('Errore: ' + (e.message || e));
+    } finally {
+      setCanceling(null);
+    }
+  };
+
+  const SERVICE_NAME = { sponsored_event: 'Evento sponsorizzato', promo: 'Promo nel feed', notify: 'Notifica clienti' };
   const SERVICE_ICON = { sponsored_event: Star, promo: Megaphone, notify: Bell };
   const ORDER_LABEL = { pending: '⏳ In attesa di pagamento', paid: '✅ Pagato', active: '🟢 Attivo', canceled: '✖️ Annullato', rejected: '✖️ Rifiutato' };
 
@@ -290,12 +306,43 @@ export default function VenueManagePage({ params }) {
             <div className="card" style={{ padding: '16px' }}>
               <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px' }}>I tuoi ordini</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {orders.map((o) => (
-                  <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)' }}>
-                    <span style={{ fontSize: '13px', color: '#FFF' }}>{o.service_code === 'sponsored_event' ? 'Evento sponsorizzato' : o.service_code === 'promo' ? 'Promo nel feed' : o.service_code === 'notify' ? 'Notifica clienti' : o.service_code}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{ORDER_LABEL[o.status] || o.status} · {euro(o.amount_cents)}</span>
-                  </div>
-                ))}
+                {orders.map((o) => {
+                  const expanded = openOrder === o.id;
+                  const m = o.meta || {};
+                  return (
+                    <div key={o.id} style={{ borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', overflow: 'hidden' }}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenOrder(expanded ? null : o.id)}
+                        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '10px 12px', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        <span style={{ fontSize: '13px', color: '#FFF', minWidth: 0 }}>{SERVICE_NAME[o.service_code] || o.service_code}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', whiteSpace: 'nowrap' }}>{ORDER_LABEL[o.status] || o.status} · {euro(o.amount_cents)}</span>
+                      </button>
+                      {expanded && (
+                        <div style={{ padding: '0 12px 12px', borderTop: '1px solid var(--border-dark)', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ marginTop: '8px' }}>Data: {new Date(o.created_at).toLocaleString('it-IT')}</div>
+                          {m.title && <div>Titolo: <span style={{ color: '#FFF' }}>{m.title}</span></div>}
+                          {m.message && <div>Messaggio: <span style={{ color: '#FFF' }}>{m.message}</span></div>}
+                          {m.body && <div>Testo: <span style={{ color: '#FFF' }}>{m.body}</span></div>}
+                          {m.link && <div>Link: <span style={{ color: '#FFF' }}>{m.link}</span></div>}
+                          {o.paid_at && <div>Pagato il: {new Date(o.paid_at).toLocaleString('it-IT')}</div>}
+                          {o.status === 'pending' && (
+                            <button
+                              type="button"
+                              onClick={() => cancelOrder(o)}
+                              disabled={canceling === o.id}
+                              className="btn"
+                              style={{ marginTop: '6px', alignSelf: 'flex-start', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: '16px', padding: '6px 14px', fontSize: '12px', fontWeight: 700 }}
+                            >
+                              {canceling === o.id ? 'Annullo…' : 'Annulla ordine'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

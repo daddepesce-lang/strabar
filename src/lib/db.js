@@ -2859,6 +2859,14 @@ export const db = {
     return data || [];
   },
 
+  // Annulla un ordine non ancora pagato (status pending). Solo il proprietario.
+  async cancelVenueOrder(orderId) {
+    if (!isSupabaseConfigured) throw new Error('Non disponibile');
+    const { error } = await supabase.rpc('cancel_venue_order', { p_order_id: orderId });
+    if (error) throw error;
+    return true;
+  },
+
   // Eventi futuri di cui sono organizzatore (per collegarci la sponsorizzazione).
   async getMyUpcomingEvents() {
     const user = await this.getCurrentUser();
