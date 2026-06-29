@@ -258,29 +258,29 @@ export default function VenueManagePage({ params }) {
           </p>
           {claim?.status === 'rejected' && <p style={{ fontSize: '12px', color: 'var(--error)', marginBottom: '10px' }}>{t('gestione.claimRejected')}{claim.admin_note ? `: ${claim.admin_note}` : '.'}</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-            <input value={form.contact_name} onChange={(e) => setF({ contact_name: e.target.value })} placeholder={t(‘gestione.claimContactPh’)} className="form-control" style={{ fontSize: ‘13px’ }} />
-            <select value={form.role} onChange={(e) => setF({ role: e.target.value })} className="form-control" style={{ fontSize: ‘13px’, height: ‘38px’ }}>
-              <option value="titolare">{t(‘gestione.claimRoleOwner’)}</option>
-              <option value="gestore">{t(‘gestione.claimRoleManager’)}</option>
-              <option value="staff">{t(‘gestione.claimRoleStaff’)}</option>
+            <input value={form.contact_name} onChange={(e) => setF({ contact_name: e.target.value })} placeholder={t('gestione.claimContactPh')} className="form-control" style={{ fontSize: '13px' }} />
+            <select value={form.role} onChange={(e) => setF({ role: e.target.value })} className="form-control" style={{ fontSize: '13px', height: '38px' }}>
+              <option value="titolare">{t('gestione.claimRoleOwner')}</option>
+              <option value="gestore">{t('gestione.claimRoleManager')}</option>
+              <option value="staff">{t('gestione.claimRoleStaff')}</option>
             </select>
-            <div style={{ display: ‘flex’, gap: ‘8px’ }}>
-              <input value={form.phone} onChange={(e) => setF({ phone: e.target.value })} placeholder={t(‘gestione.claimPhonePh’)} className="form-control" style={{ fontSize: ‘13px’, flex: 1 }} />
-              <input value={form.email} onChange={(e) => setF({ email: e.target.value })} placeholder={t(‘gestione.claimEmailPh’)} type="email" disabled={!!user} className="form-control" style={{ fontSize: ‘13px’, flex: 1, opacity: user ? 0.6 : 1 }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input value={form.phone} onChange={(e) => setF({ phone: e.target.value })} placeholder={t('gestione.claimPhonePh')} className="form-control" style={{ fontSize: '13px', flex: 1 }} />
+              <input value={form.email} onChange={(e) => setF({ email: e.target.value })} placeholder={t('gestione.claimEmailPh')} type="email" disabled={!!user} className="form-control" style={{ fontSize: '13px', flex: 1, opacity: user ? 0.6 : 1 }} />
             </div>
-            <input value={form.business_name} onChange={(e) => setF({ business_name: e.target.value })} placeholder={t(‘gestione.claimBusinessPh’)} className="form-control" style={{ fontSize: ‘13px’ }} />
-            <div style={{ display: ‘flex’, gap: ‘8px’ }}>
-              <input value={form.vat} onChange={(e) => setF({ vat: e.target.value })} placeholder={t(‘gestione.claimVatPh’)} className="form-control" style={{ fontSize: ‘13px’, flex: 1 }} />
-              <input value={form.website} onChange={(e) => setF({ website: e.target.value })} placeholder={t(‘gestione.claimWebsitePh’)} className="form-control" style={{ fontSize: ‘13px’, flex: 1 }} />
+            <input value={form.business_name} onChange={(e) => setF({ business_name: e.target.value })} placeholder={t('gestione.claimBusinessPh')} className="form-control" style={{ fontSize: '13px' }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input value={form.vat} onChange={(e) => setF({ vat: e.target.value })} placeholder={t('gestione.claimVatPh')} className="form-control" style={{ fontSize: '13px', flex: 1 }} />
+              <input value={form.website} onChange={(e) => setF({ website: e.target.value })} placeholder={t('gestione.claimWebsitePh')} className="form-control" style={{ fontSize: '13px', flex: 1 }} />
             </div>
-            <input value={form.address} onChange={(e) => setF({ address: e.target.value })} placeholder={t(‘gestione.claimAddressPh’)} className="form-control" style={{ fontSize: ‘13px’ }} />
-            <textarea value={form.note} onChange={(e) => setF({ note: e.target.value })} placeholder={t(‘gestione.claimNotePh’)} rows={2} className="form-control" style={{ fontSize: ‘13px’, resize: ‘none’ }} />
+            <input value={form.address} onChange={(e) => setF({ address: e.target.value })} placeholder={t('gestione.claimAddressPh')} className="form-control" style={{ fontSize: '13px' }} />
+            <textarea value={form.note} onChange={(e) => setF({ note: e.target.value })} placeholder={t('gestione.claimNotePh')} rows={2} className="form-control" style={{ fontSize: '13px', resize: 'none' }} />
           </div>
-          <p style={{ fontSize: ‘11px’, color: ‘var(--text-dark-secondary)’, marginBottom: ‘10px’ }}>
-            {user ? t(‘gestione.claimNoteLogged’) : t(‘gestione.claimNoteAnon’)}
+          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>
+            {user ? t('gestione.claimNoteLogged') : t('gestione.claimNoteAnon')}
           </p>
-          <button onClick={submitClaim} disabled={submitting} className="btn btn-primary" style={{ width: ‘100%’, borderRadius: ‘24px’, padding: ‘12px’, fontWeight: 700 }}>
-            {submitting ? t(‘gestione.claimSubmitting’) : t(‘gestione.claimSend’)}
+          <button onClick={submitClaim} disabled={submitting} className="btn btn-primary" style={{ width: '100%', borderRadius: '24px', padding: '12px', fontWeight: 700 }}>
+            {submitting ? t('gestione.claimSubmitting') : t('gestione.claimSend')}
           </button>
         </div>
       )}
