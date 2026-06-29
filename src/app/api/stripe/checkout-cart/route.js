@@ -100,6 +100,8 @@ export async function POST(req) {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
+      // Sull'estratto conto della carta comparirà "STRABAR" (non il nome legale del conto).
+      payment_intent_data: { statement_descriptor: 'STRABAR', statement_descriptor_suffix: 'STRABAR' },
       success_url: siteUrl(`/locale/${encodeURIComponent(key)}/gestione?paid=1`),
       cancel_url: siteUrl(`/locale/${encodeURIComponent(key)}/gestione?canceled=1`),
       metadata: { order_ids: orderIds.join(',') },
