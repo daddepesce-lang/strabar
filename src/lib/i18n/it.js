@@ -67,6 +67,7 @@ export const it = {
     inviteFriends: 'Invita amici su Strabar',
     loadMore: 'Carica altre',
     shareApp: 'Condividi Strabar',
+    stories: 'In giro ora',
     // — Sidebar home (desktop) —
     inviteTitle: '📲 Invita i tuoi amici',
     inviteDesc: 'Strabar è più divertente in compagnia: condividi l\'app e sfidatevi in classifica!',

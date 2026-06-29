@@ -17,6 +17,7 @@ import { siteUrl } from '@/lib/site';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
 import DrinkSearch from '@/components/DrinkSearch';
+import StoriesBar from '@/components/StoriesBar';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
@@ -2396,6 +2397,34 @@ export default function FeedPage() {
     </div>
   );
 
+  // Storie: sessioni recenti CON foto, una per utente (live in testa). Solo dati già
+  // caricati dal feed/live → nessun egress aggiuntivo.
+  const storyItems = (() => {
+    const pool = [...(activities || [])];
+    (liveFeed || []).forEach((a) => { if (!pool.some((x) => x.id === a.id)) pool.push(a); });
+    const withPhoto = pool
+      .filter(isVisibleToMe)
+      .map((a) => ({ a, photo: a.cover_url || (a.media || []).find((m) => m.type === 'image')?.url }))
+      .filter((x) => x.photo)
+      .sort((x, y) => new Date(y.a.created_at) - new Date(x.a.created_at));
+    const seen = new Set();
+    const out = [];
+    for (const { a, photo } of withPhoto) {
+      if (seen.has(a.user_id)) continue;
+      seen.add(a.user_id);
+      out.push({
+        act: a,
+        photo,
+        name: a.user_id === currentUser?.id ? 'Tu' : publicName(a.profiles, 'Atleta'),
+        live: isLiveAct(a),
+        drinks: (a.drinks || []).reduce((s, d) => s + (d.qty || 1), 0),
+      });
+      if (out.length >= 16) break;
+    }
+    out.sort((x, y) => (y.live ? 1 : 0) - (x.live ? 1 : 0));
+    return out;
+  })();
+
   return (
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
@@ -2405,7 +2434,7 @@ export default function FeedPage() {
           activeSession ? (
             <>
               {/* Banner compatto: la diretta non occupa più il feed. Tocca per gestirla. */}
-              <button type="button" onClick={() => setShowLivePanel(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', borderRadius: '14px', padding: '12px 14px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 16px rgba(255,32,0,0.2)' }}>
+              <button type="button" onClick={() => setShowLivePanel(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', borderRadius: '14px', padding: '12px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 16px rgba(255,32,0,0.2)' }}>
                 <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
                 </span>
@@ -2944,9 +2973,14 @@ export default function FeedPage() {
           </div>
         )}
 
+        {/* Carosello "storie": sessioni recenti con foto, sopra al filtro */}
+        {currentUser && storyItems.length > 0 && (
+          <StoriesBar stories={storyItems} onOpen={handleOpenActivity} label={t('feed.stories')} />
+        )}
+
         {/* Filtro feed: Amici / Tutti / Live */}
         {currentUser && activities.length > 0 && (
-          <div className="seg-tabs feed-filter-tabs" style={{ marginTop: '20px', marginBottom: '12px', maxWidth: '360px' }}>
+          <div className="seg-tabs feed-filter-tabs" style={{ marginTop: '4px', marginBottom: '14px', maxWidth: '360px' }}>
             <div
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
