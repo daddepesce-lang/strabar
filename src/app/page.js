@@ -2008,10 +2008,10 @@ export default function FeedPage() {
         {/* CAPABILITY CHIPS — sostituiscono le statistiche inventate con fatti reali */}
         <section className="cap-grid reveal">
           {[
-            { ico: <Gauge size={22} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Widmark', s: 'Calcolo BAC scientifico' },
-            { ico: <MapPin size={22} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'GPS reale', s: 'Mappe OpenStreetMap' },
-            { ico: <Zap size={22} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: 'Gratis', s: 'Nessun costo, niente store' },
-            { ico: <Bell size={22} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: 'PWA', s: 'Installabile + notifiche' },
+            { ico: <Gauge size={22} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.caps.0.t'), s: t('landing.caps.0.s') },
+            { ico: <MapPin size={22} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.caps.1.t'), s: t('landing.caps.1.s') },
+            { ico: <Zap size={22} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: t('landing.caps.2.t'), s: t('landing.caps.2.s') },
+            { ico: <Bell size={22} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: t('landing.caps.3.t'), s: t('landing.caps.3.s') },
           ].map((x, i) => (
             <div key={i} className={`cap-chip lift reveal reveal-d${(i % 3) + 1}`}>
               <div className="cap-ico" style={{ color: x.c, background: x.bg }}>{x.ico}</div>
@@ -2025,19 +2025,19 @@ export default function FeedPage() {
         <section className="r-grid-2 reveal" style={{ alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <span className="eyebrow-pill" style={{ background: 'rgba(255,32,0,0.1)', color: 'var(--primary)' }}>
-              <Users size={14} /> Community
+              <Users size={14} /> {t('landing.community.eyebrow')}
             </span>
             <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF' }}>
-              Non è un diario. È un <span className="gradient-text">social</span>.
+              {t('landing.community.title')} <span className="gradient-text">{t('landing.community.titleHighlight')}</span>.
             </h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6' }}>
-              Segui gli amici, vedi le loro sessioni nel feed, taggali e mandate brindisi. Competete nelle classifiche dei locali per il titolo di Leggenda e condividete i record direttamente sui social. Bere diventa un gioco di squadra.
+              {t('landing.community.para')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[
-                { ico: <Users size={18} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Feed & amici', d: 'Segui gli atleti, tagga i compagni e segui le loro serate in tempo reale.' },
-                { ico: <Trophy size={18} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'Competi', d: 'Classifiche per locale e settimanali: scala la vetta e difendi il trono.' },
-                { ico: <Share2 size={18} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: 'Condividi', d: 'Esporta sessioni e record con una grafica pronta per Instagram e WhatsApp.' },
+                { ico: <Users size={18} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.community.items.0.t'), d: t('landing.community.items.0.d') },
+                { ico: <Trophy size={18} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.community.items.1.t'), d: t('landing.community.items.1.d') },
+                { ico: <Share2 size={18} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: t('landing.community.items.2.t'), d: t('landing.community.items.2.d') },
               ].map((x, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
                   <span className="feat-ico" style={{ color: x.c, background: x.bg, width: '38px', height: '38px', borderRadius: '10px' }}>{x.ico}</span>
@@ -2056,12 +2056,12 @@ export default function FeedPage() {
               <div className="activity-avatar" style={{ width: '40px', height: '40px', fontSize: '15px' }}>L</div>
               <div style={{ flex: 1 }}>
                 <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>Luca M.</strong>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>con <b style={{ color: 'var(--primary)' }}>@francy</b> e altri 2 • 2h fa</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('landing.community.mockWith')} <b style={{ color: 'var(--primary)' }}>@francy</b> {t('landing.community.mockOthers')}</span>
               </div>
               <span style={{ fontSize: '11px', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}><span className="live-dot" /> Live</span>
             </div>
 
-            <h3 className="activity-title" style={{ fontSize: '18px' }}>Aperitivo Sforzo Massimo 🏆</h3>
+            <h3 className="activity-title" style={{ fontSize: '18px' }}>{t('landing.community.mockTitle')}</h3>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               <span className="drink-tag" style={{ fontSize: '11px' }}>🍺 3x Birra</span>
@@ -2070,9 +2070,9 @@ export default function FeedPage() {
             </div>
 
             <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px', display: 'flex', alignItems: 'center', gap: '18px', fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: 700 }}>🍻 12 brindisi</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: 700 }}>🍻 {t('landing.community.mockCheers')}</span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><MessageSquare size={15} /> 4</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700 }}><Share2 size={15} /> Condividi</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', color: 'var(--primary)', fontWeight: 700 }}><Share2 size={15} /> {t('landing.community.mockShare')}</span>
             </div>
           </div>
         </section>
@@ -2080,14 +2080,14 @@ export default function FeedPage() {
         {/* HOW IT WORKS */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
           <div className="reveal" style={{ textAlign: 'center' }}>
-            <span className="eyebrow-pill reveal" style={{ background: 'rgba(223,255,0,0.1)', color: 'var(--secondary)', margin: '0 auto' }}>Come funziona</span>
-            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF', marginTop: '14px' }}>Dalla prima birra al record, in 3 passi</h2>
+            <span className="eyebrow-pill reveal" style={{ background: 'rgba(223,255,0,0.1)', color: 'var(--secondary)', margin: '0 auto' }}>{t('landing.how.eyebrow')}</span>
+            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF', marginTop: '14px' }}>{t('landing.how.title')}</h2>
           </div>
           <div className="how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
             {[
-              { n: '01', t: 'Registra la sessione', d: 'Aggiungi i drink dal catalogo o crea il tuo. Tagga gli amici e fai check-in nel locale.' },
-              { n: '02', t: 'Analizza BAC & U.A.', d: 'Vediamo tasso alcolico, unità alcoliche, durata e curva di smaltimento in tempo reale.' },
-              { n: '03', t: 'Scala la classifica', d: 'Accumula U.A. nel tuo locale, diventa la Leggenda e ricevi le notifiche delle sfide.' },
+              { n: '01', t: t('landing.how.steps.0.t'), d: t('landing.how.steps.0.d') },
+              { n: '02', t: t('landing.how.steps.1.t'), d: t('landing.how.steps.1.d') },
+              { n: '03', t: t('landing.how.steps.2.t'), d: t('landing.how.steps.2.d') },
             ].map((s, i) => (
               <div key={i} className={`how-step lift reveal reveal-d${i + 1}`}>
                 <div className="how-num">{s.n}</div>
@@ -2101,20 +2101,20 @@ export default function FeedPage() {
         {/* FEATURES GRID — cosa fa davvero Strabar */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
           <div className="reveal" style={{ textAlign: 'center' }}>
-            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF' }}>Tutto quello che fa Strabar</h2>
+            <h2 style={{ fontSize: '40px', fontWeight: '900', color: '#FFF' }}>{t('landing.features.title')}</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '18px', marginTop: '10px', maxWidth: '620px', marginInline: 'auto' }}>
-              Non solo un diario delle bevute: un assistente completo per le tue serate.
+              {t('landing.features.subtitle')}
             </p>
           </div>
 
           <div className="feat-grid">
             {[
-              { ico: <Gauge size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Tasso alcolico (BAC)', d: 'Stimiamo il tuo tasso alcolico con la formula di Widmark in base a peso, sesso, drink e tempo. Curva di smaltimento e momento stimato del ritorno a 0,0 g/l. Valore indicativo, mai medico o legale.' },
-              { ico: <Beer size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'Unità Alcoliche (U.A.)', d: 'Ogni drink pesa in U.A. reali, calcolate da gradazione (ABV) e volume del bicchiere. Capisci quanto stai realmente bevendo e quando è il caso di fermarti.' },
-              { ico: <Bell size={24} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: 'Notifiche push', d: 'Ricevi avvisi quando un amico ti tagga, commenta o brinda con te, quando perdi il trono di un locale o quando parte una nuova sfida. Anche ad app chiusa.' },
-              { ico: <Calendar size={24} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: 'Eventi', d: 'Crea o unisciti agli eventi: aperitivi, pub crawl e serate di gruppo. Vedi chi partecipa, ritrovati nel locale e fai partire la sessione condivisa con un tap.' },
-              { ico: <MapPin size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: 'Percorsi & Pub Crawl', d: 'Pianifica itinerari tra bar reali con mappe OpenStreetMap. Coordinate GPS vere, distanze a piedi tra le tappe e itinerari pronti come il Giro dei Bacari a Venezia.' },
-              { ico: <Trophy size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: 'Classifiche & Leggenda', d: 'Ogni locale ha la sua classifica. Accumula visite e U.A. per diventare la Leggenda del Locale, sblocca badge e scala le classifiche settimanali con gli amici.' },
+              { ico: <Gauge size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.features.cards.0.t'), d: t('landing.features.cards.0.d') },
+              { ico: <Beer size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.features.cards.1.t'), d: t('landing.features.cards.1.d') },
+              { ico: <Bell size={24} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: t('landing.features.cards.2.t'), d: t('landing.features.cards.2.d') },
+              { ico: <Calendar size={24} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: t('landing.features.cards.3.t'), d: t('landing.features.cards.3.d') },
+              { ico: <MapPin size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.features.cards.4.t'), d: t('landing.features.cards.4.d') },
+              { ico: <Trophy size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.features.cards.5.t'), d: t('landing.features.cards.5.d') },
             ].map((f, i) => (
               <div key={i} className={`feat-card lift reveal reveal-d${(i % 3) + 1}`}>
                 <div className="feat-ico" style={{ color: f.c, background: f.bg }}>{f.ico}</div>
@@ -2129,20 +2129,20 @@ export default function FeedPage() {
         <section className="r-grid-1-2 landing-section-padded reveal" style={{ borderTop: '1px solid var(--border-dark)', borderBottom: '1px solid var(--border-dark)', padding: '60px 0' }}>
           <div>
             <span className="eyebrow-pill" style={{ background: 'rgba(223, 255, 0, 0.1)', color: 'var(--secondary)' }}>
-              <MapPin size={14} /> Percorsi
+              <MapPin size={14} /> {t('landing.routes.eyebrow')}
             </span>
             <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', marginTop: '15px', marginBottom: '15px' }}>
-              Giro dei Bacari Storico a Venezia 🛶
+              {t('landing.routes.title')}
             </h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6', marginBottom: '25px' }}>
-              Un esempio dei percorsi che puoi seguire o creare. Tappe con coordinate GPS reali, distanze a piedi calcolate e ordine ottimizzato per il tuo pub crawl perfetto.
+              {t('landing.routes.para')}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[
-                { t: 'Cantina Do Mori', d: 'Il locale più antico di Venezia (fondato nel 1462). Famoso per i cicheti "francobolli".' },
-                { t: "Osteria All'Arco", d: 'Tappa leggendaria per i cicheti caldi preparati al momento con ingredienti del mercato.' },
-                { t: 'Osteria Al Mercà', d: 'Famoso per lo spritz al Select o al Campari, servito al volo in piedi davanti a Rialto.' },
+                { t: t('landing.routes.stops.0.t'), d: t('landing.routes.stops.0.d') },
+                { t: t('landing.routes.stops.1.t'), d: t('landing.routes.stops.1.d') },
+                { t: t('landing.routes.stops.2.t'), d: t('landing.routes.stops.2.d') },
               ].map((p, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
                   <span style={{ background: 'var(--primary)', color: '#FFF', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', marginTop: '2px', flexShrink: 0 }}>{i + 1}</span>
@@ -2156,7 +2156,7 @@ export default function FeedPage() {
 
             <div style={{ marginTop: '30px' }}>
               <Link href="/routes" className="btn btn-primary lift" style={{ padding: '12px 24px', fontSize: '15px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                Vedi tutti i percorsi <ChevronRight size={16} />
+                {t('landing.routes.cta')} <ChevronRight size={16} />
               </Link>
             </div>
           </div>
@@ -2165,7 +2165,7 @@ export default function FeedPage() {
           <div className="landing-fake-map" style={{ position: 'relative', height: '420px' }}>
             <RouteMap waypoints={VENICE_TOUR} height="100%" />
             <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(0,0,0,0.8)', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--border-dark)', zIndex: 500, pointerEvents: 'none' }}>
-              📍 Venezia, Italia • <strong>4 tappe reali</strong>
+              📍 {t('landing.routes.mapCaption')} <strong>{t('landing.routes.mapStops')}</strong>
             </div>
           </div>
         </section>
@@ -2176,20 +2176,20 @@ export default function FeedPage() {
             <div style={{ color: 'var(--secondary)', marginBottom: '15px' }}>
               <Trophy size={36} />
             </div>
-            <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Diventa la &quot;Leggenda del Locale&quot; 👑</h3>
+            <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>{t('landing.stats.legendTitle')}</h3>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', lineHeight: '1.5', marginBottom: '20px' }}>
-              Ogni bar reale ha la sua classifica. Chi registra più sessioni o consuma più U.A. in un determinato locale ne diventa il custode supremo.
+              {t('landing.stats.legendPara')}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[
-                'Fai check-in in un locale ad ogni sessione',
-                'Accumula visite e Unità Alcoliche in quel bar',
-                'Supera gli altri e diventa la Leggenda del Locale 👑',
-              ].map((t, i) => (
+                t('landing.stats.legendSteps.0'),
+                t('landing.stats.legendSteps.1'),
+                t('landing.stats.legendSteps.2'),
+              ].map((txt, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                   <span style={{ background: 'var(--secondary)', color: '#000', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', flexShrink: 0 }}>{i + 1}</span>
-                  <span style={{ fontSize: '14px', fontWeight: '600' }}>{t}</span>
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>{txt}</span>
                 </div>
               ))}
             </div>
@@ -2197,18 +2197,18 @@ export default function FeedPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <span className="eyebrow-pill" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10B981' }}>
-              <BarChart3 size={14} /> Statistiche & Analisi
+              <BarChart3 size={14} /> {t('landing.stats.eyebrow')}
             </span>
             <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF' }}>
-              Non è alcolismo. È analisi statistica.
+              {t('landing.stats.title')}
             </h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '16px', lineHeight: '1.6' }}>
-              Ogni sessione diventa un grafico: heatmap mensile delle bevute, gradazione media, tempi a tavola e andamento del tasso alcolico nel tempo. Un radar live ti mostra anche chi sta bevendo vicino a te adesso. Le tue performance sociali, finalmente in numeri.
+              {t('landing.stats.para')}
             </p>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Radar size={13} /> Radar live</span>
-              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Flame size={13} /> Heatmap mensile</span>
-              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Users size={13} /> Tag amici</span>
+              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Radar size={13} /> {t('landing.stats.chipRadar')}</span>
+              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Flame size={13} /> {t('landing.stats.chipHeatmap')}</span>
+              <span className="drink-tag" style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Users size={13} /> {t('landing.stats.chipTags')}</span>
             </div>
           </div>
         </section>
@@ -2216,13 +2216,13 @@ export default function FeedPage() {
         {/* CTA CARD */}
         {/* Sezione B2B: SOLO nella landing (i normali utenti non vedono nulla di commerciale). */}
         <section className="reveal" style={{ textAlign: 'center', borderTop: '1px solid var(--border-dark)', paddingTop: '40px' }}>
-          <span className="eyebrow-pill" style={{ background: 'rgba(223,255,0,0.1)', color: 'var(--secondary)', margin: '0 auto' }}>Per i locali</span>
-          <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#FFF', margin: '14px 0 8px' }}>Sei un bar o un locale?</h2>
+          <span className="eyebrow-pill" style={{ background: 'rgba(223,255,0,0.1)', color: 'var(--secondary)', margin: '0 auto' }}>{t('landing.business.eyebrow')}</span>
+          <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#FFF', margin: '14px 0 8px' }}>{t('landing.business.title')}</h2>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', maxWidth: '520px', margin: '0 auto 18px', lineHeight: 1.5 }}>
-            Classifica dedicata, eventi sponsorizzati, promo e notifiche ai clienti. Scopri come portare più gente nel tuo locale con Strabar.
+            {t('landing.business.para')}
           </p>
           <Link href="/business" className="btn btn-secondary lift" style={{ padding: '12px 26px', borderRadius: '28px', fontSize: '15px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            Scopri Strabar per i locali <ChevronRight size={16} />
+            {t('landing.business.cta')} <ChevronRight size={16} />
           </Link>
         </section>
 
@@ -2230,13 +2230,13 @@ export default function FeedPage() {
           <div className="glow-orb" style={{ top: '-60px', left: '50%', width: '240px', height: '240px', background: 'var(--primary)', opacity: 0.25 }} />
           <Sparkles size={32} color="var(--secondary)" style={{ position: 'relative', zIndex: 1 }} />
           <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', maxWidth: '600px', position: 'relative', zIndex: 1 }}>
-            Pronto per il prossimo record al tavolo?
+            {t('landing.cta.title')}
           </h2>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '17px', maxWidth: '500px', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
-            Crea il tuo profilo atleta, tagga i compagni di brindisi e inizia subito ad analizzare le tue sessioni. Gratis, dal browser.
+            {t('landing.cta.para')}
           </p>
           <Link href="/auth" className="btn btn-primary lift" style={{ padding: '16px 36px', borderRadius: '30px', fontSize: '18px', fontWeight: '700', marginTop: '10px', position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            Registrati gratis <ChevronRight size={18} />
+            {t('landing.cta.button')} <ChevronRight size={18} />
           </Link>
         </section>
 
