@@ -153,7 +153,8 @@ export default function FeedPage() {
   const [cheersListLoading, setCheersListLoading] = useState(false);
 
   // Stati social: filtro feed (amici/tutti) e gestione follow
-  const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends'
+  const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'friends' | 'live'
+  const [liveFeed, setLiveFeed] = useState([]); // sessioni live caricate con query dedicata (filtro 'live')
   const [followingIds, setFollowingIds] = useState([]);
   const [followerIds, setFollowerIds] = useState([]); // chi segue ME (per "Amici" bidirezionale)
   const [followBusy, setFollowBusy] = useState({});
@@ -317,23 +318,20 @@ export default function FeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedHasMore, feedLoadingMore, activities.length, feedFilter]);
 
-  // Filtro "Live": carica TUTTE le sessioni attive con una query mirata e le fonde nel
-  // feed. Senza questo, il feed ne ha solo la prima pagina (5) e molte live restano
-  // nascoste. EGRESS: una sola query filtrata server-side, senza `media`.
+  // Filtro "Live": carica TUTTE le sessioni attive con una query mirata, in uno stato
+  // DEDICATO (liveFeed). Prima le fondevamo dentro `activities`, ma un refresh/paginazione
+  // del feed sovrascriveva quell'array e le live extra sparivano (restavano solo quelle
+  // già in pagina). Tenendole separate, il filtro 'live' mostra sempre l'elenco completo.
+  // EGRESS: una sola query filtrata server-side, senza `media`.
   useEffect(() => {
     if (feedFilter !== 'live') return;
     if (typeof db.getLiveActivities !== 'function') return;
     let cancelled = false;
     db.getLiveActivities()
       .then((live) => {
-        if (cancelled || !live?.length) return;
-        setActivities((prev) => {
-          const seen = new Set(prev.map((a) => a.id));
-          const fresh = live.filter((a) => !seen.has(a.id));
-          if (!fresh.length) return prev;
-          return [...prev, ...fresh].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        });
-        if (currentUser) hydrateMyCheers(live);
+        if (cancelled) return;
+        setLiveFeed(live || []);
+        if (currentUser && live?.length) hydrateMyCheers(live);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -2237,13 +2235,23 @@ export default function FeedPage() {
 
   // Feed filtrato: prima per visibilità, poi il filtro scelto.
   // 'all' = tutto; 'friends' = chi seguo + le mie; 'live' = solo sessioni live in corso.
-  const visibleActivities = activities
-    .filter(isVisibleToMe)
-    .filter((a) => {
-      if (feedFilter === 'live') return isLiveAct(a);
-      if (feedFilter === 'friends' && currentUser) return a.user_id === currentUser.id || followingIds.includes(a.user_id);
-      return true;
-    });
+  // Per 'live' uniamo le live già nel feed (stato cheer ricco) con quelle della query
+  // dedicata (liveFeed), deduplicate per id: così l'elenco è SEMPRE completo.
+  const visibleActivities = feedFilter === 'live'
+    ? (() => {
+        const map = new Map();
+        activities.filter(isLiveAct).forEach((a) => map.set(a.id, a)); // preferisci la versione del feed
+        liveFeed.filter(isLiveAct).forEach((a) => { if (!map.has(a.id)) map.set(a.id, a); });
+        return Array.from(map.values())
+          .filter(isVisibleToMe)
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      })()
+    : activities
+        .filter(isVisibleToMe)
+        .filter((a) => {
+          if (feedFilter === 'friends' && currentUser) return a.user_id === currentUser.id || followingIds.includes(a.user_id);
+          return true;
+        });
 
   return (
     <div className="dashboard-grid">
