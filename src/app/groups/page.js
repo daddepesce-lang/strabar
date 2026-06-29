@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import { useT } from '@/lib/i18n';
 import RequireAuth from '@/components/RequireAuth';
 import { Users, Plus, Lock, Globe, Search, X, Crown } from 'lucide-react';
 
 export default function GroupsPage() {
+  const t = useT();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('mine'); // 'mine' | 'discover'
@@ -40,7 +42,7 @@ export default function GroupsPage() {
   }, [tab, dq]);
 
   const handleCreate = async () => {
-    if (!name.trim()) { setErr('Dai un nome alla lega.'); return; }
+    if (!name.trim()) { setErr(t('groups.nameRequired')); return; }
     setBusy(true); setErr('');
     try {
       const g = await db.createGroup({ name, description, visibility });
@@ -49,41 +51,41 @@ export default function GroupsPage() {
       await loadMine();
       if (g?.id && typeof window !== 'undefined') window.location.href = `/groups/${g.id}`;
     } catch (e) {
-      setErr(e.message || 'Errore nella creazione.');
+      setErr(e.message || t('groups.createError'));
     } finally { setBusy(false); }
   };
 
-  if (!loading && !currentUser) return <RequireAuth feature="i gruppi" />;
+  if (!loading && !currentUser) return <RequireAuth feature={t('groups.requireFeature')} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '30px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Users size={30} color="var(--primary)" /> Leghe
+            <Users size={30} color="var(--primary)" /> {t('groups.title')}
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-            Raduna gli amici, sfidatevi nelle classifiche e organizzate eventi di lega. 🍻
+            {t('groups.subtitle')}
           </p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn btn-primary" style={{ borderRadius: '20px', padding: '10px 16px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          <Plus size={18} /> Crea
+          <Plus size={18} /> {t('groups.create')}
         </button>
       </div>
 
       <div className="seg-tabs">
-        <button onClick={() => setTab('mine')} className={`seg-tab ${tab === 'mine' ? 'active' : ''}`}>Le mie leghe</button>
-        <button onClick={() => setTab('discover')} className={`seg-tab ${tab === 'discover' ? 'active' : ''}`}>Scopri</button>
+        <button onClick={() => setTab('mine')} className={`seg-tab ${tab === 'mine' ? 'active' : ''}`}>{t('groups.tabMine')}</button>
+        <button onClick={() => setTab('discover')} className={`seg-tab ${tab === 'discover' ? 'active' : ''}`}>{t('groups.tabDiscover')}</button>
       </div>
 
       {tab === 'mine' ? (
         mine.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
             <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-              Non sei in nessuna lega. Creane una e invita gli amici! 👥
+              {t('groups.emptyMine')}
             </p>
             <button onClick={() => setShowCreate(true)} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-              <Plus size={18} /> Crea la prima lega
+              <Plus size={18} /> {t('groups.createFirst')}
             </button>
           </div>
         ) : (
@@ -95,11 +97,11 @@ export default function GroupsPage() {
         <>
           <div style={{ position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-            <input className="form-control" placeholder="Cerca leghe pubbliche..." value={dq} onChange={(e) => setDq(e.target.value)} style={{ paddingLeft: '38px', height: '42px' }} />
+            <input className="form-control" placeholder={t('groups.searchPublic')} value={dq} onChange={(e) => setDq(e.target.value)} style={{ paddingLeft: '38px', height: '42px' }} />
           </div>
           {discover.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-              Nessuna lega pubblica trovata.
+              {t('groups.noPublic')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -113,31 +115,29 @@ export default function GroupsPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '460px', width: '100%', border: '1px solid var(--border-dark)', position: 'relative', maxHeight: '85dvh', overflowY: 'auto' }}>
             <button onClick={() => setShowCreate(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px', paddingRight: '36px' }}>Nuova lega</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '16px', paddingRight: '36px' }}>{t('groups.newLeague')}</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label className="form-label">Nome</label>
-                <input className="form-control" placeholder="Es. La Crew del Venerdì" value={name} maxLength={50} onChange={(e) => setName(e.target.value)} />
+                <label className="form-label">{t('groups.name')}</label>
+                <input className="form-control" placeholder={t('groups.namePlaceholder')} value={name} maxLength={50} onChange={(e) => setName(e.target.value)} />
               </div>
               <div>
-                <label className="form-label">Descrizione (opzionale)</label>
-                <textarea className="form-control" rows={2} placeholder="Di cosa si tratta?" value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} style={{ resize: 'none' }} />
+                <label className="form-label">{t('groups.descOptional')}</label>
+                <textarea className="form-control" rows={2} placeholder={t('groups.descPlaceholder')} value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} style={{ resize: 'none' }} />
               </div>
               <div>
-                <label className="form-label">Visibilità</label>
+                <label className="form-label">{t('groups.visibility')}</label>
                 <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
-                  <div className={`seg-tab ${visibility === 'private' ? 'active' : ''}`} onClick={() => setVisibility('private')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>🔒 Privato</div>
-                  <div className={`seg-tab ${visibility === 'public' ? 'active' : ''}`} onClick={() => setVisibility('public')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>🌍 Pubblico</div>
+                  <div className={`seg-tab ${visibility === 'private' ? 'active' : ''}`} onClick={() => setVisibility('private')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>{t('groups.private')}</div>
+                  <div className={`seg-tab ${visibility === 'public' ? 'active' : ''}`} onClick={() => setVisibility('public')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>{t('groups.public')}</div>
                 </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.5 }}>
-                  {visibility === 'private'
-                    ? 'Solo i membri vedono la lega, la classifica e gli eventi. Si entra su invito (link).'
-                    : 'Chiunque può trovarla e vederne classifica/eventi; per partecipare deve unirsi.'}
+                  {visibility === 'private' ? t('groups.privateHint') : t('groups.publicHint')}
                 </p>
               </div>
               {err && <p style={{ color: '#FF7D7D', fontSize: '13px' }}>{err}</p>}
               <button onClick={handleCreate} disabled={busy} className="btn btn-primary" style={{ borderRadius: '20px', padding: '12px', fontWeight: 700 }}>
-                {busy ? 'Creazione…' : 'Crea lega'}
+                {busy ? t('groups.creating') : t('groups.createLeague')}
               </button>
             </div>
           </div>
@@ -148,6 +148,7 @@ export default function GroupsPage() {
 }
 
 function GroupCard({ g, role }) {
+  const t = useT();
   return (
     <Link href={`/groups/${g.id}`} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', padding: '14px 16px' }}>
       <div className="activity-avatar" style={{ width: 46, height: 46, fontSize: 18, flexShrink: 0, background: 'rgba(255,32,0,0.12)', color: 'var(--primary)' }}>
@@ -160,8 +161,8 @@ function GroupCard({ g, role }) {
         </strong>
         {g.description && <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.description}</div>}
         <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-          {g.visibility === 'public' ? <><Globe size={11} /> Pubblico</> : <><Lock size={11} /> Privato</>}
-          {role && <> · {role === 'owner' ? 'Proprietario' : role === 'admin' ? 'Admin' : 'Membro'}</>}
+          {g.visibility === 'public' ? <><Globe size={11} /> {t('groups.publicLabel')}</> : <><Lock size={11} /> {t('groups.privateLabel')}</>}
+          {role && <> · {role === 'owner' ? t('groups.roleOwner') : role === 'admin' ? t('groups.roleAdmin') : t('groups.roleMember')}</>}
         </span>
       </div>
     </Link>

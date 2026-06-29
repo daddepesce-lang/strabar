@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
+import { useT } from '@/lib/i18n';
 import { Radar, MapPin, Loader, Beer, RefreshCw } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 
@@ -12,6 +13,7 @@ const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 const fmtDist = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`);
 
 export default function LiveRadarPage() {
+  const t = useT();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [coords, setCoords] = useState(null);
@@ -54,7 +56,7 @@ export default function LiveRadarPage() {
     const c = await requestLocation();
     setCoords(c);
     if (!c) {
-      setGeoError('Posizione GPS non disponibile. Attiva la localizzazione per usare il radar.');
+      setGeoError(t('radar.geoError'));
       return;
     }
     await scan(currentUser, c);
@@ -82,7 +84,7 @@ export default function LiveRadarPage() {
     );
   }
 
-  if (!currentUser) return <RequireAuth feature="il radar live" />;
+  if (!currentUser) return <RequireAuth feature={t('radar.requireFeature')} />;
 
   const visible = all.filter((d) => d.distance <= radius);
   const waypoints = visible.map((d) => ({
@@ -98,10 +100,10 @@ export default function LiveRadarPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Radar size={28} color="var(--primary)" /> Radar Live
+            <Radar size={28} color="var(--primary)" /> {t('radar.title')}
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '2px' }}>
-            Chi sta bevendo (live) vicino a te in questo momento.
+            {t('radar.subtitle')}
           </p>
         </div>
         {scanned && (
@@ -111,7 +113,7 @@ export default function LiveRadarPage() {
             className="btn btn-secondary"
             style={{ borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            <RefreshCw size={15} style={scanning ? { animation: 'spin 1s linear infinite' } : undefined} /> Aggiorna
+            <RefreshCw size={15} style={scanning ? { animation: 'spin 1s linear infinite' } : undefined} /> {t('radar.refresh')}
           </button>
         )}
       </div>
@@ -120,8 +122,7 @@ export default function LiveRadarPage() {
         <div className="card" style={{ textAlign: 'center', padding: '36px 24px', color: 'var(--text-dark-secondary)' }}>
           <Radar size={34} color="var(--primary)" style={{ marginBottom: '12px' }} />
           <p style={{ marginBottom: '16px', lineHeight: 1.5 }}>
-            Il radar si avvia solo quando lo chiedi tu, per risparmiare batteria e dati.<br />
-            Premi qui sotto per cercare chi sta bevendo live vicino a te.
+            {t('radar.introP')}
           </p>
           <button
             onClick={startScan}
@@ -130,7 +131,7 @@ export default function LiveRadarPage() {
             style={{ borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
           >
             {scanning ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Radar size={16} />}
-            {scanning ? 'Scansione in corso…' : '📡 Avvia il radar'}
+            {scanning ? t('radar.scanning') : t('radar.start')}
           </button>
         </div>
       ) : geoError ? (
@@ -143,7 +144,7 @@ export default function LiveRadarPage() {
             className="btn btn-primary"
             style={{ borderRadius: '20px' }}
           >
-            📡 Attiva GPS e scansiona
+            {t('radar.enableGps')}
           </button>
         </div>
       ) : (
@@ -151,7 +152,7 @@ export default function LiveRadarPage() {
           {/* Slider raggio */}
           <div className="card" style={{ padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 700 }}>Raggio di ricerca</span>
+              <span style={{ fontSize: '13px', fontWeight: 700 }}>{t('radar.radius')}</span>
               <span style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: 800 }}>{fmtDist(radius)}</span>
             </div>
             <input
@@ -182,11 +183,11 @@ export default function LiveRadarPage() {
           {/* Lista */}
           {visible.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '34px', color: 'var(--text-dark-secondary)' }}>
-              Nessun atleta live nel raggio di {fmtDist(radius)}. Allarga il raggio o riprova più tardi! 🍻
+              {t('radar.empty', { r: fmtDist(radius) })}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{visible.length} atleti live vicino a te:</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{t('radar.countNear', { n: visible.length })}</span>
               {visible.map((d) => (
                 <Link key={d.id} href={`/u/${d.user_id}`} className="card" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', textDecoration: 'none' }}>
                   <div className="activity-avatar" style={{ width: 44, height: 44, fontSize: 18, flexShrink: 0, position: 'relative' }}>
@@ -199,7 +200,7 @@ export default function LiveRadarPage() {
                       📍 {d.place} {d.share === 'friends' && '· 👥'}
                     </span>
                     <span style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                      <Beer size={11} /> {d.drinks} drink · {d.bac.toFixed(2)} g/l
+                      <Beer size={11} /> {d.drinks} {t('radar.drinksUnit')} · {d.bac.toFixed(2)} g/l
                     </span>
                   </div>
                   <span style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: 800, whiteSpace: 'nowrap' }}>{fmtDist(d.distance)}</span>
@@ -209,10 +210,10 @@ export default function LiveRadarPage() {
           )}
 
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', lineHeight: 1.5 }}>
-            Vedi solo chi ha scelto di condividere la posizione live (con tutti o con gli amici). Attiva la condivisione quando avvii un brindisi per comparire qui.
+            {t('radar.privacyNote')}
           </p>
           <p style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textAlign: 'center', lineHeight: 1.5, opacity: 0.7 }}>
-            ⚠️ I valori del tasso alcolico (g/l) sono solo stime statistiche (formula di Widmark) a scopo informativo: non hanno alcun valore medico o legale.
+            {t('radar.disclaimer')}
           </p>
         </>
       )}
