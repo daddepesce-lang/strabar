@@ -158,6 +158,8 @@ export default function FeedPage() {
   const [showLivePanel, setShowLivePanel] = useState(false); // pannello live a comparsa (non nel feed)
   const [tourMsg, setTourMsg] = useState(null); // ultimo esito tappa (mostrato in-app, per intero)
   const [pacingTip, setPacingTip] = useState(false); // consiglio: non loggare i drink tutti insieme
+  const [showPhotoPrompt, setShowPhotoPrompt] = useState(false); // invito a scattare una foto al primo drink
+  const photoPromptInputRef = useRef(null);
   const [banners, setBanners] = useState([]); // banner pubblicitari gestiti da admin
   const [liveResidualGrams, setLiveResidualGrams] = useState(0); // alcol residuo da sessioni precedenti recenti
   // Lock per l'aggiunta drink: blocca nuove selezioni finché l'aggiunta non è completata
@@ -1004,6 +1006,7 @@ export default function FeedPage() {
         : null;
       const base = freshSession || activeSession;
       const currentDrinks = base.drinks || [];
+      const wasFirstDrink = currentDrinks.length === 0; // serve al prompt foto sotto
 
       // CONSIGLIO "PACING": se aggiungi un drink entro 1 min dal precedente, è probabile
       // che tu li stia inserendo tutti insieme. La curva BAC usa l'orario di OGNI drink,
@@ -1118,6 +1121,19 @@ export default function FeedPage() {
       // quando ci sono più utenti collegati). Il feed completo si aggiorna agli eventi chiave.
       setActiveSession((prev) => (prev ? { ...prev, ...updatedFields } : prev));
       patchActivity(activeSession.id, (a) => ({ ...a, ...updatedFields }));
+
+      // PRIMO drink della live → invita a scattare una foto: poche persone le caricano e
+      // un feed con foto è molto più bello. Una sola volta per sessione, e disattivabile
+      // per sempre ("non chiedermelo più", salvato in locale → zero costi DB/egress).
+      try {
+        const hasPhoto = (base.media || []).some((m) => m.type === 'image') || !!base.cover_url;
+        const optedOut = localStorage.getItem('strabar_photo_prompt_off') === '1';
+        const sKey = `strabar_photo_prompt_${activeSession.id}`;
+        if (wasFirstDrink && !hasPhoto && !optedOut && sessionStorage.getItem(sKey) !== '1') {
+          sessionStorage.setItem(sKey, '1');
+          setShowPhotoPrompt(true);
+        }
+      } catch { /* storage non disponibile: nessun prompt */ }
 
       // Notifica SOLO gli eventi importanti (verifica tappa). Niente notifica per ogni
       // singolo drink: era troppo rumorosa.
@@ -3392,6 +3408,57 @@ export default function FeedPage() {
           </div>
         )}
       </div>
+
+      {/* Input foto dedicato al prompt: apre fotocamera/galleria e riusa lo stesso handler. */}
+      <input
+        ref={photoPromptInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleAddSessionPhoto}
+        style={{ display: 'none' }}
+      />
+
+      {/* Invito a scattare una foto dopo il primo drink della live */}
+      {showPhotoPrompt && (
+        <div
+          onClick={() => setShowPhotoPrompt(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card"
+            style={{ width: '100%', maxWidth: '380px', textAlign: 'center', border: '2px solid var(--primary)', boxShadow: '0 0 30px rgba(255,32,0,0.3)', animation: 'slideUp 0.25s ease' }}
+          >
+            <div style={{ fontSize: '40px', lineHeight: 1, marginBottom: '10px' }}>📸</div>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '8px' }}>Immortala il primo drink!</h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: 1.5, marginBottom: '20px' }}>
+              Una foto rende la tua serata molto più bella nel feed (e fa venire sete agli amici 😏).
+            </p>
+            <button
+              onClick={() => { setShowPhotoPrompt(false); photoPromptInputRef.current?.click(); }}
+              className="btn btn-primary"
+              style={{ width: '100%', borderRadius: '16px', padding: '12px', fontSize: '15px', fontWeight: 800, marginBottom: '10px' }}
+            >
+              <Camera size={18} /> Aggiungi una foto
+            </button>
+            <button
+              onClick={() => setShowPhotoPrompt(false)}
+              className="btn btn-secondary"
+              style={{ width: '100%', borderRadius: '16px', padding: '10px', fontSize: '14px' }}
+            >
+              Più tardi
+            </button>
+            <button
+              type="button"
+              onClick={() => { try { localStorage.setItem('strabar_photo_prompt_off', '1'); } catch { /* noop */ } setShowPhotoPrompt(false); }}
+              style={{ marginTop: '14px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '12px', textDecoration: 'underline', cursor: 'pointer' }}
+            >
+              Non chiedermelo più
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Slideshow foto a tutto schermo (apribile da feed e dettaglio) */}
       {lightbox && lightbox.images.length > 0 && (

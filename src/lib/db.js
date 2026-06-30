@@ -1219,7 +1219,7 @@ export const db = {
         // Fallback: se una colonna opzionale (is_active/cover_url) non esiste ancora nel DB,
         // rimuoviamola e riproviamo invece di far fallire tutto l'update.
         if (error.code === '42703' || /column .* does not exist/i.test(error.message || '')) {
-          const { is_active, cover_url, ...rest } = updatedData;
+          const { is_active, cover_url, ended_at, ...rest } = updatedData;
           if (Object.keys(rest).length > 0) {
             const { data: retryData, error: retryError } = await supabase
               .from('sessions')
@@ -1366,7 +1366,9 @@ export const db = {
         await this.closeSession(data.id, {
           feeling: data.feeling || 'Sobrio',
           description: data.description || 'Chiusa automaticamente dopo 5 ore di inattività.',
-          duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
+          // Durata ONESTA = inizio→ultimo drink (l'inattività finale non conta come "tempo al tavolo").
+          duration: Math.max(1, Math.round((lastDrinkMs - createdTime) / 60000)),
+          ended_at: new Date(lastDrinkMs).toISOString(),
         });
         return null;
       }
@@ -1400,7 +1402,8 @@ export const db = {
         await this.closeSession(found.id, {
           feeling: found.feeling || 'Sobrio',
           description: found.description || 'Chiusa automaticamente dopo 5 ore di inattività.',
-          duration: Math.max(1, Math.round((Date.now() - createdTime) / (60 * 1000)))
+          duration: Math.max(1, Math.round((lastDrinkMs - createdTime) / 60000)),
+          ended_at: new Date(lastDrinkMs).toISOString(),
         });
         return null;
       }
@@ -1421,7 +1424,10 @@ export const db = {
   async closeSession(sessionId, finalData) {
     const updatedData = {
       is_active: false,
-      ...finalData
+      ...finalData,
+      // Registra SEMPRE la chiusura dell'attività: timestamp esplicito passato dal
+      // chiamante (auto-chiusura = ultimo drink) oppure ORA (chiusura manuale).
+      ended_at: finalData?.ended_at || new Date().toISOString(),
     };
     // Persisti PRIMA su DB; rimuovi il flag locale solo se l'update riesce davvero.
     // (Prima veniva rimosso subito: se l'UPDATE andava in timeout, la sessione
@@ -1436,7 +1442,7 @@ export const db = {
         if (userId) {
           await supabase
             .from('sessions')
-            .update({ is_active: false })
+            .update({ is_active: false, ended_at: new Date().toISOString() })
             .eq('user_id', userId)
             .eq('is_active', true);
         }

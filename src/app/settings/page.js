@@ -62,9 +62,19 @@ export default function SettingsPage() {
   const [dataMsg, setDataMsg] = useState('');
   const [dataErr, setDataErr] = useState('');
 
+  const [photoPromptOn, setPhotoPromptOn] = useState(true);
+
   useEffect(() => {
     if (typeof db.isPushSubscribed === 'function') db.isPushSubscribed().then(setPushOn);
+    try { setPhotoPromptOn(localStorage.getItem('strabar_photo_prompt_off') !== '1'); } catch { /* noop */ }
   }, []);
+
+  const togglePhotoPrompt = () => {
+    const next = !photoPromptOn;
+    setPhotoPromptOn(next);
+    // ON = chiedi (nessun flag) · OFF = '1'. Solo locale: zero costi DB/egress.
+    try { next ? localStorage.removeItem('strabar_photo_prompt_off') : localStorage.setItem('strabar_photo_prompt_off', '1'); } catch { /* noop */ }
+  };
 
   const toggleNotifPref = async (key) => {
     const next = { ...notifPrefs, [key]: !notifPrefs[key] };
@@ -382,6 +392,30 @@ export default function SettingsPage() {
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '8px', marginBottom: 0 }}>
             Vale sia per le notifiche push sia per la campanella nell&apos;app.
           </p>
+        </div>
+
+        {/* Promemoria foto: invito a scattare una foto al primo drink di una diretta */}
+        <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px', marginTop: '4px' }}>
+          <button
+            type="button"
+            onClick={togglePhotoPrompt}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', width: '100%',
+              background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px',
+              padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
+            }}
+          >
+            <span>📸 Chiedimi una foto al primo drink</span>
+            <span style={{
+              width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
+              background: photoPromptOn ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
+            }}>
+              <span style={{
+                position: 'absolute', top: 2, left: photoPromptOn ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
+                background: '#fff', transition: 'left .2s',
+              }} />
+            </span>
+          </button>
         </div>
       </div>
 
