@@ -3162,18 +3162,8 @@ export default function FeedPage() {
                       {act.drinks.reduce((acc, d) => acc + d.qty, 0)}
                     </span>
                   </div>
-                  <div className="stat-box">
-                    <span className="stat-label">{t('session.timeAtTable')}</span>
-                    <span className="stat-value">
-                      {fmtEffort(act)}
-                    </span>
-                  </div>
-                  <div className="stat-box">
-                    <span className="stat-label">{t('session.load')}</span>
-                    <span className="stat-value highlight">
-                      {act.total_units} {t('session.units')}
-                    </span>
-                  </div>
+                  {/* "Tempo a Tavola" NASCOSTO nel feed (resta nel dettaglio della sessione). */}
+                  {/* U.A. (carico) NASCOSTO nel feed (resta in DB per le classifiche). */}
                   <div className="stat-box">
                     {/* Se la sessione non ha drink propri, il valore è il RESIDUO da sessioni
                         precedenti: lo etichettiamo come tale (non è il tasso "di qui"). */}

@@ -90,7 +90,7 @@ img {
 /* Titoli in Bebas Neue (font display). Bebas ha solo il peso 400: lo forziamo
    per evitare il "finto grassetto" sui titoli con fontWeight inline alto.
    Il corpo del testo resta in DM Sans per leggibilità. */
-h1, h2, .activity-title, .nav-user-name {
+h1, h2, .nav-user-name {
   font-family: var(--font-display);
   font-weight: 400 !important;
   letter-spacing: 0.5px;
@@ -485,18 +485,6 @@ select.form-control {
   overflow: hidden; /* contiene la accent-bar e le foto edge-to-edge */
 }
 
-/* Barra d'accento verticale a sinistra: dà identità e ritmo alla lista */
-.activity-card::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(180deg, var(--primary), rgba(255, 32, 0, 0));
-  opacity: 0.55;
-  pointer-events: none;
-}
 
 /* Foto della serata: edge-to-edge, sfondano il padding della card */
 .activity-cover {
@@ -572,8 +560,10 @@ select.form-control {
 }
 
 .activity-title {
+  font-family: var(--font-sans); /* DM Sans (non Bebas): titolo card più leggibile */
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 700;              /* bold; 600 per semi-bold */
+  letter-spacing: -0.01em;
   color: var(--text-dark-primary);
   margin-bottom: 12px;
 }
@@ -726,9 +716,6 @@ select.form-control {
   background: rgba(255, 32, 0, 0.12);
 }
 
-/* La barra d'accento della card si "accende" all'hover/tocco: più ritmo nella lista */
-.activity-card:hover::after,
-.activity-card:active::after { opacity: 0.95; }
 
 /* Filtri feed (Amici / Tutti / Live): più puliti, con stato hover sugli inattivi
    e un active più deciso (vale su PC e su PWA). */
