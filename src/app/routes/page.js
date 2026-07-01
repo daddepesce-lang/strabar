@@ -9,6 +9,7 @@ import RequireAuth from '@/components/RequireAuth';
 import { useT } from '@/lib/i18n';
 import EventStartGuard from '@/components/EventStartGuard';
 import { siteUrl } from '@/lib/site';
+import { publicName } from '@/lib/names';
 
 export default function RoutesPage() {
   const t = useT();
@@ -334,7 +335,7 @@ export default function RoutesPage() {
     discoveredBars.forEach((bar) => {
       // Skip bars already in tour
       const alreadyAdded = newRouteWaypoints.some(
-        (wp) => Math.abs(wp.lat - bar.lat) < 0.00001 && Math.abs(wp.lng - bar.lon) < 0.00001
+        (wp) => Math.abs(wp.lat - bar.lat) < 0.00001 && Math.abs(wp.lng - bar.lng) < 0.00001
       );
       if (alreadyAdded) return;
 
@@ -353,8 +354,13 @@ export default function RoutesPage() {
         iconAnchor: [7, 7],
       });
 
-      const barName = bar.tags?.name || 'Bar senza nome';
-      const barType = bar.tags?.amenity === 'pub' ? 'Pub' : bar.tags?.amenity === 'biergarten' ? 'Birreria all\'aperto' : 'Bar';
+      const barName = bar.name || 'Bar senza nome';
+      const _bt = (bar.amenity || bar.osmType || '').toLowerCase();
+      const barType = _bt.includes('pub') ? 'Pub'
+        : (_bt.includes('biergarten') || _bt.includes('beer')) ? 'Birreria'
+        : _bt.includes('night') ? 'Nightclub'
+        : (_bt.includes('cafe') || _bt.includes('coffee')) ? 'Caffè'
+        : _bt.includes('restaurant') ? 'Ristorante' : 'Locale';
 
       // Programmatically create the popup elements to avoid inline script/quote escaping issues
       const container = document.createElement('div');
@@ -391,12 +397,12 @@ export default function RoutesPage() {
       addBtn.onclick = () => {
         setNewRouteWaypoints((prev) => {
           const alreadyExists = prev.some(
-            (wp) => Math.abs(wp.lat - bar.lat) < 0.00001 && Math.abs(wp.lng - bar.lon) < 0.00001
+            (wp) => Math.abs(wp.lat - bar.lat) < 0.00001 && Math.abs(wp.lng - bar.lng) < 0.00001
           );
           if (alreadyExists) return prev;
           return [
             ...prev,
-            { name: barName, lat: bar.lat, lng: bar.lon, note: `${barType} trovato tramite ricerca` },
+            { name: barName, lat: bar.lat, lng: bar.lng, note: `${barType} trovato tramite ricerca` },
           ];
         });
         marker.closePopup();
@@ -404,7 +410,7 @@ export default function RoutesPage() {
       container.appendChild(addBtn);
 
       const mapsLink = document.createElement('a');
-      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barName + ' ' + (bar.tags?.['addr:city'] || ''))}`;
+      mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barName + ' ' + (bar.address || ''))}`;
       mapsLink.target = '_blank';
       mapsLink.rel = 'noopener noreferrer';
       mapsLink.textContent = '🔍 Cerca su Google Maps';
@@ -421,7 +427,7 @@ export default function RoutesPage() {
       mapsLink.style.fontSize = '11px';
       container.appendChild(mapsLink);
 
-      const marker = L.marker([bar.lat, bar.lon], { icon: venueIcon })
+      const marker = L.marker([bar.lat, bar.lng], { icon: venueIcon })
         .addTo(mapInstance.current)
         .bindPopup(container);
 
@@ -431,16 +437,16 @@ export default function RoutesPage() {
 
   // Global function so popup buttons can call it
   useEffect(() => {
-    window.__addBarToTour = (lat, lon, name, type) => {
+    window.__addBarToTour = (lat, lng, name, type) => {
       if (!isCreatingRef.current) return;
       setNewRouteWaypoints((prev) => {
         const alreadyExists = prev.some(
-          (wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lon) < 0.00001
+          (wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lng) < 0.00001
         );
         if (alreadyExists) return prev;
         return [
           ...prev,
-          { name, lat, lng: lon, note: `${type} trovato tramite ricerca`, units: 1.5 },
+          { name, lat, lng, note: `${type} trovato tramite ricerca`, units: 1.5 },
         ];
       });
       setJustAdded(name);
@@ -455,20 +461,19 @@ export default function RoutesPage() {
     };
   }, []);
 
-  // --- Ricerca LOCALE per nome (Nominatim) ---
+  // --- Ricerca LOCALE per nome ---
   // L'utente cerca un bar/pub/osteria per nome e lo aggiunge direttamente come tappa.
+  // Usa lo stesso motore del resto dell'app (db.searchVenues → Google Places con fallback
+  // OpenStreetMap e quota mensile), così i risultati sono uniformi ovunque.
   const handleVenueSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     setSearchResults([]);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=8&addressdetails=1&namedetails=1`
-      );
-      const data = await res.json();
-      setSearchResults(data);
+      const data = await db.searchVenues(searchQuery.trim());
+      setSearchResults((data || []).slice(0, 8));
     } catch (err) {
-      console.error('Nominatim venue search error:', err);
+      console.error('Ricerca locale fallita:', err);
     } finally {
       setIsSearching(false);
     }
@@ -477,15 +482,15 @@ export default function RoutesPage() {
   // Centra la mappa su un risultato senza aggiungerlo (per esplorare)
   const handleCenterOnResult = (result) => {
     if (!mapInstance.current) return;
-    mapInstance.current.setView([parseFloat(result.lat), parseFloat(result.lon)], 16);
+    mapInstance.current.setView([Number(result.lat), Number(result.lng)], 16);
   };
 
   // Aggiunge un risultato direttamente come tappa del tour
   const handleAddVenue = (result) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
-    const name = result.namedetails?.name || result.display_name.split(',')[0];
-    const note = result.display_name.split(',').slice(1, 3).join(',').trim();
+    const lat = Number(result.lat);
+    const lng = Number(result.lng);
+    const name = result.name;
+    const note = result.address || '';
     setNewRouteWaypoints((prev) => {
       if (prev.some((wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lng) < 0.00001)) return prev;
       return [...prev, { name, lat, lng, note, units: 1.5 }];
@@ -503,21 +508,18 @@ export default function RoutesPage() {
     if (!query || !query.trim()) return;
     setIsSearching(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query.trim())}&format=json&limit=1&addressdetails=1`
-      );
-      const data = await res.json();
+      const data = await db.searchVenues(query.trim());
       if (!data || data.length === 0) {
         alert('Indirizzo non trovato. Prova ad aggiungere la città o il civico (es. "Via Roma 10, Padova").');
         return;
       }
       const r = data[0];
-      const lat = parseFloat(r.lat);
-      const lng = parseFloat(r.lon);
-      const label = window.prompt('Nome della tappa (come vuoi che appaia nel tour):', r.display_name.split(',')[0]) || r.display_name.split(',')[0];
+      const lat = Number(r.lat);
+      const lng = Number(r.lng);
+      const label = window.prompt('Nome della tappa (come vuoi che appaia nel tour):', r.name) || r.name;
       setNewRouteWaypoints((prev) => {
         if (prev.some((wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lng) < 0.00001)) return prev;
-        return [...prev, { name: label.trim(), lat, lng, note: r.display_name.split(',').slice(1, 3).join(',').trim(), units: 1.5 }];
+        return [...prev, { name: label.trim(), lat, lng, note: r.address || '', units: 1.5 }];
       });
       if (mapInstance.current) mapInstance.current.setView([lat, lng], 17);
       setJustAdded(label.trim());
@@ -539,7 +541,9 @@ export default function RoutesPage() {
     );
   };
 
-  // --- Load Bars (Overpass API) ---
+  // --- Scopri i locali nell'area visibile ---
+  // Stesso motore del resto dell'app (db.getNearbyVenues → Google Places con fallback
+  // OpenStreetMap/Overpass e quota mensile). Centro e raggio derivano dai bounds della mappa.
   const handleLoadBars = useCallback(async () => {
     if (!mapInstance.current) return;
     setIsLoadingBars(true);
@@ -547,27 +551,15 @@ export default function RoutesPage() {
 
     try {
       const bounds = mapInstance.current.getBounds();
-      const south = bounds.getSouth().toFixed(6);
-      const west = bounds.getWest().toFixed(6);
-      const north = bounds.getNorth().toFixed(6);
-      const east = bounds.getEast().toFixed(6);
-
-      const query = `[out:json][timeout:10];
-(
-  node["amenity"="bar"](${south},${west},${north},${east});
-  node["amenity"="pub"](${south},${west},${north},${east});
-  node["amenity"="biergarten"](${south},${west},${north},${east});
-  node["amenity"="nightclub"](${south},${west},${north},${east});
-);
-out body;`;
-
-      const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-
-      const data = await res.json();
-      const bars = (data.elements || []).filter((el) => el.lat && el.lon);
+      const center = bounds.getCenter();
+      // Raggio = distanza dal centro all'angolo NE della vista (metri), con un cap ragionevole.
+      const radius = Math.min(Math.round(center.distanceTo(bounds.getNorthEast())), 5000);
+      const venues = await db.getNearbyVenues(center.lat, center.lng, Math.max(radius, 200));
+      // Solo veri locali (esclude eventuali entità geografiche), con coordinate valide.
+      const bars = (venues || []).filter((v) => v.isVenue !== false && typeof v.lat === 'number' && typeof v.lng === 'number');
       setDiscoveredBars(bars);
     } catch (err) {
-      console.error('Overpass API error:', err);
+      console.error('Ricerca locali vicini fallita:', err);
     } finally {
       setIsLoadingBars(false);
     }
@@ -876,7 +868,7 @@ out body;`;
           in DETTAGLIO/CREAZIONE torna a due colonne (sidebar + mappa). */}
       <div className="r-grid-sidebar" style={listMode ? { display: 'block' } : undefined}>
         {/* LEFT SIDEBAR */}
-        <div className="routes-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: listMode ? 'none' : 'calc(100vh - 200px)', overflowY: listMode ? 'visible' : 'auto' }}>
+        <div className="routes-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0, maxHeight: listMode ? 'none' : 'calc(100vh - 200px)', overflowY: listMode ? 'visible' : 'auto', overflowX: 'hidden' }}>
 
           {/* Intestazione dettaglio: torna alla lista + nome/descrizione/autore */}
           {detailMode && (
@@ -896,9 +888,9 @@ out body;`;
               {selectedRoute?.user_id !== currentUser?.id && (selectedRoute?.creator?.display_name || selectedRoute?.creator?.username) && (
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {(selectedRoute.creator.display_name || selectedRoute.creator.username).charAt(0).toUpperCase()}
+                    {publicName(selectedRoute.creator, selectedRoute.creator.username).charAt(0).toUpperCase()}
                   </span>
-                  {t('routes.createdBy', { name: selectedRoute.creator.display_name || `@${selectedRoute.creator.username}` })}
+                  {t('routes.createdBy', { name: publicName(selectedRoute.creator, `@${selectedRoute.creator.username}`) })}
                 </span>
               )}
             </div>
@@ -954,7 +946,7 @@ out body;`;
                 {t('routes.searchHint')}
               </p>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ position: 'relative', flex: 1 }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
                   <input
                     type="text"
@@ -986,13 +978,13 @@ out body;`;
               {searchResults.length > 0 && (
                 <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
                   {searchResults.map((result, idx) => {
-                    const venueName = result.namedetails?.name || result.display_name.split(',')[0];
-                    const venueAddr = result.display_name.split(',').slice(1, 3).join(',').trim();
+                    const venueName = result.name;
+                    const venueAddr = result.address || '';
                     return (
                       <div
                         key={idx}
                         style={{
-                          display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
+                          display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', minWidth: 0,
                           borderBottom: idx < searchResults.length - 1 ? '1px solid var(--border-dark)' : 'none',
                         }}
                       >
@@ -1320,10 +1312,10 @@ out body;`;
                           {route.user_id !== currentUser?.id && (route.creator?.display_name || route.creator?.username) && (
                             <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
                               <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '8px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {(route.creator.display_name || route.creator.username).charAt(0).toUpperCase()}
+                                {publicName(route.creator, route.creator.username).charAt(0).toUpperCase()}
                               </span>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {route.creator.display_name || `@${route.creator.username}`}
+                                {publicName(route.creator, `@${route.creator.username}`)}
                               </span>
                             </span>
                           )}

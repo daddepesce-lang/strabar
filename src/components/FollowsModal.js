@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import Avatar from '@/components/Avatar';
+import { publicName, publicUsername } from '@/lib/names';
 import { Loader, X, Search } from 'lucide-react';
 
 // Modale follower/seguiti caricata ON-DEMAND: la lista viene scaricata solo quando si apre
@@ -27,7 +28,9 @@ export default function FollowsModal({ userId, initialTab = 'followers', counts 
   const loading = lists[tab] === undefined;
   const current = lists[tab] || [];
   const s = q.toLowerCase().trim();
-  const filtered = s ? current.filter((u) => (u.display_name || '').toLowerCase().includes(s) || (u.username || '').toLowerCase().includes(s)) : current;
+  // Il filtro cerca sul nome PUBBLICO (rispetta l'alias: chi lo usa è trovabile per alias
+  // o @username, non per nome reale) e sullo username.
+  const filtered = s ? current.filter((u) => publicName(u, '').toLowerCase().includes(s) || (u.username || '').toLowerCase().includes(s)) : current;
 
   const tabStyle = (id) => ({ flex: 1, padding: '12px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14,
     color: tab === id ? '#FFF' : 'var(--text-dark-secondary)', borderBottom: tab === id ? '2px solid var(--primary)' : '2px solid transparent' });
@@ -60,10 +63,10 @@ export default function FollowsModal({ userId, initialTab = 'followers', counts 
               onClick={() => { onNavigate?.(); onClose?.(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-dark)', textDecoration: 'none' }}
             >
-              <Avatar src={u.avatar_url} name={u.display_name || u.username} size={40} />
+              <Avatar src={u.avatar_url} name={publicName(u)} size={40} />
               <div style={{ minWidth: 0 }}>
-                <strong style={{ fontSize: 14, color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.display_name || u.username}</strong>
-                {u.username && <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>@{u.username}</span>}
+                <strong style={{ fontSize: 14, color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(u)}</strong>
+                {publicUsername(u) && <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>@{publicUsername(u)}</span>}
               </div>
             </Link>
           ))}

@@ -934,6 +934,9 @@ select.form-control {
 
 /* Responsive grid utilities (collapse to single column on tablet/phone) */
 .r-grid-sidebar { display: grid; grid-template-columns: 350px 1fr; gap: 24px; }
+/* Le tracce grid hanno min-width:auto: senza questo la colonna mappa (1fr) non si
+   restringe sotto la larghezza del suo contenuto e forza scroll orizzontale su mobile. */
+.r-grid-sidebar > * { min-width: 0; }
 .r-grid-feed-sidebar { display: grid; grid-template-columns: 1fr 340px; gap: 30px; }
 .r-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
 .r-grid-2-1 { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; }

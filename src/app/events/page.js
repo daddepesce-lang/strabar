@@ -10,6 +10,7 @@ import {
   CalendarPlus, Route as RouteIcon, Crown, Loader,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
+import { publicName } from '@/lib/names';
 
 function formatEventDate(ds) {
   if (!ds) return 'Data da definire';
@@ -86,7 +87,7 @@ export default function EventsPage() {
     setShowForm(true);
     if (typeof db.getUserProfile === 'function') {
       db.getUserProfile(inviteId).then((p) => {
-        if (p) addInvitee({ id: p.id, name: p.display_name || p.username || 'Atleta', username: p.username || null });
+        if (p) addInvitee({ id: p.id, name: publicName(p, p.username || 'Atleta'), username: p.username || null });
       }).catch(() => setInvited((prev) => (prev.includes(inviteId) ? prev : [...prev, inviteId])));
     } else {
       setInvited((prev) => (prev.includes(inviteId) ? prev : [...prev, inviteId]));
@@ -274,7 +275,7 @@ export default function EventsPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-dark)', paddingTop: '10px', marginTop: 'auto' }}>
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Crown size={13} color="var(--secondary)" /> {ev.host?.display_name || ev.host_name}
+                  <Crown size={13} color="var(--secondary)" /> {publicName(ev.host, ev.host_name)}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <Users size={13} /> {ev.goingCount} {t('events.going')}
@@ -435,11 +436,11 @@ export default function EventsPage() {
                         <button
                           key={p.id}
                           type="button"
-                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: p.display_name || p.username || 'Atleta', username: p.username || null }))}
+                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: publicName(p, p.username || 'Atleta'), username: p.username || null }))}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,32,0,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}
                         >
                           <span style={{ minWidth: 0 }}>
-                            <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</span>
+                            <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(p, p.username)}</span>
                             {p.username && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
                           </span>
                           {sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>{t('events.inviteBtn')}</span>}

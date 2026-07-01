@@ -1,5 +1,5 @@
 import { createClient as createBrowserClient } from '@/utils/supabase/client';
-import { publicName } from '@/lib/names';
+import { publicName, publicUsername } from '@/lib/names';
 import { QUICK_DRINKS, EXTRA_DRINKS, BEER_FAMILIES } from '@/lib/drinks';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -527,7 +527,7 @@ export const db = {
       return (data || []).map((c) => ({
         id: c.user_id,
         name: publicName(c.profiles, 'Atleta Strabar'),
-        username: c.profiles?.username || null,
+        username: publicUsername(c.profiles),
       }));
     }
     if (typeof window === 'undefined') return [];
@@ -3393,7 +3393,7 @@ export const db = {
     if (unique.length === 0) return {};
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url')
+      .select('id, username, display_name, avatar_url, name_mode, alias, use_username')
       .in('id', unique);
     const map = {};
     (data || []).forEach((p) => { map[p.id] = p; });

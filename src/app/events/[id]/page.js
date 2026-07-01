@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { siteUrl } from '@/lib/site';
+import { publicName, publicUsername } from '@/lib/names';
 import { useI18n } from '@/lib/i18n';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
@@ -229,7 +230,7 @@ export default function EventDetailPage({ params }) {
       const companions = (event.responses || [])
         .filter((r) => r.status === 'going' && r.user_id !== currentUser.id)
         .map((r) => {
-          const dn = r.profile?.display_name || r.user_name || t('events.evAthleteDefault');
+          const dn = publicName(r.profile, r.user_name || t('events.evAthleteDefault'));
           const un = r.profile?.username;
           return un ? `${dn} (@${un})` : dn;
         });
@@ -306,7 +307,7 @@ export default function EventDetailPage({ params }) {
       const companions = (event.responses || [])
         .filter((r) => r.status === 'going' && r.user_id !== currentUser.id)
         .map((r) => {
-          const dn = r.profile?.display_name || r.user_name || t('events.evAthleteDefault');
+          const dn = publicName(r.profile, r.user_name || t('events.evAthleteDefault'));
           const un = r.profile?.username;
           return un ? `${dn} (@${un})` : dn;
         });
@@ -594,7 +595,7 @@ export default function EventDetailPage({ params }) {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
             <Crown size={16} color="var(--secondary)" /> {t('events.evOrganizedBy')}{' '}
-            <Link href={`/u/${event.host_id}`} style={{ color: '#FFF', fontWeight: 600 }}>{event.host?.display_name || event.host_name}</Link>
+            <Link href={`/u/${event.host_id}`} style={{ color: '#FFF', fontWeight: 600 }}>{publicName(event.host, event.host_name)}</Link>
           </div>
         </div>
 
@@ -831,10 +832,10 @@ export default function EventDetailPage({ params }) {
                       const sel = toInvite.includes(p.id);
                       return (
                         <button key={p.id} type="button" disabled={involved}
-                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: p.display_name || p.username || t('events.evAthleteDefault'), username: p.username || null }))}
+                          onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: publicName(p, p.username || t('events.evAthleteDefault')), username: p.username || null }))}
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,32,0,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: involved ? 'default' : 'pointer', opacity: involved ? 0.5 : 1 }}>
                           <span style={{ minWidth: 0 }}>
-                            <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</span>
+                            <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(p, p.username)}</span>
                             {p.username && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
                           </span>
                           {involved ? <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('events.evAlreadyInvolved')}</span> : sel ? <Check size={15} color="var(--primary)" /> : <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>{t('events.inviteBtn')}</span>}
@@ -868,11 +869,11 @@ export default function EventDetailPage({ params }) {
                   return (
                     <Link key={p.id} href={`/u/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: 'var(--bg-input-dark)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                       <div className="activity-avatar" style={{ width: 30, height: 30, fontSize: 12 }}>
-                        {(p.display_name || p.username || 'U').charAt(0)}
+                        {publicName(p, p.username || 'U').charAt(0)}
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.display_name || p.username}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username || 'utente'}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(p, p.username)}</div>
+                        {publicUsername(p) && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{publicUsername(p)}</div>}
                       </div>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: badge.c, flexShrink: 0 }}>{badge.t}</span>
                     </Link>
@@ -1046,11 +1047,11 @@ function AttendeeList({ list, emptyText }) {
       {list.map((r) => (
         <Link key={r.user_id} href={`/u/${r.user_id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: 'var(--bg-input-dark)', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
           <div className="activity-avatar" style={{ width: 30, height: 30, fontSize: 12 }}>
-            {(r.profile?.display_name || r.user_name || 'U').charAt(0)}
+            {publicName(r.profile, r.user_name || 'U').charAt(0)}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF' }}>{r.profile?.display_name || r.user_name}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{r.profile?.username || 'utente'}</div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF' }}>{publicName(r.profile, r.user_name)}</div>
+            {publicUsername(r.profile) && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{publicUsername(r.profile)}</div>}
           </div>
         </Link>
       ))}

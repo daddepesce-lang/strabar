@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { publicName } from '@/lib/names';
+import { publicName, publicUsername } from '@/lib/names';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import FollowsModal from '@/components/FollowsModal';
@@ -178,7 +178,7 @@ export default function AthleteProfilePage({ params }) {
       {/* Intestazione profilo amico */}
       <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.06) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-          <Avatar src={profile.avatar_url} name={profile.display_name || profile.username} size={76} style={{ border: '3px solid var(--primary)' }} />
+          <Avatar src={profile.avatar_url} name={publicName(profile)} size={76} style={{ border: '3px solid var(--primary)' }} />
           <div style={{ flex: 1, minWidth: '180px' }}>
             <h1 style={{ fontSize: '26px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {publicName(profile)}
@@ -192,7 +192,7 @@ export default function AthleteProfilePage({ params }) {
               )}
             </h1>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '2px' }}>
-              @{profile.username} •{' '}
+              {publicUsername(profile) && <>@{publicUsername(profile)} •{' '}</>}
               <button type="button" onClick={() => setFollowsModal('following')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontSize: '14px' }}>
                 <strong style={{ color: '#FFF' }}>{followCounts.following}</strong> seguiti
               </button>

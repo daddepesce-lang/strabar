@@ -10,3 +10,13 @@ export function publicName(p, fallback = 'Atleta Strabar') {
   if (mode === 'alias' && p.alias) return p.alias;
   return p.display_name || (p.username ? `@${p.username}` : fallback);
 }
+
+// Username pubblico da mostrare ACCANTO al nome (es. "@mario" sotto il nome nelle liste).
+// Va NASCOSTO per chi ha scelto un ALIAS: mostrarlo svelerebbe l'identità che l'alias
+// vuole coprire. Per gli altri (nome reale o già @username) è ok mostrarlo.
+export function publicUsername(p) {
+  if (!p) return null;
+  const mode = p.name_mode || (p.use_username ? 'username' : 'name');
+  if (mode === 'alias') return null;
+  return p.username || null;
+}

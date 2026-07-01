@@ -12,7 +12,7 @@ import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import BacCurve from '@/components/BacCurve';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
-import { publicName } from '@/lib/names';
+import { publicName, publicUsername } from '@/lib/names';
 import { siteUrl } from '@/lib/site';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
@@ -718,7 +718,7 @@ export default function FeedPage() {
     if (complete) {
       setCheersListPeople(arr.map((uid) => {
         const p = profilesList.find((pr) => pr.id === uid);
-        return { id: uid, name: uid === currentUser?.id ? 'Tu' : publicName(p, 'Atleta Strabar'), username: p?.username || null };
+        return { id: uid, name: uid === currentUser?.id ? 'Tu' : publicName(p, 'Atleta Strabar'), username: publicUsername(p) };
       }));
       setCheersListLoading(false);
       return;
@@ -1757,7 +1757,7 @@ export default function FeedPage() {
         if (!regIds.has(matchedProfile.id)) {
           finalCompanions.push({
             id: matchedProfile.id,
-            name: matchedProfile.display_name || matchedProfile.username,
+            name: publicName(matchedProfile, matchedProfile.username),
             isRegistered: true
           });
           regIds.add(matchedProfile.id);
@@ -2892,13 +2892,13 @@ export default function FeedPage() {
                       {friendResults.map((p) => (
                         <button
                           key={p.id}
-                          onClick={() => addCompanion(`${(p.name_mode === 'alias' && p.alias) || p.display_name || p.username} (@${p.username})`)}
+                          onClick={() => addCompanion(`${publicName(p, p.username)} (@${p.username})`)}
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 32, 0,0.08)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                         >
                           <span className="activity-avatar" style={{ width: '26px', height: '26px', fontSize: '12px', flexShrink: 0 }}>
-                            {(p.display_name || p.username || 'U').charAt(0).toUpperCase()}
+                            {publicName(p, p.username || 'U').charAt(0).toUpperCase()}
                           </span>
                           <span style={{ display: 'flex', flexDirection: 'column' }}>
                             <strong style={{ fontSize: '12px' }}>{publicName(p)}</strong>
@@ -3108,7 +3108,7 @@ export default function FeedPage() {
               >
                 <div className="activity-header" style={{ gap: '12px' }}>
                   <Link href={`/u/${act.user_id}`} prefetch={false} style={{ flexShrink: 0 }}>
-                    <Avatar src={act.profiles?.avatar_url} name={act.profiles?.display_name || act.profiles?.username} size={44} />
+                    <Avatar src={act.profiles?.avatar_url} name={publicName(act.profiles, 'Atleta')} size={44} />
                   </Link>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="activity-author">
@@ -3474,7 +3474,7 @@ export default function FeedPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Link href={`/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)} aria-label="Apri profilo">
-                  <Avatar src={selectedActivity.profiles?.avatar_url} name={selectedActivity.profiles?.display_name || selectedActivity.profiles?.username} size={45} style={{ border: '2px solid var(--primary)', cursor: 'pointer' }} />
+                  <Avatar src={selectedActivity.profiles?.avatar_url} name={publicName(selectedActivity.profiles, 'Atleta')} size={45} style={{ border: '2px solid var(--primary)', cursor: 'pointer' }} />
                 </Link>
                 <div>
                   <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -4311,14 +4311,14 @@ export default function FeedPage() {
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => addEditCompanion(`${(p.name_mode === 'alias' && p.alias) || p.display_name || p.username} (@${p.username})`)}
+                        onClick={() => addEditCompanion(`${publicName(p, p.username)} (@${p.username})`)}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
                       >
                         <span className="activity-avatar" style={{ width: '26px', height: '26px', fontSize: '12px', flexShrink: 0 }}>
-                          {(p.display_name || p.username || 'U').charAt(0).toUpperCase()}
+                          {publicName(p, p.username || 'U').charAt(0).toUpperCase()}
                         </span>
                         <span style={{ display: 'flex', flexDirection: 'column' }}>
-                          <strong style={{ fontSize: '12px' }}>{p.display_name || p.username}</strong>
+                          <strong style={{ fontSize: '12px' }}>{publicName(p, p.username)}</strong>
                           <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>
                         </span>
                       </button>
