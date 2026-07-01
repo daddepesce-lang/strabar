@@ -448,7 +448,7 @@ export const it = {
     },
     caps: [
       { t: 'Widmark', s: 'Calcolo BAC scientifico' },
-      { t: 'GPS reale', s: 'Mappe OpenStreetMap' },
+      { t: 'GPS reale', s: 'Mappe e locali reali' },
       { t: 'Gratis', s: 'Nessun costo, niente store' },
       { t: 'PWA', s: 'Installabile + notifiche' },
     ],
@@ -485,7 +485,7 @@ export const it = {
         { t: 'Unità Alcoliche (U.A.)', d: 'Ogni drink pesa in U.A. reali, calcolate da gradazione (ABV) e volume del bicchiere. Capisci quanto stai realmente bevendo e quando è il caso di fermarti.' },
         { t: 'Notifiche push', d: 'Ricevi avvisi quando un amico ti tagga, commenta o brinda con te, quando perdi il trono di un locale o quando parte una nuova sfida. Anche ad app chiusa.' },
         { t: 'Eventi', d: 'Crea o unisciti agli eventi: aperitivi, pub crawl e serate di gruppo. Vedi chi partecipa, ritrovati nel locale e fai partire la sessione condivisa con un tap.' },
-        { t: 'Percorsi & Pub Crawl', d: 'Pianifica itinerari tra bar reali con mappe OpenStreetMap. Coordinate GPS vere, distanze a piedi tra le tappe e itinerari pronti come il Giro dei Bacari a Venezia.' },
+        { t: 'Percorsi & Pub Crawl', d: 'Pianifica itinerari tra bar reali su mappa. Coordinate GPS vere, distanze a piedi tra le tappe e itinerari pronti come il Giro dei Bacari a Venezia.' },
         { t: 'Classifiche & Leggenda', d: 'Ogni locale ha la sua classifica. Accumula visite e U.A. per diventare la Leggenda del Locale, sblocca badge e scala le classifiche settimanali con gli amici.' },
       ],
     },

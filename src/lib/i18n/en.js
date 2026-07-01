@@ -447,7 +447,7 @@ export const en = {
     },
     caps: [
       { t: 'Widmark', s: 'Scientific BAC calculation' },
-      { t: 'Real GPS', s: 'OpenStreetMap maps' },
+      { t: 'Real GPS', s: 'Real maps & venues' },
       { t: 'Free', s: 'No cost, no app store' },
       { t: 'PWA', s: 'Installable + notifications' },
     ],
@@ -484,7 +484,7 @@ export const en = {
         { t: 'Alcohol Units', d: 'Every drink counts in real Units, computed from strength (ABV) and glass volume. Understand how much you are really drinking and when to stop.' },
         { t: 'Push notifications', d: 'Get alerts when a friend tags you, comments or toasts with you, when you lose a venue throne or when a new challenge starts. Even with the app closed.' },
         { t: 'Events', d: 'Create or join events: aperitivos, pub crawls and group nights. See who is in, meet at the venue and start the shared session with one tap.' },
-        { t: 'Routes & Pub Crawls', d: 'Plan itineraries across real bars with OpenStreetMap maps. True GPS coordinates, walking distances between stops and ready-made routes like the Bacari Tour in Venice.' },
+        { t: 'Routes & Pub Crawls', d: 'Plan itineraries across real bars on the map. True GPS coordinates, walking distances between stops and ready-made routes like the Bacari Tour in Venice.' },
         { t: 'Leaderboards & Legend', d: 'Every venue has its own leaderboard. Stack up visits and Units to become the Venue Legend, unlock badges and climb the weekly rankings with friends.' },
       ],
     },

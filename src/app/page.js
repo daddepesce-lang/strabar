@@ -718,7 +718,7 @@ export default function FeedPage() {
     if (complete) {
       setCheersListPeople(arr.map((uid) => {
         const p = profilesList.find((pr) => pr.id === uid);
-        return { id: uid, name: uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta Strabar'), username: p?.username || null };
+        return { id: uid, name: uid === currentUser?.id ? 'Tu' : publicName(p, 'Atleta Strabar'), username: p?.username || null };
       }));
       setCheersListLoading(false);
       return;
@@ -3997,7 +3997,7 @@ export default function FeedPage() {
               {selectedActivity.cheers && selectedActivity.cheers.length > 0 && (() => {
                 const people = selectedActivity.cheers.map((uid) => {
                   const p = profilesList.find((pr) => pr.id === uid);
-                  return { id: uid, name: uid === currentUser?.id ? 'Tu' : (p?.display_name || p?.username || 'Atleta') };
+                  return { id: uid, name: uid === currentUser?.id ? 'Tu' : publicName(p, 'Atleta') };
                 });
                 const shown = people.slice(0, 3);
                 const extra = people.length - shown.length;

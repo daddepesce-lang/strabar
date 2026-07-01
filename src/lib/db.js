@@ -2547,11 +2547,31 @@ export const db = {
     return Array.from(seen.values());
   },
 
-  // Cerca locali per nome/indirizzo su OpenStreetMap (Nominatim).
+  // Cerca locali per nome/indirizzo. Prova prima Google Places (via route server, che
+  // rispetta la quota gratuita mensile); se la route risponde 'osm' (Google non
+  // configurato / quota esaurita / errore) ripiega su OpenStreetMap (Nominatim), gratis.
+  // Il fallback OSM avviene dal browser: il payload non passa da Vercel.
   // `near` opzionale: { lat, lng } per dare priorità ai risultati vicini.
   async searchVenues(query, near = null) {
     const q = (query || '').trim();
     if (q.length < 2) return [];
+    try {
+      const params = new URLSearchParams({ q });
+      if (near && near.lat && near.lng) { params.set('lat', String(near.lat)); params.set('lng', String(near.lng)); }
+      const res = await fetch(`/api/venues/search?${params.toString()}`);
+      if (res.ok) {
+        const j = await res.json();
+        if (j && j.source === 'google' && Array.isArray(j.venues)) {
+          return this._dedupeVenues(j.venues);
+        }
+      }
+    } catch { /* rete/SSR non disponibile: ripiega su OSM */ }
+    return this._searchVenuesOsm(q, near);
+  },
+
+  // Ricerca locali su OpenStreetMap (Nominatim). Fallback di searchVenues.
+  async _searchVenuesOsm(q, near = null) {
+    if (!q || q.length < 2) return [];
     try {
       const params = new URLSearchParams({
         q,
@@ -2582,8 +2602,28 @@ export const db = {
     }
   },
 
-  // Trova bar/pub/locali reali vicini a una posizione GPS (Overpass API).
+  // Trova bar/pub/locali reali vicini a una posizione GPS. Prova prima Google Places (via
+  // route server con quota mensile); se 'osm' ripiega su Overpass (gratis), dal browser.
   async getNearbyVenues(lat, lng, radius = 200) {
+    if (!lat || !lng) return [];
+    try {
+      const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius: String(radius) });
+      const res = await fetch(`/api/venues/nearby?${params.toString()}`);
+      if (res.ok) {
+        const j = await res.json();
+        if (j && j.source === 'google' && Array.isArray(j.venues)) {
+          const venues = j.venues
+            .map((v) => ({ ...v, distance: this.checkGeofencing(v.lat, v.lng, lat, lng, Infinity).distance }))
+            .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+          return this._dedupeVenues(venues);
+        }
+      }
+    } catch { /* rete/SSR non disponibile: ripiega su OSM */ }
+    return this._getNearbyVenuesOsm(lat, lng, radius);
+  },
+
+  // Overpass API. Fallback di getNearbyVenues.
+  async _getNearbyVenuesOsm(lat, lng, radius = 200) {
     if (!lat || !lng) return [];
     const filters = [
       'amenity~"^(bar|pub|biergarten|nightclub|cafe|restaurant|fast_food|ice_cream)$"',

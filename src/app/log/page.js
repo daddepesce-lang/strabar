@@ -987,7 +987,7 @@ export default function LogActivityPage() {
                           <span>👥 {loc.uniqueDrinkers || 0} atleti</span>
                         </>
                       ) : (
-                        <span style={{ color: 'var(--secondary)' }}>📍 Locale reale da OpenStreetMap</span>
+                        <span style={{ color: 'var(--secondary)' }}>📍 Locale reale</span>
                       )}
                     </div>
                   </div>
@@ -1015,7 +1015,7 @@ export default function LogActivityPage() {
                   className="btn btn-secondary"
                   style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px' }}
                 >
-                  ✏️ Locale non in lista o non su OpenStreetMap? Aggiungilo
+                  ✏️ Locale non in lista? Aggiungilo
                 </button>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1037,7 +1037,7 @@ export default function LogActivityPage() {
                   />
                   <span style={{ fontSize: '11px', color: userCoords ? 'var(--success)' : 'var(--secondary)', lineHeight: '1.4' }}>
                     {userCoords
-                      ? '📍 Useremo la tua posizione attuale (anche se il locale non è su OpenStreetMap): finirà sulla mappa e sarà trovabile dagli altri atleti.'
+                      ? '📍 Useremo la tua posizione attuale (anche se il locale non è nella lista): finirà sulla mappa e sarà trovabile dagli altri atleti.'
                       : '🛰️ GPS non disponibile: inserisci l\'indirizzo (via e città) — lo localizziamo sulla mappa così altri potranno trovarlo.'}
                   </span>
                   <button

@@ -50,7 +50,7 @@ export default function TermsPage() {
 
         <section>
           <h2 style={s.h2}>7. Servizi di terze parti</h2>
-          <p>{APP_NAME} si appoggia a servizi di terzi (es. <strong>Supabase</strong> per autenticazione e database, <strong>OpenStreetMap</strong> per la ricerca dei locali). L&apos;uso di tali servizi è soggetto ai rispettivi termini.</p>
+          <p>{APP_NAME} si appoggia a servizi di terzi (es. <strong>Supabase</strong> per autenticazione e database, <strong>Google Maps Platform</strong> e <strong>OpenStreetMap</strong> per la ricerca dei locali). L&apos;uso di tali servizi è soggetto ai rispettivi termini.</p>
         </section>
 
         <section>
