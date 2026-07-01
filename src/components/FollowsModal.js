@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import Avatar from '@/components/Avatar';
-import { publicName, publicUsername } from '@/lib/names';
+import { publicName } from '@/lib/names';
 import { Loader, X, Search } from 'lucide-react';
 
 // Modale follower/seguiti caricata ON-DEMAND: la lista viene scaricata solo quando si apre
@@ -66,7 +66,6 @@ export default function FollowsModal({ userId, initialTab = 'followers', counts 
               <Avatar src={u.avatar_url} name={publicName(u)} size={40} />
               <div style={{ minWidth: 0 }}>
                 <strong style={{ fontSize: 14, color: '#FFF', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(u)}</strong>
-                {publicUsername(u) && <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>@{publicUsername(u)}</span>}
               </div>
             </Link>
           ))}

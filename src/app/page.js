@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n';
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
+import Toast from '@/components/Toast';
 import BacInfo from '@/components/BacInfo';
 import BacCurve from '@/components/BacCurve';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
@@ -169,6 +170,7 @@ export default function FeedPage() {
   const addingDrinkRef = useRef(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [checkingStop, setCheckingStop] = useState(false); // verifica GPS "sono alla tappa"
+  const [toast, setToast] = useState(null); // feedback a schermo (es. "ti riconosco: sei qui")
   // Selettore locale per la TAPPA EXTRA del tour: ricerca locali reali (con coordinate),
   // così la tappa può essere geo-verificata e contare per le classifiche.
   const [stopPicker, setStopPicker] = useState(false);
@@ -1342,6 +1344,7 @@ export default function FeedPage() {
         if (distance <= 300) {
           verified = true;
           msg = `✅ Sei già a ${stop.name}: tappa verificata, conta per le classifiche!`;
+          setToast({ variant: 'success', title: 'Ti riconosco: sei qui! 📍', message: `${stop.name} — tappa verificata, conta per le classifiche.` });
         } else {
           const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
           msg = `🧭 ${stop.name} è a ~${d}: usa "Guidami" per arrivarci, poi premi "Sono qui" per validare la tappa.`;
@@ -1397,9 +1400,11 @@ export default function FeedPage() {
         setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
         try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
         setTourMsg(`✅ Sei a ${curStop.name}: tappa verificata, conta per le classifiche!`);
+        setToast({ variant: 'success', title: 'Ti riconosco: sei qui! 📍', message: `${curStop.name} — tappa verificata, conta per le classifiche.` });
       } else {
         const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
         setTourMsg(`📍 Sei a ~${dist} da ${curStop.name}: avvicinati e riprova. La tappa non conta finché non sei sul posto.`);
+        setToast({ variant: 'warning', title: 'Non ci sei ancora', message: `Sei a ~${dist} da ${curStop.name}: avvicinati e riprova.` });
       }
     } finally {
       setCheckingStop(false);
@@ -1414,16 +1419,16 @@ export default function FeedPage() {
     setCheckingStop(true);
     try {
       const pos = await getCurrentPosition();
-      if (!pos) { alert('📍 GPS non disponibile. Attiva la posizione per Strabar e riprova.'); return; }
+      if (!pos) { setToast({ variant: 'warning', title: 'GPS non disponibile', message: 'Attiva la posizione per Strabar e riprova.' }); return; }
       const { distance } = db.checkGeofencing(loc.lat, loc.lng, pos.lat, pos.lng, Infinity);
       if (distance <= 300) {
         const locationUpdate = { ...loc, unverified: false };
         setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
         try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
-        alert('✅ Posizione confermata: la sessione ora conta per le classifiche!');
+        setToast({ variant: 'success', title: 'Ti riconosco: sei qui! 📍', message: `${loc.name || 'Locale'} — posizione confermata, la sessione conta per le classifiche.` });
       } else {
         const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-        alert(`📍 Sei a ~${d} dal locale: avvicinati e riprova. La sessione conta solo se sei sul posto.`);
+        setToast({ variant: 'warning', title: 'Non ci sei ancora', message: `Sei a ~${d} dal locale: avvicinati e riprova.` });
       }
     } finally {
       setCheckingStop(false);
@@ -3455,6 +3460,9 @@ export default function FeedPage() {
         <MediaLightbox images={lightbox.images} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
       )}
 
+      {/* Feedback a schermo del check-in GPS ("ti riconosco: sei qui") e altri esiti */}
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
       {/* Celebrazione badge sbloccato in sessione (mostra la coda uno alla volta, con skip) */}
       {badgeCelebration && (
         <BadgeUnlock
@@ -4102,7 +4110,6 @@ export default function FeedPage() {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>{p.name}</strong>
-                    {p.username && <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}
                   </div>
                 </Link>
               ))}

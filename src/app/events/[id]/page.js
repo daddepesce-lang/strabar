@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { siteUrl } from '@/lib/site';
-import { publicName, publicUsername } from '@/lib/names';
+import { publicName } from '@/lib/names';
 import { useI18n } from '@/lib/i18n';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
@@ -873,7 +873,6 @@ export default function EventDetailPage({ params }) {
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(p, p.username)}</div>
-                        {publicUsername(p) && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{publicUsername(p)}</div>}
                       </div>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: badge.c, flexShrink: 0 }}>{badge.t}</span>
                     </Link>
@@ -1051,7 +1050,6 @@ function AttendeeList({ list, emptyText }) {
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFF' }}>{publicName(r.profile, r.user_name)}</div>
-            {publicUsername(r.profile) && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{publicUsername(r.profile)}</div>}
           </div>
         </Link>
       ))}

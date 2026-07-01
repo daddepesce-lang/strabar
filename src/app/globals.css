@@ -887,6 +887,11 @@ select.form-control {
   to { transform: rotate(360deg); }
 }
 
+/* === Toast di conferma (es. "ti riconosco: sei qui") — entra dall'alto, esce verso l'alto === */
+@keyframes toastIn { 0% { transform: translateY(-130%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@keyframes toastOut { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-130%); opacity: 0; } }
+@keyframes toastPop { 0% { transform: scale(.3); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
 /* === Skeleton loading (shimmer) per il feed === */
 @keyframes skeleton-shimmer {
   0% { background-position: -380px 0; }
