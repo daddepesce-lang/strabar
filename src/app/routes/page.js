@@ -268,7 +268,7 @@ export default function RoutesPage() {
     );
     mapInstance.current.flyTo(marker.getLatLng(), Math.max(mapInstance.current.getZoom(), 16), { duration: 0.6 });
     marker.openPopup();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [activeWaypointIndex]);
 
   // Update map markers and polyline when waypoints change
@@ -1333,7 +1333,7 @@ export default function RoutesPage() {
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               {t('routes.statsTitle')}
             </h3>
-            
+
             {/* Selettore modalità di viaggio */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
               <button

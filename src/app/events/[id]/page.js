@@ -168,7 +168,7 @@ export default function EventDetailPage({ params }) {
     setLocQuery(v.name);
     setLocResults([]);
   };
-  const useFreeTextLocation = () => {
+  const applyFreeTextLocation = () => {
     const txt = locQuery.trim();
     if (!txt) return;
     setSelectedLoc(null);
@@ -918,7 +918,7 @@ export default function EventDetailPage({ params }) {
                   placeholder={t('events.fPlacePh')}
                   value={locQuery}
                   onChange={(e) => { setLocQuery(e.target.value); setSelectedLoc(null); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); useFreeTextLocation(); } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFreeTextLocation(); } }}
                 />
                 {editLocName && (
                   <div style={{ fontSize: '11px', marginTop: '4px', color: 'var(--text-dark-secondary)' }}>
@@ -942,7 +942,7 @@ export default function EventDetailPage({ params }) {
                       </button>
                     ))}
                     {!locSearching && locQuery.trim().length >= 2 && (
-                      <button type="button" onClick={useFreeTextLocation} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+                      <button type="button" onClick={applyFreeTextLocation} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
                         {t('events.useFreeText', { q: locQuery.trim() })}
                       </button>
                     )}

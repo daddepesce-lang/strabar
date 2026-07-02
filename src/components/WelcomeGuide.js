@@ -54,7 +54,7 @@ export default function WelcomeGuide() {
       window.removeEventListener('auth-change', onAuth);
       window.removeEventListener('strabar:open-guide', onOpen);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const close = () => { try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* noop */ } setOpen(false); };

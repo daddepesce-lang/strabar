@@ -92,7 +92,7 @@ export default function EventsPage() {
     } else {
       setInvited((prev) => (prev.includes(inviteId) ? prev : [...prev, inviteId]));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [currentUser]);
 
   // Ricerca persone da invitare (server-side, debounced): NON carica tutti i seguiti, così
@@ -140,7 +140,7 @@ export default function EventsPage() {
     setLocResults([]);
   };
 
-  const useFreeTextLocation = () => {
+  const applyFreeTextLocation = () => {
     const t = locQuery.trim();
     if (!t) return;
     setSelectedLoc(null); // testo libero, senza coordinate
@@ -317,7 +317,7 @@ export default function EventsPage() {
                   placeholder={t('events.fPlacePh')}
                   value={locQuery}
                   onChange={(e) => { setLocQuery(e.target.value); setSelectedLoc(null); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); useFreeTextLocation(); } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFreeTextLocation(); } }}
                 />
                 {/* Conferma selezione corrente */}
                 {locationName && (
@@ -350,7 +350,7 @@ export default function EventsPage() {
                     {!locSearching && locQuery.trim().length >= 2 && (
                       <button
                         type="button"
-                        onClick={useFreeTextLocation}
+                        onClick={applyFreeTextLocation}
                         style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-dark-secondary)' }}
                       >
                         {t('events.useFreeText', { q: locQuery.trim() })}

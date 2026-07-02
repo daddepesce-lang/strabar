@@ -492,7 +492,7 @@ export default function FeedPage() {
       window.removeEventListener('strabar:open-activity', onOpen);
       window.removeEventListener('strabar:open-live', onOpenLive);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   // Drink del locale: caricati SOLO quando apri la ricerca drink (lazy, una query
@@ -776,21 +776,21 @@ export default function FeedPage() {
     e.preventDefault();
     setProfileError('');
     setSavingProfile(true);
-    
+
     try {
       const name = customName.trim();
       const username = customUsername.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
-      
+
       if (!name) throw new Error("Inserisci il tuo nome reale!");
       if (username.length < 3) throw new Error("Lo username deve contenere almeno 3 caratteri!");
-      
+
       // Controlla se lo username è già occupato
       if (typeof db.getAllProfiles === 'function') {
         const all = await db.getAllProfiles();
         const existing = all.find(p => p.username === username && p.id !== currentUser.id);
         if (existing) throw new Error("Questo username è già registrato da un altro atleta!");
       }
-      
+
       // Aggiorna
       if (typeof db.updateProfile === 'function') {
         await db.updateProfile(currentUser.id, {
@@ -798,7 +798,7 @@ export default function FeedPage() {
           username: username
         });
       }
-      
+
       // Ricarica l'utente aggiornato
       const updatedUser = await db.getCurrentUser();
       setCurrentUser(updatedUser);
@@ -895,7 +895,7 @@ export default function FeedPage() {
 
   const handleAddDrinkToSession = async (preset) => {
     if (!selectedActivity) return;
-    
+
     try {
       const nowStr = new Date().toISOString();
       const newDrink = {
@@ -931,10 +931,10 @@ export default function FeedPage() {
       // unità con il suo orario (così la curva fa lo scalino). Il display raggruppa per
       // nome con groupDrinks(), quindi non serve più accorpare qui sul campo qty.
       const updatedDrinks = [...existingDrinks, newDrink];
-      
+
       // Nuova somma delle unità
       const newTotalUnits = updatedDrinks.reduce((acc, d) => acc + (d.units * (d.qty || 1)), 0);
-      
+
       // Calcola la nuova durata: tempo trascorso dal primo drink all'ora corrente
       const timestamps = updatedDrinks.map(d => new Date(d.added_at).getTime());
       const startTimeMs = Math.min(...timestamps);
@@ -942,23 +942,23 @@ export default function FeedPage() {
         selectedActivity.duration || 120,
         Math.round((new Date().getTime() - startTimeMs) / (60 * 1000))
       );
-      
+
       // Calcola il nuovo BAC stimato (peso reale dell'utente se impostato nel profilo)
       const newBac = db.calculateCurrentBAC(updatedDrinks, selectedActivity.created_at, newDuration, undefined, currentUser?.weight, selectedActivity.full_stomach, currentUser?.sex);
-      
+
       const updatedFields = {
         drinks: updatedDrinks,
         total_units: parseFloat(newTotalUnits.toFixed(1)),
         duration: newDuration,
         bac_level: parseFloat(newBac.toFixed(2))
       };
-      
+
       // Aggiorna nel database
       await db.updateActivity(selectedActivity.id, updatedFields);
-      
+
       // Ricarica feed e aggiorna modal locale
       await loadFeed();
-      
+
       // Aggiorna selectedActivity locale per mostrare all'istante le modifiche
       setSelectedActivity(prev => {
         if (!prev) return null;
@@ -1096,12 +1096,12 @@ export default function FeedPage() {
         updatedDrinks = [...currentDrinks, newDrink];
       }
       const newTotalUnits = updatedDrinks.reduce((acc, d) => acc + ((d.units || 0) * (d.qty || 1)), 0);
-      
+
       // Calcola la durata: differenza tra primo drink e ora corrente
       const timestamps = updatedDrinks.map(d => new Date(d.added_at).getTime());
       const startTimeMs = Math.min(...timestamps);
       const duration = Math.max(1, Math.round((new Date().getTime() - startTimeMs) / (60 * 1000)));
-      
+
       // Calcola il BAC corrente (sessione live -> referenceTime = adesso, default; peso reale se impostato)
       const newBac = db.calculateCurrentBAC(updatedDrinks, activeSession.created_at, duration, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
 
@@ -1516,7 +1516,7 @@ export default function FeedPage() {
       finally { setStopSearching(false); }
     }, 450);
     return () => clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [stopQuery, stopCoords, stopPicker]);
 
   // Aggiunge il locale scelto come tappa EXTRA subito dopo quella corrente.
@@ -1655,11 +1655,11 @@ export default function FeedPage() {
       const drinks = [...prev.drinks];
       drinks[index] = { ...drinks[index] };
       drinks[index].qty += increment;
-      
+
       if (drinks[index].qty <= 0) {
         drinks.splice(index, 1);
       }
-      
+
       return {
         ...prev,
         drinks
@@ -1708,7 +1708,7 @@ export default function FeedPage() {
       const totalUnits = editingActivity.drinks.reduce((acc, d) => acc + (d.units * d.qty), 0);
       const updatedDrinks = editingActivity.drinks;
       const bac = db.calculateCurrentBAC(updatedDrinks, editingActivity.created_at, editingActivity.duration, undefined, currentUser?.weight, editingActivity.full_stomach, currentUser?.sex);
-      
+
       const updatedFields = {
         title: editingActivity.title,
         description: editingActivity.description,
@@ -1756,7 +1756,7 @@ export default function FeedPage() {
       let usernameMatch = nameStr.match(/@([\w.-]+)/);
       let username = usernameMatch ? usernameMatch[1] : null;
       let displayName = nameStr.replace(/\s*\(@?[\w.-]+\)/g, '').trim();
-      
+
       const matchedProfile = profilesList.find(p => {
         if (username) {
           return p.username.toLowerCase() === username.toLowerCase();
@@ -1764,7 +1764,7 @@ export default function FeedPage() {
         return p.display_name.toLowerCase() === displayName.toLowerCase() ||
                p.username.toLowerCase() === displayName.toLowerCase();
       });
-      
+
       if (matchedProfile) {
         if (!regIds.has(matchedProfile.id)) {
           finalCompanions.push({
@@ -1782,9 +1782,9 @@ export default function FeedPage() {
         });
       }
     });
-    
+
     if (finalCompanions.length === 0) return null;
-    
+
     return (
       <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
         <span>🍻</span>
@@ -1794,7 +1794,7 @@ export default function FeedPage() {
           const isLast = i === finalCompanions.length - 1;
           const isPenultimate = i === finalCompanions.length - 2;
           const separator = isLast ? '' : isPenultimate ? ' e ' : ', ';
-          
+
           return (
             <span key={i}>
               {c.isRegistered ? (
@@ -3481,7 +3481,7 @@ export default function FeedPage() {
       {selectedActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1400, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedActivity(null)}>
           <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 59, 47, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }} onClick={(e) => e.stopPropagation()}>
-            
+
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -3524,7 +3524,7 @@ export default function FeedPage() {
                     }} />
                   {/* Icona "ingrandisci" in alto a destra */}
                   <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.55)', color: '#FFF', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none', fontSize: '15px' }}>⛶</div>
-                  
+
                   {/* Nome e contatore Overlay */}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)', padding: '20px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
                     <span style={{ fontSize: '14px', fontWeight: '700' }}>
@@ -3804,7 +3804,7 @@ export default function FeedPage() {
                     <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {t('session.venueBoard')}
                     </h4>
-                    
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       {/* Top Carico Alcolico */}
                       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-dark)', minWidth: 0 }}>
@@ -3865,11 +3865,11 @@ export default function FeedPage() {
                       {med.type === 'image' && (
                         <div style={{ width: '100%', height: '100%', backgroundSize: 'cover', backgroundImage: `url(${med.url})`, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
                       )}
-                      
+
                       <div style={{ zIndex: 1, color: med.type === 'image' ? '#FFF' : 'var(--primary)', background: med.type === 'image' ? 'rgba(0,0,0,0.6)' : 'none', padding: med.type === 'image' ? '6px' : '0', borderRadius: med.type === 'image' ? '50%' : '0' }}>
                         {med.type === 'video' ? <Video size={32} /> : med.type === 'audio' ? <Volume2 size={32} /> : <Camera size={20} />}
                       </div>
-                      
+
                       <span style={{ zIndex: 1, fontSize: '11px', fontWeight: '600', color: '#FFF', background: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: '4px', maxWidth: '90%', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                         {med.name || (med.type.toUpperCase())}
                       </span>
@@ -3977,7 +3977,7 @@ export default function FeedPage() {
               ) : (
                 <div style={{ color: 'var(--text-dark-secondary)' }}>{t('session.trainSolo')}</div>
               )}
-              
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ color: 'var(--text-dark-secondary)' }}>
                   {t('session.effortLabel')} <strong style={{ color: 'var(--primary)' }}>{selectedActivity.feeling}</strong>
@@ -4126,7 +4126,7 @@ export default function FeedPage() {
       {editingActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1400, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setEditingActivity(null)}>
           <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 59, 47, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }} onClick={(e) => e.stopPropagation()}>
-            
+
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -4217,7 +4217,7 @@ export default function FeedPage() {
               <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                 {t('session.editDrinksLabel', { n: editingActivity.drinks?.length || 0 })}
               </span>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', marginBottom: '15px' }}>
                 {editingActivity.drinks?.length > 0 ? (
                   editingActivity.drinks.map((d, i) => (
@@ -4395,7 +4395,7 @@ export default function FeedPage() {
       {showCompleteProfileModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(10px)' }}>
           <div className="card" style={{ width: '100%', maxWidth: '450px', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 59, 47, 0.3)', padding: '30px', borderRadius: '16px', background: '#0B0A09', position: 'relative' }}>
-            
+
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
                 <Award size={40} />
