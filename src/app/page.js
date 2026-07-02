@@ -3181,7 +3181,9 @@ export default function FeedPage() {
                 </div>
 
                 <h2 className="activity-title" style={{ cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>{act.title}</h2>
-                {act.description && (
+                {/* La descrizione auto-generata alla chiusura ("Chiusa automaticamente…")
+                    è rumore nel feed: la nascondiamo qui (resta nel dettaglio sessione). */}
+                {act.description && !act.description.startsWith('Chiusa automaticamente') && (
                   <p style={{ color: 'var(--text-dark-primary)', fontSize: '15px', marginBottom: '16px', lineHeight: '1.5', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
                     {act.description}
                   </p>
@@ -3194,8 +3196,8 @@ export default function FeedPage() {
                       {act.drinks.reduce((acc, d) => acc + d.qty, 0)}
                     </span>
                   </div>
-                  {/* "Tempo a Tavola" torna come terzo dato hero (durata). U.A. resta in DB. */}
-                  <div className="stat-box" style={{ flex: 1.3 }}>
+                  {/* Durata NON mostrata nel feed (resta nel dettaglio sessione). U.A. resta in DB. */}
+                  <div className="stat-box">
                     {/* Se la sessione non ha drink propri, il valore è il RESIDUO da sessioni
                         precedenti: lo etichettiamo come tale (non è il tasso "di qui"). */}
                     <span className="stat-label" style={{ gap: '4px' }}>{(act.drinks && act.drinks.length) ? t('session.bacEst') : t('session.bacResidual')} <BacInfo size={12} /></span>
@@ -3203,14 +3205,6 @@ export default function FeedPage() {
                       {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.6 }}>g/l</span>
                     </span>
                   </div>
-                  {(act.duration || 0) >= 1 && (
-                    <div className="stat-box">
-                      <span className="stat-label">{t('session.durationLabel')}</span>
-                      <span className="stat-value">
-                        {Math.floor(act.duration / 60)}:{String(Math.round(act.duration % 60)).padStart(2, '0')}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Lista Drink (raggruppati): chip con emoji per tipo + badge quantità */}

@@ -1679,42 +1679,40 @@ select.form-control {
   }
 
   /* === 2C: con una sessione attiva il centro diventa un controllo LIVE pulsante ===
-     Pill gradiente rossa con timer + drink/BAC; l'etichetta sotto diventa "Gestisci". */
+     Compatto (non più largo del FAB) così NON copre le voci accanto: dot + timer,
+     l'etichetta sotto diventa "Gestisci". Il rosso pulsante + anello dicono "live". */
   .mobile-nav .mn-register .mn-live-pill {
     position: relative;
     top: -18px;
     margin-bottom: -12px; /* recupera lo spazio così l'etichetta resta sulla riga */
-    min-width: 118px;
-    max-width: 150px;
-    padding: 9px 12px 8px;
-    border-radius: 24px;
+    padding: 0 9px;
+    height: 40px;
+    border-radius: 20px;
     background: linear-gradient(135deg, #FF3B2F, #D81A00);
     border: 3px solid var(--bg-dark);
-    box-shadow: 0 8px 24px rgba(255, 59, 47, 0.55);
-    display: flex;
-    flex-direction: column;
+    box-shadow: 0 8px 22px rgba(255, 59, 47, 0.5);
+    display: inline-flex;
     align-items: center;
-    gap: 1px;
+    justify-content: center;
+    gap: 5px;
     color: #fff;
     transition: transform 0.3s var(--spring);
   }
-  .mobile-nav .mn-register:active .mn-live-pill { transform: scale(0.94); }
+  .mobile-nav .mn-register:active .mn-live-pill { transform: scale(0.9); }
   .mobile-nav .mn-register .mn-live-pill::after {
     content: '';
     position: absolute;
-    inset: -4px;
-    border-radius: 28px;
+    inset: -3px;
+    border-radius: 22px;
     border: 2px solid var(--primary);
     animation: fab-live 1.6s ease-out infinite;
     pointer-events: none;
   }
-  .mn-live-pill .mn-live-top {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 1.1;
+  .mn-live-pill .mn-live-time {
+    font-family: var(--font-display);
+    font-size: 17px;
+    line-height: 1;
+    letter-spacing: 0.5px;
     white-space: nowrap;
   }
   .mn-live-pill .mn-live-dot {
@@ -1724,15 +1722,6 @@ select.form-control {
     background: #fff;
     box-shadow: 0 0 6px #fff;
     flex-shrink: 0;
-  }
-  .mn-live-pill .mn-live-sub {
-    font-size: 9.5px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.85);
-    white-space: nowrap;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .mobile-nav .mn-register.is-live .mn-register-label { color: #FF6B5E; font-weight: 700; }
   .mobile-nav .mn-badge {

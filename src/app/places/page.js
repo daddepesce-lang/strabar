@@ -379,11 +379,11 @@ export default function ClassifichePage() {
       {/* Atleti: periodo + modalità su una riga, metrica come select discreto, spiegazione nella (i) */}
       {tab === 'atleti' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px', alignItems: 'center' }}>
-          <div className="feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
+          <div className="seg-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
             <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>{t('places.periodWeek')}</div>
             <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>{t('places.periodAll')}</div>
           </div>
-          <div className="feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
+          <div className="seg-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
             <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>{t('places.boardVerified')}</div>
             <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>{t('places.boardAll')}</div>
           </div>

@@ -397,26 +397,15 @@ export default function Navbar() {
           {t('nav.leaderboards')}
         </Link>
         {liveSession ? (() => {
-          // 2C: il centro riflette lo stato dell'app — controllo live pulsante con
-          // timer, drink e BAC stimato (calcolo locale, nessuna query in più).
+          // 2C: il centro riflette lo stato dell'app — controllo live pulsante compatto
+          // (dot + timer). Niente drink/BAC qui: lo spazio è quello del FAB, così non
+          // copre le voci accanto. I dati completi sono nel pannello ("Gestisci").
           const mins = Math.max(1, Math.floor((nowTick - new Date(liveSession.created_at).getTime()) / 60000));
-          const nDrinks = (liveSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
-          let bac = null;
-          try {
-            if (typeof db.calculateCurrentBAC === 'function') {
-              bac = db.calculateCurrentBAC(liveSession.drinks || [], liveSession.created_at, mins, undefined, user?.weight, liveSession.full_stomach, user?.sex);
-            }
-          } catch { /* noop */ }
           return (
             <button type="button" onClick={openMyLive} aria-label={t('nav.manageLive')} className="mn-register is-live">
               <span className="mn-live-pill">
-                <span className="mn-live-top">
-                  <span className="mn-live-dot" />
-                  {Math.floor(mins / 60)}:{String(mins % 60).padStart(2, '0')} · LIVE
-                </span>
-                <span className="mn-live-sub">
-                  {nDrinks} drink{typeof bac === 'number' ? ` · ${bac.toFixed(2)} g/l` : ''}
-                </span>
+                <span className="mn-live-dot" />
+                <span className="mn-live-time">{Math.floor(mins / 60)}:{String(mins % 60).padStart(2, '0')}</span>
               </span>
               <span className="mn-register-label">{t('nav.manageLive')}</span>
             </button>

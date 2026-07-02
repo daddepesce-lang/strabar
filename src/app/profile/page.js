@@ -6,7 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { useI18n } from '@/lib/i18n';
-import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin, BadgeCheck } from 'lucide-react';
+import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin, BadgeCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDayDetails, setSelectedDayDetails] = useState(null);
+  const [calOffset, setCalOffset] = useState(0); // mesi indietro nel calendario bevute (0 = corrente)
 
   // Stati per la scheda Social / Amici
   const [activeTab, setActiveTab] = useState('stats'); // 'stats' o 'friends'
@@ -282,8 +283,10 @@ export default function ProfilePage() {
     }
   });
 
-  // Genera dati per il calendario delle bevute (mese corrente, dinamico)
-  const calNow = new Date();
+  // Calendario delle bevute: navigabile all'indietro (calOffset = mesi fa; 0 = corrente,
+  // non si va nel futuro). Il mese mostrato è il corrente + calOffset.
+  const calBase = new Date();
+  const calNow = new Date(calBase.getFullYear(), calBase.getMonth() + calOffset, 1);
   const calYear = calNow.getFullYear();
   const calMonth = calNow.getMonth(); // 0-indexed
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -333,7 +336,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+    // overflowX: clip → nessuno scroll orizzontale su PWA anche se un figlio (mappa,
+    // grafico) supera la larghezza; `clip` non crea uno scroll container (a differenza
+    // di hidden), quindi lo scroll verticale della pagina resta intatto.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '100%', overflowX: 'clip' }}>
       {/* Intestazione Profilo */}
       <div className="card profile-header" style={{ position: 'relative', textAlign: 'center', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '22px' }}>
         {/* Azioni in alto a destra */}
@@ -503,8 +509,29 @@ export default function ProfilePage() {
               </p>
 
               <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', padding: '20px', borderRadius: 'var(--radius)' }}>
-                <h4 style={{ textAlign: 'center', marginBottom: '15px', fontWeight: '700', color: '#FFF' }}>{monthName}</h4>
-                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginBottom: '15px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setCalOffset((o) => o - 1); setSelectedDayDetails(null); }}
+                    aria-label={t('profile.calPrevMonth')}
+                    title={t('profile.calPrevMonth')}
+                    style={{ width: 32, height: 32, borderRadius: '10px', border: '1px solid var(--border-dark)', background: 'var(--bg-card-dark)', color: 'var(--text-dark-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <h4 style={{ fontWeight: '700', color: '#FFF', minWidth: '150px', textAlign: 'center', textTransform: 'capitalize' }}>{monthName}</h4>
+                  <button
+                    type="button"
+                    onClick={() => { setCalOffset((o) => Math.min(0, o + 1)); setSelectedDayDetails(null); }}
+                    disabled={calOffset >= 0}
+                    aria-label={t('profile.calNextMonth')}
+                    title={t('profile.calNextMonth')}
+                    style={{ width: 32, height: 32, borderRadius: '10px', border: '1px solid var(--border-dark)', background: 'var(--bg-card-dark)', color: 'var(--text-dark-secondary)', cursor: calOffset >= 0 ? 'default' : 'pointer', opacity: calOffset >= 0 ? 0.35 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+
                 <div className="calendar-grid">
                   {[t('profile.dMon'), t('profile.dTue'), t('profile.dWed'), t('profile.dThu'), t('profile.dFri'), t('profile.dSat'), t('profile.dSun')].map(day => (
                     <div key={day} className="calendar-day-header">{day}</div>
