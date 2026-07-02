@@ -15,7 +15,7 @@ export default function EventStartGuard({ events, kind = 'session', onContinue, 
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(8,9,13,0.92)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1700, padding: '20px' }}>
       <div className="card" style={{ maxWidth: '420px', width: '100%', border: '1px solid var(--primary)', position: 'relative', textAlign: 'center' }}>
         <button onClick={onCancel} aria-label="Annulla" style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={20} /></button>
-        <div style={{ display: 'inline-flex', background: 'rgba(255,32,0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px', marginTop: '6px' }}>
+        <div style={{ display: 'inline-flex', background: 'rgba(255,59,47,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px', marginTop: '6px' }}>
           <Calendar size={30} />
         </div>
         <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '8px' }}>Hai un evento in corso 🎉</h2>

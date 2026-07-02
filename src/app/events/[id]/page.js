@@ -473,7 +473,7 @@ export default function EventDetailPage({ params }) {
       </Link>
 
       {/* Intestazione evento */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.06) 100%)' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 59, 47,0.06) 100%)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
             <h1 style={{ fontSize: '28px', fontWeight: 800 }}>{event.title}</h1>
@@ -610,7 +610,7 @@ export default function EventDetailPage({ params }) {
       <div className="card">
         <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>{t('events.evWillYouBeThere')}</h3>
         {!currentUser && (
-          <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'rgba(255,32,0,0.06)', textAlign: 'center' }}>
+          <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'rgba(255,59,47,0.06)', textAlign: 'center' }}>
             <p style={{ fontSize: '14px', color: 'var(--text-dark-primary)', lineHeight: 1.5, marginBottom: '12px' }}>
               {t('events.evInvitedPre')}<strong>{t('events.evInvitedBold')}</strong>{t('events.evInvitedPost')}
             </p>
@@ -637,7 +637,7 @@ export default function EventDetailPage({ params }) {
                   flex: '1 1 120px', borderRadius: '12px', padding: '12px',
                   border: `1px solid ${active ? color : 'var(--border-dark)'}`,
                   background: active ? color : 'var(--bg-input-dark)',
-                  color: active ? '#0D0D0D' : 'var(--text-dark-primary)',
+                  color: active ? '#0A0A0D' : 'var(--text-dark-primary)',
                   fontWeight: 700,
                   opacity: responding && !active ? 0.6 : 1,
                   cursor: responding ? 'default' : 'pointer',
@@ -699,7 +699,7 @@ export default function EventDetailPage({ params }) {
           </h3>
 
           {/* Statistiche aggregate */}
-          <div className="r-grid-stat-4" style={{ background: 'rgba(255,32,0,0.04)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,32,0,0.15)' }}>
+          <div className="r-grid-stat-4" style={{ background: 'rgba(255,59,47,0.04)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,59,47,0.15)' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{t('events.evParticipants')}</div>
               <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>{board.participants}</div>
@@ -809,7 +809,7 @@ export default function EventDetailPage({ params }) {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                   {invitePeople.map((p) => (
                     <button key={p.id} type="button" onClick={() => removeInvitee(p.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255, 59, 47,0.12)', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
                       <Check size={13} /> {p.name} <X size={12} />
                     </button>
                   ))}
@@ -833,7 +833,7 @@ export default function EventDetailPage({ params }) {
                       return (
                         <button key={p.id} type="button" disabled={involved}
                           onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: publicName(p, p.username || t('events.evAthleteDefault')), username: p.username || null }))}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,32,0,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: involved ? 'default' : 'pointer', opacity: involved ? 0.5 : 1 }}>
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,59,47,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: involved ? 'default' : 'pointer', opacity: involved ? 0.5 : 1 }}>
                           <span style={{ minWidth: 0 }}>
                             <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(p, p.username)}</span>
                             {p.username && <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>@{p.username}</span>}

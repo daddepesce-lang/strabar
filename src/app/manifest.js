@@ -13,8 +13,8 @@ export default function manifest() {
     handle_links: 'preferred',
     launch_handler: { client_mode: ['focus-existing', 'navigate-existing', 'auto'] },
     orientation: 'portrait',
-    background_color: '#0D0D0D',
-    theme_color: '#FF2000',
+    background_color: '#0A0A0D',
+    theme_color: '#FF3B2F',
     lang: 'it',
     categories: ['social', 'lifestyle', 'food'],
     icons: [

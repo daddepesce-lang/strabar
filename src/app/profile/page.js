@@ -6,7 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { useI18n } from '@/lib/i18n';
-import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin } from 'lucide-react';
+import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin, BadgeCheck } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
@@ -111,6 +111,13 @@ export default function ProfilePage() {
     };
     loadProfile();
   }, [router]);
+
+  // Conteggi follower/seguiti per l'hero (solo COUNT via head-query: egress trascurabile)
+  useEffect(() => {
+    if (currentUser && typeof db.getFollowCounts === 'function') {
+      db.getFollowCounts(currentUser.id).then(setFollowCounts).catch(() => {});
+    }
+  }, [currentUser]);
 
   const loadSocialData = async (userId) => {
     try {
@@ -328,7 +335,7 @@ export default function ProfilePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
       {/* Intestazione Profilo */}
-      <div className="card profile-header" style={{ position: 'relative', textAlign: 'center', border: '1px solid var(--border-dark)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.05) 100%)' }}>
+      <div className="card profile-header" style={{ position: 'relative', textAlign: 'center', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '22px' }}>
         {/* Azioni in alto a destra */}
         <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: '8px' }}>
           <button
@@ -350,16 +357,32 @@ export default function ProfilePage() {
         </div>
 
         {/* Avatar + nome centrati */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <Avatar src={currentUser?.avatar_url} name={currentUser?.display_name || currentUser?.username} size={84} style={{ border: '3px solid var(--primary)' }} />
-          <h1 style={{ fontSize: '26px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', margin: 0 }}>
-            {currentUser?.display_name}
-            {currentUser?.is_premium && (
-              <span className="badge-premium"><Award size={14} /> {t('nav.premiumBadge')}</span>
-            )}
-          </h1>
-          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: 0 }}>
-            @{currentUser?.username} • {t('profile.memberSince')} {new Date(currentUser?.created_at).toLocaleDateString(dloc, { month: 'long', year: 'numeric' })}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+          <span className="avatar-ring">
+            <Avatar src={currentUser?.avatar_url} name={currentUser?.display_name || currentUser?.username} size={84} />
+          </span>
+          <div>
+            <h1 style={{ fontSize: '36px', fontWeight: 400, lineHeight: 1.05, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', margin: 0 }}>
+              {currentUser?.display_name}
+              {currentUser?.is_premium && (
+                <BadgeCheck size={22} color="var(--secondary)" style={{ flexShrink: 0 }} />
+              )}
+            </h1>
+            <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: '4px 0 0' }}>
+              @{currentUser?.username} · {t('profile.memberSince')} {new Date(currentUser?.created_at).toLocaleDateString(dloc, { month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+          {currentUser?.is_premium && (
+            <span className="badge-premium">⭐ {t('nav.premiumBadge')}</span>
+          )}
+          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0 }}>
+            <span onClick={() => setFollowsModal('followers')} style={{ cursor: 'pointer' }}>
+              <strong style={{ color: '#fff', fontSize: 16 }}>{followCounts.followers}</strong> {t('profile.followers').toLowerCase()}
+            </span>
+            {' · '}
+            <span onClick={() => setFollowsModal('following')} style={{ cursor: 'pointer' }}>
+              <strong style={{ color: '#fff', fontSize: 16 }}>{followCounts.following}</strong> {t('profile.following').toLowerCase()}
+            </span>
           </p>
         </div>
       </div>
@@ -375,8 +398,8 @@ export default function ProfilePage() {
           ? t('profile.bacSome')
           : t('profile.bacSober');
         return (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', border: `1px solid ${color}`, background: `linear-gradient(135deg, rgba(22,24,34,1) 0%, ${hasAlcohol ? 'rgba(255, 32, 0,0.06)' : 'rgba(16,185,129,0.06)'} 100%)` }}>
-            <span style={{ background: 'rgba(255,255,255,0.04)', width: 52, height: 52, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '24px' }}>🍺</span>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '18px' }}>
+            <span style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', width: 52, height: 52, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '24px' }}>🍺</span>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
                 <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('profile.bacNowTitle')}</strong>
@@ -387,8 +410,8 @@ export default function ProfilePage() {
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 900, color, lineHeight: 1.1, marginTop: '2px' }}>
-                {currentBAC.toFixed(2)} <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-dark-secondary)' }}>g/l</span>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '40px', fontWeight: 400, color, lineHeight: 1, marginTop: '4px' }}>
+                {currentBAC.toFixed(2)} <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600, color: 'var(--text-dark-secondary)' }}>g/l</span>
               </div>
               <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', margin: '6px 0 0 0', lineHeight: 1.4 }}>{msg}</p>
             </div>
@@ -398,103 +421,63 @@ export default function ProfilePage() {
 
       {/* Peso/sesso e invito si trovano ora nella scheda "Dati" (vedi sotto). */}
 
-      {/* Menu di Navigazione Tab */}
-      <div style={{ display: 'flex', gap: '15px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', flexWrap: 'wrap' }}>
-        <button 
-          onClick={() => setActiveTab('stats')} 
-          style={{
-            background: activeTab === 'stats' ? 'rgba(255, 32, 0, 0.1)' : 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'stats' ? '2px solid var(--primary)' : 'none',
-            color: activeTab === 'stats' ? '#FFF' : 'var(--text-dark-secondary)',
-            padding: '10px 20px',
-            fontSize: '15px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            borderRadius: '6px 6px 0 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
+      {/* Menu di Navigazione Tab (underline, niente pill) */}
+      <div className="feed-filter-tabs">
+        <button
+          onClick={() => setActiveTab('stats')}
+          className={`seg-tab ${activeTab === 'stats' ? 'active' : ''}`}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
-          <TrendingUp size={16} color={activeTab === 'stats' ? 'var(--primary)' : 'currentColor'} />
+          <TrendingUp size={16} />
           {t('profile.tabStats')}
         </button>
-        <button 
-          onClick={() => setActiveTab('friends')} 
-          style={{
-            background: activeTab === 'friends' ? 'rgba(255, 32, 0, 0.1)' : 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'friends' ? '2px solid var(--primary)' : 'none',
-            color: activeTab === 'friends' ? '#FFF' : 'var(--text-dark-secondary)',
-            padding: '10px 20px',
-            fontSize: '15px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            borderRadius: '6px 6px 0 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
+        <button
+          onClick={() => setActiveTab('friends')}
+          className={`seg-tab ${activeTab === 'friends' ? 'active' : ''}`}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
-          <Users size={16} color={activeTab === 'friends' ? 'var(--primary)' : 'currentColor'} />
+          <Users size={16} />
           {t('profile.tabFriends')}
         </button>
         <button
           onClick={() => setActiveTab('data')}
-          style={{
-            background: activeTab === 'data' ? 'rgba(255, 32, 0, 0.1)' : 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'data' ? '2px solid var(--primary)' : 'none',
-            color: activeTab === 'data' ? '#FFF' : 'var(--text-dark-secondary)',
-            padding: '10px 20px', fontSize: '15px', fontWeight: '700', cursor: 'pointer',
-            borderRadius: '6px 6px 0 0', display: 'flex', alignItems: 'center', gap: '8px',
-          }}
+          className={`seg-tab ${activeTab === 'data' ? 'active' : ''}`}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
         >
-          <User size={16} color={activeTab === 'data' ? 'var(--primary)' : 'currentColor'} />
+          <User size={16} />
           {t('profile.tabData')}
         </button>
       </div>
 
       {activeTab === 'stats' && (
         <>
-          {/* Grid delle Statistiche (Performance Dashboard) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '20px' }}>
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div style={{ color: 'var(--primary)', marginBottom: '10px' }}>
-                <Beer size={32} />
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statDrinks')}</span>
-              <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '5px' }}>{totalDrinksCount}</div>
+          {/* 3 stat hero: Sessioni / U.A. Totali / Locali */}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '14px 8px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '30px', lineHeight: 1, color: '#fff' }}>{activities.length}</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--text-dark-tertiary)', marginTop: '3px' }}>{t('profile.statSessions')}</div>
             </div>
+            <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '14px 8px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '30px', lineHeight: 1, color: 'var(--secondary)' }}>{totalUnits.toFixed(1)}</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--text-dark-tertiary)', marginTop: '3px' }}>{t('profile.statUnitsShort')}</div>
+            </div>
+            <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '14px 8px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '30px', lineHeight: 1, color: '#fff' }}>{new Set(activities.map(a => a.location?.name).filter(Boolean)).size}</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--text-dark-tertiary)', marginTop: '3px' }}>{t('profile.statVenues')}</div>
+            </div>
+          </div>
 
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div style={{ color: 'var(--secondary)', marginBottom: '10px' }}>
-                <TrendingUp size={32} />
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statUnits')}</span>
-              <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '5px' }}>{totalUnits.toFixed(1)}</div>
-            </div>
-
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div style={{ color: '#10B981', marginBottom: '10px' }}>
-                <Clock size={32} />
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statTime')}</span>
-              <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '5px' }}>
-                {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m
-              </div>
-            </div>
-
-            <div className="card" style={{ textAlign: 'center' }}>
-              <div style={{ color: '#3B82F6', marginBottom: '10px' }}>
-                <Heart size={32} />
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.statFav')}</span>
-              <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '12px', color: 'var(--primary)', minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.25 }}>
-                {favoriteDrink}
-              </div>
-            </div>
+          {/* Riga secondaria compatta: drink totali, tempo a tavola, drink preferito */}
+          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '6px 16px', fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '-16px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <Beer size={13} /> {t('profile.statDrinks')}: <strong style={{ color: '#fff' }}>{totalDrinksCount}</strong>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <Clock size={13} /> {t('profile.statTime')}: <strong style={{ color: '#fff' }}>{Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m</strong>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <Heart size={13} /> {t('profile.statFav')}: <strong style={{ color: '#fff' }}>{favoriteDrink}</strong>
+            </span>
           </div>
 
           {/* Sezione Centrale: Calendario Heatmap e Attività */}
@@ -502,10 +485,19 @@ export default function ProfilePage() {
             
             {/* Calendario delle Bevute (Heatmap) */}
             <div className="card">
-              <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calendar size={20} color="var(--primary)" />
-                {t('profile.calTitle')}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={20} color="var(--primary)" />
+                  {t('profile.calTitle')}
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
+                  <span>{t('profile.calLess')}</span>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#202027', display: 'inline-block' }} />
+                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'rgba(223, 255, 0, .35)', display: 'inline-block' }} />
+                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#FF3B2F', display: 'inline-block' }} />
+                  <span>{t('profile.calMore')}</span>
+                </div>
+              </div>
               <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '20px' }}>
                 {t('profile.calDesc')}
               </p>
@@ -534,16 +526,6 @@ export default function ProfilePage() {
                   })}
                 </div>
 
-                {/* Legenda Calore */}
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '20px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-                  <span>{t('profile.calLess')}</span>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(223, 255, 0, 0.2)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 32, 0, 0.4)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: 'rgba(255, 32, 0, 0.7)' }}></div>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#D81A00' }}></div>
-                  <span>{t('profile.calMore')}</span>
-                </div>
               </div>
             </div>
 
@@ -561,7 +543,7 @@ export default function ProfilePage() {
                   </h4>
                   <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
                     <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>{t('profile.dayUnits')}</div>
-                    <div style={{ fontSize: '28px', fontWeight: '800' }}>{selectedDayDetails.units.toFixed(1)}</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 400, lineHeight: 1.1 }}>{selectedDayDetails.units.toFixed(1)}</div>
                   </div>
 
                   <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '8px', textTransform: 'uppercase' }}>{t('profile.dayActs')}</strong>
@@ -609,7 +591,7 @@ export default function ProfilePage() {
               </div>
             );
             return (
-              <div className="card" style={{ marginTop: '10px', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,32,0,0.05) 100%)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div className="card" style={{ marginTop: '10px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
                   <TrendingUp size={18} color="var(--secondary)" /> {t('profile.challengesTitle')}
                 </h3>
@@ -700,16 +682,16 @@ export default function ProfilePage() {
             {drinkPlaces.length > 0 ? (
               <>
                 <RouteMap waypoints={drinkPlaces} height="360px" connectLine={false} />
-                <div style={{ display: 'flex', gap: '20px', marginTop: '14px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '24px', marginTop: '14px', flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{drinkPlaces.length}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('profile.mapVenues')}</div>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 400, lineHeight: 1, color: '#fff' }}>{drinkPlaces.length}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: '3px' }}>{t('profile.mapVenues')}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--secondary)' }}>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 400, lineHeight: 1, color: '#fff' }}>
                       {drinkPlaces.reduce((s, p) => s + p.label, 0)}
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>{t('profile.mapCheckins')}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: '3px' }}>{t('profile.mapCheckins')}</div>
                   </div>
                 </div>
               </>
@@ -755,50 +737,47 @@ export default function ProfilePage() {
             const earnedBadges = allBadges.filter(b => b.earned);
             const lockedBadges = allBadges.filter(b => !b.earned);
 
+            // Tile premium 56x56: conquistati = gradiente scuro tinto (lime / rosso / neutro),
+            // bloccati = spenti; oltre il limite mostrabile → tile "+N" tratteggiata.
+            const MAX_TILES = 11;
+            const ordered = [...earnedBadges, ...lockedBadges];
+            const shown = ordered.slice(0, MAX_TILES);
+            const hiddenCount = ordered.length - shown.length;
+            const earnedTints = [
+              { background: 'linear-gradient(145deg, #2a2412, #141419)', border: '1px solid rgba(223, 255, 0, .35)', boxShadow: '0 0 16px rgba(223, 255, 0, .12)' },
+              { background: 'linear-gradient(145deg, #2a1512, #141419)', border: '1px solid rgba(255, 59, 47, .35)', boxShadow: '0 0 16px rgba(255, 59, 47, .12)' },
+              { background: 'linear-gradient(145deg, #1c1c24, #141419)', border: '1px solid rgba(255, 255, 255, .08)', boxShadow: 'none' },
+            ];
+
             return (
               <div className="card" style={{ marginTop: '10px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {t('profile.badgesTitle')}
-                </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '18px' }}>
-                  {t('profile.badgesDescPre')}
-                  <strong style={{ color: earnedBadges.length > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>
-                    {t('profile.badgesEarned', { n: earnedBadges.length, total: allBadges.length })}
-                  </strong>
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '14px' }}>
+                  <strong style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{t('profile.badgesHeader')}</strong>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{earnedBadges.length} / {allBadges.length}</span>
+                </div>
 
-                {earnedBadges.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dark-secondary)', fontSize: '14px', border: '1px dashed var(--border-dark)', borderRadius: '10px', marginBottom: '16px' }}>
-                    {t('profile.badgesEmpty')}
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 155px), 1fr))', gap: '10px', marginBottom: '16px' }}>
-                    {earnedBadges.map(b => (
-                      <div key={b.id} style={{ background: 'linear-gradient(135deg, rgba(223, 255, 0,0.10) 0%, rgba(22,24,34,1) 100%)', border: '1px solid rgba(223, 255, 0,0.4)', borderRadius: '10px', padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', textAlign: 'center' }}>
-                        <span style={{ fontSize: '26px' }}>{b.icon}</span>
-                        <strong style={{ fontSize: '11px', color: 'var(--secondary)', fontWeight: '800', lineHeight: 1.2 }}>{b.title}</strong>
-                        <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', lineHeight: 1.3 }}>{b.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {lockedBadges.length > 0 && (
-                  <>
-                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
-                      {t('profile.badgesLocked')}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  {shown.map((b, i) => (
+                    <div
+                      key={b.id}
+                      title={b.earned ? `${b.title} — ${b.desc}` : `${b.title} · ${t('profile.badgeUnlockWith', { th: b.threshold })}`}
+                      style={{
+                        width: '56px', height: '56px', borderRadius: '16px', fontSize: '24px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        ...(b.earned
+                          ? earnedTints[i % earnedTints.length]
+                          : { background: '#101014', border: '1px solid rgba(255, 255, 255, .05)', opacity: 0.25 }),
+                      }}
+                    >
+                      {b.icon}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {lockedBadges.map(b => (
-                        <div key={b.id} title={t('profile.badgeUnlockWith', { th: b.threshold })} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '20px', padding: '4px 10px' }}>
-                          <span style={{ fontSize: '13px', filter: 'grayscale(1)', opacity: 0.5 }}>{b.icon}</span>
-                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{b.title}</span>
-                          <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.2)' }}>({b.threshold})</span>
-                        </div>
-                      ))}
+                  ))}
+                  {hiddenCount > 0 && (
+                    <div style={{ minWidth: '56px', height: '56px', borderRadius: '16px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255, 255, 255, .12)', fontSize: '12px', color: 'var(--text-dark-tertiary)' }}>
+                      +{hiddenCount}
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
               </div>
             );
           })()}
@@ -1099,13 +1078,13 @@ export default function ProfilePage() {
           <div className="r-grid-2">
             {/* Seguiti / Seguaci — conteggi cliccabili, lista caricata ON-DEMAND nel modale */}
             <div className="card" style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" onClick={() => setFollowsModal('following')} style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '16px', cursor: 'pointer', textAlign: 'center' }}>
-                <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--primary)' }}>{followCounts.following}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>{t('profile.following')}</div>
+              <button type="button" onClick={() => setFollowsModal('following')} style={{ flex: 1, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '16px 8px', cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '30px', fontWeight: 400, lineHeight: 1, color: '#fff' }}>{followCounts.following}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: '3px' }}>{t('profile.following')}</div>
               </button>
-              <button type="button" onClick={() => setFollowsModal('followers')} style={{ flex: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '16px', cursor: 'pointer', textAlign: 'center' }}>
-                <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--secondary)' }}>{followCounts.followers}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>{t('profile.followers')}</div>
+              <button type="button" onClick={() => setFollowsModal('followers')} style={{ flex: 1, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '16px 8px', cursor: 'pointer', textAlign: 'center' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '30px', fontWeight: 400, lineHeight: 1, color: '#fff' }}>{followCounts.followers}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: '3px' }}>{t('profile.followers')}</div>
               </button>
             </div>
           </div>
@@ -1121,7 +1100,7 @@ export default function ProfilePage() {
           {/* Peso corporeo */}
           <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-              <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
+              <span style={{ background: 'rgba(255, 59, 47,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚖️</span>
               <div style={{ minWidth: 0 }}>
                 <strong style={{ fontSize: '15px', display: 'block' }}>{t('profile.weightTitle')}</strong>
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('profile.weightSub')}</span>
@@ -1139,7 +1118,7 @@ export default function ProfilePage() {
           {/* Sesso biologico */}
           <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--border-dark)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-              <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚧️</span>
+              <span style={{ background: 'rgba(255, 59, 47,0.1)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>⚧️</span>
               <div style={{ minWidth: 0 }}>
                 <strong style={{ fontSize: '15px', display: 'block' }}>{t('profile.sexTitle')}</strong>
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('profile.sexSub')}</span>
@@ -1152,9 +1131,9 @@ export default function ProfilePage() {
           </div>
 
           {/* Invita amici */}
-          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)' }}>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-              <span style={{ background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
+              <span style={{ background: 'rgba(255, 59, 47,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '20px' }}>📲</span>
               <div style={{ minWidth: 0 }}>
                 <strong style={{ fontSize: '15px', display: 'block' }}>{t('profile.inviteTitle')}</strong>
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('profile.inviteSub')}</span>

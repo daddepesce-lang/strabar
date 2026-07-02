@@ -176,7 +176,7 @@ export default function AthleteProfilePage({ params }) {
       </Link>
 
       {/* Intestazione profilo amico */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.06) 100%)' }}>
+      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 59, 47,0.06) 100%)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
           <Avatar src={profile.avatar_url} name={publicName(profile)} size={76} style={{ border: '3px solid var(--primary)' }} />
           <div style={{ flex: 1, minWidth: '180px' }}>
@@ -253,7 +253,7 @@ export default function AthleteProfilePage({ params }) {
         const hasAlcohol = currentBAC > 0;
         const color = overLimit ? 'var(--error)' : hasAlcohol ? 'var(--primary)' : 'var(--success)';
         return (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', border: `1px solid ${color}`, background: `linear-gradient(135deg, rgba(22,24,34,1) 0%, ${hasAlcohol ? 'rgba(255, 32, 0,0.06)' : 'rgba(16,185,129,0.06)'} 100%)` }}>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', border: `1px solid ${color}`, background: `linear-gradient(135deg, rgba(22,24,34,1) 0%, ${hasAlcohol ? 'rgba(255, 59, 47,0.06)' : 'rgba(16,185,129,0.06)'} 100%)` }}>
             <span style={{ background: 'rgba(255,255,255,0.04)', width: 52, height: 52, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '24px' }}>🍺</span>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>

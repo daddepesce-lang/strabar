@@ -44,7 +44,7 @@ export default function LegacyMigrationBanner() {
         background: 'rgba(22,24,34,0.98)',
         border: '1px solid var(--primary)',
         borderRadius: '14px',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.5), 0 0 18px rgba(255, 32, 0,0.25)',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.5), 0 0 18px rgba(255, 59, 47,0.25)',
         padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
@@ -54,7 +54,7 @@ export default function LegacyMigrationBanner() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        <div style={{ background: 'rgba(255, 32, 0,0.12)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>
+        <div style={{ background: 'rgba(255, 59, 47,0.12)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22 }}>
           📦
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>

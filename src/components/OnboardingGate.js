@@ -131,10 +131,10 @@ export default function OnboardingGate() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1900, background: 'rgba(8, 9, 13, 0.97)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div className="card" style={{ maxWidth: '440px', width: '100%', border: '1px solid var(--primary)', boxShadow: '0 0 30px rgba(255, 32, 0,0.2)' }}>
+      <div className="card" style={{ maxWidth: '440px', width: '100%', border: '1px solid var(--primary)', boxShadow: '0 0 30px rgba(255, 59, 47,0.2)' }}>
         {step === 'marketing' ? (
           <>
-            <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
+            <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <Handshake size={32} />
             </div>
             <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Facciamo un patto? 🤝</h2>
@@ -154,7 +154,7 @@ export default function OnboardingGate() {
           </>
         ) : step === 'consent' ? (
           <>
-            <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
+            <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <ShieldCheck size={32} />
             </div>
             <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Un ultimo passo</h2>
@@ -182,7 +182,7 @@ export default function OnboardingGate() {
           </>
         ) : (
           <>
-            <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
+            <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <Scale size={32} />
             </div>
             <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Completa il profilo</h2>

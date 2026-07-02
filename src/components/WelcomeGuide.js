@@ -67,10 +67,10 @@ export default function WelcomeGuide() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1850, background: 'rgba(8,9,13,0.97)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div className="card" style={{ maxWidth: '420px', width: '100%', border: '1px solid var(--primary)', boxShadow: '0 0 30px rgba(255,32,0,0.2)', position: 'relative', textAlign: 'center' }}>
+      <div className="card" style={{ maxWidth: '420px', width: '100%', border: '1px solid var(--primary)', boxShadow: '0 0 30px rgba(255,59,47,0.2)', position: 'relative', textAlign: 'center' }}>
         <button onClick={close} aria-label="Salta" style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={20} /></button>
 
-        <div style={{ display: 'inline-flex', background: 'rgba(255,32,0,0.12)', padding: '16px', borderRadius: '20px', color: 'var(--primary)', marginBottom: '16px', marginTop: '8px' }}>
+        <div style={{ display: 'inline-flex', background: 'rgba(255,59,47,0.12)', padding: '16px', borderRadius: '20px', color: 'var(--primary)', marginBottom: '16px', marginTop: '8px' }}>
           <Icon size={34} />
         </div>
         <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '10px' }}>{card.title}</h2>

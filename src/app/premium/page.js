@@ -76,7 +76,7 @@ export default function PremiumPage() {
         {/* Colonna Sinistra: Benefici */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="card" style={{ display: 'flex', gap: '15px', padding: '20px' }}>
-            <div style={{ background: 'rgba(255, 32, 0, 0.1)', padding: '12px', borderRadius: '12px', height: 'fit-content', color: 'var(--primary)' }}>
+            <div style={{ background: 'rgba(255, 59, 47, 0.1)', padding: '12px', borderRadius: '12px', height: 'fit-content', color: 'var(--primary)' }}>
               <Map size={24} />
             </div>
             <div>

@@ -6,7 +6,7 @@ import { BADGE_ICON } from '@/lib/badges';
 
 // Celebrazione a schermo quando si sblocca un badge durante la sessione.
 // Coriandoli leggeri (CSS, nessuna libreria/egress), auto-chiusura dopo qualche secondo.
-const CONFETTI = ['#FF2000', '#DFFF00', '#10B981', '#3B82F6', '#FF9F1C', '#FFFFFF'];
+const CONFETTI = ['#FF3B2F', '#DFFF00', '#10B981', '#3B82F6', '#FF9F1C', '#FFFFFF'];
 
 export default function BadgeUnlock({ badgeId, onClose, remaining = 0, onSkip }) {
   const t = useT();

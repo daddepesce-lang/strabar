@@ -660,11 +660,11 @@ export default function LogActivityPage() {
         <div
           onClick={handleLocaleCheckInClick}
           className="card"
-          style={{ cursor: 'pointer', background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 32, 0, 0.06) 100%)', border: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: '18px', padding: '22px', transition: 'var(--transition)' }}
+          style={{ cursor: 'pointer', background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 59, 47, 0.06) 100%)', border: '1px solid var(--border-dark)', display: 'flex', alignItems: 'center', gap: '18px', padding: '22px', transition: 'var(--transition)' }}
           onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-dark)'; e.currentTarget.style.transform = 'translateY(0)'; }}
         >
-          <div style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
+          <div style={{ background: 'rgba(255, 59, 47, 0.1)', color: 'var(--primary)', padding: '16px', borderRadius: '50%', flexShrink: 0 }}>
             {startingSession ? <Loader size={26} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={26} fill="var(--primary)" />}
           </div>
           <div style={{ flex: 1 }}>
@@ -754,7 +754,7 @@ export default function LogActivityPage() {
       {/* MODAL 1: Avviso Sessione Attiva */}
       {showActiveSessionWarning && activeSession && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
-          <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 32, 0, 0.25)', padding: '24px', position: 'relative' }}>
+          <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 59, 47, 0.25)', padding: '24px', position: 'relative' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Sessione Live Attiva! 🚨</h2>
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
               Hai già un brindisi live attivo presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> (durata: {Math.max(1, Math.round((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000))} min).
@@ -853,7 +853,7 @@ export default function LogActivityPage() {
                     key={l.id}
                     type="button"
                     onClick={() => setSelectedLeagues((prev) => { const n = new Set(prev); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-dark)'}`, background: on ? 'rgba(255,32,0,0.08)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-dark)'}`, background: on ? 'rgba(255,59,47,0.08)' : 'transparent', cursor: 'pointer', textAlign: 'left' }}
                   >
                     <span style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${on ? 'var(--primary)' : 'var(--border-dark)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{on ? '✓' : ''}</span>
                     <span style={{ flex: 1, minWidth: 0, color: '#FFF', fontWeight: 600, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
@@ -892,7 +892,7 @@ export default function LogActivityPage() {
               <button
                 type="button"
                 onClick={() => setShowLeagues(true)}
-                style={{ width: '100%', textAlign: 'left', fontSize: '12px', color: selectedLeagues.size ? 'var(--primary)' : 'var(--text-dark-secondary)', background: 'rgba(255,32,0,0.07)', border: '1px solid rgba(255,32,0,0.25)', borderRadius: '8px', padding: '9px 12px', marginBottom: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}
+                style={{ width: '100%', textAlign: 'left', fontSize: '12px', color: selectedLeagues.size ? 'var(--primary)' : 'var(--text-dark-secondary)', background: 'rgba(255,59,47,0.07)', border: '1px solid rgba(255,59,47,0.25)', borderRadius: '8px', padding: '9px 12px', marginBottom: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}
               >
                 <span>🏆 Conta per {selectedLeagues.size === 0 ? 'nessuna lega' : selectedLeagues.size === myLeagues.length ? 'tutte le tue leghe' : `${selectedLeagues.size} ${selectedLeagues.size === 1 ? 'lega' : 'leghe'}`}</span>
                 <span style={{ textDecoration: 'underline', flexShrink: 0 }}>Modifica</span>
@@ -936,7 +936,7 @@ export default function LogActivityPage() {
               && displayedVenues[0] && displayedVenues[0].distance != null && displayedVenues[0].distance <= 100 && (
               <div
                 onClick={() => startSessionAtVenue(displayedVenues[0])}
-                style={{ cursor: 'pointer', marginBottom: '12px', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'rgba(255,32,0,0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}
+                style={{ cursor: 'pointer', marginBottom: '12px', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--primary)', background: 'rgba(255,59,47,0.08)', display: 'flex', alignItems: 'center', gap: '12px' }}
               >
                 <MapPin size={22} color="var(--primary)" style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -966,7 +966,7 @@ export default function LogActivityPage() {
                     key={loc.key}
                     onClick={() => startSessionAtVenue(loc)}
                     style={{ padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-dark)', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'rgba(255, 32, 0,0.02)'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'rgba(255, 59, 47,0.02)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-dark)'; e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>

@@ -67,7 +67,7 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false, // niente pinch-zoom: si comporta come un'app nativa
   viewportFit: "cover",
-  themeColor: "#0D0D0D",
+  themeColor: "#0A0A0D",
 };
 
 export default function RootLayout({ children }) {

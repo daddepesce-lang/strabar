@@ -50,10 +50,10 @@ export default function AgeGate() {
           width: '100%',
           textAlign: 'center',
           border: '1px solid var(--primary)',
-          boxShadow: '0 0 30px rgba(255, 32, 0,0.2)',
+          boxShadow: '0 0 30px rgba(255, 59, 47,0.2)',
         }}
       >
-        <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0,0.12)', padding: '16px', borderRadius: '20px', color: 'var(--primary)', marginBottom: '14px' }}>
+        <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47,0.12)', padding: '16px', borderRadius: '20px', color: 'var(--primary)', marginBottom: '14px' }}>
           <Beer size={36} fill="var(--primary)" />
         </div>
 

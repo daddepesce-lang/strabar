@@ -97,7 +97,7 @@ export default function PwaInstallBanner() {
           background: 'rgba(22,24,34,0.98)',
           border: '1px solid var(--primary)',
           borderRadius: '14px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.5), 0 0 18px rgba(255, 32, 0,0.25)',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.5), 0 0 18px rgba(255, 59, 47,0.25)',
           padding: '12px 14px',
           display: 'flex',
           alignItems: 'center',
@@ -106,7 +106,7 @@ export default function PwaInstallBanner() {
           margin: '0 auto',
         }}
       >
-        <div style={{ background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ background: 'rgba(255, 59, 47,0.12)', color: 'var(--primary)', width: 42, height: 42, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Beer size={22} fill="var(--primary)" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>

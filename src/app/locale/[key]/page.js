@@ -77,7 +77,7 @@ export default function VenuePublicPage({ params }) {
       </Link>
 
       {/* Intestazione locale */}
-      <div className="card" style={{ textAlign: 'center', padding: '24px 20px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,32,0,0.08) 100%)' }}>
+      <div className="card" style={{ textAlign: 'center', padding: '24px 20px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,59,47,0.08) 100%)' }}>
         <div style={{ fontSize: '13px', color: 'var(--secondary)', fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase', marginBottom: '6px' }}>
           <MapPin size={14} style={{ verticalAlign: '-2px' }} /> Classifica del locale
         </div>
@@ -105,7 +105,7 @@ export default function VenuePublicPage({ params }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {board.map((r, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: i < 3 ? 'rgba(255,32,0,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${i < 3 ? 'rgba(255,32,0,0.25)' : 'var(--border-dark)'}` }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: i < 3 ? 'rgba(255,59,47,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${i < 3 ? 'rgba(255,59,47,0.25)' : 'var(--border-dark)'}` }}>
                 <span style={{ fontSize: i < 3 ? '20px' : '14px', fontWeight: 800, width: '28px', textAlign: 'center', color: 'var(--text-dark-secondary)' }}>{medals[i] || i + 1}</span>
                 <span style={{ flex: 1, minWidth: 0, color: '#FFF', fontWeight: 700, fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
                 <span style={{ textAlign: 'right' }}>

@@ -358,16 +358,16 @@ export default function ClassifichePage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header */}
       <div>
-        <h1 style={{ fontSize: '30px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Trophy size={30} color="var(--secondary)" /> {t('places.title')}
+        <h1 style={{ fontSize: '30px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Trophy size={26} color="var(--secondary)" /> {t('places.title')}
         </h1>
-        <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
+        <p style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', marginTop: '4px' }}>
           {t('places.subtitle')}
         </p>
       </div>
 
       {/* Tab Atleti / Locali */}
-      <div className="seg-tabs">
+      <div className="feed-filter-tabs">
         <button onClick={() => setTab('atleti')} className={`seg-tab ${tab === 'atleti' ? 'active' : ''}`}>
           <Users size={16} /> {t('places.tabAthletes')}
         </button>
@@ -376,20 +376,34 @@ export default function ClassifichePage() {
         </button>
       </div>
 
-      {/* Atleti: periodo + modalità su una riga, spiegazione nella (i) */}
+      {/* Atleti: periodo + modalità su una riga, metrica come select discreto, spiegazione nella (i) */}
       {tab === 'atleti' && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'stretch' }}>
-          <div className="seg-tabs feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px', alignItems: 'center' }}>
+          <div className="feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
             <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>{t('places.periodWeek')}</div>
             <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>{t('places.periodAll')}</div>
           </div>
-          <div className="seg-tabs feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
+          <div className="feed-filter-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
             <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>{t('places.boardVerified')}</div>
             <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>{t('places.boardAll')}</div>
           </div>
-          <button onClick={() => setShowInfo(true)} aria-label="Come funziona la classifica" title="Come funziona" className="action-btn" style={{ flexShrink: 0, alignSelf: 'center' }}>
-            <Info size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: 'auto' }}>
+            <select
+              value={userSort}
+              onChange={(e) => setUserSort(e.target.value)}
+              aria-label="Metrica classifica"
+              style={{ background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '8px 12px', fontSize: '13px', fontWeight: 600, color: 'var(--text-dark-secondary)', cursor: 'pointer' }}
+            >
+              {USER_SORTS.map(({ key }) => (
+                <option key={key} value={key}>
+                  {key === 'units' ? t('places.sortUnits') : key === 'sessions' ? t('places.sortSessions') : t('places.sortPlacesL')}
+                </option>
+              ))}
+            </select>
+            <button onClick={() => setShowInfo(true)} aria-label="Come funziona la classifica" title="Come funziona" className="action-btn" style={{ flexShrink: 0 }}>
+              <Info size={18} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -415,16 +429,6 @@ export default function ClassifichePage() {
       ) : tab === 'atleti' ? (
         /* ================= ATLETI ================= */
         <>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {USER_SORTS.map(({ key, icon: Icon }) => (
-              <button key={key} onClick={() => setUserSort(key)}
-                className={`btn ${userSort === key ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '8px 14px', fontSize: '13px', borderRadius: '20px' }}>
-                <Icon size={14} /> {key === 'units' ? t('places.sortUnits') : key === 'sessions' ? t('places.sortSessions') : t('places.sortPlacesL')}
-              </button>
-            ))}
-          </div>
-
           {sortedUsers.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
               <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
@@ -440,23 +444,28 @@ export default function ClassifichePage() {
                   const u = sortedUsers[pos];
                   if (!u) return <div key={pos} />;
                   const isFirst = pos === 0;
+                  const [metricValue, ...metricUnit] = userMetric(u).split(' ');
                   const inner = (
                     <>
-                      <div className="podium-medal">{medal(pos)}</div>
-                      <div className="activity-avatar podium-avatar">{u.revealed ? (u.name || 'U').charAt(0) : '🥷'}</div>
+                      {isFirst && <div className="podium-medal">👑</div>}
+                      <span className="podium-ring">
+                        <div className="activity-avatar podium-avatar">{u.revealed ? (u.name || 'U').charAt(0) : '🥷'}</div>
+                      </span>
                       <div className="podium-name">{u.name}</div>
-                      <div className="podium-metric">{userMetric(u)}</div>
-                      <div className={`podium-bar ${isFirst ? 'gold' : ''}`} style={{ height: isFirst ? 60 : pos === 1 ? 44 : 32 }}>
-                        {pos + 1}
+                      <div className="podium-metric">
+                        {metricValue}
+                        {metricUnit.length > 0 && <span className="podium-metric-unit"> {metricUnit.join(' ')}</span>}
                       </div>
+                      <div className={`podium-bar ${isFirst ? 'gold' : ''}`}>{pos + 1}</div>
                     </>
                   );
+                  const colClass = `podium-col ${isFirst ? 'first' : pos === 2 ? 'third' : ''}`;
                   return u.revealed ? (
-                    <Link key={u.user_id} href={`/u/${u.user_id}`} className={`podium-col ${isFirst ? 'first' : ''}`}>
+                    <Link key={u.user_id} href={`/u/${u.user_id}`} className={colClass}>
                       {inner}
                     </Link>
                   ) : (
-                    <div key={u.user_id} className={`podium-col ${isFirst ? 'first' : ''}`}>
+                    <div key={u.user_id} className={colClass}>
                       {inner}
                     </div>
                   );
@@ -464,11 +473,13 @@ export default function ClassifichePage() {
               </div>
 
               {/* Resto classifica */}
-              <div className="card" style={{ padding: '8px' }}>
+              <div>
                 {sortedUsers.map((u, i) => {
+                  const isMe = currentUser && u.user_id === currentUser.id;
+                  const rowClass = `rank-row ${isMe ? 'me' : ''}`;
                   const rowInner = (
                     <>
-                    <span className={`rank-num ${i < 3 ? 'top' : ''}`}>{medal(i)}</span>
+                    <span className={`rank-num ${i < 3 ? 'top' : ''}`}>{i + 1}</span>
                     <div className="activity-avatar" style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}>
                       {u.revealed ? (u.name || 'U').charAt(0) : '🥷'}
                     </div>
@@ -477,22 +488,22 @@ export default function ClassifichePage() {
                         <strong style={{ fontSize: '14px', color: u.revealed ? '#FFF' : 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</strong>
                         {u.is_premium && u.revealed && <Award size={12} color="var(--secondary)" style={{ flexShrink: 0 }} />}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)' }}>
                         {t('places.rowInfo', { s: u.sessions, p: u.placesCount })}
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <strong style={{ fontSize: '15px', color: 'var(--primary)' }}>{userMetric(u).split(' ')[0]}</strong>
-                      <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase' }}>
-                        {userSort === 'units' ? t('places.rowMetricUnits') : userSort === 'sessions' ? t('places.rowMetricSessions') : t('places.rowMetricPlaces')}
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: isMe ? '#FF6B5E' : '#fff', flexShrink: 0 }}>
+                      {userMetric(u).split(' ')[0]}
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-sans)', color: 'var(--text-dark-tertiary)', fontWeight: 600 }}>
+                        {' '}{userSort === 'units' ? t('places.rowMetricUnits') : userSort === 'sessions' ? t('places.rowMetricSessions') : t('places.rowMetricPlaces')}
                       </span>
-                    </div>
+                    </span>
                     </>
                   );
                   return u.revealed ? (
-                    <Link key={u.user_id} href={`/u/${u.user_id}`} className="rank-row">{rowInner}</Link>
+                    <Link key={u.user_id} href={`/u/${u.user_id}`} className={rowClass}>{rowInner}</Link>
                   ) : (
-                    <div key={u.user_id} className="rank-row" style={{ cursor: 'default' }}>{rowInner}</div>
+                    <div key={u.user_id} className={rowClass} style={{ cursor: 'default' }}>{rowInner}</div>
                   );
                 })}
               </div>
@@ -502,26 +513,29 @@ export default function ClassifichePage() {
       ) : (
         /* ================= LOCALI ================= */
         <>
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: '1 1 220px' }}>
               <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
               <input
                 className="form-control"
                 placeholder={t('places.searchVenues')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                style={{ paddingLeft: '44px', height: '46px' }}
+                style={{ paddingLeft: '44px', height: '46px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)' }}
               />
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {PLACE_SORTS.map(({ key, icon: Icon }) => (
-                <button key={key} onClick={() => setPlaceSort(key)}
-                  className={`btn ${placeSort === key ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ padding: '8px 14px', fontSize: '13px', borderRadius: '20px' }}>
-                  <Icon size={14} /> {key === 'sessions' ? t('places.sortVenueSessions') : key === 'units' ? t('places.sortUnits') : t('places.sortVenueRating')}
-                </button>
+            <select
+              value={placeSort}
+              onChange={(e) => setPlaceSort(e.target.value)}
+              aria-label="Ordina locali"
+              style={{ background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '0 12px', height: '46px', fontSize: '13px', fontWeight: 600, color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0 }}
+            >
+              {PLACE_SORTS.map(({ key }) => (
+                <option key={key} value={key}>
+                  {key === 'sessions' ? t('places.sortVenueSessions') : key === 'units' ? t('places.sortUnits') : t('places.sortVenueRating')}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {sortedPlaces.length === 0 ? (
@@ -642,7 +656,7 @@ export default function ClassifichePage() {
             <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Trophy size={18} color="var(--secondary)" /> {t('places.placeLeaderboard')}
             </h3>
-            <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '380px', marginBottom: '12px' }}>
+            <div className="feed-filter-tabs" style={{ maxWidth: '380px', marginBottom: '12px' }}>
               {[{ k: 'week', l: t('places.periodWeek') }, { k: 'all', l: t('places.periodAll') }].map((p) => (
                 <div key={p.k} className={`seg-tab ${placePeriod === p.k ? 'active' : ''}`} onClick={() => setPlacePeriod(p.k)}>{p.l}</div>
               ))}
@@ -746,7 +760,7 @@ export default function ClassifichePage() {
               {t('places.geoMsg')}
             </p>
 
-            <div style={{ background: 'rgba(255, 32, 0, 0.05)', border: '1px dashed rgba(255, 32, 0, 0.3)', padding: '12px', borderRadius: '8px', fontSize: '12px', color: 'var(--primary)' }}>
+            <div style={{ background: 'rgba(255, 59, 47, 0.05)', border: '1px dashed rgba(255, 59, 47, 0.3)', padding: '12px', borderRadius: '8px', fontSize: '12px', color: 'var(--primary)' }}>
               {t('places.devHint')}
             </div>
 

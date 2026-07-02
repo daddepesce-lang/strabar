@@ -84,7 +84,7 @@ export default function BusinessPage() {
 
   return (
     <div style={{ maxWidth: '620px', margin: '0 auto', padding: '0 4px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div className="card" style={{ textAlign: 'center', padding: '28px 20px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,32,0,0.08) 100%)' }}>
+      <div className="card" style={{ textAlign: 'center', padding: '28px 20px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255,59,47,0.08) 100%)' }}>
         <Store size={34} color="var(--primary)" style={{ marginBottom: '8px' }} />
         <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#FFF', marginBottom: '8px' }}>Strabar per i locali</h1>
         <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: 1.5 }}>

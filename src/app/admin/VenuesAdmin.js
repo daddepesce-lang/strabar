@@ -192,7 +192,7 @@ export default function VenuesAdmin() {
                 </div>
 
                 {/* Pitch pronto da vendere */}
-                <div style={{ background: 'rgba(255,32,0,0.08)', border: '1px solid rgba(255,32,0,0.25)', borderRadius: 10, padding: 12, fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-dark-primary)' }}>
+                <div style={{ background: 'rgba(255,59,47,0.08)', border: '1px solid rgba(255,59,47,0.25)', borderRadius: 10, padding: 12, fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-dark-primary)' }}>
                   💬 <strong>Pitch:</strong> &ldquo;Il {v.topDay} è il tuo giorno migliore: {v.uniqueUsers} clienti registrano le loro bevute da te, picco tra le {peakWindow(v.peakHour)}.
                   {v.topDrinks[0] ? ` Il drink più ordinato è ${v.topDrinks[0].name}.` : ''}
                   {v.repeatRate >= 30 ? ` Il ${v.repeatRate}% torna più volte.` : ''}

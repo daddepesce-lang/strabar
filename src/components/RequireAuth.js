@@ -16,8 +16,8 @@ export default function RequireAuth({ feature = 'questa sezione' }) {
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center' }}>
-      <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', padding: '40px 28px' }}>
-        <div style={{ display: 'inline-flex', position: 'relative', background: 'rgba(255, 32, 0,0.12)', padding: '18px', borderRadius: '20px', color: 'var(--primary)', marginBottom: '16px' }}>
+      <div className="card" style={{ border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 59, 47,0.08) 100%)', padding: '40px 28px' }}>
+        <div style={{ display: 'inline-flex', position: 'relative', background: 'rgba(255, 59, 47,0.12)', padding: '18px', borderRadius: '20px', color: 'var(--primary)', marginBottom: '16px' }}>
           <Beer size={40} fill="var(--primary)" />
           <span style={{ position: 'absolute', bottom: -6, right: -6, background: 'var(--bg-card-dark)', borderRadius: '50%', padding: '4px', border: '1px solid var(--border-dark)' }}>
             <Lock size={16} color="var(--secondary)" />

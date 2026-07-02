@@ -407,7 +407,7 @@ export default function EventsPage() {
                       key={p.id}
                       type="button"
                       onClick={() => removeInvitee(p.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255, 32, 0,0.12)', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--primary)', background: 'rgba(255, 59, 47,0.12)', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
                     >
                       <Check size={13} /> {p.name} <X size={12} />
                     </button>
@@ -437,7 +437,7 @@ export default function EventsPage() {
                           key={p.id}
                           type="button"
                           onClick={() => (sel ? removeInvitee(p.id) : addInvitee({ id: p.id, name: publicName(p, p.username || 'Atleta'), username: p.username || null }))}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,32,0,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%', textAlign: 'left', padding: '9px 12px', background: sel ? 'rgba(255,59,47,0.08)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}
                         >
                           <span style={{ minWidth: 0 }}>
                             <span style={{ display: 'block', fontSize: '13px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{publicName(p, p.username)}</span>

@@ -135,7 +135,7 @@ export default function AuthPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src="/logo.png" alt="Strabar" onError={() => setLogoOk(false)} style={{ height: '56px', width: 'auto', display: 'inline-block', marginBottom: '15px' }} />
           ) : (
-            <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
+            <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
               <Beer size={40} fill="var(--primary)" />
             </div>
           )}

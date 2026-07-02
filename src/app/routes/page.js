@@ -308,7 +308,7 @@ export default function RoutesPage() {
     if (routeCoordsState && routeCoordsState.length > 1) {
       mapInstance.current.invalidateSize(); // Corregge dimensioni grigie di Leaflet in React
       polylineRef.current = L.polyline(routeCoordsState, {
-        color: '#FF2000',
+        color: '#FF3B2F',
         weight: 3,
         opacity: 0.8,
         dashArray: '8, 8', // tratteggiata: indica collegamento "in linea d'aria", non stradale
@@ -385,7 +385,7 @@ export default function RoutesPage() {
       const addBtn = document.createElement('button');
       addBtn.textContent = '+ Aggiungi al Percorso';
       addBtn.style.marginTop = '8px';
-      addBtn.style.background = '#FF2000';
+      addBtn.style.background = '#FF3B2F';
       addBtn.style.color = 'white';
       addBtn.style.border = 'none';
       addBtn.style.padding = '6px 14px';
@@ -927,7 +927,7 @@ export default function RoutesPage() {
               {/* Chi può vedere questo percorso salvato */}
               <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '10px' }}>{t('routes.visLabel')}</label>
-                <div className="seg-tabs feed-filter-tabs">
+                <div className="feed-filter-tabs">
                   <div className={`seg-tab ${newRouteVisibility === 'public' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('public')}>{t('routes.visAll')}</div>
                   <div className={`seg-tab ${newRouteVisibility === 'friends' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('friends')}>{t('routes.visFriends')}</div>
                   <div className={`seg-tab ${newRouteVisibility === 'private' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('private')}>{t('routes.visPrivate')}</div>
@@ -1186,7 +1186,7 @@ export default function RoutesPage() {
               {/* Ricerca per LUOGO + raggio */}
               <div style={{ position: 'relative', marginBottom: '15px' }}>
                 {placeFilter ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,32,0,0.08)', border: '1px solid var(--primary)', borderRadius: '8px', padding: '7px 10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,59,47,0.08)', border: '1px solid var(--primary)', borderRadius: '8px', padding: '7px 10px' }}>
                     <MapPin size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1, minWidth: 0, fontSize: '12px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {placeFilter.name}
@@ -1271,7 +1271,7 @@ export default function RoutesPage() {
                           flexDirection: 'column',
                           alignItems: 'flex-start',
                           padding: '12px 14px',
-                          background: isSelected ? 'rgba(255, 32, 0, 0.08)' : 'var(--bg-input-dark)',
+                          background: isSelected ? 'rgba(255, 59, 47, 0.08)' : 'var(--bg-input-dark)',
                           borderColor: isSelected ? 'var(--primary)' : 'var(--border-dark)',
                           borderRadius: '10px',
                         }}
@@ -1346,7 +1346,7 @@ export default function RoutesPage() {
                   fontSize: '12px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  background: travelMode === 'foot' ? 'rgba(255, 32, 0, 0.15)' : 'var(--bg-input-dark)',
+                  background: travelMode === 'foot' ? 'rgba(255, 59, 47, 0.15)' : 'var(--bg-input-dark)',
                   border: travelMode === 'foot' ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
                   color: travelMode === 'foot' ? '#FFF' : 'var(--text-dark-secondary)',
                   display: 'flex',
@@ -1367,7 +1367,7 @@ export default function RoutesPage() {
                   fontSize: '12px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  background: travelMode === 'driving' ? 'rgba(255, 32, 0, 0.15)' : 'var(--bg-input-dark)',
+                  background: travelMode === 'driving' ? 'rgba(255, 59, 47, 0.15)' : 'var(--bg-input-dark)',
                   border: travelMode === 'driving' ? '1px solid var(--primary)' : '1px solid var(--border-dark)',
                   color: travelMode === 'driving' ? '#FFF' : 'var(--text-dark-secondary)',
                   display: 'flex',
@@ -1441,7 +1441,7 @@ export default function RoutesPage() {
                     <button type="button" onClick={() => setTourTarget((t) => Math.min(10, t + 1))} className="btn btn-secondary" style={{ width: 28, height: 28, borderRadius: '50%', padding: 0 }}>+</button>
                   </div>
                 </div>
-                <div className="seg-tabs feed-filter-tabs">
+                <div className="feed-filter-tabs">
                   <div className={`seg-tab ${tourVisibility === 'public' ? 'active' : ''}`} onClick={() => setTourVisibility('public')}>{t('routes.visAll')}</div>
                   <div className={`seg-tab ${tourVisibility === 'friends' ? 'active' : ''}`} onClick={() => setTourVisibility('friends')}>{t('routes.visFriends')}</div>
                   <div className={`seg-tab ${tourVisibility === 'private' ? 'active' : ''}`} onClick={() => setTourVisibility('private')}>{t('routes.visPrivate')}</div>
@@ -1655,7 +1655,7 @@ export default function RoutesPage() {
           color: #9ca3af !important;
         }
         .leaflet-popup-close-button:hover {
-          color: #ff2000 !important;
+          color: #FF3B2F !important;
         }
       `}</style>
     </div>

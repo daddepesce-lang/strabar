@@ -77,7 +77,7 @@ export default function BacInfo({ size = 14, color = 'var(--text-dark-secondary)
             top: pos.top,
             left: pos.left,
             width: pos.width,
-            background: '#0D0D0D',
+            background: '#0A0A0D',
             border: '1px solid var(--border-dark)',
             borderRadius: '10px',
             padding: '10px 12px',

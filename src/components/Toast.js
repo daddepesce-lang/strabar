@@ -20,8 +20,8 @@ export default function Toast({ message, variant = 'success', title, duration = 
   if (!message) return null;
 
   const accent = variant === 'warning' ? '#FF9F1C' : variant === 'info' ? 'var(--primary)' : 'var(--success, #10B981)';
-  const glow = variant === 'warning' ? 'rgba(255,159,28,0.28)' : variant === 'info' ? 'rgba(255,32,0,0.28)' : 'rgba(16,185,129,0.28)';
-  const tint = variant === 'warning' ? 'rgba(255,159,28,0.12)' : variant === 'info' ? 'rgba(255,32,0,0.12)' : 'rgba(16,185,129,0.14)';
+  const glow = variant === 'warning' ? 'rgba(255,159,28,0.28)' : variant === 'info' ? 'rgba(255,59,47,0.28)' : 'rgba(16,185,129,0.28)';
+  const tint = variant === 'warning' ? 'rgba(255,159,28,0.12)' : variant === 'info' ? 'rgba(255,59,47,0.12)' : 'rgba(16,185,129,0.14)';
   const icon = variant === 'warning' ? '📍' : variant === 'info' ? 'ℹ️' : '✅';
 
   const dismiss = () => { setLeaving(true); setTimeout(() => onClose?.(), 220); };

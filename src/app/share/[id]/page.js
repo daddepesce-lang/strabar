@@ -138,13 +138,13 @@ export default function ShareActivityPage({ params }) {
         ctx.fillStyle = bot; ctx.fillRect(0, bStart, W, H - bStart);
       } else {
         const g = ctx.createLinearGradient(0, 0, W, H);
-        g.addColorStop(0, '#17181B');
+        g.addColorStop(0, '#141419');
         g.addColorStop(0.55, '#0B0A09');
         g.addColorStop(1, '#2A0A05');
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
         const glow = ctx.createRadialGradient(W / 2, H * 0.92, 60, W / 2, H * 0.92, 760);
-        glow.addColorStop(0, 'rgba(255,32,0,0.20)');
-        glow.addColorStop(1, 'rgba(255,32,0,0)');
+        glow.addColorStop(0, 'rgba(255,59,47,0.20)');
+        glow.addColorStop(1, 'rgba(255,59,47,0)');
         ctx.fillStyle = glow; ctx.fillRect(0, H * 0.45, W, H * 0.55);
       }
 
@@ -154,7 +154,7 @@ export default function ShareActivityPage({ params }) {
         const lh = 58; const lw = lh * (logoRef.current.naturalWidth / logoRef.current.naturalHeight);
         ctx.drawImage(logoRef.current, M, 74, lw, lh);
       } else {
-        ctx.fillStyle = '#FF2000'; ctx.font = '800 48px "DM Sans", sans-serif';
+        ctx.fillStyle = '#FF3B2F'; ctx.font = '800 48px "DM Sans", sans-serif';
         ctx.fillText('strabar', M, 120);
       }
 
@@ -164,7 +164,7 @@ export default function ShareActivityPage({ params }) {
         ctx.font = '800 32px "DM Sans", sans-serif';
         const tw = ctx.measureText('LIVE').width;
         const pw = tw + 84, ph = 56, px = W - M - pw, py = 76;
-        ctx.fillStyle = '#FF2000'; ctx.beginPath(); ctx.roundRect(px, py, pw, ph, ph / 2); ctx.fill();
+        ctx.fillStyle = '#FF3B2F'; ctx.beginPath(); ctx.roundRect(px, py, pw, ph, ph / 2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px + 30, py + ph / 2, 9, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.fillText('LIVE', px + 50, py + ph / 2 + 1);
         ctx.textBaseline = 'alphabetic';
@@ -188,7 +188,7 @@ export default function ShareActivityPage({ params }) {
         if (displayBac < 0.2) return { t: t('share.badgeSober'), e: '🟢', c: '#2ED573' };
         if (displayBac < 0.5) return { t: t('share.badgeWarmup'), e: '🟡', c: '#DFFF00' };
         if (displayBac < 0.8) return { t: t('share.badgeInGame'), e: '🟠', c: '#FF9F1C' };
-        return { t: t('share.badgeOffScale'), e: '🔴', c: '#FF2000' };
+        return { t: t('share.badgeOffScale'), e: '🔴', c: '#FF3B2F' };
       })();
 
       // Frase automatica in base alla prestazione (deterministica per sessione).
@@ -362,7 +362,7 @@ export default function ShareActivityPage({ params }) {
         // Pin del locale al centro della mappa
         const px = W / 2, py = mapH / 2;
         ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(px, py + 18, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#FF2000'; ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#FF3B2F'; ctx.beginPath(); ctx.arc(px, py, 16, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
         drawStats();
       };
@@ -394,7 +394,7 @@ export default function ShareActivityPage({ params }) {
       };
       img.onerror = () => {
         const g = ctx.createLinearGradient(0, 0, W, H);
-        g.addColorStop(0, '#17181B');
+        g.addColorStop(0, '#141419');
         g.addColorStop(0.55, '#0B0A09');
         g.addColorStop(1, '#2A0A05');
         ctx.fillStyle = g;
@@ -575,7 +575,7 @@ export default function ShareActivityPage({ params }) {
                 style={{
                   width: '64px', height: '64px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer', padding: 0,
                   border: selectedPhotoIdx === idx ? '3px solid var(--primary)' : '2px solid var(--border-dark)',
-                  boxShadow: selectedPhotoIdx === idx ? '0 0 10px rgba(255, 32, 0,0.4)' : 'none',
+                  boxShadow: selectedPhotoIdx === idx ? '0 0 10px rgba(255, 59, 47,0.4)' : 'none',
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -641,7 +641,7 @@ export default function ShareActivityPage({ params }) {
       </div>
 
       {/* Riquadro Iscrizione / Partecipazione per Non-Utenti */}
-      <div className="card" style={{ marginTop: '30px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 32, 0,0.08) 100%)', textAlign: 'center', padding: '24px', borderRadius: 'var(--radius)' }}>
+      <div className="card" style={{ marginTop: '30px', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 59, 47,0.08) 100%)', textAlign: 'center', padding: '24px', borderRadius: 'var(--radius)' }}>
         <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#FFF' }}>
           {t('share.joinTitle')}
         </h3>

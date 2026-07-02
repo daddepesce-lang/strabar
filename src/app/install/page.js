@@ -56,7 +56,7 @@ export default function InstallPage() {
           alt="Strabar"
           width={96}
           height={96}
-          style={{ borderRadius: '22px', marginBottom: '16px', boxShadow: '0 10px 28px rgba(255, 32, 0,0.28)' }}
+          style={{ borderRadius: '22px', marginBottom: '16px', boxShadow: '0 10px 28px rgba(255, 59, 47,0.28)' }}
         />
         <h1 style={{ fontSize: '30px', fontWeight: 900 }}>Installa Strabar 🍻</h1>
         <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '8px', lineHeight: 1.5 }}>
@@ -72,7 +72,7 @@ export default function InstallPage() {
           { icon: Wifi, t: 'Funziona offline', d: 'Le pagine viste restano disponibili senza rete.' },
         ].map(({ icon: Icon, t, d }, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ background: 'rgba(255, 32, 0,0.1)', color: 'var(--primary)', width: 40, height: 40, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ background: 'rgba(255, 59, 47,0.1)', color: 'var(--primary)', width: 40, height: 40, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Icon size={20} />
             </span>
             <div>

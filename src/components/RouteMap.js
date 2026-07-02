@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react';
  *  - connectLine: se false mostra solo i marker senza la polilinea (default true)
  *  - markerColor: colore dei marker (default arancione primary)
  */
-export default function RouteMap({ waypoints = [], height = '420px', interactive = true, connectLine = true, markerColor = '#FF2000', activeIndex = null, onSelect = null, center = null, radiusMeters = null }) {
+export default function RouteMap({ waypoints = [], height = '420px', interactive = true, connectLine = true, markerColor = '#FF3B2F', activeIndex = null, onSelect = null, center = null, radiusMeters = null }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null);

@@ -182,7 +182,7 @@ export default function GroupDetailPage({ params }) {
       <div>
         <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> Leghe</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '10px' }}>
-          <div className="activity-avatar" style={{ width: 56, height: 56, fontSize: 22, flexShrink: 0, background: 'rgba(255,32,0,0.12)', color: 'var(--primary)' }}>{(group.name || 'G').charAt(0).toUpperCase()}</div>
+          <div className="activity-avatar" style={{ width: 56, height: 56, fontSize: 22, flexShrink: 0, background: 'rgba(255,59,47,0.12)', color: 'var(--primary)' }}>{(group.name || 'G').charAt(0).toUpperCase()}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: '24px', fontWeight: 800, lineHeight: 1.1 }}>{group.name}</h1>
             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
@@ -216,7 +216,7 @@ export default function GroupDetailPage({ params }) {
 
       {tab === 'board' && (
         <>
-          <div className="seg-tabs feed-filter-tabs" style={{ maxWidth: '420px' }}>
+          <div className="feed-filter-tabs" style={{ maxWidth: '420px' }}>
             {PERIODS.map((p) => (
               <div key={p.k} className={`seg-tab ${period === p.k ? 'active' : ''}`} onClick={() => setPeriod(p.k)}>{p.l}</div>
             ))}

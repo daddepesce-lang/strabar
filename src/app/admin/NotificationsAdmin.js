@@ -131,8 +131,8 @@ export default function NotificationsAdmin() {
           </select>
           <div style={{
             fontSize: 11, lineHeight: 1.5, marginTop: 6, padding: '8px 10px', borderRadius: 8,
-            background: form.kind === 'commercial' ? 'rgba(255,32,0,0.08)' : 'rgba(16,185,129,0.08)',
-            border: `1px solid ${form.kind === 'commercial' ? 'rgba(255,32,0,0.25)' : 'rgba(16,185,129,0.25)'}`,
+            background: form.kind === 'commercial' ? 'rgba(255,59,47,0.08)' : 'rgba(16,185,129,0.08)',
+            border: `1px solid ${form.kind === 'commercial' ? 'rgba(255,59,47,0.25)' : 'rgba(16,185,129,0.25)'}`,
             color: 'var(--text-dark-secondary)',
           }}>
             {form.kind === 'commercial' ? (

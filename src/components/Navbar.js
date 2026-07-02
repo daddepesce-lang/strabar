@@ -33,7 +33,8 @@ export default function Navbar() {
   const [notifs, setNotifs] = useState([]);
   const [unread, setUnread] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
-  const [myLive, setMyLive] = useState(false); // l'utente corrente ha una sessione live attiva?
+  const [liveSession, setLiveSession] = useState(null); // la MIA sessione live attiva (oggetto) per il controllo 2C
+  const [nowTick, setNowTick] = useState(() => Date.now()); // tick per timer/BAC della pill live
   const [myVenues, setMyVenues] = useState([]); // locali che gestisco (claim approvati)
   const [notifOpen, setNotifOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false); // foglio "Altro" su mobile
@@ -81,19 +82,36 @@ export default function Navbar() {
     setLiveCount(0);
   }, [user?.id, pathname]);
 
-  // La MIA sessione live attiva (per l'indicatore animato nel menu/logo).
+  // La MIA sessione live attiva: oggetto completo, per il controllo live 2C nella
+  // barra in basso (timer + drink + BAC) oltre all'indicatore nel logo.
+  // 'strabar:live-updated' porta la sessione aggiornata nel detail → NIENTE fetch extra.
   useEffect(() => {
-    if (!user) { setMyLive(false); return; }
+    if (!user) { setLiveSession(null); return; }
     let cancelled = false;
     const check = () => {
       if (typeof db.getActiveSession !== 'function') return;
-      db.getActiveSession(user.id).then((s) => { if (!cancelled) setMyLive(!!s); }).catch(() => {});
+      db.getActiveSession(user.id).then((s) => { if (!cancelled) setLiveSession(s || null); }).catch(() => {});
     };
     check();
     const onChange = () => check();
+    const onUpdated = (e) => { if (!cancelled) setLiveSession(e.detail || null); };
     window.addEventListener('strabar:live-changed', onChange);
-    return () => { cancelled = true; window.removeEventListener('strabar:live-changed', onChange); };
+    window.addEventListener('strabar:live-updated', onUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('strabar:live-changed', onChange);
+      window.removeEventListener('strabar:live-updated', onUpdated);
+    };
   }, [user?.id, pathname]);
+
+  // Tick leggero (30s) SOLO con una live attiva: aggiorna timer e BAC della pill.
+  useEffect(() => {
+    if (!liveSession) return;
+    const id = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, [liveSession?.id]);
+
+  const myLive = !!liveSession;
 
   // Locale gestito: se ho un claim approvato, mostro "Il mio locale" nel menu (extra,
   // SENZA togliere nulla dell'esperienza utente normale).
@@ -201,8 +219,8 @@ export default function Navbar() {
             // Fallback pulito finché il file non c'è: mark rosso + testo.
             <>
               <svg className="nav-logo-mark" viewBox="0 0 512 512" aria-hidden="true">
-                <rect width="512" height="512" rx="120" fill="#FF2000" />
-                <g fill="none" stroke="#0D0D0D" strokeWidth="72" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="512" height="512" rx="120" fill="#FF3B2F" />
+                <g fill="none" stroke="#0A0A0D" strokeWidth="72" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M368 182 C368 130 306 120 256 142 C194 169 194 232 268 254" />
                   <path d="M144 330 C144 382 206 392 256 370 C318 343 318 280 244 258" />
                 </g>
@@ -221,7 +239,7 @@ export default function Navbar() {
             aria-label="Apri la tua diretta"
             title="Sei in diretta"
             className="pulse"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginLeft: '6px', padding: 0, width: '12px', height: '12px', borderRadius: '50%', border: 'none', background: 'var(--primary)', boxShadow: '0 0 8px rgba(255,32,0,0.7)', cursor: 'pointer', flexShrink: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginLeft: '6px', padding: 0, width: '12px', height: '12px', borderRadius: '50%', border: 'none', background: 'var(--primary)', boxShadow: '0 0 8px rgba(255,59,47,0.7)', cursor: 'pointer', flexShrink: 0 }}
           />
         )}
 
@@ -297,7 +315,7 @@ export default function Navbar() {
                           width: '100%', textAlign: 'left', padding: '12px 16px',
                           borderBottom: '1px solid var(--border-dark)', cursor: 'pointer',
                           display: 'flex', gap: '10px', alignItems: 'flex-start',
-                          background: n.read ? 'transparent' : 'rgba(255, 32, 0,0.06)',
+                          background: n.read ? 'transparent' : 'rgba(255, 59, 47,0.06)',
                         }}
                       >
                         <div className="activity-avatar" style={{ width: 32, height: 32, fontSize: 13, flexShrink: 0 }}>
@@ -378,10 +396,37 @@ export default function Navbar() {
           <Trophy size={20} />
           {t('nav.leaderboards')}
         </Link>
-        <Link href="/log" aria-label={t('nav.register')} className={`mn-register ${isActive('/log') ? 'active' : ''} ${myLive ? 'live' : ''}`}>
-          <span className="mn-register-fab"><Plus size={26} strokeWidth={2.6} /></span>
-          <span className="mn-register-label">{t('nav.register')}</span>
-        </Link>
+        {liveSession ? (() => {
+          // 2C: il centro riflette lo stato dell'app — controllo live pulsante con
+          // timer, drink e BAC stimato (calcolo locale, nessuna query in più).
+          const mins = Math.max(1, Math.floor((nowTick - new Date(liveSession.created_at).getTime()) / 60000));
+          const nDrinks = (liveSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
+          let bac = null;
+          try {
+            if (typeof db.calculateCurrentBAC === 'function') {
+              bac = db.calculateCurrentBAC(liveSession.drinks || [], liveSession.created_at, mins, undefined, user?.weight, liveSession.full_stomach, user?.sex);
+            }
+          } catch { /* noop */ }
+          return (
+            <button type="button" onClick={openMyLive} aria-label={t('nav.manageLive')} className="mn-register is-live">
+              <span className="mn-live-pill">
+                <span className="mn-live-top">
+                  <span className="mn-live-dot" />
+                  {Math.floor(mins / 60)}:{String(mins % 60).padStart(2, '0')} · LIVE
+                </span>
+                <span className="mn-live-sub">
+                  {nDrinks} drink{typeof bac === 'number' ? ` · ${bac.toFixed(2)} g/l` : ''}
+                </span>
+              </span>
+              <span className="mn-register-label">{t('nav.manageLive')}</span>
+            </button>
+          );
+        })() : (
+          <Link href="/log" aria-label={t('nav.register')} className={`mn-register ${isActive('/log') ? 'active' : ''}`}>
+            <span className="mn-register-fab"><Plus size={26} strokeWidth={2.6} /></span>
+            <span className="mn-register-label">{t('nav.register')}</span>
+          </Link>
+        )}
         <Link href="/routes" className={isActive('/routes') ? 'active' : ''}>
           <Map size={20} />
           {t('nav.routes')}

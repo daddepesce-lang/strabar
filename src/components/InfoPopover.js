@@ -80,7 +80,7 @@ export default function InfoPopover({
             width: pos.width,
             maxHeight: '64vh',
             overflowY: 'auto',
-            background: '#0D0D0D',
+            background: '#0A0A0D',
             border: '1px solid var(--border-dark)',
             borderRadius: '12px',
             padding: '14px 16px',

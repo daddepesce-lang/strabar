@@ -28,7 +28,7 @@ export default function BacCurve({ curve, height = 170 }) {
 
   const LIMIT = 0.5;
   const showLimit = LIMIT < maxVal;
-  const color = peak.val > 0.8 ? '#EF4444' : peak.val > 0.5 ? '#FF2000' : '#10B981';
+  const color = peak.val > 0.8 ? '#EF4444' : peak.val > 0.5 ? '#FF3B2F' : '#10B981';
   const gid = `bacFill_${Math.round((peak?.val || 0) * 1000)}_${series.length}`;
 
   const peakX = fx(peak.t), peakY = fy(peak.val);

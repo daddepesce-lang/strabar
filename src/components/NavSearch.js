@@ -98,7 +98,7 @@ export default function NavSearch() {
               )}
               <button
                 onClick={goToFull}
-                style={{ marginTop: '6px', padding: '8px', borderRadius: '8px', background: 'rgba(255, 32, 0,0.08)', border: '1px solid var(--border-dark)', color: 'var(--primary)', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+                style={{ marginTop: '6px', padding: '8px', borderRadius: '8px', background: 'rgba(255, 59, 47,0.08)', border: '1px solid var(--border-dark)', color: 'var(--primary)', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
               >
                 Vedi tutti i risultati
               </button>

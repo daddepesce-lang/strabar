@@ -151,7 +151,7 @@ function GroupCard({ g, role }) {
   const t = useT();
   return (
     <Link href={`/groups/${g.id}`} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', padding: '14px 16px' }}>
-      <div className="activity-avatar" style={{ width: 46, height: 46, fontSize: 18, flexShrink: 0, background: 'rgba(255,32,0,0.12)', color: 'var(--primary)' }}>
+      <div className="activity-avatar" style={{ width: 46, height: 46, fontSize: 18, flexShrink: 0, background: 'rgba(255,59,47,0.12)', color: 'var(--primary)' }}>
         {(g.name || 'G').charAt(0).toUpperCase()}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>

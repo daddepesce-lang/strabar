@@ -43,7 +43,7 @@ export default function MyVenuesPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {venues.map((v) => (
           <Link key={v.key} href={`/locale/${encodeURIComponent(v.key)}/gestione`} className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255,32,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(255,59,47,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Store size={20} color="var(--primary)" />
             </div>
             <strong style={{ flex: 1, fontSize: '15px', color: '#FFF' }}>{v.name}</strong>

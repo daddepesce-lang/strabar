@@ -22,7 +22,7 @@ import BadgeUnlock from '@/components/BadgeUnlock';
 import { earnedBadgeIds } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Award, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronRight, Sparkles } from 'lucide-react';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Minus, Award, BadgeCheck, AlertTriangle, Navigation, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronLeft, ChevronRight, ArrowRight, Sparkles } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
@@ -549,6 +549,13 @@ export default function FeedPage() {
   }, [myActivities, myActivitiesLoaded, activeSession?.total_units, activeSession?.id, currentUser?.id]);
 
   // Calcola alcol residuo da sessioni precedenti per la live
+  // Tiene sincronizzata la pill live 2C nella barra in basso SENZA query extra:
+  // la Navbar ascolta questo evento e usa direttamente l'oggetto sessione.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('strabar:live-updated', { detail: activeSession }));
+  }, [activeSession]);
+
   useEffect(() => {
     if (!activeSession) { setLiveResidualGrams(0); return; }
     // Preferisce il residuo CONGELATO sulla sessione (coerente con profilo/spettatori/radar).
@@ -2000,7 +2007,7 @@ export default function FeedPage() {
           <div className="glow-orb" style={{ bottom: '-30px', right: '10%', width: '200px', height: '200px', background: 'var(--secondary)', opacity: 0.18, animationDelay: '1.5s' }} />
 
           <div className="reveal is-visible" style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative', zIndex: 1 }}>
-            <span className="eyebrow-pill" style={{ background: 'rgba(255, 32, 0, 0.1)', color: 'var(--primary)' }}>
+            <span className="eyebrow-pill" style={{ background: 'rgba(255, 59, 47, 0.1)', color: 'var(--primary)' }}>
               <span className="live-dot" /> {t('landing.hero.badge')}
             </span>
             <h1 className="hero-title">
@@ -2026,7 +2033,7 @@ export default function FeedPage() {
           </div>
 
           {/* Mockup telefono fluttuante con BAC live */}
-          <div className="hero-mock reveal is-visible reveal-d2" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 32, 0, 0.14) 100%)', border: '1px solid var(--primary)', borderRadius: '24px', padding: '26px', boxShadow: '0px 18px 50px rgba(255, 32, 0, 0.18)', display: 'flex', flexDirection: 'column', gap: '18px', position: 'relative', overflow: 'hidden', zIndex: 1 }}>
+          <div className="hero-mock reveal is-visible reveal-d2" style={{ background: 'linear-gradient(135deg, rgba(22, 24, 34, 0.95) 0%, rgba(255, 59, 47, 0.14) 100%)', border: '1px solid var(--primary)', borderRadius: '24px', padding: '26px', boxShadow: '0px 18px 50px rgba(255, 59, 47, 0.18)', display: 'flex', flexDirection: 'column', gap: '18px', position: 'relative', overflow: 'hidden', zIndex: 1 }}>
             <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '150px', height: '150px', background: 'var(--primary)', filter: 'blur(80px)', borderRadius: '50%', opacity: 0.4 }} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2082,7 +2089,7 @@ export default function FeedPage() {
         {/* CAPABILITY CHIPS — sostituiscono le statistiche inventate con fatti reali */}
         <section className="cap-grid reveal">
           {[
-            { ico: <Gauge size={22} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.caps.0.t'), s: t('landing.caps.0.s') },
+            { ico: <Gauge size={22} />, c: 'var(--primary)', bg: 'rgba(255,59,47,0.1)', t: t('landing.caps.0.t'), s: t('landing.caps.0.s') },
             { ico: <MapPin size={22} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.caps.1.t'), s: t('landing.caps.1.s') },
             { ico: <Zap size={22} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: t('landing.caps.2.t'), s: t('landing.caps.2.s') },
             { ico: <Bell size={22} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: t('landing.caps.3.t'), s: t('landing.caps.3.s') },
@@ -2098,7 +2105,7 @@ export default function FeedPage() {
         {/* SOCIAL / COMMUNITY — è un social: si compete e si condivide */}
         <section className="r-grid-2 reveal" style={{ alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <span className="eyebrow-pill" style={{ background: 'rgba(255,32,0,0.1)', color: 'var(--primary)' }}>
+            <span className="eyebrow-pill" style={{ background: 'rgba(255,59,47,0.1)', color: 'var(--primary)' }}>
               <Users size={14} /> {t('landing.community.eyebrow')}
             </span>
             <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF' }}>
@@ -2109,7 +2116,7 @@ export default function FeedPage() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {[
-                { ico: <Users size={18} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.community.items.0.t'), d: t('landing.community.items.0.d') },
+                { ico: <Users size={18} />, c: 'var(--primary)', bg: 'rgba(255,59,47,0.1)', t: t('landing.community.items.0.t'), d: t('landing.community.items.0.d') },
                 { ico: <Trophy size={18} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.community.items.1.t'), d: t('landing.community.items.1.d') },
                 { ico: <Share2 size={18} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: t('landing.community.items.2.t'), d: t('landing.community.items.2.d') },
               ].map((x, i) => (
@@ -2183,11 +2190,11 @@ export default function FeedPage() {
 
           <div className="feat-grid">
             {[
-              { ico: <Gauge size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.features.cards.0.t'), d: t('landing.features.cards.0.d') },
+              { ico: <Gauge size={24} />, c: 'var(--primary)', bg: 'rgba(255,59,47,0.1)', t: t('landing.features.cards.0.t'), d: t('landing.features.cards.0.d') },
               { ico: <Beer size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.features.cards.1.t'), d: t('landing.features.cards.1.d') },
               { ico: <Bell size={24} />, c: '#2563EB', bg: 'rgba(37,99,235,0.12)', t: t('landing.features.cards.2.t'), d: t('landing.features.cards.2.d') },
               { ico: <Calendar size={24} />, c: 'var(--success)', bg: 'rgba(16,185,129,0.1)', t: t('landing.features.cards.3.t'), d: t('landing.features.cards.3.d') },
-              { ico: <MapPin size={24} />, c: 'var(--primary)', bg: 'rgba(255,32,0,0.1)', t: t('landing.features.cards.4.t'), d: t('landing.features.cards.4.d') },
+              { ico: <MapPin size={24} />, c: 'var(--primary)', bg: 'rgba(255,59,47,0.1)', t: t('landing.features.cards.4.t'), d: t('landing.features.cards.4.d') },
               { ico: <Trophy size={24} />, c: 'var(--secondary)', bg: 'rgba(223,255,0,0.1)', t: t('landing.features.cards.5.t'), d: t('landing.features.cards.5.d') },
             ].map((f, i) => (
               <div key={i} className={`feat-card lift reveal reveal-d${(i % 3) + 1}`}>
@@ -2300,7 +2307,7 @@ export default function FeedPage() {
           </Link>
         </section>
 
-        <section className="card landing-cta-pad reveal" style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+        <section className="card landing-cta-pad reveal" style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(255, 59, 47, 0.15) 0%, rgba(22, 24, 34, 0.95) 100%)', border: '1px solid var(--border-dark)', padding: '60px 40px', borderRadius: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
           <div className="glow-orb" style={{ top: '-60px', left: '50%', width: '240px', height: '240px', background: 'var(--primary)', opacity: 0.25 }} />
           <Sparkles size={32} color="var(--secondary)" style={{ position: 'relative', zIndex: 1 }} />
           <h2 style={{ fontSize: '38px', fontWeight: '900', color: '#FFF', maxWidth: '600px', position: 'relative', zIndex: 1 }}>
@@ -2399,82 +2406,77 @@ export default function FeedPage() {
           return true;
         });
 
-  // ——— Blocchi riutilizzabili del pannello live ———
-  // Aggiunta drink: poche scorciatoie + un grande pulsante che apre la RICERCA a tutto
-  // schermo (catalogo completo + drink del locale). Usato sia nella tappa del tour che
-  // nella live semplice, così "registrare un drink" è sempre lo stesso gesto chiaro.
-  // Garantiamo che i due drink più comuni (birra media bionda e vino) siano SEMPRE tra le
-  // scorciatoie 1-tap, in testa, anche se il catalogo è stato personalizzato da admin.
-  const ESSENTIAL_QUICK = [
-    { name: 'Birra Bionda Media (0,4L)', abv: 5, units: 2.0, label: '🍺 Birra Media Bionda' },
-    { name: 'Calice Vino (Rosso/Bianco/Prosecco)', abv: 12.5, units: 1.3, label: '🍷 Vino' },
-  ];
-  const quickAdderList = [
-    ...ESSENTIAL_QUICK,
-    ...QUICK_DRINKS.filter((d) => !ESSENTIAL_QUICK.some((e) => e.name === d.name)),
-  ];
-  const renderDrinkAdder = () => (
-    <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-        {quickAdderList.map((preset, idx) => (
-          <button
-            key={idx}
-            onClick={() => handleAddDrinkToActiveSession(preset)}
-            disabled={addingDrink}
-            className="btn btn-secondary"
-            style={{ padding: '7px 12px', fontSize: '12px', borderRadius: '15px', opacity: addingDrink ? 0.5 : 1, cursor: addingDrink ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-          >
-            {preset.label}
-            <span style={{ fontSize: '10px', fontWeight: 700, color: preset.abv > 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)', background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '1px 5px' }}>
-              {preset.abv > 0 ? `${preset.abv}°` : 'analc.'}
-            </span>
-          </button>
-        ))}
-      </div>
-      <button
-        onClick={() => setDrinkSearchOpen(true)}
-        className="btn btn-primary"
-        style={{ width: '100%', padding: '11px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-      >
-        <Search size={16} /> {t('drink.open')}
-      </button>
-    </div>
-  );
-
-  // Sezione foto: un PULSANTE pieno ed esplicito ("📷 {addLabel}") così è chiarissimo
-  // dove si aggiungono le foto; sotto, le miniature già caricate (tap → slideshow, × per
-  // rimuovere). `addLabel` dice dove finiscono (es. "alla sessione" / "a questa tappa").
-  const renderPhotoStrip = (addLabel) => {
-    const imgs = activeSession?.media?.filter((m) => m.type === 'image') || [];
+  // Lista unica dei drink con STEPPER [ − N + ]: aggiungere e gestire è lo stesso gesto.
+  // Sotto, il bottone tratteggiato apre il picker completo (voci rapide incluse).
+  const renderDrinkStepperList = (drinksArr, addLabel = 'Aggiungi un altro drink') => {
+    const grouped = groupDrinks(drinksArr || []);
     return (
       <div>
-        <label
-          className="btn btn-secondary"
-          style={{ width: '100%', padding: '11px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1.5px dashed var(--primary)', background: 'rgba(255,32,0,0.06)', color: 'var(--primary)', cursor: photoUploading ? 'wait' : 'pointer' }}
-        >
-          {photoUploading ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} />}
-          {photoUploading ? 'Carico la foto…' : `📷 ${addLabel}`}
-          <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
-        </label>
-        {imgs.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginTop: '10px', paddingBottom: '2px' }}>
-            {imgs.map((med, idx) => (
-              <div key={idx} style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0, borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={med.url} alt={med.name || 'foto'} onClick={() => openSessionPhotos(activeSession, idx)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
-                <button
-                  onClick={async () => {
-                    const updated = (activeSession.media || []).filter((m) => m.url !== med.url);
-                    setActiveSession((prev) => ({ ...prev, media: updated }));
-                    await db.updateActivity(activeSession.id, { media: updated });
-                  }}
-                  aria-label="Rimuovi foto"
-                  style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(0,0,0,0.65)', color: '#FFF', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '13px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >×</button>
+        {grouped.length > 0 && (
+          <div className="drink-stepper-list" style={{ marginBottom: '10px' }}>
+            {grouped.map((d, i) => (
+              <div key={i} className="drink-stepper-row">
+                <span className="dsr-emoji">{drinkEmoji(d.name)}</span>
+                <div className="dsr-info">
+                  <div className="dsr-name">{d.name}</div>
+                  <div className="dsr-meta">
+                    {d.abv > 0 ? `${d.abv}% vol` : 'analcolico'}
+                    {typeof d.units === 'number' && d.units > 0 ? ` · ${Number(d.units.toFixed(1))} U.A.` : ''}
+                  </div>
+                </div>
+                <div className="stepper">
+                  <button type="button" onClick={() => handleRemoveDrinkFromActiveSession(d.name)} disabled={addingDrink} aria-label={`Togli un ${d.name}`}>
+                    <Minus size={16} />
+                  </button>
+                  <span className="stepper-qty">{d.qty || 1}</span>
+                  <button type="button" className="plus" onClick={() => handleAddDrinkToActiveSession({ name: d.name, abv: d.abv, units: d.units })} disabled={addingDrink} aria-label={`Aggiungi un ${d.name}`}>
+                    <Plus size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
+        <button type="button" className="add-drink-dashed" onClick={() => setDrinkSearchOpen(true)} disabled={addingDrink}>
+          <span className="adp-plus">+</span> {addLabel}
+        </button>
+      </div>
+    );
+  };
+
+  // Sezione foto: un PULSANTE pieno ed esplicito ("📷 {addLabel}") così è chiarissimo
+  // dove si aggiungono le foto; sotto, le miniature già caricate (tap → slideshow, × per
+  // rimuovere). `addLabel` dice dove finiscono (es. "alla sessione" / "a questa tappa").
+  const renderPhotoStrip = () => {
+    const imgs = activeSession?.media?.filter((m) => m.type === 'image') || [];
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '9px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dark-primary)' }}>Foto della serata</span>
+          {imgs.length > 0 && <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{imgs.length}</span>}
+        </div>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+          {imgs.map((med, idx) => (
+            <div key={idx} style={{ position: 'relative', width: '66px', height: '66px', flexShrink: 0, borderRadius: '14px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={med.url} alt={med.name || 'foto'} onClick={() => openSessionPhotos(activeSession, idx)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} />
+              <button
+                onClick={async () => {
+                  const updated = (activeSession.media || []).filter((m) => m.url !== med.url);
+                  setActiveSession((prev) => ({ ...prev, media: updated }));
+                  await db.updateActivity(activeSession.id, { media: updated });
+                }}
+                aria-label="Rimuovi foto"
+                style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(0,0,0,0.65)', color: '#FFF', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '13px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >×</button>
+            </div>
+          ))}
+          <label style={{ width: '66px', height: '66px', flexShrink: 0, borderRadius: '14px', border: '1.5px dashed rgba(255,255,255,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', color: 'var(--text-dark-secondary)', cursor: photoUploading ? 'wait' : 'pointer' }}>
+            {photoUploading ? <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={20} />}
+            <span style={{ fontSize: '9px', fontWeight: 600 }}>{photoUploading ? 'Carico…' : 'Aggiungi'}</span>
+            <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
+          </label>
+        </div>
       </div>
     );
   };
@@ -2488,7 +2490,7 @@ export default function FeedPage() {
           activeSession ? (
             <>
               {/* Banner compatto: la diretta non occupa più il feed. Tocca per gestirla. */}
-              <button type="button" onClick={() => setShowLivePanel(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', borderRadius: '14px', padding: '12px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 16px rgba(255,32,0,0.2)' }}>
+              <button type="button" onClick={() => setShowLivePanel(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #141419 0%, #1c130c 100%)', borderRadius: '14px', padding: '12px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 16px rgba(255,59,47,0.2)' }}>
                 <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
                 </span>
@@ -2501,21 +2503,107 @@ export default function FeedPage() {
               {showLivePanel && (
               <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 'calc(12px + env(safe-area-inset-top, 0px)) 16px 24px', overflowY: 'auto' }}>
               <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginBottom: '40px' }}>
-            <div className="card" style={{ border: '2px solid var(--primary)', background: 'linear-gradient(135deg, #17181B 0%, #1c130c 100%)', marginBottom: '25px', position: 'relative', boxShadow: '0px 0px 20px rgba(255, 32, 0, 0.25)', borderRadius: '16px' }}>
+            <div className="card" style={{ border: '1px solid rgba(255, 59, 47, 0.35)', background: activeSession.location?.tour ? 'radial-gradient(120% 50% at 50% 0%, rgba(223,255,0,0.07), transparent 60%), var(--bg-card-dark)' : 'radial-gradient(120% 60% at 50% 0%, rgba(255, 59, 47, 0.10), transparent 60%), var(--bg-card-dark)', marginBottom: '25px', position: 'relative', boxShadow: 'var(--shadow-lg)', borderRadius: '22px' }}>
               <button onClick={() => setShowLivePanel(false)} aria-label="Chiudi" className="btn btn-secondary" style={{ position: 'absolute', top: '10px', right: '10px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
+              {/* Header: stato live (Bebas) + timer; sotto, titolo e locale centrati */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingRight: '48px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
-                  <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
-                    LIVE 🔴
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                  <span className="pulse" style={{ width: '9px', height: '9px', borderRadius: '50%', background: activeSession.location?.tour ? 'var(--secondary)' : 'var(--primary)', display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '22px', letterSpacing: '1px', lineHeight: 1, color: activeSession.location?.tour ? 'var(--secondary)' : '#FFF', whiteSpace: 'nowrap' }}>
+                    {activeSession.location?.tour ? 'LIVE SU PERCORSO' : 'IN DIRETTA'}
                   </span>
-                  <span style={{ fontSize: '14px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                    presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong>
-                  </span>
-                </div>
+                </span>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
                   ⏱️ {elapsedMinutes} min
                 </span>
+              </div>
+              <div style={{ textAlign: 'center', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '8px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-dark-primary)', wordBreak: 'break-word' }}>
+                    {activeSession.title || 'Brindisi Live 🍻'}
+                  </div>
+                  <span style={{ display: 'inline-flex', gap: '4px', flexShrink: 0 }}>
+                    <button
+                      onClick={() => setShareSheet({ id: activeSession.id, caption: `Sono in diretta su Strabar 🍻 — ${activeSession.total_units ? activeSession.total_units.toFixed(1) + ' U.A.' : 'segui la mia sessione'}!` })}
+                      title="Condividi la diretta (link o scheda social)"
+                      aria-label="Condividi la diretta"
+                      style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '3px' }}
+                    ><Share2 size={14} /></button>
+                    <button
+                      onClick={() => handleEditActivity(activeSession)}
+                      title="Modifica titolo e dettagli"
+                      aria-label="Modifica la sessione"
+                      style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '3px' }}
+                    ><Edit size={14} /></button>
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dark-tertiary)', marginTop: '1px' }}>
+                  📍 {activeSession.location ? activeSession.location.name : 'Sessione Libera'}
+                </div>
+                {activeSession.description && (
+                  <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>{activeSession.description}</p>
+                )}
+              </div>
+
+              {/* Anello BAC ATTUALE (per live semplice e tour): il dato di sicurezza è il protagonista */}
+              {(() => {
+                const liveBac = db.calculateCurrentBAC(
+                  activeSession.drinks || [],
+                  activeSession.created_at,
+                  activeSession.duration || elapsedMinutes || 1,
+                  undefined,
+                  currentUser?.weight,
+                  activeSession.full_stomach,
+                  currentUser?.sex,
+                  liveResidualGrams
+                );
+                const RING_C = 2 * Math.PI * 78; // circonferenza (r=78)
+                const pct = Math.max(0.005, Math.min(1, liveBac / 1.2)); // 1.2 g/l = anello pieno
+                const ringColor = liveBac >= 0.5 ? 'var(--bac-high)' : liveBac >= 0.2 ? 'var(--bac-mid)' : 'var(--bac-low)';
+                return (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0 12px' }}>
+                      <div style={{ position: 'relative', width: 172, height: 172 }}>
+                        <svg width="172" height="172" viewBox="0 0 180 180" aria-hidden="true">
+                          <circle cx="90" cy="90" r="78" fill="none" stroke="var(--bg-input-dark)" strokeWidth="13" />
+                          <circle cx="90" cy="90" r="78" fill="none" stroke={ringColor} strokeWidth="13" strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - pct)} transform="rotate(-90 90 90)" style={{ transition: 'stroke-dashoffset 0.6s var(--ease-out), stroke 0.3s' }} />
+                        </svg>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ fontFamily: 'var(--font-display)', fontSize: '58px', lineHeight: 0.85, color: '#FFF' }}>{liveBac.toFixed(2)}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, marginTop: '5px', letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>g/l · BAC ATTUALE <BacInfo size={12} /></div>
+                          {liveResidualGrams > 0 && (
+                            <div style={{ fontSize: '10px', color: 'var(--secondary)', marginTop: '2px' }}>include residuo precedente</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Warning guida: banner a tutta larghezza SOTTO l'anello, solo se BAC ≥ 0,5 */}
+                    {liveBac >= 0.5 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255, 59, 47, 0.1)', border: '1px solid rgba(255, 59, 47, 0.35)', borderRadius: '14px', padding: '11px 13px', marginBottom: '14px' }}>
+                        <AlertTriangle size={20} style={{ color: '#FF6B5E', flexShrink: 0 }} />
+                        <span style={{ fontSize: '12.5px', color: '#FFB0A8', fontWeight: 600, lineHeight: 1.35 }}>
+                          Sopra <strong style={{ color: '#FFF' }}>0,5 g/l</strong> — non metterti alla guida.
+                        </span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* Stat secondarie: U.A. (lime) · drink · durata */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '11px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: 'var(--secondary)', lineHeight: 1 }}>{activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0'}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>U.A. carico</div>
+                </div>
+                <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '11px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: '#FFF', lineHeight: 1 }}>{(activeSession.drinks || []).reduce((sum, d) => sum + (d.qty || 1), 0)}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>drink</div>
+                </div>
+                <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '11px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: '#FFF', lineHeight: 1 }}>{Math.floor((elapsedMinutes || 0) / 60)}:{String((elapsedMinutes || 0) % 60).padStart(2, '0')}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>durata</div>
+                </div>
               </div>
               {/* Pannello TOUR guidato (se la sessione è una modalità percorso) */}
               {activeSession.location?.tour ? (() => {
@@ -2533,14 +2621,16 @@ export default function FeedPage() {
                 const target = tour.target || 2;
                 const pct = Math.min(100, (atThisStop / target) * 100);
                 return (
-                  <div style={{ marginBottom: '15px', background: 'linear-gradient(135deg, rgba(223,255,0,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(223, 255, 0,0.22)', borderRadius: '16px', padding: '14px' }}>
-                    {/* Intestazione + avanzamento complessivo del tour */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
+                  <div style={{ marginBottom: '15px' }}>
+                    {/* Intestazione + avanzamento del tour a SEGMENTI (uno per tappa) */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '.4px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🗺️ {tour.route_name}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--secondary)', background: 'rgba(223,255,0,0.12)', borderRadius: '20px', padding: '3px 10px', flexShrink: 0 }}>Tappa {cur + 1}/{stops.length}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{cur + 1} di {stops.length} tappe</span>
                     </div>
-                    <div style={{ height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: '14px' }}>
-                      <div style={{ width: `${(cur / Math.max(1, stops.length - 1)) * 100}%`, height: '100%', background: 'var(--secondary)', transition: 'width 0.3s' }} />
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '18px' }}>
+                      {stops.map((_, segIdx) => (
+                        <div key={segIdx} style={{ flex: 1, height: '5px', borderRadius: '3px', background: segIdx <= cur ? 'var(--secondary)' : 'var(--border-solid)', transition: 'background 0.3s' }} />
+                      ))}
                     </div>
 
                     {/* ITINERARIO verticale: passate (✓, compatte) → corrente (espansa con azioni) → future */}
@@ -2555,13 +2645,13 @@ export default function FeedPage() {
                             {/* Colonna timeline: nodo + linea di collegamento */}
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                               <div style={{
-                                width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800,
-                                background: isCur ? 'var(--secondary)' : v ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.05)',
-                                color: isCur ? '#0D0D0D' : v ? 'var(--success)' : 'var(--text-dark-secondary)',
-                                border: isCur ? '2px solid var(--secondary)' : v ? '1px solid var(--success)' : '1px solid var(--border-dark)',
-                                boxShadow: isCur ? '0 0 10px rgba(223,255,0,0.4)' : 'none',
+                                width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800,
+                                background: isCur ? 'var(--secondary)' : v ? 'rgba(223,255,0,0.14)' : 'var(--bg-card-dark)',
+                                color: isCur ? '#0A0A0D' : v ? 'var(--secondary)' : 'var(--text-dark-tertiary)',
+                                border: isCur ? 'none' : v ? '1.5px solid var(--secondary)' : '1.5px solid var(--border-solid)',
+                                boxShadow: isCur ? '0 0 14px rgba(223,255,0,0.5)' : 'none',
                               }}>{v ? '✓' : i + 1}</div>
-                              {!isLast && <div style={{ flex: 1, width: '2px', minHeight: '18px', background: i < cur ? 'var(--secondary)' : 'var(--border-dark)' }} />}
+                              {!isLast && <div style={{ flex: 1, width: '2px', minHeight: '14px', background: i < cur ? 'linear-gradient(var(--secondary), var(--secondary))' : 'var(--border-solid)' }} />}
                             </div>
 
                             {/* Colonna contenuto */}
@@ -2587,7 +2677,7 @@ export default function FeedPage() {
                                         </span>
                                       )}
                                     </button>
-                                    {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', paddingTop: '2px' }}>in programma</div>}
+                                    {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)', paddingTop: '2px' }}>{isLast ? 'tappa finale' : 'in programma'}</div>}
 
                                     {/* Tappa PASSATA espansa: cosa hai bevuto qui */}
                                     {isPast && open && (
@@ -2603,17 +2693,29 @@ export default function FeedPage() {
                                 );
                               })()}
 
-                              {/* TAPPA CORRENTE: card "hero" — versione snella */}
+                              {/* TAPPA CORRENTE: card "hero" con bordo lime */}
                               {isCur && (
-                                <div style={{ marginTop: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', borderRadius: '12px', padding: '12px' }}>
-                                  {/* Verifica posizione: bottone se manca, pill verde se fatta */}
+                                <div style={{ marginTop: '8px', background: 'var(--bg-card-dark)', border: '1px solid rgba(223, 255, 0, 0.28)', borderRadius: '18px', padding: '15px', boxShadow: '0 8px 26px -10px rgba(223, 255, 0, 0.15)' }}>
+                                  {/* Header tappa: nome + Guidami compatto */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '12px' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.name}</div>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)', marginTop: '1px' }}>Tappa corrente</div>
+                                    </div>
+                                    {curStop?.lat && curStop?.lng && (
+                                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'var(--bg-input-dark)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-dark-primary)', borderRadius: '12px', padding: '7px 12px', fontSize: '12px', fontWeight: 600 }}>
+                                        <Navigation size={14} style={{ color: 'var(--secondary)' }} /> Guidami
+                                      </a>
+                                    )}
+                                  </div>
+                                  {/* Verifica posizione: CTA lime se manca, conferma se fatta */}
                                   {!v && curStop?.lat && curStop?.lng ? (
-                                    <button onClick={confirmStopPresence} disabled={checkingStop} className="btn btn-secondary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', marginBottom: '12px', fontWeight: 700, border: '1px solid var(--secondary)', color: 'var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                      {checkingStop ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
+                                    <button onClick={confirmStopPresence} disabled={checkingStop} style={{ width: '100%', fontSize: '13px', padding: '11px', borderRadius: '13px', marginBottom: '12px', fontWeight: 700, cursor: 'pointer', background: 'rgba(223, 255, 0, 0.1)', border: '1px solid rgba(223, 255, 0, 0.4)', color: 'var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
+                                      {checkingStop ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={15} />}
                                       {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica la tappa'}
                                     </button>
                                   ) : v ? (
-                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success)', marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>✅ Verificata · conta per le classifiche</div>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--secondary)', marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>✅ Verificata · conta per le classifiche</div>
                                   ) : null}
 
                                   {tourMsg && (
@@ -2622,58 +2724,44 @@ export default function FeedPage() {
                                     </div>
                                   )}
 
-                                  {/* Drink di questa tappa: header con contatore + chip rimovibili */}
-                                  <div style={{ marginBottom: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFF' }}>🍸 Bevuti qui</span>
-                                      <span style={{ fontSize: '11px', fontWeight: 800, color: atThisStop >= target ? 'var(--error)' : 'var(--secondary)', background: 'rgba(255,255,255,0.05)', borderRadius: '20px', padding: '2px 10px' }}>{atThisStop}/{target}</span>
+                                  {/* Drink di questa tappa: lista con stepper (aggiungi = gestisci) */}
+                                  <div style={{ marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFF' }}>Bevuti qui</span>
+                                      <span style={{ fontSize: '11px', fontWeight: 700, color: atThisStop >= target ? 'var(--error)' : 'var(--text-dark-tertiary)' }}>{atThisStop} / {target}</span>
                                     </div>
-                                    {perStopLive[cur]?.drinks?.length > 0 ? (
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                                        {perStopLive[cur].drinks.map((d, k) => (
-                                          <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 4px 3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                            {drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}
-                                            <button type="button" onClick={() => handleRemoveDrinkFromActiveSession(d.name)} title="Rimuovi un drink" style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 16, height: 16, cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>×</button>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>Niente ancora — aggiungi qui sotto 👇</span>
+                                    {!(perStopLive[cur]?.drinks?.length > 0) && (
+                                      <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginBottom: '8px' }}>Niente ancora — aggiungi qui sotto 👇</div>
                                     )}
+                                    {renderDrinkStepperList(perStopLive[cur]?.drinks, 'Aggiungi un drink qui')}
                                   </div>
 
-                                  {/* Aggiungi drink (1-tap + ricerca) */}
-                                  <div style={{ marginBottom: '10px' }}>
-                                    {renderDrinkAdder()}
-                                  </div>
-
-                                  {/* Guidami alla tappa */}
-                                  {curStop?.lat && curStop?.lng ? (
-                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ width: '100%', fontSize: '13px', padding: '10px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700, marginBottom: '8px' }}>
-                                      🧭 Guidami qui
-                                    </a>
-                                  ) : (
-                                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '8px' }}>📍 Tappa extra: registra qui i drink.</div>
+                                  {!(curStop?.lat && curStop?.lng) && (
+                                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>📍 Tappa extra: registra qui i drink.</div>
                                   )}
 
-                                  {/* Foto di questa tappa: pulsante esplicito */}
-                                  <div style={{ marginBottom: '10px' }}>
-                                    {renderPhotoStrip('Aggiungi una foto a questa tappa')}
+                                  {/* Foto di questa tappa */}
+                                  <div style={{ marginBottom: '12px' }}>
+                                    {renderPhotoStrip()}
                                   </div>
 
-                                  {/* Navigazione tappe */}
+                                  {/* Navigazione tappe: ⬅ / Prossima tappa → / + */}
                                   <div style={{ display: 'flex', gap: '8px' }}>
                                     {cur > 0 && (
-                                      <button onClick={handleGoBackTourStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }} title="Torna alla tappa precedente">⬅️</button>
+                                      <button onClick={handleGoBackTourStop} title="Torna alla tappa precedente" aria-label="Tappa precedente" style={{ width: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '13px', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '10px 0' }}>
+                                        <ChevronLeft size={16} />
+                                      </button>
                                     )}
                                     {nextStop ? (
-                                      <button onClick={handleAdvanceTourStop} className="btn btn-primary" style={{ flex: 1, fontSize: '12px', padding: '8px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', fontWeight: 700 }}>
-                                        ➡️ Vai a {nextStop.name.length > 14 ? nextStop.name.slice(0, 12) + '…' : nextStop.name}
+                                      <button onClick={handleAdvanceTourStop} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: 'linear-gradient(135deg, #FF3B2F, #D81A00)', color: '#FFF', fontSize: '13px', fontWeight: 700, padding: '11px', borderRadius: '13px', border: 'none', cursor: 'pointer', boxShadow: '0 6px 18px rgba(255, 59, 47, 0.35)', minWidth: 0 }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Prossima tappa</span> <ArrowRight size={15} style={{ flexShrink: 0 }} />
                                       </button>
                                     ) : (
                                       <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center', textAlign: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
                                     )}
-                                    <button onClick={handleAddUnscheduledStop} className="btn btn-secondary" style={{ fontSize: '12px', padding: '8px 12px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }} title="Aggiungi una tappa non prevista">➕</button>
+                                    <button onClick={handleAddUnscheduledStop} title="Aggiungi una tappa non prevista" aria-label="Aggiungi tappa" style={{ width: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '13px', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '10px 0', fontSize: '18px', lineHeight: 1 }}>
+                                      +
+                                    </button>
                                   </div>
                                 </div>
                               )}
@@ -2722,80 +2810,12 @@ export default function FeedPage() {
                 </div>
               )}
 
-              {/* Titolo e info modificabili della sessione live */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '15px' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#FFF', wordBreak: 'break-word' }}>
-                    {activeSession.title || 'Brindisi Live 🍻'}
-                  </h3>
-                  {activeSession.description && (
-                    <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{activeSession.description}</p>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                  <button
-                    onClick={() => setShareSheet({ id: activeSession.id, caption: `Sono in diretta su Strabar 🍻 — ${activeSession.total_units ? activeSession.total_units.toFixed(1) + ' U.A.' : 'segui la mia sessione'}!` })}
-                    className="btn btn-primary"
-                    title="Condividi la diretta (link o scheda social)"
-                    style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Share2 size={12} /> Condividi
-                  </button>
-                  <button
-                    onClick={() => handleEditActivity(activeSession)}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Edit size={12} /> Modifica
-                  </button>
-                </div>
-              </div>
-
-              {/* Statistiche Live */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-dark)', marginBottom: '15px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600' }}>Carico Alcolico</div>
-                  <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--secondary)', marginTop: '4px' }}>
-                    {activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0'} <span style={{ fontSize: '12px' }}>U.A.</span>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                  {/* BAC ATTUALE (adesso), ricalcolato live: non è il picco, che si vede
-                      a sessione chiusa. elapsedMinutes lo tiene aggiornato ogni 15s. */}
-                  {(() => {
-                    const liveBac = db.calculateCurrentBAC(
-                      activeSession.drinks || [],
-                      activeSession.created_at,
-                      activeSession.duration || elapsedMinutes || 1,
-                      undefined,
-                      currentUser?.weight,
-                      activeSession.full_stomach,
-                      currentUser?.sex,
-                      liveResidualGrams
-                    );
-                    return (
-                      <>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>BAC Attuale <BacInfo size={12} /></div>
-                        <div style={{ fontSize: '24px', fontWeight: '800', color: liveBac > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '4px' }}>
-                          {liveBac.toFixed(2)} <span style={{ fontSize: '12px' }}>g/l</span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                  {liveResidualGrams > 0 && (
-                    <div style={{ fontSize: '10px', color: 'var(--secondary)', marginTop: '2px' }}>
-                      include residuo precedente
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Stomaco pieno/vuoto (compatto): incide sulla stima del BAC */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>🍽️ Stomaco</span>
-                <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '2px' }}>
-                  <button type="button" onClick={() => handleToggleFullStomach(false)} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, background: !activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: !activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>Vuoto</button>
-                  <button type="button" onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>🍝 Pieno</button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>🍽️ Stomaco</span>
+                <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '3px' }}>
+                  <button type="button" onClick={() => handleToggleFullStomach(false)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: !activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: !activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>Vuoto</button>
+                  <button type="button" onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>🍝 Pieno</button>
                 </div>
               </div>
 
@@ -2804,39 +2824,27 @@ export default function FeedPage() {
                 const curve = db.calculateBACCurve(activeSession.drinks || [], activeSession.created_at, activeSession.duration || elapsedMinutes || 1, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
                 if (!curve) return null;
                 return (
-                  <div style={{ marginBottom: '15px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ marginBottom: '16px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '14px' }}>
                     <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>📈 Curva di ebbrezza (g/l)</span>
                     <BacCurve curve={curve} height={140} />
                   </div>
                 );
               })()}
 
-              {/* Elenco drink correnti — solo nella live SEMPLICE (nel tour i drink sono
-                  già divisi per tappa nella timeline qui sopra) */}
+              {/* Cosa stai bevendo — lista unica con stepper (solo live SEMPLICE:
+                  nel tour i drink sono dentro la tappa corrente) */}
               {!activeSession.location?.tour && (
-              <div style={{ marginBottom: '15px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>
-                  {t('session.liveDrinks', { n: (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0) })}
-                </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
-                  {activeSession.drinks?.length > 0 ? (
-                    groupDrinks(activeSession.drinks).map((d, i) => (
-                      <span key={i} className="drink-tag" style={{ margin: 0, fontSize: '11px', padding: '3px 4px 3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <Beer size={10} /> {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveDrinkFromActiveSession(d.name)}
-                          title="Rimuovi un drink (correggi un errore)"
-                          style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#EF4444', borderRadius: '50%', width: 16, height: 16, cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))
-                  ) : (
-                    <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic' }}>{t('session.liveNoDrinks')}</span>
-                  )}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dark-primary)' }}>Cosa stai bevendo</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-tertiary)' }}>
+                    {(activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0)} drink · {activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0'} U.A.
+                  </span>
                 </div>
+                {(activeSession.drinks || []).length === 0 && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginBottom: '8px' }}>{t('session.liveNoDrinks')}</div>
+                )}
+                {renderDrinkStepperList(activeSession.drinks, (activeSession.drinks || []).length ? 'Aggiungi un altro drink' : 'Aggiungi il primo drink')}
               </div>
               )}
 
@@ -2852,16 +2860,6 @@ export default function FeedPage() {
                   </div>
                   <button onClick={() => setPacingTip(false)} aria-label="Chiudi" style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, fontSize: '16px', lineHeight: 1, padding: '2px' }}>×</button>
                 </div>
-              )}
-
-              {/* Registra un drink — solo nella live SEMPLICE (nel tour è dentro la tappa) */}
-              {!activeSession.location?.tour && (
-              <div style={{ marginBottom: '15px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
-                  {t('session.registerDrink')}
-                </span>
-                {renderDrinkAdder()}
-              </div>
               )}
 
               {/* Gestione Compagni (drank_with) con ricerca amici reale */}
@@ -2893,13 +2891,13 @@ export default function FeedPage() {
 
                   {/* Dropdown risultati */}
                   {friendQuery.trim().length >= 1 && (friendResults.length > 0 || (!searchingFriends)) && (
-                    <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--surface-dark, #17181B)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
+                    <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--surface-dark, #141419)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
                       {friendResults.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => addCompanion(`${publicName(p, p.username)} (@${p.username})`)}
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer', color: '#FFF' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 32, 0,0.08)'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 59, 47,0.08)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
                         >
                           <span className="activity-avatar" style={{ width: '26px', height: '26px', fontSize: '12px', flexShrink: 0 }}>
@@ -2944,8 +2942,8 @@ export default function FeedPage() {
 
               {/* Foto — solo nella live SEMPLICE (nel tour sono dentro la tappa corrente) */}
               {!activeSession.location?.tour && (
-                <div style={{ marginBottom: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '12px' }}>
-                  {renderPhotoStrip('Aggiungi una foto alla sessione')}
+                <div style={{ marginBottom: '16px', borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
+                  {renderPhotoStrip()}
                 </div>
               )}
 
@@ -2955,16 +2953,16 @@ export default function FeedPage() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => setShowCloseForm(true)}
-                    className="btn btn-primary"
-                    style={{ flex: 1, borderRadius: '20px', padding: '8px', fontSize: '14px', fontWeight: 'bold' }}
+                    className="btn"
+                    style={{ flex: 1, borderRadius: '16px', padding: '13px', fontSize: '15px', fontWeight: 700, color: '#FFF', background: 'linear-gradient(135deg, #FF3B2F, #D81A00)', boxShadow: '0 8px 24px rgba(255, 59, 47, 0.4)' }}
                   >
-                    Termina Allenamento 🏁
+                    🏁 Chiudi sessione &amp; recap
                   </button>
                   <button
                     onClick={handleCancelActiveSession}
                     className="btn btn-secondary"
                     title="Annulla la sessione senza salvarla"
-                    style={{ borderRadius: '20px', padding: '8px 14px', fontSize: '13px', color: 'var(--error)', flexShrink: 0 }}
+                    style={{ borderRadius: '16px', padding: '8px 14px', fontSize: '13px', color: 'var(--error)', flexShrink: 0 }}
                   >
                     <Trash2 size={15} /> Annulla
                   </button>
@@ -3021,7 +3019,7 @@ export default function FeedPage() {
             </>
           ) : null
         ) : (
-          <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 32, 0, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>
+          <div className="card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(255, 59, 47, 0.1) 0%, rgba(22, 24, 34, 1) 100%)', border: '1px solid var(--border-dark)', textAlign: 'center', marginBottom: '10px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '800', marginBottom: '10px' }}>🍻 Unisciti alla Community di Strabar!</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginBottom: '20px', maxWidth: '500px', margin: '0 auto 20px auto' }}>
               Registra le tue bevute, sfida i tuoi amici in classifica e pianifica i tuoi percorsi preferiti.
@@ -3035,7 +3033,7 @@ export default function FeedPage() {
         {/* Indicatore pull-to-refresh: appare in cima mentre trascini o ricarichi. */}
         {(pullPx > 0 || refreshing) && (
           <div style={{ position: 'fixed', top: 'calc(60px + env(safe-area-inset-top, 0px))', left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 400 }}>
-            <div style={{ transform: `translateY(${Math.max(0, pullPx - 20)}px)`, background: 'var(--bg-card-dark, #16171c)', border: '1px solid var(--border-dark)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}>
+            <div style={{ transform: `translateY(${Math.max(0, pullPx - 20)}px)`, background: 'var(--bg-card-dark, #141419)', border: '1px solid var(--border-dark)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}>
               <Loader size={18} style={{ color: 'var(--primary)', animation: refreshing ? 'spin 1s linear infinite' : 'none', transform: refreshing ? 'none' : `rotate(${pullPx * 4}deg)` }} />
             </div>
           </div>
@@ -3043,7 +3041,7 @@ export default function FeedPage() {
 
         {/* Filtro feed: Amici / Tutti / Live */}
         {currentUser && activities.length > 0 && (
-          <div className="seg-tabs feed-filter-tabs" style={{ marginTop: '4px', marginBottom: '14px', maxWidth: '360px' }}>
+          <div className="feed-filter-tabs" style={{ marginTop: '4px', marginBottom: '16px' }}>
             <div
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
@@ -3111,9 +3109,40 @@ export default function FeedPage() {
                   }
                 }}
               >
-                <div className="activity-header" style={{ gap: '12px' }}>
-                  <Link href={`/u/${act.user_id}`} prefetch={false} style={{ flexShrink: 0 }}>
-                    <Avatar src={act.profiles?.avatar_url} name={publicName(act.profiles, 'Atleta')} size={44} />
+                {/* Cover IN CIMA (card image-forward): pill LIVE, locale e badge foto in overlay */}
+                {act.cover_url && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
+                    aria-label={t('feed.photoOpenAria')}
+                    className="activity-cover"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={act.cover_url}
+                      alt={t('feed.photoAlt')}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    {isReallyActive && (
+                      <span className="cover-overlay pulse" style={{ top: 14, left: 14, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,59,47,0.92)', color: '#FFF', fontSize: 11, fontWeight: 800, letterSpacing: '0.5px', padding: '5px 11px', borderRadius: 20 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFF', display: 'inline-block' }} /> LIVE
+                      </span>
+                    )}
+                    {act.location && (
+                      <span className="cover-overlay" style={{ bottom: 14, left: 16, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#FFF', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📍 {act.location.name}
+                      </span>
+                    )}
+                    <span className="cover-overlay" style={{ bottom: 12, right: 14, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Camera size={12} /> {t('feed.photoBadge')}
+                    </span>
+                  </button>
+                )}
+
+                <div className="activity-header" style={{ gap: '11px' }}>
+                  <Link href={`/u/${act.user_id}`} prefetch={false} className="avatar-ring" style={{ flexShrink: 0 }}>
+                    <Avatar src={act.profiles?.avatar_url} name={publicName(act.profiles, 'Atleta')} size={40} />
                   </Link>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="activity-author">
@@ -3121,9 +3150,7 @@ export default function FeedPage() {
                         {publicName(act.profiles, t('feed.userFallback'))}
                       </Link>
                       {act.profiles?.is_premium && (
-                        <span className="badge-premium" style={{ marginLeft: '8px', fontSize: '8px' }}>
-                          Premium
-                        </span>
+                        <BadgeCheck size={15} style={{ color: 'var(--secondary)', flexShrink: 0, verticalAlign: 'text-bottom', marginLeft: 6 }} aria-label="Premium" />
                       )}
                     </div>
                     <div className="activity-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -3134,18 +3161,18 @@ export default function FeedPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
-                    {isReallyActive && (
-                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 32, 0, 0.1)', padding: '2px 6px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} />
-                        LIVE 🔴
+                    {isReallyActive && !act.cover_url && (
+                      <span className="pulse" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(255,59,47,0.92)', color: '#FFF', fontSize: '10px', fontWeight: 800, letterSpacing: '0.5px', padding: '3px 9px', borderRadius: '20px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#FFF', display: 'inline-block' }} />
+                        LIVE
                       </span>
                     )}
                     {currentUser && act.user_id !== currentUser.id && (
                       <button
                         onClick={() => handleToggleFollow(act.user_id)}
                         disabled={followBusy[act.user_id]}
-                        className={`btn ${followingIds.includes(act.user_id) ? 'btn-secondary' : 'btn-primary'}`}
-                        style={{ padding: '5px 12px', fontSize: '12px', borderRadius: '16px', fontWeight: '700', whiteSpace: 'nowrap' }}
+                        className="btn"
+                        style={{ padding: '6px 15px', fontSize: '13px', borderRadius: '18px', fontWeight: 600, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.14)', background: 'none', color: followingIds.includes(act.user_id) ? 'var(--text-dark-tertiary)' : '#C4C4CC' }}
                       >
                         {followingIds.includes(act.user_id) ? t('feed.following') : t('feed.follow')}
                       </button>
@@ -3163,20 +3190,27 @@ export default function FeedPage() {
                 <div className="activity-stats">
                   <div className="stat-box">
                     <span className="stat-label">{t('session.drinksTotal')}</span>
-                    <span className="stat-value highlight">
+                    <span className="stat-value">
                       {act.drinks.reduce((acc, d) => acc + d.qty, 0)}
                     </span>
                   </div>
-                  {/* "Tempo a Tavola" NASCOSTO nel feed (resta nel dettaglio della sessione). */}
-                  {/* U.A. (carico) NASCOSTO nel feed (resta in DB per le classifiche). */}
-                  <div className="stat-box">
+                  {/* "Tempo a Tavola" torna come terzo dato hero (durata). U.A. resta in DB. */}
+                  <div className="stat-box" style={{ flex: 1.3 }}>
                     {/* Se la sessione non ha drink propri, il valore è il RESIDUO da sessioni
                         precedenti: lo etichettiamo come tale (non è il tasso "di qui"). */}
                     <span className="stat-label" style={{ gap: '4px' }}>{(act.drinks && act.drinks.length) ? t('session.bacEst') : t('session.bacResidual')} <BacInfo size={12} /></span>
                     <span className={`bac-pill ${displayBac(act) >= 0.5 ? 'high' : displayBac(act) >= 0.2 ? 'mid' : 'low'}`}>
-                      {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.7 }}>g/l</span>
+                      {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.6 }}>g/l</span>
                     </span>
                   </div>
+                  {(act.duration || 0) >= 1 && (
+                    <div className="stat-box">
+                      <span className="stat-label">{t('session.durationLabel')}</span>
+                      <span className="stat-value">
+                        {Math.floor(act.duration / 60)}:{String(Math.round(act.duration % 60)).padStart(2, '0')}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Lista Drink (raggruppati): chip con emoji per tipo + badge quantità */}
@@ -3186,14 +3220,14 @@ export default function FeedPage() {
                       <span style={{ fontSize: '14px', lineHeight: 1 }}>{drinkEmoji(drink.name)}</span>
                       {drink.name}
                       {drink.qty > 1 && (
-                        <strong style={{ color: 'var(--primary)', background: 'rgba(255,32,0,0.12)', borderRadius: '7px', padding: '0 6px', fontSize: '11px' }}>×{drink.qty}</strong>
+                        <span style={{ color: 'var(--text-dark-tertiary)', fontWeight: 600, fontSize: '12px' }}>×{drink.qty}</span>
                       )}
                     </span>
                   ))}
                 </div>
 
-                 {act.location && (
-                   <div style={{ fontSize: '13px', color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
+                 {act.location && !act.cover_url && (
+                   <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
                      <span>📍 {t('session.at')} <strong>{act.location.name}</strong></span>
                      {act.location.unverified && (
                        <span title={t('feed.unverifiedTitle')} style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '1px 7px', fontWeight: 600 }}>
@@ -3235,29 +3269,6 @@ export default function FeedPage() {
                    );
                  })()}
 
-                 {/* Anteprima foto (copertina leggera): UNA sola immagine lazy nel feed; al
-                     tocco apre lo slideshow con TUTTE le foto, caricate solo allora.
-                     Così il feed resta velocissimo (nessun download foto finché non serve). */}
-                 {act.cover_url && (
-                   <button
-                     type="button"
-                     onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
-                     aria-label={t('feed.photoOpenAria')}
-                     className="activity-cover"
-                   >
-                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                     <img
-                       src={act.cover_url}
-                       alt={t('feed.photoAlt')}
-                       loading="lazy"
-                       decoding="async"
-                     />
-                     <span style={{ position: 'absolute', bottom: 10, right: 10, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4, zIndex: 1 }}>
-                       <Camera size={12} /> {t('feed.photoBadge')}
-                     </span>
-                   </button>
-                 )}
-
                  {/* Niente foto ma sessione geolocalizzata (anche "libera"): mostra la mappa
                      del punto. Mappa NON interattiva: lo scroll del feed scorre sopra e il
                      tap sulla mappa apre il dettaglio della sessione (dove c'è la mappa piena). */}
@@ -3289,33 +3300,32 @@ export default function FeedPage() {
                   </button>
                 )}
 
-                {/* Actions (Cheers, Commenta, Condividi) */}
+                {/* Actions minimali: cheers (rosso), commenti, condividi a destra */}
                 <div className="activity-actions">
-                  <button 
-                    onClick={() => handleCheers(act.id)} 
+                  <button
+                    onClick={() => handleCheers(act.id)}
                     className={`action-btn ${hasCheered ? 'active' : ''}`}
+                    title={t('session.cheers')}
+                    aria-label={t('session.cheers')}
                   >
-                    <Beer size={18} fill={hasCheered ? 'var(--primary)' : 'none'} />
-                    <span>{t('session.cheers')} ({act.cheer_count ?? act.cheers?.length ?? 0})</span>
+                    <Beer size={18} fill={hasCheered ? 'var(--primary)' : 'none'} style={{ color: 'var(--primary)' }} />
+                    <span style={{ color: hasCheered ? 'var(--primary)' : undefined }}>{act.cheer_count ?? act.cheers?.length ?? 0}</span>
                   </button>
 
-                  <button onClick={() => toggleCommentsSection(act.id)} className="action-btn">
+                  <button onClick={() => toggleCommentsSection(act.id)} className="action-btn" title={t('session.comment')} aria-label={t('session.comment')}>
                     <MessageSquare size={18} />
-                    <span>{t('session.comment')} ({act.comments?.length || act.comment_count || 0})</span>
+                    <span>{act.comments?.length || act.comment_count || 0}</span>
                   </button>
-
-                  <Link href={`/share/${act.id}`} prefetch={false} className="action-btn">
-                    <Share2 size={18} />
-                    <span className="action-btn-label-long">{t('session.exportSocial')}</span>
-                    <span className="action-btn-label-short" style={{ display: 'none' }}>{t('session.exportShort')}</span>
-                  </Link>
 
                   {currentUser && act.user_id === currentUser.id && (
-                    <button onClick={() => handleEditActivity(act)} className="action-btn">
+                    <button onClick={() => handleEditActivity(act)} className="action-btn" title={t('session.edit')} aria-label={t('session.edit')}>
                       <Edit size={18} />
-                      <span>{t('session.edit')}</span>
                     </button>
                   )}
+
+                  <Link href={`/share/${act.id}`} prefetch={false} className="action-btn" style={{ marginLeft: 'auto' }} title={t('session.exportSocial')} aria-label={t('session.exportSocial')}>
+                    <Share2 size={18} />
+                  </Link>
                 </div>
 
                 {/* Comments Section */}
@@ -3423,7 +3433,7 @@ export default function FeedPage() {
           <div
             onClick={(e) => e.stopPropagation()}
             className="card"
-            style={{ width: '100%', maxWidth: '380px', textAlign: 'center', border: '2px solid var(--primary)', boxShadow: '0 0 30px rgba(255,32,0,0.3)', animation: 'slideUp 0.25s ease' }}
+            style={{ width: '100%', maxWidth: '380px', textAlign: 'center', border: '2px solid var(--primary)', boxShadow: '0 0 30px rgba(255,59,47,0.3)', animation: 'slideUp 0.25s ease' }}
           >
             <div style={{ fontSize: '40px', lineHeight: 1, marginBottom: '10px' }}>📸</div>
             <h3 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '8px' }}>Immortala il primo drink!</h3>
@@ -3476,7 +3486,7 @@ export default function FeedPage() {
       {/* MODAL DETTAGLI ATTIVITA */}
       {selectedActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1400, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedActivity(null)}>
-          <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 32, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }} onClick={(e) => e.stopPropagation()}>
+          <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 59, 47, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }} onClick={(e) => e.stopPropagation()}>
             
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
@@ -3488,7 +3498,7 @@ export default function FeedPage() {
                   <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <Link href={`/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)} style={{ color: 'inherit' }}>{publicName(selectedActivity.profiles)}</Link>
                     {isLiveAct(selectedActivity) && (
-                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 32, 0, 0.1)', padding: '2px 7px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
+                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 59, 47, 0.1)', padding: '2px 7px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
                       </span>
                     )}
@@ -3615,7 +3625,7 @@ export default function FeedPage() {
             )}
 
             {/* Performance Stats */}
-            <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 32, 0, 0.15)' }}>
+            <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 59, 47, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 59, 47, 0.15)' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{t('session.drinksTotal')}</div>
                 <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
@@ -3643,7 +3653,7 @@ export default function FeedPage() {
             </div>
 
             {/* TIMELINE CURVA BAC */}
-            <div style={{ marginBottom: '25px', background: 'rgba(255, 32, 0, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
+            <div style={{ marginBottom: '25px', background: 'rgba(255, 59, 47, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                   📈 {t('session.bacCurveTitle')}
@@ -3892,13 +3902,13 @@ export default function FeedPage() {
                     const drinkTime = drink.added_at ? new Date(drink.added_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                     return (
                       <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px' }}>
-                        <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'rgba(255,32,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                        <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'rgba(255,59,47,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                           {drinkEmoji(drink.name)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <strong style={{ fontSize: '14px', color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{drink.name}</strong>
-                            {drink.qty > 1 && <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', background: 'rgba(255,32,0,0.12)', borderRadius: '8px', padding: '1px 7px', flexShrink: 0 }}>×{drink.qty}</span>}
+                            {drink.qty > 1 && <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', background: 'rgba(255,59,47,0.12)', borderRadius: '8px', padding: '1px 7px', flexShrink: 0 }}>×{drink.qty}</span>}
                           </div>
                           <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 6 }}>
                             <div style={{ width: `${(calculatedUnits / maxU) * 100}%`, height: '100%', background: 'var(--primary)', borderRadius: 3 }} />
@@ -3917,7 +3927,7 @@ export default function FeedPage() {
 
             {/* Sezione Aggiungi Drink — solo per la sessione LIVE in corso, non sui post già chiusi */}
             {currentUser && selectedActivity.user_id === currentUser.id && selectedActivity.is_active && (
-              <div style={{ background: 'rgba(255, 32, 0, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
+              <div style={{ background: 'rgba(255, 59, 47, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Plus size={16} /> {t('session.addDrinkRT')}
                 </h4>
@@ -4010,7 +4020,7 @@ export default function FeedPage() {
                 const shown = people.slice(0, 3);
                 const extra = people.length - shown.length;
                 return (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255, 32, 0,0.05)', border: '1px solid rgba(255, 32, 0,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'rgba(255, 59, 47,0.05)', border: '1px solid rgba(255, 59, 47,0.15)', borderRadius: '8px', padding: '8px 12px', marginBottom: '15px', flexWrap: 'wrap' }}>
                     <Beer size={15} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '2px' }} fill="var(--primary)" />
                     <span style={{ fontSize: '13px', color: 'var(--text-dark-primary)', lineHeight: 1.5 }}>
                       {t('session.cheersBy')}{' '}
@@ -4121,7 +4131,7 @@ export default function FeedPage() {
       {/* MODAL MODIFICA ATTIVITA */}
       {editingActivity && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1400, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setEditingActivity(null)}>
-          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 32, 0, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }} onClick={(e) => e.stopPropagation()}>
+          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 59, 47, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }} onClick={(e) => e.stopPropagation()}>
             
             {/* Header del Modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
@@ -4313,7 +4323,7 @@ export default function FeedPage() {
                   <Loader size={13} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
                 )}
                 {editFriendQuery.trim().length >= 1 && (
-                  <div style={{ position: 'absolute', top: '40px', left: 0, right: 0, background: 'var(--bg-card-dark, #17181B)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
+                  <div style={{ position: 'absolute', top: '40px', left: 0, right: 0, background: 'var(--bg-card-dark, #141419)', border: '1px solid var(--border-dark)', borderRadius: '8px', zIndex: 50, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 20px rgba(0,0,0,0.4)' }}>
                     {editFriendResults.map((p) => (
                       <button
                         key={p.id}
@@ -4390,10 +4400,10 @@ export default function FeedPage() {
       {/* MODAL BLOCCO REGISTRAZIONE COMPLETAMENTO NOME (GOOGLE OAUTH FORCED) */}
       {showCompleteProfileModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(10px)' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '450px', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 32, 0, 0.3)', padding: '30px', borderRadius: '16px', background: '#0B0A09', position: 'relative' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '450px', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 59, 47, 0.3)', padding: '30px', borderRadius: '16px', background: '#0B0A09', position: 'relative' }}>
             
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <div style={{ display: 'inline-flex', background: 'rgba(255, 32, 0, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
+              <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47, 0.1)', padding: '15px', borderRadius: '50%', color: 'var(--primary)', marginBottom: '15px' }}>
                 <Award size={40} />
               </div>
               <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#FFF', marginBottom: '8px' }}>Completa il Profilo 🏅</h2>
@@ -4563,7 +4573,7 @@ export default function FeedPage() {
           <div
             onClick={(e) => e.stopPropagation()}
             className="card reveal is-visible"
-            style={{ maxWidth: '440px', width: '100%', background: 'linear-gradient(135deg, rgba(255,32,0,0.16) 0%, rgba(22,24,34,0.98) 60%)', border: '1px solid var(--border-dark)', borderRadius: '24px', padding: '28px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}
+            style={{ maxWidth: '440px', width: '100%', background: 'linear-gradient(135deg, rgba(255,59,47,0.16) 0%, rgba(22,24,34,0.98) 60%)', border: '1px solid var(--border-dark)', borderRadius: '24px', padding: '28px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}
           >
             <div className="glow-orb" style={{ top: '-50px', left: '50%', width: '200px', height: '200px', background: 'var(--primary)', opacity: 0.3 }} />
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>

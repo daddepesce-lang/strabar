@@ -1,21 +1,23 @@
 /* I font sono self-hosted via next/font (vedi src/app/layout.js): le variabili
    --font-bebas e --font-dm sono iniettate sull'elemento <html>. */
 :root {
-  /* Strabar Design System Tokens — "Electric & Void" */
-  --primary: #FF2000;         /* Strabar Red */
+  /* Strabar Design System Tokens — "Electric & Void, evoluto" */
+  --primary: #FF3B2F;         /* Ember Red */
   --primary-hover: #D81A00;
-  --secondary: #DFFF00;       /* Acid Yellow */
+  --secondary: #DFFF00;       /* Acid Lime (solo live/premi/reward) */
   --secondary-hover: #C2DF00;
   --accent-blue: #2563EB;     /* Electric Blue (data overlays) */
   --accent-plum: #3B1F3A;     /* Deep Plum (depth) */
 
-  --bg-dark: #0D0D0D;         /* Void Black */
-  --bg-card-dark: #17181B;    /* Card background */
-  --bg-input-dark: #202227;
-  --border-dark: #2C2E34;
-  --text-dark-primary: #F3F4F6;
-  --text-dark-secondary: #9CA3AF;
-  
+  --bg-dark: #0A0A0D;         /* Void Black */
+  --bg-card-dark: #141419;    /* Card background */
+  --bg-input-dark: #1C1C24;
+  --border-dark: rgba(255, 255, 255, 0.06); /* hairline */
+  --border-solid: #26262F;    /* bordi pieni (scrollbar, divisori marcati) */
+  --text-dark-primary: #F4F4F6;
+  --text-dark-secondary: #8E8E9A;
+  --text-dark-tertiary: #5E5E68;
+
   --bg-light: #F4F5F7;        /* Day Light Theme */
   --bg-card-light: #FFFFFF;
   --bg-input-light: #E5E7EB;
@@ -27,8 +29,8 @@
   --success: #10B981;
   --error: #EF4444;
   --info: #3B82F6;
-  --premium-gradient: linear-gradient(135deg, #FF2000 0%, #DFFF00 100%);
-  --premium-neon: 0 0 15px rgba(255, 32, 0, 0.4);
+  --premium-gradient: linear-gradient(135deg, #FF3B2F 0%, #DFFF00 100%);
+  --premium-neon: 0 0 15px rgba(255, 59, 47, 0.4);
 
   --font-sans: var(--font-dm), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-display: var(--font-bebas), var(--font-dm), sans-serif;
@@ -38,19 +40,19 @@
 
   /* === Elevazione a livelli (profondità "Deciso") === */
   --radius-sm: 9px;
-  --radius-lg: 18px;
+  --radius-lg: 22px;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 30px -8px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 18px 50px -12px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 8px 30px -6px rgba(255, 32, 0, 0.35);
+  --shadow-glow: 0 8px 30px -6px rgba(255, 59, 47, 0.35);
 
-  /* Superfici con micro-gradiente (top più chiaro = luce dall'alto) */
-  --surface-card: linear-gradient(180deg, #1B1D22 0%, #15161A 100%);
-  --surface-raised: linear-gradient(180deg, #212329 0%, #191A1F 100%);
+  /* Superfici piene (niente micro-gradienti: card = fondo pieno + bordo hairline) */
+  --surface-card: #141419;
+  --surface-raised: #1C1C24;
   --hairline-top: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
 
   /* Anelli e bordi luminosi */
-  --ring-premium: linear-gradient(135deg, #FF2000, #DFFF00);
+  --ring-premium: linear-gradient(135deg, #FF3B2F, #DFFF00);
 
   /* Curve di animazione */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);          /* decelerazione netta */
@@ -59,7 +61,7 @@
   /* Semaforo tasso alcolico (BAC) */
   --bac-low: #2ED573;     /* sobrio */
   --bac-mid: #DFFF00;     /* attenzione */
-  --bac-high: #FF2000;    /* alto */
+  --bac-high: #FF3B2F;    /* alto */
 }
 
 /* Default Theme: Dark Pub Theme for Strabar */
@@ -123,7 +125,7 @@ h1, h2, .nav-user-name {
 /* Scrollbar a tema scuro (Firefox) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-dark) transparent;
+  scrollbar-color: var(--border-solid) transparent;
 }
 
 /* Scrollbar a tema scuro (Chrome/Safari/Edge) */
@@ -135,7 +137,7 @@ h1, h2, .nav-user-name {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-dark);
+  background: var(--border-solid);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;
@@ -212,7 +214,7 @@ button, input, select, textarea {
   padding-top: env(safe-area-inset-top, 0px);
   /* Sfondo opaco + niente backdrop-filter: evita lo stesso bug iOS PWA della
      barra in basso (layer fixed+blur che si stacca durante lo scroll inerziale). */
-  background: #161822;
+  background: #111116;
   border-bottom: 1px solid var(--border-dark);
   /* Niente translateZ/transform: vedi nota su .mobile-nav — su iOS promuovere una
      barra fixed a layer GPU la fa "staccare" durante lo scroll inerziale. */
@@ -263,7 +265,7 @@ button, input, select, textarea {
   .nav-links { gap: 4px; }
   .nav-link { font-size: 14px; padding: 8px 9px; border-radius: 11px; }
   .nav-link .nav-link-label { display: none; }
-  .nav-link.active { background: rgba(255, 32, 0, 0.12); }
+  .nav-link.active { background: rgba(255, 59, 47, 0.12); }
   .nav-link:hover { background: rgba(255, 255, 255, 0.05); }
   .nav-actions { gap: 10px; }
   .nav-user-name { display: none !important; }
@@ -291,12 +293,12 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 0 12px rgba(255, 32, 0,0.35);
+  box-shadow: 0 0 12px rgba(255, 59, 47,0.35);
   transition: var(--transition);
 }
 .nav-link-register:hover {
   background: var(--primary-hover);
-  box-shadow: 0 0 20px rgba(255, 32, 0,0.55);
+  box-shadow: 0 0 20px rgba(255, 59, 47,0.55);
   transform: translateY(-1px);
   color: #fff !important;
 }
@@ -322,22 +324,9 @@ button, input, select, textarea {
   transition: transform 0.35s var(--ease-out), border-color 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
 }
 
-/* Hairline luminosa in cima: simula una luce dall'alto, dà profondità */
-.card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 16px;
-  right: 16px;
-  height: 1px;
-  background: var(--hairline-top);
-  opacity: 0.7;
-  pointer-events: none;
-}
-
 .card:hover {
   transform: translateY(-3px);
-  border-color: rgba(255, 32, 0, 0.35);
+  border-color: rgba(255, 59, 47, 0.35);
   box-shadow: var(--shadow-lg);
 }
 
@@ -380,7 +369,7 @@ button, input, select, textarea {
 
 .btn-premium {
   background: var(--premium-gradient);
-  color: #0D0D0D;
+  color: #0A0A0D;
   font-weight: 800;
   box-shadow: var(--premium-neon);
 }
@@ -431,7 +420,7 @@ button, input, select, textarea {
 
 .form-control:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 8px rgba(255, 32, 0, 0.25);
+  box-shadow: 0 0 8px rgba(255, 59, 47, 0.25);
 }
 
 /* SELECT: con appearance:none la freccia nativa sparisce e il testo dell'opzione
@@ -481,22 +470,19 @@ select.form-control {
 }
 
 .activity-card {
+  --card-pad: 24px;
   border-radius: var(--radius-lg);
-  overflow: hidden; /* contiene la accent-bar e le foto edge-to-edge */
+  overflow: hidden; /* contiene la cover edge-to-edge */
 }
 
 
-/* Foto della serata: edge-to-edge, sfondano il padding della card */
+/* Foto della serata: card "image-forward" — la cover apre la card, edge-to-edge */
 .activity-cover {
   display: block;
-  width: calc(100% + 48px);
-  margin-left: -24px;
-  margin-right: -24px;
-  margin-bottom: 16px;
+  width: calc(100% + var(--card-pad, 24px) * 2);
+  margin: calc(-1 * var(--card-pad, 24px)) calc(-1 * var(--card-pad, 24px)) 16px;
   padding: 0;
   border: none;
-  border-top: 1px solid var(--border-dark);
-  border-bottom: 1px solid var(--border-dark);
   border-radius: 0;
   overflow: hidden;
   cursor: pointer;
@@ -506,19 +492,21 @@ select.form-control {
 .activity-cover img {
   display: block;
   width: 100%;
-  height: 230px;
+  height: 196px;
   object-fit: cover;
   transition: transform 0.5s var(--ease-out);
 }
 .activity-cover:hover img { transform: scale(1.04); }
-/* Velo gradiente in basso, stile social, per leggibilità del badge foto */
+/* Velo gradiente: leggero in alto (pill LIVE) e deciso in basso verso il fondo card */
 .activity-cover::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.45) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, transparent 30%, transparent 55%, rgba(10,10,13,0.92) 100%);
   pointer-events: none;
 }
+/* Elementi sopra la cover (pill LIVE, locale, contatore foto) */
+.activity-cover .cover-overlay { position: absolute; z-index: 1; }
 
 .activity-header {
   display: flex;
@@ -544,7 +532,16 @@ select.form-control {
   font-weight: 700;
   color: white;
   font-size: 18px;
-  border: 2px solid var(--border-dark);
+  border: 2px solid var(--border-solid);
+}
+
+/* Anello gradiente attorno all'avatar (header card feed / hero profilo) */
+.avatar-ring {
+  border-radius: 50%;
+  padding: 2px;
+  background: var(--ring-premium);
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
 .activity-author {
@@ -568,19 +565,20 @@ select.form-control {
   margin-bottom: 12px;
 }
 
+/* Riga hero-stat: una sola riga, numeri Bebas grandi, etichetta sussurrata SOTTO */
 .activity-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 6px 4px;
+  display: flex;
+  align-items: center;
+  gap: 0;
   background: var(--surface-raised);
-  padding: 16px 8px;
-  border-radius: var(--radius);
+  padding: 14px 4px;
+  border-radius: 16px;
   margin-bottom: 16px;
   border: 1px solid var(--border-dark);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .stat-box {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -594,32 +592,32 @@ select.form-control {
   content: '';
   position: absolute;
   left: 0;
-  top: 12%;
-  bottom: 12%;
+  top: 18%;
+  bottom: 18%;
   width: 1px;
-  background: var(--border-dark);
+  background: rgba(255, 255, 255, 0.08);
 }
 
+/* Etichetta SOTTO il numero (order: il numero è il protagonista) */
 .stat-label {
+  order: 2;
   font-size: 10px;
-  color: var(--text-dark-secondary);
+  color: var(--text-dark-tertiary);
   text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin-bottom: 6px;
-  /* Riserva 2 righe così le etichette corte e quelle che vanno a capo
-     occupano la stessa altezza → i numeri sotto restano allineati */
-  min-height: 26px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-top: 3px;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
   line-height: 1.15;
 }
 
 /* Numeri "hero" condensati: font display (Bebas Neue) per look da fitness-app */
 .stat-value {
+  order: 1;
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 34px;
   line-height: 1;
   font-weight: 400;
   letter-spacing: 0.5px;
@@ -633,8 +631,9 @@ select.form-control {
 
 /* Pastiglia semaforo per il tasso alcolico (verde→giallo→rosso) */
 .bac-pill {
+  order: 1;
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 34px;
   line-height: 1;
   letter-spacing: 0.5px;
 }
@@ -648,25 +647,111 @@ select.form-control {
   color: var(--text-dark-secondary);
 }
 
+/* Chip drink NEUTRI: informazione secondaria, niente rosso */
 .drink-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 32, 0, 0.08);
-  border: 1px solid rgba(255, 32, 0, 0.18);
-  color: var(--primary);
-  padding: 5px 11px;
-  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: #C4C4CC;
+  padding: 6px 11px;
+  border-radius: 12px;
   font-size: 12px;
-  font-weight: 600;
-  margin-right: 8px;
-  margin-bottom: 8px;
-  transition: transform 0.2s var(--spring), background 0.2s, border-color 0.2s;
+  font-weight: 500;
+  margin-right: 7px;
+  margin-bottom: 7px;
+  transition: transform 0.2s var(--spring), background 0.2s;
 }
 .drink-tag:hover {
   transform: translateY(-1px);
-  background: rgba(255, 32, 0, 0.14);
-  border-color: rgba(255, 32, 0, 0.4);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* ===== Lista drink con stepper (live + tappa tour): aggiungere e gestire = stesso gesto ===== */
+.drink-stepper-list {
+  background: var(--bg-card-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 16px;
+  padding: 2px 14px;
+}
+.drink-stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+}
+.drink-stepper-row + .drink-stepper-row { border-top: 1px solid rgba(255, 255, 255, 0.05); }
+.drink-stepper-row .dsr-emoji { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.drink-stepper-row .dsr-info { flex: 1; min-width: 0; }
+.drink-stepper-row .dsr-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drink-stepper-row .dsr-meta { font-size: 11px; color: var(--text-dark-tertiary); }
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-input-dark);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+.stepper button {
+  width: 34px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-dark-secondary);
+  -webkit-tap-highlight-color: transparent;
+}
+.stepper button:disabled { opacity: 0.4; cursor: wait; }
+.stepper button.plus { color: var(--secondary); }
+.stepper .stepper-qty {
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 19px;
+  color: #fff;
+}
+/* Bottone tratteggiato "+ Aggiungi un altro drink" (apre il picker) */
+.add-drink-dashed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 13px;
+  color: #C4C4CC;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+.add-drink-dashed:hover { border-color: rgba(255, 255, 255, 0.28); color: #fff; }
+.add-drink-dashed .adp-plus {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 59, 47, 0.16);
+  color: #FF6B5E;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .activity-actions {
@@ -697,58 +782,72 @@ select.form-control {
 
 /* ===== Rifinitura grafica del FEED ===== */
 
-/* Le azioni (Cheers/Commenta/Condividi) come pillole con feedback al tocco/hover */
+/* Le azioni (Cheers/Commenta/Condividi) minimali: niente sfondi pill pesanti */
 .activity-actions {
-  gap: 8px;
+  gap: 6px 22px;
   flex-wrap: wrap;
 }
 .activity-actions .action-btn {
-  padding: 7px 12px;
-  border-radius: 12px;
+  padding: 4px 0;
+  border-radius: 10px;
   font-weight: 600;
   -webkit-tap-highlight-color: transparent;
 }
 .activity-actions .action-btn:hover {
-  background: rgba(255, 32, 0, 0.08);
+  color: var(--text-dark-primary);
 }
 .activity-actions .action-btn.active {
   color: var(--primary);
-  background: rgba(255, 32, 0, 0.12);
 }
 
 
-/* Filtri feed (Amici / Tutti / Live): più puliti, con stato hover sugli inattivi
-   e un active più deciso (vale su PC e su PWA). */
+/* Filtri feed (Amici / Tutti / Live): tab con UNDERLINE, niente pill piena.
+   La stessa classe è riusata per le tab di Classifiche/Leghe/Percorsi. */
 .feed-filter-tabs {
   width: 100%;
-  gap: 2px;
-  padding: 5px;
-  background: var(--surface-raised);
-  border-radius: 16px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  display: flex;
+  gap: 24px;
+  padding: 2px 4px 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-dark);
+  box-shadow: none;
 }
 .feed-filter-tabs .seg-tab {
+  flex: 0 0 auto;
   min-height: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-dark-secondary);
-  transition: color 0.18s var(--ease-out), background 0.18s var(--ease-out), transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
+  position: relative;
+  padding: 4px 0 13px;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark-tertiary);
+  transition: color 0.18s var(--ease-out);
 }
 .feed-filter-tabs .seg-tab svg { width: 15px; height: 15px; }
 .feed-filter-tabs .seg-tab:not(.active):hover {
   color: var(--text-dark-primary);
-  background: rgba(255, 255, 255, 0.05);
 }
 .feed-filter-tabs .seg-tab.active {
-  background: linear-gradient(135deg, #FF2000 0%, #D81A00 100%);
+  background: none;
   color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(255, 32, 0, 0.45);
+  font-weight: 700;
+  transform: none;
+  box-shadow: none;
 }
-/* Tab "Live" attiva: accento giallo acido sul pallino per leggere subito "in diretta" */
-.feed-filter-tabs .seg-tab.active .filter-live-dot { background: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.8); }
+.feed-filter-tabs .seg-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+/* Il pallino "Live" resta verde anche da attivo: segnala lo stato, non il brand */
+.feed-filter-tabs .filter-live-dot { background: var(--bac-low) !important; }
 
 /* Mappa nel feed: il contenitore arrotondato + overflow:hidden, sopra i layer GPU di
    Leaflet, mostrava una hairline che lampeggiava durante lo scroll. Promuovendolo a
@@ -779,9 +878,9 @@ select.form-control {
 
 .calendar-day {
   aspect-ratio: 1;
-  border-radius: 6px;
-  background: var(--bg-input-dark);
-  border: 1px solid var(--border-dark);
+  border-radius: 7px;
+  background: #17171D;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -800,9 +899,9 @@ select.form-control {
 }
 
 .calendar-day.drink-level-1 { background-color: rgba(223, 255, 0, 0.2); color: #FFF; border-color: rgba(223, 255, 0, 0.4); }
-.calendar-day.drink-level-2 { background-color: rgba(255, 32, 0, 0.4); color: #FFF; border-color: rgba(255, 32, 0, 0.6); }
-.calendar-day.drink-level-3 { background-color: rgba(255, 32, 0, 0.7); color: #FFF; border-color: var(--primary); }
-.calendar-day.drink-level-4 { background-color: #D81A00; color: #FFF; border-color: #FF2000; box-shadow: 0 0 8px rgba(255, 32, 0, 0.5); }
+.calendar-day.drink-level-2 { background-color: rgba(255, 59, 47, 0.4); color: #FFF; border-color: rgba(255, 59, 47, 0.6); }
+.calendar-day.drink-level-3 { background-color: rgba(255, 59, 47, 0.7); color: #FFF; border-color: var(--primary); }
+.calendar-day.drink-level-4 { background-color: #D81A00; color: #FFF; border-color: #FF3B2F; box-shadow: 0 0 8px rgba(255, 59, 47, 0.5); }
 
 /* Leaflet maps container */
 .map-container {
@@ -868,7 +967,7 @@ select.form-control {
   right: -50%;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, rgba(255, 32, 0, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 59, 47, 0.15) 0%, transparent 70%);
   z-index: 0;
 }
 
@@ -929,7 +1028,7 @@ select.form-control {
   font-weight: 800;
   padding: 2px 8px;
   border-radius: 10px;
-  color: #0D0D0D;
+  color: #0A0A0D;
   vertical-align: middle;
 }
 
@@ -1015,7 +1114,7 @@ select.form-control {
 .seg-tab.active {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 2px 10px rgba(255, 32, 0,0.35);
+  box-shadow: 0 2px 10px rgba(255, 59, 47,0.35);
 }
 /* Barra schede admin: molte tab → scorre DENTRO la barra invece di sforare la pagina */
 .admin-tabs {
@@ -1029,32 +1128,47 @@ select.form-control {
   white-space: nowrap;
 }
 
-/* ===== Podio top 3 ===== */
+/* ===== Podio top 3 (premium: oro lime / argento / bronzo) ===== */
 .podium {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1.15fr 1fr;
   gap: 10px;
   align-items: end;
+  background: linear-gradient(180deg, rgba(223, 255, 0, 0.06), transparent);
+  border: 1px solid var(--border-dark);
+  border-radius: 20px;
+  padding: 18px 12px 14px;
 }
 .podium-col {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 12px 6px 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
-  border-radius: 14px 14px 0 0;
   text-align: center;
+  min-width: 0;
 }
-.podium-col.first { transform: translateY(-6px); }
-.podium-medal { font-size: 22px; }
+.podium-medal { font-size: 16px; line-height: 1; margin-bottom: 2px; }
+/* Avatar con anello colorato per posizione */
+.podium-ring {
+  border-radius: 50%;
+  padding: 2px;
+  display: inline-flex;
+  flex-shrink: 0;
+  background: #C0C0C8; /* argento (default 2°) */
+}
+.podium-col.third .podium-ring { background: #CD7F4A; } /* bronzo */
+.podium-col.first .podium-ring {
+  padding: 2.5px;
+  background: linear-gradient(135deg, #FFD84D, #DFFF00);
+  box-shadow: 0 0 22px rgba(223, 255, 0, 0.4);
+}
 .podium-avatar {
   width: 48px !important;
   height: 48px !important;
   font-size: 19px !important;
-  border: 2px solid var(--border-dark);
+  border: none;
 }
-.podium-col.first .podium-avatar { width: 60px !important; height: 60px !important; font-size: 24px !important; border-color: var(--secondary); box-shadow: 0 0 16px rgba(223, 255, 0,0.45); }
+.podium-col.first .podium-avatar { width: 62px !important; height: 62px !important; font-size: 24px !important; }
 .podium-name {
   font-size: 12px;
   font-weight: 700;
@@ -1063,49 +1177,73 @@ select.form-control {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-top: 4px;
 }
-.podium-metric { font-size: 12px; font-weight: 800; color: var(--primary); }
+.podium-col.first .podium-name { font-size: 13px; font-weight: 800; }
+/* Metrica in Bebas, colorata per posizione */
+.podium-metric {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 400;
+  color: #C0C0C8;
+}
+.podium-col.third .podium-metric { color: #CD7F4A; }
+.podium-col.first .podium-metric { font-size: 28px; color: var(--secondary); }
+.podium-metric-unit { font-size: 10px; font-family: var(--font-sans); color: var(--text-dark-tertiary); font-weight: 600; }
+/* Numero di posizione grande al posto della colonna del podio */
 .podium-bar {
   margin-top: 6px;
-  width: 100%;
-  border-radius: 8px 8px 0 0;
-  background: var(--bg-input-dark);
-  border: 1px solid var(--border-dark);
-  border-bottom: none;
+  width: auto;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--text-dark-tertiary);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding-top: 6px;
-  font-weight: 900;
-  font-size: 14px;
-  color: var(--text-dark-secondary);
 }
 .podium-bar.gold {
-  background: linear-gradient(180deg, rgba(223, 255, 0,0.25), rgba(255, 32, 0,0.08));
-  border-color: var(--secondary);
+  background: none;
+  border: none;
+  font-size: 30px;
   color: var(--secondary);
 }
 
-/* ===== Righe classifica ===== */
+/* ===== Righe classifica: card con hairline ===== */
 .rank-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  transition: background 0.15s ease;
+  gap: 14px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: var(--bg-card-dark);
+  border: 1px solid var(--border-dark);
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.rank-row:hover { background: rgba(255, 32, 0,0.06); }
-.rank-row + .rank-row { border-top: 1px solid var(--border-dark); }
+.rank-row:hover { border-color: rgba(255, 255, 255, 0.14); }
+.rank-row + .rank-row { margin-top: 8px; }
+/* La TUA riga: evidenziata con gradiente/bordo rosso */
+.rank-row.me {
+  background: linear-gradient(135deg, rgba(255, 59, 47, 0.16), rgba(255, 59, 47, 0.04));
+  border-color: rgba(255, 59, 47, 0.4);
+}
+.rank-row.me:hover { border-color: rgba(255, 59, 47, 0.55); }
 .rank-num {
-  font-weight: 800;
-  font-size: 14px;
-  min-width: 30px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 18px;
+  min-width: 24px;
   text-align: center;
   color: var(--text-dark-secondary);
   flex-shrink: 0;
 }
-.rank-num.top { font-size: 18px; }
+.rank-num.top { font-size: 20px; }
+.rank-row.me .rank-num { color: #FF6B5E; }
 
 /* Landing page helpers */
 .hero-title {
@@ -1156,7 +1294,7 @@ select.form-control {
 
 /* Hover "lift" per le card interattive */
 .lift { transition: transform 0.3s var(--ease-out, ease), box-shadow 0.3s ease, border-color 0.3s ease; }
-.lift:hover { transform: translateY(-6px); box-shadow: 0 18px 50px rgba(0,0,0,0.45); border-color: rgba(255,32,0,0.4); }
+.lift:hover { transform: translateY(-6px); box-shadow: 0 18px 50px rgba(0,0,0,0.45); border-color: rgba(255,59,47,0.4); }
 
 /* Testo con gradiente brand */
 .gradient-text {
@@ -1243,7 +1381,7 @@ select.form-control {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(120% 80% at 0% 0%, rgba(255,32,0,0.08), transparent 55%);
+  background: radial-gradient(120% 80% at 0% 0%, rgba(255,59,47,0.08), transparent 55%);
   opacity: 0;
   transition: opacity 0.35s ease;
   pointer-events: none;
@@ -1285,13 +1423,13 @@ select.form-control {
   width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--primary);
-  box-shadow: 0 0 0 0 rgba(255,32,0,0.6);
+  box-shadow: 0 0 0 0 rgba(255,59,47,0.6);
   animation: live-ping 1.6s ease-out infinite;
 }
 @keyframes live-ping {
-  0% { box-shadow: 0 0 0 0 rgba(255,32,0,0.55); }
-  70% { box-shadow: 0 0 0 9px rgba(255,32,0,0); }
-  100% { box-shadow: 0 0 0 0 rgba(255,32,0,0); }
+  0% { box-shadow: 0 0 0 0 rgba(255,59,47,0.55); }
+  70% { box-shadow: 0 0 0 9px rgba(255,59,47,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,59,47,0); }
 }
 
 /* Mockup telefono fluttuante */
@@ -1425,7 +1563,7 @@ select.form-control {
        position:fixed con backdrop-filter crea un layer di compositing che durante
        lo scroll inerziale non viene riposizionato → la barra "si stacca" e galleggia
        a metà schermo. Lo sfondo era già al 96%: lo rendiamo solido e togliamo il blur. */
-    background: #101219;
+    background: #0E0E12;
     border-top: 1px solid var(--border-dark);
     z-index: 1200; /* sopra i controlli +/- di Leaflet (z-index 1000) */
     /* NIENTE transform/translateZ qui: promuovere una barra position:fixed a layer
@@ -1478,7 +1616,7 @@ select.form-control {
     height: 3px;
     border-radius: 0 0 5px 5px;
     background: var(--primary);
-    box-shadow: 0 0 10px rgba(255, 32, 0, 0.7);
+    box-shadow: 0 0 10px rgba(255, 59, 47, 0.7);
     animation: nav-pop 0.32s var(--spring);
   }
   @keyframes nav-pop {
@@ -1505,9 +1643,9 @@ select.form-control {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: linear-gradient(145deg, #FF4422 0%, #FF2000 55%, #D81A00 100%);
+    background: linear-gradient(145deg, #FF4A3A 0%, #FF3B2F 55%, #D81A00 100%);
     color: #fff;
-    box-shadow: 0 8px 22px rgba(255, 32, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.35);
+    box-shadow: 0 8px 22px rgba(255, 59, 47, 0.5), inset 0 1px 1px rgba(255,255,255,0.35);
     border: 4px solid var(--bg-dark);
     transition: transform 0.3s var(--spring), box-shadow 0.3s var(--ease-out);
   }
@@ -1522,7 +1660,7 @@ select.form-control {
   .mobile-nav .mn-register.active { color: inherit; }
   .mobile-nav .mn-register.active .mn-register-label { color: var(--primary); }
   .mobile-nav .mn-register.active .mn-register-fab {
-    box-shadow: 0 8px 26px rgba(255, 32, 0, 0.7), inset 0 1px 1px rgba(255,255,255,0.35);
+    box-shadow: 0 8px 26px rgba(255, 59, 47, 0.7), inset 0 1px 1px rgba(255,255,255,0.35);
   }
   .mobile-nav .mn-register.active::before { display: none; }
   /* Anello pulsante quando hai una diretta in corso */
@@ -1539,6 +1677,64 @@ select.form-control {
     0% { transform: scale(1); opacity: 0.9; }
     100% { transform: scale(1.55); opacity: 0; }
   }
+
+  /* === 2C: con una sessione attiva il centro diventa un controllo LIVE pulsante ===
+     Pill gradiente rossa con timer + drink/BAC; l'etichetta sotto diventa "Gestisci". */
+  .mobile-nav .mn-register .mn-live-pill {
+    position: relative;
+    top: -18px;
+    margin-bottom: -12px; /* recupera lo spazio così l'etichetta resta sulla riga */
+    min-width: 118px;
+    max-width: 150px;
+    padding: 9px 12px 8px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #FF3B2F, #D81A00);
+    border: 3px solid var(--bg-dark);
+    box-shadow: 0 8px 24px rgba(255, 59, 47, 0.55);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    color: #fff;
+    transition: transform 0.3s var(--spring);
+  }
+  .mobile-nav .mn-register:active .mn-live-pill { transform: scale(0.94); }
+  .mobile-nav .mn-register .mn-live-pill::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 28px;
+    border: 2px solid var(--primary);
+    animation: fab-live 1.6s ease-out infinite;
+    pointer-events: none;
+  }
+  .mn-live-pill .mn-live-top {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .mn-live-pill .mn-live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 6px #fff;
+    flex-shrink: 0;
+  }
+  .mn-live-pill .mn-live-sub {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mobile-nav .mn-register.is-live .mn-register-label { color: #FF6B5E; font-weight: 700; }
   .mobile-nav .mn-badge {
     position: absolute;
     top: 6px;

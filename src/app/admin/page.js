@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { Loader, Users, Beer, MapPin, TrendingUp, ShieldCheck, Crown } from 'lucide-react';
+import { Loader, Users, Beer, MapPin, TrendingUp, ShieldCheck, UserPlus, UserCheck, LayoutGrid, Lock, Store, Bell, Megaphone } from 'lucide-react';
 import NotificationsAdmin from './NotificationsAdmin';
 import BannersAdmin from './BannersAdmin';
 import UsersAdmin from './UsersAdmin';
@@ -12,19 +12,109 @@ import DrinksAdmin from './DrinksAdmin';
 import VenuesAdmin from './VenuesAdmin';
 import VenuesBusinessAdmin from './VenuesBusinessAdmin';
 
-function Kpi({ label, value, sub, color }) {
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', Icon: LayoutGrid },
+  { id: 'utenti', label: 'Utenti', Icon: Users },
+  { id: 'gdpr', label: 'GDPR', Icon: Lock },
+  { id: 'drink', label: 'Drink', Icon: Beer },
+  { id: 'locali', label: 'Locali', Icon: MapPin },
+  { id: 'business', label: 'Area locali', Icon: Store },
+  { id: 'notifiche', label: 'Notifiche', Icon: Bell },
+  { id: 'banner', label: 'Banner', Icon: Megaphone },
+];
+
+/* Layout responsive sidebar/tab: le media query non sono esprimibili inline,
+   quindi vivono in questo blocco di stile locale alla pagina admin. */
+const ADMIN_LAYOUT_CSS = `
+.adm-shell { display: flex; align-items: stretch; gap: 0; max-width: 1240px; margin: 0 auto; width: 100%; }
+.adm-sidebar { display: none; }
+.adm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+@media (min-width: 900px) {
+  .adm-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 210px;
+    flex: 0 0 210px;
+    background: #111116;
+    border-right: 1px solid var(--border-dark);
+    padding: 20px 12px;
+    align-self: stretch;
+    min-height: calc(100vh - 160px);
+    position: sticky;
+    top: 90px;
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+  }
+  .adm-main { padding-left: 26px; }
+  .adm-mobile-tabs { display: none; }
+}
+`;
+
+function SidebarItem({ item, active, onClick }) {
+  const { Icon, label } = item;
   return (
-    <div className="card" style={{ padding: '16px' }}>
-      <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontSize: '28px', fontWeight: 800, color: color || '#FFF', marginTop: '4px' }}>{value}</div>
-      {sub && <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{sub}</div>}
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        padding: '10px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
+        textAlign: 'left',
+        background: active ? 'linear-gradient(135deg, rgba(255,59,47,.16), rgba(255,59,47,.05))' : 'transparent',
+        color: active ? '#fff' : 'var(--text-dark-secondary)',
+        fontSize: 13, fontWeight: active ? 700 : 600, fontFamily: 'inherit',
+        transition: 'var(--transition)',
+      }}
+    >
+      <Icon size={16} color={active ? 'var(--primary)' : 'var(--text-dark-secondary)'} style={{ flexShrink: 0 }} />
+      {label}
+    </button>
+  );
+}
+
+function Kpi({ label, value, sub, delta, valueColor, Icon, tint, tintColor, live }) {
+  return (
+    <div style={{
+      background: live ? 'linear-gradient(135deg, rgba(46,213,115,.1), #141419)' : '#141419',
+      border: `1px solid ${live ? 'rgba(46,213,115,.25)' : 'var(--border-dark)'}`,
+      borderRadius: 16, padding: '16px',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+        {live ? (
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--bac-low)', boxShadow: '0 0 10px rgba(46,213,115,.8)', flexShrink: 0 }} />
+        ) : Icon ? (
+          <span style={{ width: 30, height: 30, borderRadius: 9, background: tint || 'rgba(255,255,255,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon size={15} color={tintColor || 'var(--text-dark-secondary)'} />
+          </span>
+        ) : null}
+      </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '38px', lineHeight: 1.05, color: valueColor || (live ? 'var(--bac-low)' : '#FFF'), marginTop: '8px' }}>{value}</div>
+      {delta != null ? (
+        <div style={{ fontSize: '12px', color: '#2ED573', fontWeight: 700, marginTop: '4px' }}>▲ +{delta} questa settimana</div>
+      ) : sub ? (
+        <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>{sub}</div>
+      ) : null}
     </div>
   );
+}
+
+function TopList({ rows, emptyText, renderRight }) {
+  if (rows.length === 0) {
+    return <p style={{ color: 'var(--text-dark-secondary)', fontSize: 13 }}>{emptyText}</p>;
+  }
+  return rows.map((row, i) => (
+    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,.05)' : 'none' }}>
+      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 18, lineHeight: 1, width: 22, flexShrink: 0, color: i === 0 ? 'var(--secondary)' : 'var(--text-dark-tertiary)' }}>{i + 1}</span>
+      <span style={{ fontSize: 13, color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{row.name}</span>
+      {renderRight(row)}
+    </div>
+  ));
 }
 
 export default function AdminPage() {
   const [state, setState] = useState('loading'); // loading | denied | ready | error
   const [stats, setStats] = useState(null);
+  const [me, setMe] = useState(null);
   const [errMsg, setErrMsg] = useState('');
   const [tab, setTab] = useState('dashboard'); // dashboard | notifiche | banner
 
@@ -33,6 +123,7 @@ export default function AdminPage() {
       try {
         const user = await db.getCurrentUser();
         if (!user) { setState('denied'); return; }
+        setMe(user);
         const res = await fetch('/api/admin/stats', { cache: 'no-store' });
         if (res.status === 401 || res.status === 403) { setState('denied'); return; }
         if (!res.ok) { const j = await res.json().catch(() => ({})); setErrMsg(j.error || 'Errore'); setState('error'); return; }
@@ -69,134 +160,187 @@ export default function AdminPage() {
   }
 
   const maxSignup = Math.max(1, ...stats.signups.map((s) => s.count));
+  const activeItem = NAV_ITEMS.find((n) => n.id === tab) || NAV_ITEMS[0];
+  const meName = me?.display_name || me?.username || '';
+
+  // Punti del grafico iscrizioni (stesso array dati, resa area/linea)
+  const CHART_W = 100;
+  const CHART_H = 40;
+  const nPts = stats.signups.length;
+  const chartPts = stats.signups.map((s, i) => [
+    nPts > 1 ? (i * CHART_W) / (nPts - 1) : 0,
+    CHART_H - 2 - (s.count / maxSignup) * (CHART_H - 6),
+  ]);
+  const chartLine = chartPts.map((p) => `${p[0]},${p[1]}`).join(' ');
+  const chartArea = nPts > 0
+    ? `M ${chartPts[0][0]},${CHART_H} L ${chartPts.map((p) => `${p[0]},${p[1]}`).join(' L ')} L ${chartPts[nPts - 1][0]},${CHART_H} Z`
+    : '';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: 1100, margin: '0 auto' }}>
-      <div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <ShieldCheck size={28} color="var(--primary)" /> Admin Strabar
-        </h1>
-        <p style={{ color: 'var(--text-dark-secondary)', fontSize: 14, marginTop: 4 }}>
-          Panoramica utenti e attività. Dati letti lato server, aggiornati al {new Date(stats.generatedAt).toLocaleString('it-IT')}.
-        </p>
-      </div>
+    <div className="adm-shell">
+      <style>{ADMIN_LAYOUT_CSS}</style>
 
-      {/* Schede */}
-      <div className="seg-tabs admin-tabs">
-        <button onClick={() => setTab('dashboard')} className={`seg-tab ${tab === 'dashboard' ? 'active' : ''}`}>📊 Dashboard</button>
-        <button onClick={() => setTab('utenti')} className={`seg-tab ${tab === 'utenti' ? 'active' : ''}`}>👥 Utenti</button>
-        <button onClick={() => setTab('gdpr')} className={`seg-tab ${tab === 'gdpr' ? 'active' : ''}`}>🔐 GDPR</button>
-        <button onClick={() => setTab('drink')} className={`seg-tab ${tab === 'drink' ? 'active' : ''}`}>🍺 Drink</button>
-        <button onClick={() => setTab('locali')} className={`seg-tab ${tab === 'locali' ? 'active' : ''}`}>📍 Locali</button>
-        <button onClick={() => setTab('business')} className={`seg-tab ${tab === 'business' ? 'active' : ''}`}>🏪 Area locali</button>
-        <button onClick={() => setTab('notifiche')} className={`seg-tab ${tab === 'notifiche' ? 'active' : ''}`}>🔔 Notifiche</button>
-        <button onClick={() => setTab('banner')} className={`seg-tab ${tab === 'banner' ? 'active' : ''}`}>📢 Banner</button>
-      </div>
-
-      {tab === 'utenti' && <UsersAdmin />}
-      {tab === 'gdpr' && <GdprAdmin />}
-      {tab === 'drink' && <DrinksAdmin />}
-      {tab === 'locali' && <VenuesAdmin />}
-      {tab === 'business' && <VenuesBusinessAdmin />}
-      {tab === 'notifiche' && <NotificationsAdmin />}
-      {tab === 'banner' && <BannersAdmin />}
-
-      {tab === 'dashboard' && (<>
-      {/* KPI Utenti */}
-      <div>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Users size={15} /> Utenti
-        </h3>
-        <div className="r-grid-stat-4" style={{ gap: 12 }}>
-          <Kpi label="Totali" value={stats.users.total} color="var(--primary)" />
-          <Kpi label="Nuovi (7gg)" value={stats.users.new7d} sub={`${stats.users.new30d} negli ultimi 30gg`} />
-          <Kpi label="Con consenso" value={stats.users.withConsent} sub="GDPR accettato" />
-          <Kpi label="Profilo completo" value={stats.users.withProfile} sub="sesso/peso impostati" />
+      {/* Sidebar desktop */}
+      <aside className="adm-sidebar">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '0 12px 18px' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Strabar" style={{ height: 22, width: 'auto', alignSelf: 'flex-start' }} />
+          <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--text-dark-tertiary)', fontWeight: 700 }}>Console admin</div>
         </div>
-      </div>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {NAV_ITEMS.map((item) => (
+            <SidebarItem key={item.id} item={item} active={tab === item.id} onClick={() => setTab(item.id)} />
+          ))}
+        </nav>
+        {meName && (
+          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border-dark)', marginLeft: 4, marginRight: 4, padding: '18px 4px 2px 8px' }}>
+            <span style={{ width: 34, height: 34, borderRadius: '50%', padding: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', flexShrink: 0 }}>
+              <span style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#141419', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#FFF' }}>
+                {meName.charAt(0).toUpperCase()}
+              </span>
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meName}</span>
+              <span style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '1px', color: 'var(--primary)' }}>ADMIN</span>
+            </span>
+          </div>
+        )}
+      </aside>
 
-      {/* KPI Attività */}
-      <div>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Beer size={15} /> Attività
-        </h3>
-        <div className="r-grid-stat-4" style={{ gap: 12 }}>
-          <Kpi label="Sessioni" value={stats.sessions.total} sub={`${stats.sessions.last7d} negli ultimi 7gg`} />
-          <Kpi label="Live ora" value={stats.sessions.active} color="var(--success)" />
-          <Kpi label="U.A. totali" value={stats.sessions.totalUnits} sub={`${stats.sessions.totalDrinks} drink`} color="var(--secondary)" />
-          <Kpi label="Check-in geo" value={stats.sessions.geoCheckins} sub="contano per le classifiche" />
+      <div className="adm-main">
+        <div>
+          <h1 style={{ fontSize: 40, lineHeight: 1 }}>{activeItem.label.toUpperCase()}</h1>
+          <p style={{ color: 'var(--text-dark-secondary)', fontSize: 14, marginTop: 6 }}>
+            Aggiornato al {new Date(stats.generatedAt).toLocaleString('it-IT')}
+          </p>
         </div>
-      </div>
 
-      {/* Iscrizioni ultimi 14 giorni */}
-      <div className="card" style={{ padding: 18 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <TrendingUp size={16} color="var(--primary)" /> Iscrizioni (ultimi 14 giorni)
-        </h3>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120 }}>
-          {stats.signups.map((s, i) => (
-            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-dark-secondary)' }}>{s.count || ''}</div>
-              <div style={{ width: '100%', height: `${(s.count / maxSignup) * 90}px`, minHeight: s.count ? 4 : 0, background: 'var(--primary)', borderRadius: '4px 4px 0 0' }} />
-              <div style={{ fontSize: 9, color: 'var(--text-dark-secondary)' }}>{s.label}</div>
-            </div>
+        {/* Navigazione mobile (<900px): barra tab scrollabile */}
+        <div className="adm-mobile-tabs seg-tabs admin-tabs">
+          {NAV_ITEMS.map((item) => (
+            <button key={item.id} onClick={() => setTab(item.id)} className={`seg-tab ${tab === item.id ? 'active' : ''}`}>
+              <item.Icon size={15} /> {item.label}
+            </button>
           ))}
         </div>
-      </div>
 
-      <div className="r-grid-2" style={{ gap: 18 }}>
-        {/* Top locali */}
-        <div className="card" style={{ padding: 18 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <MapPin size={16} color="var(--primary)" /> Top locali
+        {tab === 'utenti' && <UsersAdmin />}
+        {tab === 'gdpr' && <GdprAdmin />}
+        {tab === 'drink' && <DrinksAdmin />}
+        {tab === 'locali' && <VenuesAdmin />}
+        {tab === 'business' && <VenuesBusinessAdmin />}
+        {tab === 'notifiche' && <NotificationsAdmin />}
+        {tab === 'banner' && <BannersAdmin />}
+
+        {tab === 'dashboard' && (<>
+        {/* KPI Utenti */}
+        <div>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Users size={15} /> Utenti
           </h3>
-          {stats.topVenues.length === 0 ? (
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: 13 }}>Ancora nessun check-in geolocalizzato.</p>
-          ) : stats.topVenues.map((v, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < stats.topVenues.length - 1 ? '1px solid var(--border-dark)' : 'none' }}>
-              <span style={{ fontSize: 13, color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i + 1}. {v.name}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)', flexShrink: 0, marginLeft: 8 }}>{v.sessions} sess · {v.units} U.A.</span>
-            </div>
-          ))}
+          <div className="r-grid-stat-4" style={{ gap: 12 }}>
+            <Kpi label="Totali" value={stats.users.total} Icon={Users} tint="rgba(255,59,47,.14)" tintColor="var(--primary)" delta={stats.users.new7d} />
+            <Kpi label="Nuovi (7gg)" value={stats.users.new7d} Icon={UserPlus} tint="rgba(255,59,47,.14)" tintColor="var(--primary)" sub={`${stats.users.new30d} negli ultimi 30gg`} />
+            <Kpi label="Con consenso" value={stats.users.withConsent} Icon={ShieldCheck} sub="GDPR accettato" />
+            <Kpi label="Profilo completo" value={stats.users.withProfile} Icon={UserCheck} sub="sesso/peso impostati" />
+          </div>
         </div>
 
-        {/* Top atleti */}
-        <div className="card" style={{ padding: 18 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Crown size={16} color="var(--secondary)" /> Top atleti (U.A.)
+        {/* KPI Attività */}
+        <div>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Beer size={15} /> Attività
           </h3>
-          {stats.topUsers.length === 0 ? (
-            <p style={{ color: 'var(--text-dark-secondary)', fontSize: 13 }}>Ancora nessun dato.</p>
-          ) : stats.topUsers.map((u, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < stats.topUsers.length - 1 ? '1px solid var(--border-dark)' : 'none' }}>
-              <span style={{ fontSize: 13, color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i + 1}. {u.name}</span>
-              <span style={{ fontSize: 12, color: 'var(--secondary)', flexShrink: 0, marginLeft: 8, fontWeight: 700 }}>{u.units} U.A.</span>
-            </div>
-          ))}
+          <div className="r-grid-stat-4" style={{ gap: 12 }}>
+            <Kpi label="Sessioni" value={stats.sessions.total} Icon={TrendingUp} delta={stats.sessions.last7d} />
+            <Kpi label="Live ora" value={stats.sessions.active} live />
+            <Kpi label="U.A. totali" value={stats.sessions.totalUnits} Icon={Beer} tint="rgba(223,255,0,.14)" tintColor="var(--secondary)" valueColor="var(--secondary)" sub={`${stats.sessions.totalDrinks} drink`} />
+            <Kpi label="Check-in geo" value={stats.sessions.geoCheckins} Icon={MapPin} sub="contano per le classifiche" />
+          </div>
         </div>
-      </div>
 
-      {/* Ultimi iscritti */}
-      <div className="card" style={{ padding: 18 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14 }}>Ultimi iscritti</h3>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {stats.recentUsers.map((u, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < stats.recentUsers.length - 1 ? '1px solid var(--border-dark)' : 'none', gap: 8 }}>
-              <div style={{ minWidth: 0 }}>
-                <span style={{ fontSize: 13, color: '#FFF', fontWeight: 600 }}>{u.display_name || u.username}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginLeft: 6 }}>@{u.username}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                {u.admin && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 6, padding: '1px 5px' }}>ADMIN</span>}
-                {u.premium && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--secondary)' }}>PRO</span>}
-                {!u.consent && <span title="Consenso GDPR non registrato" style={{ fontSize: 11 }}>⚠️</span>}
-                <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{new Date(u.created_at).toLocaleDateString('it-IT')}</span>
-              </div>
-            </div>
-          ))}
+        {/* Iscrizioni: area chart sugli stessi dati */}
+        <div className="card" style={{ padding: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <TrendingUp size={16} color="var(--primary)" /> Iscrizioni
+            </h3>
+            <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>ultimi {nPts} giorni</span>
+          </div>
+          <svg
+            viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+            preserveAspectRatio="none"
+            style={{ display: 'block', width: '100%', height: 120 }}
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="admSignupGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(255,59,47,.35)" />
+                <stop offset="100%" stopColor="rgba(255,59,47,0)" />
+              </linearGradient>
+            </defs>
+            <path d={chartArea} fill="url(#admSignupGrad)" />
+            <polyline points={chartLine} fill="none" stroke="#FF3B2F" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div style={{ display: 'flex', marginTop: 8 }}>
+            {stats.signups.map((s, i) => (
+              <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: 'var(--text-dark-tertiary)' }}>{s.label}</div>
+            ))}
+          </div>
         </div>
+
+        <div className="r-grid-2" style={{ gap: 18 }}>
+          {/* Top locali */}
+          <div style={{ background: '#141419', border: '1px solid var(--border-dark)', borderRadius: 16, padding: 18 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <MapPin size={16} color="var(--primary)" /> Top locali
+            </h3>
+            <TopList
+              rows={stats.topVenues}
+              emptyText="Ancora nessun check-in geolocalizzato."
+              renderRight={(v) => (
+                <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)', flexShrink: 0, marginLeft: 8 }}>{v.sessions} sess · {v.units} U.A.</span>
+              )}
+            />
+          </div>
+
+          {/* Top atleti */}
+          <div style={{ background: '#141419', border: '1px solid var(--border-dark)', borderRadius: 16, padding: 18 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Users size={16} color="var(--secondary)" /> Top atleti (U.A.)
+            </h3>
+            <TopList
+              rows={stats.topUsers}
+              emptyText="Ancora nessun dato."
+              renderRight={(u) => (
+                <span style={{ fontSize: 12, color: 'var(--secondary)', flexShrink: 0, marginLeft: 8, fontWeight: 700 }}>{u.units} U.A.</span>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Ultimi iscritti */}
+        <div style={{ background: '#141419', border: '1px solid var(--border-dark)', borderRadius: 16, padding: 18 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 14 }}>Ultimi iscritti</h3>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {stats.recentUsers.map((u, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < stats.recentUsers.length - 1 ? '1px solid rgba(255,255,255,.05)' : 'none', gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 13, color: '#FFF', fontWeight: 600 }}>{u.display_name || u.username}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginLeft: 6 }}>@{u.username}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                  {u.admin && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 6, padding: '1px 5px' }}>ADMIN</span>}
+                  {u.premium && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--secondary)' }}>PRO</span>}
+                  {!u.consent && <span title="Consenso GDPR non registrato" style={{ fontSize: 11 }}>⚠️</span>}
+                  <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{new Date(u.created_at).toLocaleDateString('it-IT')}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        </>)}
       </div>
-      </>)}
     </div>
   );
 }
