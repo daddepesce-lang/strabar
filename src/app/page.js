@@ -1042,6 +1042,12 @@ export default function FeedPage() {
       newDrink.place_key = curPlace?.key || null;
       newDrink.place_name = curPlace?.name || null;
       newDrink.added_places = [curPlace || null];
+      // Attribuzione ESPLICITA alla tappa corrente del tour: il drink appartiene alla
+      // tappa in cui sei ORA. Prima l'assegnazione era per finestra temporale (arrivo a
+      // una tappa → arrivo alla successiva): se una tappa NON veniva verificata o gli
+      // orari non erano monotoni, il drink finiva nella tappa sbagliata (es. la prima).
+      // Con lo stopIdx esplicito il drink va sempre alla tappa giusta.
+      if (tourForPlace) newDrink.stopIdx = tourForPlace.current || 0;
 
       // VERIFICA POSIZIONE (solo Tour): quando registri un drink alcolico, controlla
       // che tu sia davvero alla tappa corrente. Solo allora la tappa conta per le
@@ -1892,6 +1898,9 @@ export default function FeedPage() {
       const start = new Date(v.arrived_at || act.created_at).getTime();
       const end = i + 1 < visited.length ? new Date(visited[i + 1].arrived_at).getTime() : Infinity;
       const stopDrinks = drinks.filter((d) => {
+        // Drink NUOVI: attribuzione esplicita per indice tappa (deterministica).
+        if (typeof d.stopIdx === 'number') return d.stopIdx === i;
+        // Drink VECCHI (senza stopIdx): fallback alla finestra temporale di arrivo.
         const t = new Date(d.added_at).getTime();
         return t >= start && t < end;
       });
@@ -2613,13 +2622,18 @@ export default function FeedPage() {
                 const curStop = stops[cur];
                 const nextStop = stops[cur + 1];
                 const totalDrinks = (activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0);
-                const drinksAtStart = tour.visited?.[cur]?.drinksAtStart || 0;
-                const atThisStop = Math.max(0, totalDrinks - drinksAtStart);
                 // Drink divisi per tappa (stessa logica del recap): così ogni tappa mostra
                 // ESATTAMENTE cosa hai bevuto lì, non solo un contatore.
                 const perStopLive = tourDrinksByStop(activeSession) || [];
+                // Contatore "X/target" coerente con la lista: se i drink hanno lo stopIdx
+                // esplicito (sessioni nuove) conta quelli di QUESTA tappa; per le sessioni
+                // vecchie senza stopIdx si usa la differenza rispetto all'arrivo.
+                const usesStopIdx = (activeSession.drinks || []).some((d) => typeof d.stopIdx === 'number');
+                const drinksAtStart = tour.visited?.[cur]?.drinksAtStart || 0;
+                const atThisStop = usesStopIdx
+                  ? (perStopLive[cur]?.drinks || []).reduce((s, d) => s + (d.qty || 1), 0)
+                  : Math.max(0, totalDrinks - drinksAtStart);
                 const target = tour.target || 2;
-                const pct = Math.min(100, (atThisStop / target) * 100);
                 return (
                   <div style={{ marginBottom: '15px' }}>
                     {/* Intestazione + avanzamento del tour a SEGMENTI (uno per tappa) */}
@@ -2753,8 +2767,12 @@ export default function FeedPage() {
                                       </button>
                                     )}
                                     {nextStop ? (
-                                      <button onClick={handleAdvanceTourStop} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: 'linear-gradient(135deg, #FF3B2F, #D81A00)', color: '#FFF', fontSize: '13px', fontWeight: 700, padding: '11px', borderRadius: '13px', border: 'none', cursor: 'pointer', boxShadow: '0 6px 18px rgba(255, 59, 47, 0.35)', minWidth: 0 }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Prossima tappa</span> <ArrowRight size={15} style={{ flexShrink: 0 }} />
+                                      <button onClick={handleAdvanceTourStop} disabled={checkingStop} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: 'linear-gradient(135deg, #FF3B2F, #D81A00)', color: '#FFF', fontSize: '13px', fontWeight: 700, padding: '11px', borderRadius: '13px', border: 'none', cursor: checkingStop ? 'wait' : 'pointer', opacity: checkingStop ? 0.7 : 1, boxShadow: '0 6px 18px rgba(255, 59, 47, 0.35)', minWidth: 0 }}>
+                                        {checkingStop ? (
+                                          <><Loader size={15} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Controllo posizione…</span></>
+                                        ) : (
+                                          <><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Prossima tappa</span> <ArrowRight size={15} style={{ flexShrink: 0 }} /></>
+                                        )}
                                       </button>
                                     ) : (
                                       <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center', textAlign: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
