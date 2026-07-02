@@ -802,7 +802,9 @@ select.form-control {
 
 
 /* Filtri feed (Amici / Tutti / Live): tab con UNDERLINE, niente pill piena.
-   La stessa classe è riusata per le tab di Classifiche/Leghe/Percorsi. */
+   La stessa classe è riusata per le tab di Classifiche/Leghe/Percorsi/Profilo.
+   Se le etichette non entrano (es. "Statistiche & Attività"), la barra scorre
+   in orizzontale invece di tagliarle: scroll interno, scrollbar nascosta. */
 .feed-filter-tabs {
   width: 100%;
   display: flex;
@@ -813,7 +815,11 @@ select.form-control {
   border-radius: 0;
   border-bottom: 1px solid var(--border-dark);
   box-shadow: none;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.feed-filter-tabs::-webkit-scrollbar { display: none; }
 .feed-filter-tabs .seg-tab {
   flex: 0 0 auto;
   min-height: 0;
@@ -822,6 +828,7 @@ select.form-control {
   border-radius: 0;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
   color: var(--text-dark-tertiary);
   transition: color 0.18s var(--ease-out);
 }

@@ -2956,7 +2956,7 @@ export default function FeedPage() {
                     className="btn"
                     style={{ flex: 1, borderRadius: '16px', padding: '13px', fontSize: '15px', fontWeight: 700, color: '#FFF', background: 'linear-gradient(135deg, #FF3B2F, #D81A00)', boxShadow: '0 8px 24px rgba(255, 59, 47, 0.4)' }}
                   >
-                    🏁 Chiudi sessione &amp; recap
+                    🏁 Termina attività
                   </button>
                   <button
                     onClick={handleCancelActiveSession}
