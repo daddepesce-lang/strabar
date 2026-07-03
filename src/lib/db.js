@@ -1670,11 +1670,14 @@ export const db = {
   },
 
   // Grammi di alcol puro stimati per un drink (quantità inclusa).
-  // 1 U.A. = 12 g → Unità Alcolica italiana ufficiale (ISS / Ministero della Salute).
-  // GRAMS_PER_UNIT sostituisce il vecchio 8 g (standard UK) che sottostimava ~33%.
-  // `units` assente → default 1.3 U.A.
+  // IMPORTANTE: il catalogo (src/lib/drinks.js) definisce `units` come  litri × gradi%
+  // (es. 0,66 L a 5% = 3,3 U.A.). Fisicamente:  grammi = litri × gradi% × 7,89  (densità
+  // etanolo 0,789). Quindi ogni "unità" del catalogo vale ~7,9 g di alcol puro — NON 12 g.
+  // Usare 12 gonfiava OGNI tasso alcolico di ~1,5× (es. 2 birre 0,66 L → 79 g invece dei
+  // reali 52 g), portando ragazze leggere a valori da coma etilico irrealistici.
+  // `units` assente → default 1.3.
   // Vale per QUALSIASI drink del catalogo (usa il suo campo `units`), non un caso singolo.
-  GRAMS_PER_UNIT: 12,
+  GRAMS_PER_UNIT: 8,
   _drinkGrams(d) {
     const units = Number.isFinite(d.units) ? d.units : 1.3;
     return units * (d.qty || 1) * this.GRAMS_PER_UNIT;
@@ -2401,37 +2404,34 @@ export const db = {
     const map = {};
     activities.forEach((act) => {
       const loc = act.location;
-      if (!loc || !loc.name) return;
-      if (loc.unverified) return; // sessione fuori dal locale: non conta per le classifiche
-      // Un "luogo" reale ha coordinate. Le sessioni LIBERE (es. festa a casa, name
-      // "Sessione Libera") non hanno lat/lng → escluse: non sono locali e non devono
-      // comparire tra i locali/classifiche.
-      if (typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
-      if (loc.freeform) return;
-      if (loc.share === 'private') return; // sessione privata: esclusa dalle classifiche pubbliche
-      const key = this.normalizePlaceKey(loc.name);
-      if (!map[key]) {
-        map[key] = {
-          key,
-          name: loc.name,
-          address: loc.address || '',
-          lat: loc.lat || null,
-          lng: loc.lng || null,
-          sessionsCount: 0,
-          totalUnits: 0,
-          drinkers: {},
-        };
-      }
-      const p = map[key];
-      p.sessionsCount += 1;
-      p.totalUnits += parseFloat(act.total_units || 0);
-      if (!p.address && loc.address) p.address = loc.address;
-      if (!p.lat && loc.lat) { p.lat = loc.lat; p.lng = loc.lng; }
-      const uid = act.user_id;
-      const uname = publicName(act.profiles, 'Atleta Strabar');
-      if (!p.drinkers[uid]) p.drinkers[uid] = { name: uname, count: 0, units: 0 };
-      p.drinkers[uid].count += 1;
-      p.drinkers[uid].units += parseFloat(act.total_units || 0);
+      // Ogni sessione produce una o più VISITE VERIFICATE (un TOUR conta per ogni tappa
+      // verificata, non solo per l'ultima). Le sessioni libere/non verificate → nessuna visita.
+      this._venueVisits(act).forEach((vis) => {
+        if (vis.share === 'private') return; // pagina locali pubblica: le private restano escluse
+        const key = vis.key;
+        if (!map[key]) {
+          map[key] = {
+            key,
+            name: vis.name,
+            address: loc?.address || '',
+            lat: vis.lat || null,
+            lng: vis.lng || null,
+            sessionsCount: 0,
+            totalUnits: 0,
+            drinkers: {},
+          };
+        }
+        const p = map[key];
+        p.sessionsCount += 1;
+        p.totalUnits += vis.units;
+        if (!p.address && loc?.address) p.address = loc.address;
+        if (!p.lat && vis.lat) { p.lat = vis.lat; p.lng = vis.lng; }
+        const uid = act.user_id;
+        const uname = publicName(act.profiles, 'Atleta Strabar');
+        if (!p.drinkers[uid]) p.drinkers[uid] = { name: uname, count: 0, units: 0 };
+        p.drinkers[uid].count += 1;
+        p.drinkers[uid].units += vis.units;
+      });
     });
 
     const reviews = this.getReviewsRaw();
@@ -2761,22 +2761,81 @@ export const db = {
     return this._countsForVenue(a);
   },
 
+  // U.A. dei drink attribuiti a un locale (per nome). Con `added_places` usa l'attribuzione
+  // per singola aggiunta (una tappa per ogni +1); legacy senza `added_places` → `place_name`
+  // sull'intera quantità. I drink senza locale non entrano in NESSUN conteggio per-locale
+  // (ma restano nel totale della sessione).
+  _unitsAtStop(drinks, stopName) {
+    const target = this.normalizePlaceKey(stopName);
+    let units = 0;
+    (drinks || []).forEach((d) => {
+      const per = parseFloat(d.units || 0);
+      if (!per) return;
+      const places = Array.isArray(d.added_places) && d.added_places.length ? d.added_places : null;
+      if (places) {
+        places.forEach((p) => { if (p && this.normalizePlaceKey(p.name) === target) units += per; });
+      } else if (this.normalizePlaceKey(d.place_name) === target) {
+        units += per * (d.qty || 1);
+      }
+    });
+    return parseFloat(units.toFixed(2));
+  },
+
+  // Espande una sessione nelle sue VISITE VERIFICATE a locali reali — l'unità atomica di
+  // TUTTE le classifiche dei locali. Sessione normale = 1 visita (se geolocalizzata e
+  // verificata). TOUR/percorso = UNA visita per OGNI tappa verificata (visited[i].verified),
+  // con le U.A. dei drink registrati in quella tappa. Così ogni locale di un percorso riceve
+  // il suo credito, invece di attribuire tutto all'ULTIMA tappa — e di PERDERE l'intera
+  // sessione quando l'ultima tappa non è verificata anche se le precedenti lo erano.
+  // Le private sono incluse (la privacy copre il NOME a valle, non rimuove la visita):
+  // ogni chiamante filtra/anonimizza secondo la propria regola. Esclude testo libero e
+  // check-in senza coordinate.
+  _venueVisits(a) {
+    const loc = a && a.location;
+    if (!loc || loc.freeform) return [];
+    const tour = loc.tour;
+    if (tour && Array.isArray(tour.visited)) {
+      const stops = tour.stops || [];
+      const byKey = {};
+      tour.visited.forEach((v, i) => {
+        if (!v || !v.verified) return; // solo tappe VERIFICATE sul posto
+        const stop = stops[i] || v;
+        const name = stop.name || v.name;
+        const lat = (typeof stop.lat === 'number') ? stop.lat : v.lat;
+        const lng = (typeof stop.lng === 'number') ? stop.lng : v.lng;
+        if (!name || typeof lat !== 'number' || typeof lng !== 'number') return;
+        const key = this.normalizePlaceKey(name);
+        const units = this._unitsAtStop(a.drinks, name);
+        // Stessa tappa visitata due volte nel tour → una sola visita, U.A. sommate.
+        if (!byKey[key]) byKey[key] = { name, key, lat, lng, units, share: loc.share };
+        else byKey[key].units += units;
+      });
+      return Object.values(byKey);
+    }
+    if (this._countsForVenue(a)) {
+      return [{ name: loc.name, key: this.normalizePlaceKey(loc.name), lat: loc.lat, lng: loc.lng, units: parseFloat(a.total_units || 0), share: loc.share }];
+    }
+    return [];
+  },
+
   async getPlaceLeaderboard(placeKey, period = 'all') {
     const activities = await this.getActivities();
     const { from, to } = this._periodRange(period);
-    const sessions = activities.filter((a) => {
-      if (!this._countsForVenue(a) || this.normalizePlaceKey(a.location.name) !== placeKey) return false;
-      const t = new Date(a.created_at).getTime();
-      return t >= from && t < to;
-    });
     const byUser = {};
-    sessions.forEach((s) => {
-      const uid = s.user_id;
-      const name = publicName(s.profiles, 'Atleta Strabar');
-      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: s.profiles?.public_leaderboard === false };
-      byUser[uid].visits += 1;
-      byUser[uid].units += parseFloat(s.total_units || 0);
-      if (s.location?.share !== 'private') byUser[uid].hasPublic = true;
+    activities.forEach((a) => {
+      const t = new Date(a.created_at).getTime();
+      if (t < from || t >= to) return;
+      // Espandi in visite verificate e tieni SOLO quelle a questo locale (un tour può
+      // contribuire con la sua tappa presso questo locale).
+      this._venueVisits(a).forEach((vis) => {
+        if (vis.key !== placeKey) return;
+        const uid = a.user_id;
+        const name = publicName(a.profiles, 'Atleta Strabar');
+        if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: a.profiles?.public_leaderboard === false };
+        byUser[uid].visits += 1;
+        byUser[uid].units += vis.units;
+        if (vis.share !== 'private') byUser[uid].hasPublic = true;
+      });
     });
     // Nome coperto se l'utente ha fatto opt-out o se ha SOLO sessioni private qui.
     return Object.values(byUser).map((u) => ({
@@ -2794,17 +2853,20 @@ export const db = {
   async getVenueBoard(placeKey) {
     if (!placeKey) return { sessionsCount: 0, legend: { name: 'Nessuno', units: 0, visits: 0 }, byUnits: [], topBac: [] };
     const activities = await this.getActivities();
-    const sessions = activities.filter(
-      (a) => this._countsForVenue(a) && this.normalizePlaceKey(a.location.name) === placeKey
-    );
+    // Sessioni con almeno una VISITA VERIFICATA a questo locale (un tour conta qui se ha
+    // verificato la tappa presso questo locale, anche se non è l'ultima del percorso).
+    const sessions = [];
     const byUser = {};
-    sessions.forEach((s) => {
-      const uid = s.user_id;
-      const name = publicName(s.profiles, 'Atleta Strabar');
-      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: s.profiles?.public_leaderboard === false };
+    activities.forEach((a) => {
+      const vis = this._venueVisits(a).find((v) => v.key === placeKey);
+      if (!vis) return;
+      sessions.push(a);
+      const uid = a.user_id;
+      const name = publicName(a.profiles, 'Atleta Strabar');
+      if (!byUser[uid]) byUser[uid] = { user_id: uid, name, visits: 0, units: 0, hasPublic: false, optedOut: a.profiles?.public_leaderboard === false };
       byUser[uid].visits += 1;
-      byUser[uid].units += parseFloat(s.total_units || 0);
-      if (s.location?.share !== 'private') byUser[uid].hasPublic = true;
+      byUser[uid].units += vis.units;
+      if (vis.share !== 'private') byUser[uid].hasPublic = true;
     });
     // Nome coperto se l'utente ha fatto opt-out o se ha SOLO sessioni private qui.
     const byUnits = Object.values(byUser)
@@ -3062,16 +3124,29 @@ export const db = {
   async getUserLeaderboard(viewerId, includeAll = false, period = 'all') {
     const activities = await this.getActivities();
     const { from, to } = this._periodRange(period);
-    const counts = (a) => includeAll
-      ? true                              // tutte le sessioni (anche libere e private)
-      : this._countsForGlobalBoard(a);    // solo geolocalizzate verificate (private incluse)
     const byUser = {};
     activities.forEach((a) => {
       const uid = a.user_id;
       if (!uid) return;
-      if (!counts(a)) return;
       const t = new Date(a.created_at).getTime();
       if (t < from || t >= to) return; // fuori dal periodo selezionato
+
+      // Classifica VERIFICATA: la sessione conta se ha almeno una VISITA verificata
+      // (un tour con l'ULTIMA tappa non verificata conta lo stesso per le tappe precedenti
+      // verificate). Le U.A. "verificate" sono solo quelle registrate alle tappe verificate;
+      // i locali contati sono le tappe verificate. Classifica ATTIVITÀ TOTALE (includeAll):
+      // ogni sessione conta com'è, con tutte le sue U.A.
+      let verifiedUnits, places;
+      if (includeAll) {
+        verifiedUnits = parseFloat(a.total_units || 0);
+        places = a.location?.name ? [this.normalizePlaceKey(a.location.name)] : [];
+      } else {
+        const visits = this._venueVisits(a);
+        if (!visits.length) return; // nessuna presenza verificata → fuori dalla verificata
+        verifiedUnits = visits.reduce((s, v) => s + v.units, 0);
+        places = visits.map((v) => v.key);
+      }
+
       if (!byUser[uid]) {
         byUser[uid] = {
           user_id: uid,
@@ -3087,9 +3162,9 @@ export const db = {
       }
       const u = byUser[uid];
       u.sessions += 1;
-      u.units += parseFloat(a.total_units || 0);
+      u.units += verifiedUnits;
       u.drinks += (a.drinks || []).reduce((s, d) => s + (d.qty || 0), 0);
-      if (a.location?.name) u.places.add(this.normalizePlaceKey(a.location.name));
+      places.forEach((k) => u.places.add(k));
     });
 
     // Chi può vedere il nome: io + chi seguo + chi mi segue. Gli altri restano anonimi.
