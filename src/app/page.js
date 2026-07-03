@@ -3320,7 +3320,7 @@ export default function FeedPage() {
                     title={t('session.cheers')}
                     aria-label={t('session.cheers')}
                   >
-                    <Beer size={18} fill={hasCheered ? 'var(--primary)' : 'none'} style={{ color: 'var(--primary)' }} />
+                    <Beer size={18} fill={hasCheered ? 'var(--primary)' : 'none'} style={{ color: hasCheered ? 'var(--primary)' : undefined }} />
                     <span style={{ color: hasCheered ? 'var(--primary)' : undefined }}>{act.cheer_count ?? act.cheers?.length ?? 0}</span>
                   </button>
 
