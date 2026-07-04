@@ -185,6 +185,7 @@ export default function FeedPage() {
   const [refreshing, setRefreshing] = useState(false);
   const pullRef = useRef({ startY: null, dist: 0, active: false });
   const refreshingRef = useRef(false);
+  const cheersInFlight = useRef(new Set()); // anti doppio-tap: cheers in corso per attività
   const [profilesList, setProfilesList] = useState([]);
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [completedSession, setCompletedSession] = useState(null); // resoconto post-chiusura (modale congratulazioni)
@@ -693,6 +694,12 @@ export default function FeedPage() {
     // Modello unificato: nel feed conosciamo solo il CONTEGGIO (cheer_count) e se ho cheerato
     // io (cheered_by_me); nel dettaglio c'è anche l'elenco (cheers). L'update ottimistico
     // tiene coerenti tutti e tre. `others` = cheers degli altri, stabile per il rollback.
+    // Anti "incanta" su Android: se un cheer per QUESTA attività è già in corso, ignora i
+    // tap successivi. Prima due tap rapidi lanciavano due toggle → entrambi leggevano lo
+    // stato vuoto → doppia INSERT → violazione UNIQUE(session_id,user_id) → errore →
+    // rollback che faceva "sparire" il mi piace. Il feedback ottimistico è già istantaneo.
+    if (cheersInFlight.current.has(activityId)) return;
+    cheersInFlight.current.add(activityId);
     const target = activities.find((a) => a.id === activityId) || (selectedActivity?.id === activityId ? selectedActivity : null);
     const had = !!(target?.cheered_by_me || target?.cheers?.includes(currentUser.id));
     const origCount = target?.cheer_count != null ? target.cheer_count : (target?.cheers?.length || 0);
@@ -712,6 +719,8 @@ export default function FeedPage() {
     } catch (err) {
       console.error(err);
       applyMine(had); // rollback allo stato iniziale
+    } finally {
+      cheersInFlight.current.delete(activityId);
     }
   };
 

@@ -785,7 +785,11 @@ export const db = {
         const { error: insertError } = await supabase
           .from('cheers')
           .insert({ session_id: activityId, user_id: user.id });
-        if (insertError) throw insertError;
+        // 23505 = violazione UNIQUE(session_id,user_id): il cheer c'è già (tap doppio o
+        // altro dispositivo). Non è un errore: lo trattiamo come "già messo" senza fallire,
+        // così la UI non fa rollback e il pulsante non "si incanta".
+        if (insertError && insertError.code !== '23505') throw insertError;
+        if (insertError && insertError.code === '23505') return true;
         // Notifica il proprietario della sessione
         try {
           const { data: sess } = await supabase
