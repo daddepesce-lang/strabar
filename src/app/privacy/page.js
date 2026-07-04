@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 export const metadata = {
   title: 'Privacy Policy | Strabar',
+  alternates: { canonical: '/privacy' },
 };
 
 // NOTA: modello base conforme all'impostazione GDPR, da personalizzare.

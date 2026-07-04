@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 export const metadata = {
   title: 'Termini di Servizio | Strabar',
+  alternates: { canonical: '/terms' },
 };
 
 // NOTA: questo è un modello base da personalizzare. NON è consulenza legale.

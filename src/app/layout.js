@@ -29,6 +29,10 @@ import { Analytics } from "@vercel/analytics/next";
 export const metadata = {
   // Dominio canonico: le anteprime dei link condivisi (OG) si risolvono su strabar.app.
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://strabar.app"),
+  // Canonical della HOME: collassa le varianti con query (?legacy=1, ?activity=…, ?live=1)
+  // sull'URL pulito, così Google non le vede come pagine duplicate. Le sezioni pubbliche
+  // (premium, business, privacy…) hanno il PROPRIO canonical nel loro layout/metadata.
+  alternates: { canonical: "/" },
   title: "Strabar | Il Social Network degli Atleti da Bar",
   description: "Traccia le tue sessioni alcoliche, tagga gli amici, pianifica percorsi (Pub Crawl) ed esporta le tue performance per i social media.",
   keywords: "strabar, atleti da bar, pub crawl, bar crawl, alcol tracker, social drinking",
