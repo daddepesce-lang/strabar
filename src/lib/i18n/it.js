@@ -551,6 +551,8 @@ export const it = {
     emptyAllTime: 'Nessun atleta in classifica. Registra la prima sessione! 🍺',
     logSession: 'Registra una sessione',
     rowMetricUnits: 'U.A.',
+    showAll: 'Mostra tutti ({n})',
+    showLess: 'Mostra meno',
     rowMetricSessions: 'sessioni',
     rowMetricPlaces: 'locali',
     rowInfo: '{s} sessioni · {p} locali',

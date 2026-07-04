@@ -550,6 +550,8 @@ export const en = {
     emptyAllTime: 'No athletes in the leaderboard yet. Log the first session! 🍺',
     logSession: 'Log a session',
     rowMetricUnits: 'AU',
+    showAll: 'Show all ({n})',
+    showLess: 'Show less',
     rowMetricSessions: 'sessions',
     rowMetricPlaces: 'venues',
     rowInfo: '{s} sessions · {p} venues',

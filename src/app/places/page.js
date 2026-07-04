@@ -58,6 +58,11 @@ export default function ClassifichePage() {
   const [placeSort, setPlaceSort] = useState('sessions');
   const [query, setQuery] = useState('');
 
+  // Classifiche: mostra i primi 50, poi "Mostra tutti" espande il resto.
+  const TOP_N = 50;
+  const [showAllUsers, setShowAllUsers] = useState(false);
+  const [showAllPlaces, setShowAllPlaces] = useState(false);
+
   // Dettaglio locale
   const [selected, setSelected] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -474,7 +479,7 @@ export default function ClassifichePage() {
 
               {/* Resto classifica */}
               <div>
-                {sortedUsers.map((u, i) => {
+                {(showAllUsers ? sortedUsers : sortedUsers.slice(0, TOP_N)).map((u, i) => {
                   const isMe = currentUser && u.user_id === currentUser.id;
                   const rowClass = `rank-row ${isMe ? 'me' : ''}`;
                   const rowInner = (
@@ -506,6 +511,16 @@ export default function ClassifichePage() {
                     <div key={u.user_id} className={rowClass} style={{ cursor: 'default' }}>{rowInner}</div>
                   );
                 })}
+                {sortedUsers.length > TOP_N && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllUsers((v) => !v)}
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginTop: '12px', fontSize: '13px' }}
+                  >
+                    {showAllUsers ? t('places.showLess') : t('places.showAll', { n: sortedUsers.length })}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -547,7 +562,7 @@ export default function ClassifichePage() {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
-              {sortedPlaces.map((place, i) => (
+              {(showAllPlaces ? sortedPlaces : sortedPlaces.slice(0, TOP_N)).map((place, i) => (
                 <button
                   key={place.key}
                   onClick={() => openPlace(place)}
@@ -598,6 +613,16 @@ export default function ClassifichePage() {
                 </button>
               ))}
             </div>
+          )}
+          {sortedPlaces.length > TOP_N && (
+            <button
+              type="button"
+              onClick={() => setShowAllPlaces((v) => !v)}
+              className="btn btn-secondary"
+              style={{ width: '100%', marginTop: '16px', fontSize: '13px' }}
+            >
+              {showAllPlaces ? t('places.showLess') : t('places.showAll', { n: sortedPlaces.length })}
+            </button>
           )}
         </>
       )}

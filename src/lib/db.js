@@ -2752,8 +2752,15 @@ export const db = {
     // dalla privacy: anche le sessioni 'private' concorrono ai totali/classifiche, ma il
     // NOME viene coperto ("Atleta riservato"). La privacy nasconde l'identità, non rimuove
     // la sessione dai conteggi. (Esclude solo testo libero e check-in non verificati.)
-    return !!(loc && loc.name && !loc.freeform && !loc.unverified &&
+    return !!(loc && loc.name && !loc.freeform && !this._isFreeSessionName(loc.name) && !loc.unverified &&
       typeof loc.lat === 'number' && typeof loc.lng === 'number');
+  },
+
+  // "Sessione Libera" è il nome sentinella delle sessioni SENZA locale (testo libero).
+  // Alcune vecchie righe non hanno il flag `freeform` ma hanno per errore delle coordinate:
+  // escludendole PER NOME non compaiono più come se fossero un locale nelle classifiche.
+  _isFreeSessionName(name) {
+    return this.normalizePlaceKey(name) === 'sessione libera';
   },
 
   // Una sessione concorre alla CLASSIFICA GENERALE con la STESSA identica regola della
