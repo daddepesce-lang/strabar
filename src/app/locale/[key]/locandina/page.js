@@ -78,63 +78,73 @@ export default function VenuePosterPage({ params }) {
         className="a4"
         style={{
           width: '210mm', minHeight: '297mm', background: '#FFFFFF', color: '#0A0A0D', margin: '0 auto',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.4)', padding: '18mm 16mm', display: 'flex', flexDirection: 'column',
-          alignItems: 'center', textAlign: 'center', boxSizing: 'border-box',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden',
         }}
       >
-        {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6mm' }}>
+        {/* HEADER brand: fondo scuro (così il logo bianco si vede) + cos'è Strabar */}
+        <div style={{ background: '#0A0A0D', color: '#fff', padding: '16mm 16mm 12mm', textAlign: 'center', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
           {logoOk ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src="/logo.png" alt="Strabar" style={{ height: '52px', width: 'auto' }} onError={() => setLogoOk(false)} />
+            <img src="/logo.png" alt="Strabar" style={{ height: '64px', width: 'auto', margin: '0 auto', display: 'block' }} onError={() => setLogoOk(false)} />
           ) : (
-            <span style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '.5px' }}>stra<span style={{ color: '#FF3B2F' }}>bar</span></span>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: '64px', lineHeight: 1, letterSpacing: '1px' }}>stra<span style={{ color: '#FF3B2F' }}>bar</span></div>
           )}
+          <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', color: '#DFFF00', marginTop: '8mm' }}>
+            Il social degli atleti da bar
+          </div>
+          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.75)', maxWidth: '150mm', margin: '4mm auto 0', lineHeight: 1.5 }}>
+            Traccia le tue bevute, sfida gli amici e conquista la classifica dei locali. 🍻
+          </p>
         </div>
+        {/* Striscia d'accento */}
+        <div style={{ height: '7px', background: 'linear-gradient(90deg, #FF3B2F 0%, #FF3B2F 55%, #DFFF00 100%)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }} />
 
-        <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: '#FF3B2F', marginBottom: '4mm' }}>
-          🍻 Registra la tua bevuta qui
-        </div>
+        {/* CORPO */}
+        <div style={{ flex: 1, padding: '12mm 16mm 14mm', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{ display: 'inline-block', background: 'rgba(255,59,47,0.10)', color: '#FF3B2F', border: '1.5px solid #FF3B2F', borderRadius: '999px', padding: '6px 18px', fontSize: '14px', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+            🍻 Sei da noi? Registralo!
+          </div>
 
-        <h1 style={{ fontSize: '46px', fontWeight: 900, lineHeight: 1.05, margin: '0 0 3mm' }}>{name}</h1>
-        <p style={{ fontSize: '17px', color: '#444', maxWidth: '150mm', margin: '0 0 8mm', lineHeight: 1.5 }}>
-          Inquadra il QR con la fotocamera: parte una registrazione <strong>velocissima</strong> della tua
-          sessione <strong>in questo locale</strong>. Niente GPS, niente attese — e scali subito la classifica del bar!
-        </p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '58px', lineHeight: 1.02, margin: '5mm 0 3mm', letterSpacing: '.5px' }}>{name}</h1>
+          <p style={{ fontSize: '17px', color: '#333', maxWidth: '150mm', margin: '0 0 8mm', lineHeight: 1.55 }}>
+            Inquadra il QR: parte in un attimo una sessione <strong>in questo locale</strong> e
+            <strong> scali subito la sua classifica</strong>. Niente attese.
+          </p>
 
-        {/* QR */}
-        <div style={{ background: '#fff', border: '3px solid #0A0A0D', borderRadius: '18px', padding: '10px', marginBottom: '9mm' }}>
-          {qr ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={qr} alt="QR Strabar" style={{ width: '78mm', height: '78mm', display: 'block' }} />
-          ) : (
-            <div style={{ width: '78mm', height: '78mm', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
-              <Loader size={40} className="spin" />
-            </div>
-          )}
-        </div>
+          {/* QR */}
+          <div style={{ background: '#fff', border: '4px solid #0A0A0D', borderRadius: '20px', padding: '12px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+            {qr ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={qr} alt="QR Strabar" style={{ width: '80mm', height: '80mm', display: 'block' }} />
+            ) : (
+              <div style={{ width: '80mm', height: '80mm', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+                <Loader size={40} style={{ animation: 'spin 1s linear infinite' }} />
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: '#0A0A0D', margin: '5mm 0 9mm' }}>
+            📷 Inquadra con la fotocamera del telefono
+          </div>
 
-        {/* Come funziona: 3 passi */}
-        <div style={{ display: 'flex', gap: '8mm', justifyContent: 'center', marginBottom: '9mm', flexWrap: 'wrap' }}>
-          {[
-            { n: '1', t: 'Inquadra il QR', d: 'Con la fotocamera del telefono' },
-            { n: '2', t: 'Parte la sessione', d: 'Registrata in questo locale' },
-            { n: '3', t: 'Aggiungi i drink', d: 'E sali in classifica 🏆' },
-          ].map((s) => (
-            <div key={s.n} style={{ width: '48mm' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#FF3B2F', color: '#fff', fontSize: '20px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>{s.n}</div>
-              <div style={{ fontSize: '15px', fontWeight: 800 }}>{s.t}</div>
-              <div style={{ fontSize: '13px', color: '#666', marginTop: '2px' }}>{s.d}</div>
-            </div>
-          ))}
-        </div>
+          {/* Come funziona: 3 passi */}
+          <div style={{ display: 'flex', gap: '6mm', justifyContent: 'center', width: '100%' }}>
+            {[
+              { n: '1', t: 'Inquadra il QR', d: 'Con la fotocamera' },
+              { n: '2', t: 'Parte la sessione', d: 'In questo locale' },
+              { n: '3', t: 'Aggiungi i drink', d: 'E sali in classifica 🏆' },
+            ].map((s) => (
+              <div key={s.n} style={{ flex: 1, maxWidth: '52mm', background: '#F6F6F7', borderRadius: '14px', padding: '14px 10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#FF3B2F', color: '#fff', fontFamily: 'var(--font-display)', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>{s.n}</div>
+                <div style={{ fontSize: '14px', fontWeight: 800 }}>{s.t}</div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>{s.d}</div>
+              </div>
+            ))}
+          </div>
 
-        <div style={{ marginTop: 'auto', paddingTop: '6mm', borderTop: '2px solid #eee', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#888' }}>
-          <span>Il Social Network degli Atleti da Bar</span>
-          <strong style={{ color: '#0A0A0D' }}>strabar.app</strong>
-        </div>
-        <div style={{ fontSize: '11px', color: '#aaa', marginTop: '3mm' }}>
-          Bevi responsabilmente · Vietato ai minori di 18 anni
+          <div style={{ marginTop: 'auto', paddingTop: '10mm', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ fontSize: '12px', color: '#999' }}>Bevi responsabilmente · 18+</span>
+            <strong style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: '#0A0A0D', letterSpacing: '.5px' }}>strabar.app</strong>
+          </div>
         </div>
       </div>
     </div>
