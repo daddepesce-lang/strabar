@@ -6,6 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { useI18n } from '@/lib/i18n';
+import { badgeProgress, seasonalBadges } from '@/lib/badges';
 import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin, BadgeCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
@@ -35,6 +36,8 @@ export default function ProfilePage() {
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [followsModal, setFollowsModal] = useState(null); // 'followers' | 'following' | null
   const [showPastSessions, setShowPastSessions] = useState(false); // mostra solo l'ultima + pulsante
+  const [selectedBadge, setSelectedBadge] = useState(null); // badge aperto nel dettaglio (tap)
+  const [showAllBadges, setShowAllBadges] = useState(false); // mostra tutti i badge (anche i bloccati)
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
 
   const [barRankings, setBarRankings] = useState([]);
@@ -593,39 +596,63 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* SFIDE & PREMI (spostate qui dalla home: hanno più senso sul profilo) */}
+          {/* SFIDE SETTIMANALI (a rotazione): 3 sfide che cambiano ogni lunedì. La scelta è
+              deterministica dal numero di settimana (nessun backend/egress) e i progressi
+              contano SOLO le sessioni di QUESTA settimana → gamification sempre fresca. */}
           {(() => {
-            const now = new Date();
-            const sameDay = (d) => { const x = new Date(d); return x.getDate() === now.getDate() && x.getMonth() === now.getMonth() && x.getFullYear() === now.getFullYear(); };
-            const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-            const todayUnits = activities.reduce((a, x) => a + (sameDay(x.created_at) ? parseFloat(x.total_units || 0) : 0), 0);
-            const weeklyUnits = activities.reduce((a, x) => a + (new Date(x.created_at) >= weekAgo ? parseFloat(x.total_units || 0) : 0), 0);
-            const uniqueBarsVisited = new Set(activities.map((x) => x.location?.name).filter(Boolean)).size;
-            const toursCompleted = activities.filter((x) => /percorso|tour/i.test(x.description || '')).length;
-            const Bar = ({ label, sub, value, max, color, valueText, reward, done }) => (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '13px', color: '#FFF' }}>{label}</strong>
-                  <span style={{ fontSize: '11px', color, fontWeight: 700 }}>{valueText}</span>
+            // Inizio settimana corrente (lunedì 00:00) dal tick `now` (Date.now()).
+            const d = new Date(now);
+            d.setHours(0, 0, 0, 0);
+            const day = d.getDay();
+            const toMonday = day === 0 ? 6 : day - 1;
+            const weekStart = new Date(d); weekStart.setDate(d.getDate() - toMonday);
+            const weekStartMs = weekStart.getTime();
+            const weekNum = Math.floor(weekStartMs / (7 * 86400000));
+            const weekActs = activities.filter((a) => new Date(a.created_at).getTime() >= weekStartMs);
+            const isWknd = (ts) => { const g = new Date(ts).getDay(); return g === 0 || g === 5 || g === 6; };
+
+            // Pool di sfide settimanali. `value` = progresso di questa settimana.
+            const POOL = [
+              { id: 'bars_new', target: 3, color: 'var(--secondary)', value: new Set(weekActs.map((a) => a.location?.name).filter(Boolean)).size },
+              { id: 'units_week', target: 10, color: 'var(--primary)', value: Math.round(weekActs.reduce((s, a) => s + parseFloat(a.total_units || 0), 0) * 10) / 10 },
+              { id: 'sessions_week', target: 3, color: '#10B981', value: weekActs.length },
+              { id: 'tour_week', target: 1, color: 'var(--secondary)', value: weekActs.filter((a) => a.location?.tour).length },
+              { id: 'days_week', target: 3, color: '#3B82F6', value: new Set(weekActs.map((a) => new Date(a.created_at).toDateString())).size },
+              { id: 'light_night', target: 1, color: 'var(--success)', value: weekActs.filter((a) => { const u = parseFloat(a.total_units || 0); return u > 0 && u <= 2; }).length },
+              { id: 'weekend', target: 1, color: '#A855F7', value: weekActs.filter((a) => isWknd(a.created_at)).length },
+              { id: 'heavy_one', target: 1, color: 'var(--error)', value: weekActs.filter((a) => parseFloat(a.total_units || 0) >= 4).length },
+            ];
+            // Finestra di 3 sfide che scorre nel pool in base alla settimana.
+            const start = (weekNum * 3) % POOL.length;
+            const picks = [0, 1, 2].map((k) => POOL[(start + k) % POOL.length]);
+
+            const Bar = ({ id, value, max, color }) => {
+              const done = value >= max;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '13px', color: '#FFF' }}>{t(`profile.wch.${id}.t`)}</strong>
+                    <span style={{ fontSize: '11px', color, fontWeight: 700 }}>{value} / {max}</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t(`profile.wch.${id}.d`)}</div>
+                  <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.min((value / max) * 100, 100)}%`, height: '100%', background: color, borderRadius: '3px' }} />
+                  </div>
+                  <div style={{ fontSize: '10px', color: done ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    <Award size={10} /> {done ? t('profile.wchDone') : t('profile.wchTodo')}
+                  </div>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{sub}</div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min((value / max) * 100, 100)}%`, height: '100%', background: color, borderRadius: '3px' }} />
-                </div>
-                <div style={{ fontSize: '10px', color: done ? 'var(--success)' : 'var(--text-dark-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Award size={10} /> {t('feed.rewardLabel')}{reward}{done ? t('feed.unlocked') : ''}
-                </div>
-              </div>
-            );
+              );
+            };
+            const completed = picks.filter((p) => p.value >= p.target).length;
             return (
               <div className="card" style={{ marginTop: '10px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
-                  <TrendingUp size={18} color="var(--secondary)" /> {t('profile.challengesTitle')}
+                <h3 style={{ fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px', margin: 0 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={18} color="var(--secondary)" /> {t('profile.challengesTitle')}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dark-secondary)' }}>{completed}/3</span>
                 </h3>
-                <Bar label={t('feed.ch1Title')} sub={t('feed.ch1Desc')} value={toursCompleted} max={3} color="var(--secondary)" valueText={t('feed.ch1Count', { n: toursCompleted })} reward={t('feed.ch1Reward')} done={toursCompleted >= 3} />
-                <Bar label={t('feed.ch2Title')} sub={t('feed.ch2Desc')} value={weeklyUnits} max={10} color="var(--primary)" valueText={t('feed.ch2Count', { n: weeklyUnits.toFixed(1) })} reward={t('feed.ch2Reward')} done={weeklyUnits >= 10} />
-                <Bar label={t('feed.ch3Title')} sub={t('feed.ch3Desc')} value={uniqueBarsVisited} max={5} color="#10B981" valueText={t('feed.ch3Count', { n: uniqueBarsVisited })} reward={t('feed.ch3Reward')} done={uniqueBarsVisited >= 5} />
-                <Bar label={t('feed.ch4Title')} sub={t('feed.ch4Desc')} value={Math.min(todayUnits, 4)} max={4} color={todayUnits > 4 ? 'var(--error)' : 'var(--success)'} valueText={t('feed.ch4Count', { n: todayUnits.toFixed(1) })} reward={todayUnits > 4 ? t('feed.ch4Exceeded') : t('feed.ch4Reward')} done={todayUnits > 0 && todayUnits <= 4} />
+                <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)', marginTop: '-6px' }}>{t('profile.wchSubtitle')}</div>
+                {picks.map((p) => <Bar key={p.id} id={p.id} value={p.value} max={p.target} color={p.color} />)}
               </div>
             );
           })()}
@@ -734,42 +761,29 @@ export default function ProfilePage() {
 
           {/* ===== PREMI & BADGE ===== */}
           {(() => {
-            const sessionsCount = activities.length;
-            const totalU = activities.reduce((acc, a) => acc + parseFloat(a.total_units || 0), 0);
-            const uniqueBars = new Set(activities.map(a => a.location?.name).filter(Boolean)).size;
-            const barHopSessions = activities.filter(a =>
-              a.location?.sequence && Array.isArray(a.location.sequence) && a.location.sequence.length > 1
-            ).length;
-            const maxSingleUnits = activities.reduce((max, a) => Math.max(max, parseFloat(a.total_units || 0)), 0);
-            const daysWithSession = new Set(activities.map(a => new Date(a.created_at).toDateString())).size;
-
-            const bdg = (id, earned) => ({ id, earned, title: t(`profile.bdg.${id}.t`), desc: t(`profile.bdg.${id}.d`), threshold: t(`profile.bdg.${id}.th`) });
-            const allBadges = [
-              { ...bdg('first_sip', sessionsCount >= 1), icon: '🍺' },
-              { ...bdg('habitue', sessionsCount >= 5), icon: '🥂' },
-              { ...bdg('veteran', sessionsCount >= 10), icon: '🏅' },
-              { ...bdg('champion', sessionsCount >= 20), icon: '🏆' },
-              { ...bdg('ua_10', totalU >= 10), icon: '💪' },
-              { ...bdg('ua_50', totalU >= 50), icon: '🔥' },
-              { ...bdg('ua_100', totalU >= 100), icon: '💥' },
-              { ...bdg('bar_3', uniqueBars >= 3), icon: '📍' },
-              { ...bdg('bar_10', uniqueBars >= 10), icon: '🗺️' },
-              { ...bdg('barhop_1', barHopSessions >= 1), icon: '🔄' },
-              { ...bdg('barhop_3', barHopSessions >= 3), icon: '🎯' },
-              { ...bdg('heavy_session', maxSingleUnits >= 5), icon: '⚡' },
-              { ...bdg('active_7', daysWithSession >= 7), icon: '📅' },
-              { ...bdg('active_30', daysWithSession >= 30), icon: '📊' },
-            ];
+            // Progresso di OGNI badge (cur/target) dalla fonte unica @/lib/badges, più i
+            // badge stagionali attivi/ottenuti. Così i nuovi badge e i livelli superiori
+            // compaiono automaticamente qui e negli sblocchi in Home.
+            const withText = (b) => ({
+              ...b,
+              title: t(`profile.bdg.${b.id}.t`),
+              desc: t(`profile.bdg.${b.id}.d`),
+              threshold: t(`profile.bdg.${b.id}.th`),
+            });
+            const base = badgeProgress(activities).map(withText);
+            const seasonal = seasonalBadges(activities, now).map((b) => withText({
+              id: b.id, icon: b.icon, earned: b.earned, cur: b.earned ? 1 : 0, target: 1, pct: b.earned ? 100 : 0, seasonal: true,
+            }));
+            const allBadges = [...base, ...seasonal];
 
             const earnedBadges = allBadges.filter(b => b.earned);
             const lockedBadges = allBadges.filter(b => !b.earned);
-
-            // Tile premium 56x56: conquistati = gradiente scuro tinto (lime / rosso / neutro),
-            // bloccati = spenti; oltre il limite mostrabile → tile "+N" tratteggiata.
-            const MAX_TILES = 11;
-            const ordered = [...earnedBadges, ...lockedBadges];
-            const shown = ordered.slice(0, MAX_TILES);
-            const hiddenCount = ordered.length - shown.length;
+            // Ordine: conquistati, poi i bloccati PIÙ VICINI (così vedi subito cosa puoi
+            // sbloccare). Anteprima = conquistati + 3 bloccati più vicini; toggle → tutti.
+            const nearestLocked = [...lockedBadges].sort((a, b) => b.pct - a.pct);
+            const ordered = [...earnedBadges, ...nearestLocked];
+            const preview = [...earnedBadges, ...nearestLocked.slice(0, 3)];
+            const shown = showAllBadges ? ordered : preview;
             const earnedTints = [
               { background: 'linear-gradient(145deg, #2a2412, #141419)', border: '1px solid rgba(223, 255, 0, .35)', boxShadow: '0 0 16px rgba(223, 255, 0, .12)' },
               { background: 'linear-gradient(145deg, #2a1512, #141419)', border: '1px solid rgba(255, 59, 47, .35)', boxShadow: '0 0 16px rgba(255, 59, 47, .12)' },
@@ -785,29 +799,78 @@ export default function ProfilePage() {
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {shown.map((b, i) => (
-                    <div
+                    <button
                       key={b.id}
-                      title={b.earned ? `${b.title} — ${b.desc}` : `${b.title} · ${t('profile.badgeUnlockWith', { th: b.threshold })}`}
+                      type="button"
+                      onClick={() => setSelectedBadge(b)}
+                      aria-label={b.title}
                       style={{
-                        width: '56px', height: '56px', borderRadius: '16px', fontSize: '24px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        position: 'relative', width: '56px', height: '56px', borderRadius: '16px', fontSize: '24px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', padding: 0, overflow: 'hidden',
                         ...(b.earned
                           ? earnedTints[i % earnedTints.length]
-                          : { background: '#101014', border: '1px solid rgba(255, 255, 255, .05)', opacity: 0.25 }),
+                          : { background: '#101014', border: '1px solid rgba(255, 255, 255, .06)' }),
                       }}
                     >
-                      {b.icon}
-                    </div>
+                      <span style={{ opacity: b.earned ? 1 : 0.4, filter: b.earned ? 'none' : 'grayscale(1)' }}>{b.icon}</span>
+                      {/* Barra di progresso sui bloccati: quanto manca al prossimo sblocco */}
+                      {!b.earned && (
+                        <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '4px', background: 'rgba(255,255,255,.06)' }}>
+                          <span style={{ display: 'block', height: '100%', width: `${b.pct}%`, background: 'var(--secondary)' }} />
+                        </span>
+                      )}
+                    </button>
                   ))}
-                  {hiddenCount > 0 && (
-                    <div style={{ minWidth: '56px', height: '56px', borderRadius: '16px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255, 255, 255, .12)', fontSize: '12px', color: 'var(--text-dark-tertiary)' }}>
-                      +{hiddenCount}
-                    </div>
-                  )}
                 </div>
+
+                {ordered.length > preview.length && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllBadges((v) => !v)}
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginTop: '14px', fontSize: '13px' }}
+                  >
+                    {showAllBadges ? t('places.showLess') : t('profile.badgesShowAll', { n: lockedBadges.length })}
+                  </button>
+                )}
               </div>
             );
           })()}
+
+          {/* DETTAGLIO BADGE (tap su un badge): titolo, descrizione, stato/progresso.
+              Prima c'era solo il tooltip `title`, invisibile su mobile → non si capiva
+              cosa fossero i badge né quanto mancasse per sbloccarli. */}
+          {selectedBadge && (
+            <div
+              onClick={() => setSelectedBadge(null)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', backdropFilter: 'blur(6px)' }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="card"
+                style={{ width: '100%', maxWidth: '360px', textAlign: 'center', border: `2px solid ${selectedBadge.earned ? 'var(--secondary)' : 'var(--border-dark)'}`, position: 'relative', animation: 'slideUp 0.3s ease' }}
+              >
+                <button type="button" onClick={() => setSelectedBadge(null)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '12px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '22px', cursor: 'pointer' }}>×</button>
+                <div style={{ fontSize: '56px', lineHeight: 1, margin: '10px 0 14px', filter: selectedBadge.earned ? 'none' : 'grayscale(1)', opacity: selectedBadge.earned ? 1 : 0.5 }}>{selectedBadge.icon}</div>
+                <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px' }}>{selectedBadge.title}</h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>{selectedBadge.desc}</p>
+                {selectedBadge.earned ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: 700, fontSize: '14px' }}>
+                    <Award size={16} /> {t('profile.badgeEarned')}
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+                      <div style={{ width: `${selectedBadge.pct}%`, height: '100%', background: 'var(--secondary)', borderRadius: '4px' }} />
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
+                      {t('profile.badgeProgress', { cur: selectedBadge.cur, target: selectedBadge.target })} · {t('profile.badgeUnlockWith', { th: selectedBadge.threshold })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* SEZIONE STATISTICHE AVANZATE SUMMIT (CURVA BAC & CLASSIFICHE BAR) */}
           <div className="r-grid-2-1" style={{ marginTop: '10px' }}>
