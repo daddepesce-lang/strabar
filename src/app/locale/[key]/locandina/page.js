@@ -52,9 +52,14 @@ export default function VenuePosterPage({ params }) {
       <style>{`
         @page { size: A4 portrait; margin: 0; }
         @media print {
-          body { background: #fff !important; }
+          /* Stampa SOLO la locandina: nascondi tutto il resto (navbar in alto, barra mobile
+             in basso, footer — vivono nel layout, fuori da questa pagina) e porta l'A4 in
+             cima. La sola display:none su .noprint non bastava: la chrome dell'app restava. */
+          html, body { background: #fff !important; }
+          body * { visibility: hidden !important; }
+          .a4, .a4 * { visibility: visible !important; }
+          .a4 { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; box-shadow: none !important; }
           .noprint { display: none !important; }
-          .a4 { box-shadow: none !important; margin: 0 !important; }
         }
       `}</style>
 

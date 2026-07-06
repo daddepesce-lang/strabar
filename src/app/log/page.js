@@ -212,11 +212,21 @@ export default function LogActivityPage() {
     // QR della LOCANDINA del locale (?src=qr): la scansione della locandina esposta nel
     // locale È la prova di presenza → avvio IMMEDIATO e VERIFICATO, senza chiedere il GPS.
     // Registrazione velocissima: apri il QR → parte la sessione qui → aggiungi i drink.
+    // Check-in via QR: l'intento viene SALVATO in sessionStorage così sopravvive al giro
+    // login/registrazione e alla mini-guida (che rimanda a /log senza i parametri). Se
+    // torno su /log senza parametri ma con un intento in sospeso, riprendo il chooser.
+    let qrIntent = null;
     if (venueName && urlParams.get('src') === 'qr') {
+      qrIntent = { name: venueName, lat: Number.isFinite(vLat) ? vLat : null, lng: Number.isFinite(vLng) ? vLng : null };
+      try { sessionStorage.setItem('strabar_qr_checkin', JSON.stringify(qrIntent)); } catch { /* noop */ }
+    } else if (urlParams.get('action') !== 'append') {
+      try { const raw = sessionStorage.getItem('strabar_qr_checkin'); if (raw) qrIntent = JSON.parse(raw); } catch { /* noop */ }
+    }
+    if (qrIntent) {
       // Ripristina la privacy preferita e mostra un chooser velocissimo (una scelta) prima
       // di avviare: la registrazione resta rapida ma la privacy è sempre nelle tue mani.
       try { const saved = localStorage.getItem('strabar_live_share'); if (saved) setLiveShare(saved); } catch { /* noop */ }
-      setQrVenue({ name: venueName, lat: Number.isFinite(vLat) ? vLat : null, lng: Number.isFinite(vLng) ? vLng : null });
+      setQrVenue(qrIntent);
     } else if (venueName && Number.isFinite(vLat) && Number.isFinite(vLng)) {
       startFromTag({ name: venueName, lat: vLat, lng: vLng });
     }
@@ -578,7 +588,7 @@ export default function LogActivityPage() {
       }
     } catch { /* prosegui: in caso di dubbio meglio avviare */ }
     setQrVenue(null);
-    try { localStorage.setItem('strabar_live_share', liveShare); } catch { /* noop */ }
+    try { sessionStorage.removeItem('strabar_qr_checkin'); localStorage.setItem('strabar_live_share', liveShare); } catch { /* noop */ }
     setCheckingGps(true);
     try {
       await db.createActivity({
@@ -742,7 +752,7 @@ export default function LogActivityPage() {
         >
           <Play size={18} fill="#fff" /> {t('log.qrStart')}
         </button>
-        <button type="button" onClick={() => setQrVenue(null)} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer' }}>
+        <button type="button" onClick={() => { try { sessionStorage.removeItem('strabar_qr_checkin'); } catch { /* noop */ } setQrVenue(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer' }}>
           {t('common.cancel')}
         </button>
       </div>

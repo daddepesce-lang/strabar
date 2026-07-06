@@ -34,6 +34,9 @@ export default function WelcomeGuide() {
 
   const maybeShow = async () => {
     try { if (localStorage.getItem(SEEN_KEY)) return; } catch { /* noop */ }
+    // Non coprire il check-in via QR di un locale: l'utente ha uno scopo preciso (registrare
+    // la bevuta qui). La mini-guida si potrà aprire dopo, dal menu.
+    try { if (sessionStorage.getItem('strabar_qr_checkin')) return; } catch { /* noop */ }
     let u = null;
     try { u = await db.getCurrentUser(); } catch { return; }
     if (!u) return;
