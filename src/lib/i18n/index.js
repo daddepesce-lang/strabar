@@ -15,14 +15,16 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { it } from './it';
 import { en } from './en';
+import { fr } from './fr';
 
 export const LOCALES = {
   it: { label: 'Italiano', flag: '🇮🇹' },
   en: { label: 'English', flag: '🇬🇧' },
+  fr: { label: 'Français', flag: '🇫🇷' },
 };
 export const DEFAULT_LOCALE = 'it';
 const STORAGE_KEY = 'strabar_lang';
-const DICTS = { it, en };
+const DICTS = { it, en, fr };
 
 // Risolve un percorso "a.b.c" dentro un oggetto annidato.
 function lookup(dict, key) {
@@ -53,6 +55,7 @@ export function resolveInitialLocale() {
   const nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
   if (nav.startsWith('it')) return 'it';
   if (nav.startsWith('en')) return 'en';
+  if (nav.startsWith('fr')) return 'fr';
   return DEFAULT_LOCALE;
 }
 
