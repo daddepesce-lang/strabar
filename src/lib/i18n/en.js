@@ -19,6 +19,18 @@ export const en = {
     search: 'Search',
     seeAll: 'See all',
   },
+  log: {
+    qrCheckin: 'Quick check-in',
+    qrIntro: 'You\'re about to log a session at this venue. Choose who can see it, then start: add your drinks on the fly.',
+    qrPrivacyQ: 'Who can see this session?',
+    sharePublic: 'Public',
+    sharePublicDesc: 'Visible to everyone in the feed and leaderboards',
+    shareFriends: 'Friends only',
+    shareFriendsDesc: 'Visible only to people you follow / follow you',
+    sharePrivate: 'Private',
+    sharePrivateDesc: 'Only you see it · name hidden in leaderboards',
+    qrStart: 'Start logging',
+  },
   footer: {
     responsible: '🍻 Drink responsibly · 18+ only · Don’t drink and drive',
     terms: 'Terms of Service',

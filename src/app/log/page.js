@@ -45,6 +45,7 @@ export default function LogActivityPage() {
   // Visibilità della sessione live: chi la vede nel feed e sul radar mentre bevi.
   // 'private' = nascosta a tutti finché è live (riappare nel feed solo a chiusura).
   const [liveShare, setLiveShare] = useState('public'); // 'private' | 'friends' | 'public'
+  const [qrVenue, setQrVenue] = useState(null); // locale arrivato via QR: mostra il chooser privacy prima di avviare
   const [myLeagues, setMyLeagues] = useState([]); // leghe di cui faccio parte
   const [selectedLeagues, setSelectedLeagues] = useState(() => new Set()); // leghe in cui competo con questa sessione
   const [showLeagues, setShowLeagues] = useState(false); // modale selezione leghe
@@ -212,7 +213,10 @@ export default function LogActivityPage() {
     // locale È la prova di presenza → avvio IMMEDIATO e VERIFICATO, senza chiedere il GPS.
     // Registrazione velocissima: apri il QR → parte la sessione qui → aggiungi i drink.
     if (venueName && urlParams.get('src') === 'qr') {
-      startFromQr({ name: venueName, lat: Number.isFinite(vLat) ? vLat : null, lng: Number.isFinite(vLng) ? vLng : null });
+      // Ripristina la privacy preferita e mostra un chooser velocissimo (una scelta) prima
+      // di avviare: la registrazione resta rapida ma la privacy è sempre nelle tue mani.
+      try { const saved = localStorage.getItem('strabar_live_share'); if (saved) setLiveShare(saved); } catch { /* noop */ }
+      setQrVenue({ name: venueName, lat: Number.isFinite(vLat) ? vLat : null, lng: Number.isFinite(vLng) ? vLng : null });
     } else if (venueName && Number.isFinite(vLat) && Number.isFinite(vLng)) {
       startFromTag({ name: venueName, lat: vLat, lng: vLng });
     }
@@ -573,6 +577,8 @@ export default function LogActivityPage() {
         return;
       }
     } catch { /* prosegui: in caso di dubbio meglio avviare */ }
+    setQrVenue(null);
+    try { localStorage.setItem('strabar_live_share', liveShare); } catch { /* noop */ }
     setCheckingGps(true);
     try {
       await db.createActivity({
@@ -684,6 +690,61 @@ export default function LogActivityPage() {
         <style jsx global>{`
           @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         `}</style>
+      </div>
+    );
+  }
+
+  // Arrivo via QR della locandina: chooser privacy VELOCE prima di avviare.
+  // Una scelta (di default l'ultima usata) → "Inizia": registrazione rapida ma con privacy.
+  if (qrVenue) {
+    return (
+      <div style={{ maxWidth: '460px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '18px', paddingTop: '10px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--primary)' }}>🍻 {t('log.qrCheckin')}</div>
+          <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#FFF', marginTop: '6px' }}>{qrVenue.name}</h1>
+          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '6px', lineHeight: 1.5 }}>{t('log.qrIntro')}</p>
+        </div>
+
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '18px' }}>
+          <strong style={{ fontSize: '14px', color: '#FFF' }}>{t('log.qrPrivacyQ')}</strong>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[
+              { k: 'public', emoji: '🌍', label: t('log.sharePublic'), desc: t('log.sharePublicDesc') },
+              { k: 'friends', emoji: '👥', label: t('log.shareFriends'), desc: t('log.shareFriendsDesc') },
+              { k: 'private', emoji: '🔒', label: t('log.sharePrivate'), desc: t('log.sharePrivateDesc') },
+            ].map((o) => (
+              <button
+                key={o.k}
+                type="button"
+                onClick={() => setLiveShare(o.k)}
+                style={{
+                  textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', cursor: 'pointer',
+                  background: liveShare === o.k ? 'rgba(255,59,47,0.10)' : 'var(--bg-input-dark)',
+                  border: `1px solid ${liveShare === o.k ? 'var(--primary)' : 'var(--border-dark)'}`,
+                }}
+              >
+                <span style={{ fontSize: '22px' }}>{o.emoji}</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#FFF' }}>{o.label}</span>
+                  <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{o.desc}</span>
+                </span>
+                {liveShare === o.k && <span style={{ color: 'var(--primary)', fontWeight: 800 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => startFromQr(qrVenue)}
+          className="btn btn-primary"
+          style={{ width: '100%', borderRadius: '30px', padding: '15px', fontSize: '16px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+        >
+          <Play size={18} fill="#fff" /> {t('log.qrStart')}
+        </button>
+        <button type="button" onClick={() => setQrVenue(null)} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer' }}>
+          {t('common.cancel')}
+        </button>
       </div>
     );
   }

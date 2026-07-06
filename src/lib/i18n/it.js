@@ -20,6 +20,18 @@ export const it = {
     search: 'Cerca',
     seeAll: 'Vedi tutti',
   },
+  log: {
+    qrCheckin: 'Check-in rapido',
+    qrIntro: 'Stai per registrare una sessione in questo locale. Scegli chi può vederla, poi inizia: aggiungi i drink al volo.',
+    qrPrivacyQ: 'Chi può vedere questa sessione?',
+    sharePublic: 'Pubblica',
+    sharePublicDesc: 'Visibile a tutti nel feed e nelle classifiche',
+    shareFriends: 'Solo amici',
+    shareFriendsDesc: 'Visibile solo a chi ti segue e segui',
+    sharePrivate: 'Privata',
+    sharePrivateDesc: 'Solo tu la vedi · nome coperto nelle classifiche',
+    qrStart: 'Inizia registrazione',
+  },
   footer: {
     responsible: '🍻 Bevi responsabilmente · Riservato ai maggiorenni (18+) · Se bevi non guidare',
     terms: 'Termini di Servizio',
