@@ -7,8 +7,10 @@ import { db } from '@/lib/db';
 import { User, AtSign, Camera, Lock, Loader, Check, Bell, Megaphone } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 import { ensureNotificationPermission } from '@/lib/notify';
+import { useT } from '@/lib/i18n';
 
 export default function SettingsPage() {
+  const t = useT();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,13 +35,13 @@ export default function SettingsPage() {
   const [pushMsg, setPushMsg] = useState('');
 
   const NOTIF_TYPES = [
-    { key: 'cheers', label: 'Mi piace (Cheers) ai tuoi brindisi' },
-    { key: 'comment', label: 'Commenti ai tuoi brindisi' },
-    { key: 'follow', label: 'Nuovi follower' },
-    { key: 'events', label: 'Eventi e inviti' },
-    { key: 'tagged', label: 'Tag in una sessione live ("Vuoi avviare la tua?")' },
-    { key: 'inactivity', label: 'Promemoria sessione live inattiva (prima della chiusura)' },
-    { key: 'driving', label: 'Avviso superamento limite di guida (0,5 g/L)' },
+    { key: 'cheers', label: t('settingspage.notifCheers') },
+    { key: 'comment', label: t('settingspage.notifComment') },
+    { key: 'follow', label: t('settingspage.notifFollow') },
+    { key: 'events', label: t('settingspage.notifEvents') },
+    { key: 'tagged', label: t('settingspage.notifTagged') },
+    { key: 'inactivity', label: t('settingspage.notifInactivity') },
+    { key: 'driving', label: t('settingspage.notifDriving') },
   ];
   const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true, driving: true });
   const [marketingConsent, setMarketingConsent] = useState(true);
@@ -51,6 +53,7 @@ export default function SettingsPage() {
   const [nameMode, setNameMode] = useState('name');
   const [alias, setAlias] = useState('');
   const [aliasMsg, setAliasMsg] = useState('');
+  const [aliasErr, setAliasErr] = useState(false);
 
   // Comparire col proprio nome nelle classifiche pubbliche (globale + evento). Default: sì.
   const [publicLeaderboard, setPublicLeaderboard] = useState(true);
@@ -111,13 +114,13 @@ export default function SettingsPage() {
   // Salva il nome di fantasia (alias). Se vuoto e modalità 'alias', torna al nome reale.
   const saveAlias = async () => {
     const value = alias.trim();
-    setAliasMsg('');
+    setAliasMsg(''); setAliasErr(false);
     try {
       await db.updateProfile(currentUser.id, { alias: value || null });
       if (!value && nameMode === 'alias') { setNameMode('name'); await db.updateProfile(currentUser.id, { name_mode: 'name', use_username: false }); }
-      setAliasMsg('Salvato ✅');
+      setAliasMsg(t('settingspage.aliasSaved'));
       setTimeout(() => setAliasMsg(''), 2000);
-    } catch (err) { setAliasMsg('Errore: ' + (err.message || err)); }
+    } catch (err) { setAliasErr(true); setAliasMsg(t('settingspage.errorPrefix') + (err.message || err)); }
   };
 
   const handleExportData = async () => {
@@ -134,9 +137,9 @@ export default function SettingsPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setDataMsg('Esportazione completata: controlla i tuoi download.');
+      setDataMsg(t('settingspage.exportDone'));
     } catch (err) {
-      setDataErr(err.message || 'Esportazione non riuscita.');
+      setDataErr(err.message || t('settingspage.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -150,7 +153,7 @@ export default function SettingsPage() {
       router.push('/');
       router.refresh();
     } catch (err) {
-      setDataErr(err.message || 'Cancellazione non riuscita.');
+      setDataErr(err.message || t('settingspage.deleteFailed'));
       setDeleting(false);
     }
   };
@@ -162,20 +165,20 @@ export default function SettingsPage() {
       if (pushOn) {
         await db.unregisterPushSubscription();
         setPushOn(false);
-        setPushMsg('Notifiche disattivate su questo dispositivo.');
+        setPushMsg(t('settingspage.pushDisabled'));
       } else {
         const perm = await ensureNotificationPermission();
         if (perm !== 'granted') {
-          setPushMsg('Permesso negato dal browser. Abilita le notifiche per Strabar nelle impostazioni del dispositivo.');
+          setPushMsg(t('settingspage.pushPermDenied'));
           return;
         }
         await db.registerPushSubscription();
         const ok = await db.isPushSubscribed();
         setPushOn(ok);
-        setPushMsg(ok ? 'Notifiche attivate! 🔔' : 'Non è stato possibile attivare le notifiche su questo dispositivo.');
+        setPushMsg(ok ? t('settingspage.pushEnabled') : t('settingspage.pushEnableFailed'));
       }
     } catch (err) {
-      setPushMsg('Errore: ' + (err.message || err));
+      setPushMsg(t('settingspage.errorPrefix') + (err.message || err));
     } finally {
       setPushBusy(false);
     }
@@ -208,13 +211,13 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Seleziona un\'immagine valida.'); return; }
+    if (!file.type.startsWith('image/')) { alert(t('settingspage.invalidImage')); return; }
     setUploadingPhoto(true);
     try {
       const url = await db.uploadFileToStorage(file);
       setAvatarUrl(url);
     } catch (err) {
-      alert('Errore nel caricamento della foto: ' + (err.message || err));
+      alert(t('settingspage.photoUploadError') + (err.message || err));
     } finally {
       setUploadingPhoto(false);
     }
@@ -225,21 +228,21 @@ export default function SettingsPage() {
     setProfileErr(''); setProfileMsg('');
     const name = displayName.trim();
     const uname = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
-    if (!name) { setProfileErr('Inserisci il tuo nome.'); return; }
-    if (uname.length < 3) { setProfileErr('Lo username deve avere almeno 3 caratteri.'); return; }
+    if (!name) { setProfileErr(t('settingspage.enterName')); return; }
+    if (uname.length < 3) { setProfileErr(t('settingspage.usernameMin')); return; }
     setSavingProfile(true);
     try {
       const all = typeof db.getAllProfiles === 'function' ? await db.getAllProfiles() : [];
       if (all.some((p) => p.username === uname && p.id !== currentUser.id)) {
-        throw new Error('Questo username è già occupato da un altro atleta.');
+        throw new Error(t('settingspage.usernameTaken'));
       }
       await db.updateProfile(currentUser.id, { display_name: name, username: uname, avatar_url: avatarUrl || null });
       const updated = await db.getCurrentUser();
       setCurrentUser(updated);
       window.dispatchEvent(new Event('auth-change'));
-      setProfileMsg('Profilo aggiornato! ✅');
+      setProfileMsg(t('settingspage.profileUpdated'));
     } catch (err) {
-      setProfileErr(err.message || 'Errore nel salvataggio.');
+      setProfileErr(err.message || t('settingspage.saveError'));
     } finally {
       setSavingProfile(false);
     }
@@ -248,15 +251,15 @@ export default function SettingsPage() {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setPwdErr(''); setPwdMsg('');
-    if (password.length < 6) { setPwdErr('La password deve avere almeno 6 caratteri.'); return; }
-    if (password !== confirm) { setPwdErr('Le due password non coincidono.'); return; }
+    if (password.length < 6) { setPwdErr(t('settingspage.pwdMin')); return; }
+    if (password !== confirm) { setPwdErr(t('settingspage.pwdMismatch')); return; }
     setSavingPwd(true);
     try {
       await db.updatePassword(password);
       setPassword(''); setConfirm('');
-      setPwdMsg('Password aggiornata! ✅');
+      setPwdMsg(t('settingspage.pwdUpdated'));
     } catch (err) {
-      setPwdErr(err.message || 'Impossibile aggiornare la password.');
+      setPwdErr(err.message || t('settingspage.pwdUpdateFailed'));
     } finally {
       setSavingPwd(false);
     }
@@ -265,7 +268,7 @@ export default function SettingsPage() {
   if (loading) {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}><Loader size={28} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} /></div>;
   }
-  if (!currentUser) return <RequireAuth feature="le impostazioni del profilo" />;
+  if (!currentUser) return <RequireAuth feature={t('settingspage.requireAuthFeature')} />;
 
   const inputStyle = { height: '46px', fontSize: '15px', paddingLeft: '44px' };
   const banner = (txt, ok) => (
@@ -275,13 +278,13 @@ export default function SettingsPage() {
   return (
     <div style={{ maxWidth: '560px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '22px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: 900 }}>⚙️ Impostazioni profilo</h1>
-        <Link href="/profile" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>← Profilo</Link>
+        <h1 style={{ fontSize: '26px', fontWeight: 900 }}>{t('settingspage.title')}</h1>
+        <Link href="/profile" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('settingspage.backToProfile')}</Link>
       </div>
 
       {/* Foto + dati account */}
       <form onSubmit={handleSaveProfile} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Account</h3>
+        <h3 style={{ fontSize: '16px', fontWeight: 800 }}>{t('settingspage.accountSection')}</h3>
         {profileErr && banner(profileErr, false)}
         {profileMsg && banner(profileMsg, true)}
 
@@ -297,16 +300,16 @@ export default function SettingsPage() {
           </div>
           <label className="btn btn-secondary" style={{ borderRadius: '20px', cursor: uploadingPhoto ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             {uploadingPhoto ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={15} />}
-            {avatarUrl ? 'Cambia foto' : 'Carica foto'}
+            {avatarUrl ? t('settingspage.changePhoto') : t('settingspage.uploadPhoto')}
             <input type="file" accept="image/*" onChange={handlePhoto} disabled={uploadingPhoto} style={{ display: 'none' }} />
           </label>
           {avatarUrl && (
-            <button type="button" onClick={() => setAvatarUrl('')} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}>Rimuovi</button>
+            <button type="button" onClick={() => setAvatarUrl('')} style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}>{t('settingspage.removePhoto')}</button>
           )}
         </div>
 
         <div className="form-group" style={{ margin: 0 }}>
-          <label className="form-label">Nome visualizzato</label>
+          <label className="form-label">{t('settingspage.displayNameLabel')}</label>
           <div style={{ position: 'relative' }}>
             <User size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
             <input type="text" className="form-control" value={displayName} onChange={(e) => setDisplayName(e.target.value)} style={inputStyle} />
@@ -314,7 +317,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="form-group" style={{ margin: 0 }}>
-          <label className="form-label">Username</label>
+          <label className="form-label">{t('settingspage.usernameLabel')}</label>
           <div style={{ position: 'relative' }}>
             <AtSign size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
             <input type="text" className="form-control" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} style={inputStyle} />
@@ -322,30 +325,29 @@ export default function SettingsPage() {
         </div>
 
         <button type="submit" className="btn btn-primary" disabled={savingProfile} style={{ borderRadius: '24px', padding: '12px', fontWeight: 700 }}>
-          {savingProfile ? 'Salvataggio...' : 'Salva profilo'}
+          {savingProfile ? t('settingspage.saving') : t('settingspage.saveProfile')}
         </button>
       </form>
 
       {/* Cambio password */}
       <form onSubmit={handleChangePassword} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}><Lock size={16} color="var(--primary)" /> Cambia password</h3>
+        <h3 style={{ fontSize: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}><Lock size={16} color="var(--primary)" /> {t('settingspage.changePasswordTitle')}</h3>
         {pwdErr && banner(pwdErr, false)}
         {pwdMsg && banner(pwdMsg, true)}
-        <input type="password" className="form-control" placeholder="Nuova password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <input type="password" className="form-control" placeholder="Conferma nuova password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <input type="password" className="form-control" placeholder={t('settingspage.newPasswordPlaceholder')} value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input type="password" className="form-control" placeholder={t('settingspage.confirmPasswordPlaceholder')} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         <button type="submit" className="btn btn-secondary" disabled={savingPwd} style={{ borderRadius: '24px', padding: '12px', fontWeight: 700 }}>
-          {savingPwd ? 'Aggiornamento...' : 'Aggiorna password'}
+          {savingPwd ? t('settingspage.updatingPwd') : t('settingspage.updatePassword')}
         </button>
       </form>
 
       {/* Notifiche push */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Bell size={16} color="var(--primary)" /> Notifiche push
+          <Bell size={16} color="var(--primary)" /> {t('settingspage.pushTitle')}
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-          Ricevi un avviso (anche ad app chiusa) quando qualcuno ti segue, mette un cheers, commenta o ti invita a un evento.
-          Su iPhone funziona solo con l&apos;app installata nella schermata Home.
+          {t('settingspage.pushDesc')}
         </p>
         {pushMsg && (
           <div style={{ fontSize: '13px', color: pushOn ? '#6EE7B7' : 'var(--text-dark-secondary)' }}>{pushMsg}</div>
@@ -358,12 +360,12 @@ export default function SettingsPage() {
           style={{ borderRadius: '24px', padding: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
         >
           {pushBusy ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Bell size={15} />}
-          {pushOn ? 'Disattiva notifiche su questo dispositivo' : 'Attiva notifiche su questo dispositivo'}
+          {pushOn ? t('settingspage.pushToggleOff') : t('settingspage.pushToggleOn')}
         </button>
 
         {/* Quali notifiche ricevere */}
         <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px', marginTop: '4px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Quali notifiche ricevere</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, display: 'block', marginBottom: '8px' }}>{t('settingspage.whichNotifs')}</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {NOTIF_TYPES.map(({ key, label }) => (
               <button
@@ -390,7 +392,7 @@ export default function SettingsPage() {
             ))}
           </div>
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '8px', marginBottom: 0 }}>
-            Vale sia per le notifiche push sia per la campanella nell&apos;app.
+            {t('settingspage.notifPrefsNote')}
           </p>
         </div>
 
@@ -405,7 +407,7 @@ export default function SettingsPage() {
               padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
             }}
           >
-            <span>📸 Chiedimi una foto al primo drink</span>
+            <span>{t('settingspage.photoPromptLabel')}</span>
             <span style={{
               width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
               background: photoPromptOn ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
@@ -422,16 +424,16 @@ export default function SettingsPage() {
       {/* Privacy: come compaio agli altri (nome reale vs @username) */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          🙋 Come compaio agli altri
+          {t('settingspage.nameShowTitle')}
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-          Scegli come appare il tuo nome nel <strong>feed</strong>, nelle <strong>classifiche</strong> e sul tuo profilo pubblico.
+          {t('settingspage.nameShowDescPre')}<strong>{t('settingspage.nameShowDescBold1')}</strong>{t('settingspage.nameShowDescMid')}<strong>{t('settingspage.nameShowDescBold2')}</strong>{t('settingspage.nameShowDescPost')}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {[
-            { value: 'name', title: `Nome${displayName ? ` (${displayName})` : ''}`, sub: 'Il tuo nome reale' },
-            { value: 'username', title: username ? `@${username}` : 'Username', sub: 'Solo il tuo username' },
-            { value: 'alias', title: alias ? alias : 'Nome di fantasia', sub: 'Un nickname a tua scelta' },
+            { value: 'name', title: `${t('settingspage.nameOptNameTitle')}${displayName ? ` (${displayName})` : ''}`, sub: t('settingspage.nameOptNameSub') },
+            { value: 'username', title: username ? `@${username}` : t('settingspage.nameOptUsernameTitle'), sub: t('settingspage.nameOptUsernameSub') },
+            { value: 'alias', title: alias ? alias : t('settingspage.nameOptAliasTitle'), sub: t('settingspage.nameOptAliasSub') },
           ].map((opt) => {
             const active = nameMode === opt.value;
             return (
@@ -461,33 +463,33 @@ export default function SettingsPage() {
 
         {/* Campo nome di fantasia */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label className="form-label" style={{ margin: 0 }}>Nome di fantasia</label>
+          <label className="form-label" style={{ margin: 0 }}>{t('settingspage.aliasLabel')}</label>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
               type="text"
               className="form-control"
-              placeholder="Es. Il Barone, Spritz Master…"
+              placeholder={t('settingspage.aliasPlaceholder')}
               value={alias}
               maxLength={40}
               onChange={(e) => setAlias(e.target.value)}
               style={{ flex: 1 }}
             />
             <button type="button" onClick={saveAlias} className="btn btn-secondary" style={{ borderRadius: '10px', padding: '0 16px', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              Salva
+              {t('settingspage.save')}
             </button>
           </div>
-          {aliasMsg && <span style={{ fontSize: '12px', color: aliasMsg.startsWith('Errore') ? 'var(--error)' : '#6EE7B7' }}>{aliasMsg}</span>}
-          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Salva un nickname, poi selezionalo qui sopra per usarlo al posto del nome o dello username.</span>
+          {aliasMsg && <span style={{ fontSize: '12px', color: aliasErr ? 'var(--error)' : '#6EE7B7' }}>{aliasMsg}</span>}
+          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('settingspage.aliasHelp')}</span>
         </div>
       </div>
 
       {/* Privacy: tasso alcolico sul profilo pubblico */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          🍺 Privacy del tasso alcolico
+          {t('settingspage.bacPrivacyTitle')}
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-          Se attivo, gli altri atleti vedranno il tuo <strong>tasso alcolico stimato attuale</strong> quando visitano il tuo profilo. Di default è nascosto.
+          {t('settingspage.bacPrivacyDescPre')}<strong>{t('settingspage.bacPrivacyDescBold')}</strong>{t('settingspage.bacPrivacyDescPost')}
         </p>
         <button
           type="button"
@@ -498,7 +500,7 @@ export default function SettingsPage() {
             padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
           }}
         >
-          <span>Mostra il mio tasso alcolico sul profilo</span>
+          <span>{t('settingspage.bacPrivacyToggle')}</span>
           <span style={{
             width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
             background: showBacPublic ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
@@ -514,10 +516,10 @@ export default function SettingsPage() {
       {/* Privacy: nome nelle classifiche pubbliche */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          🏆 Nome nelle classifiche
+          {t('settingspage.leaderboardTitle')}
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-          Se attivo, compari col tuo nome nelle <strong>classifiche pubbliche</strong> (globale ed eventi). Se lo disattivi, agli estranei appari come &quot;Atleta riservato&quot; — chi vi seguite vede comunque il tuo nome. Di default è attivo.
+          {t('settingspage.leaderboardDescPre')}<strong>{t('settingspage.leaderboardDescBold')}</strong>{t('settingspage.leaderboardDescPost')}
         </p>
         <button
           type="button"
@@ -528,7 +530,7 @@ export default function SettingsPage() {
             padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
           }}
         >
-          <span>Mostra il mio nome nelle classifiche pubbliche</span>
+          <span>{t('settingspage.leaderboardToggle')}</span>
           <span style={{
             width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
             background: publicLeaderboard ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
@@ -544,11 +546,10 @@ export default function SettingsPage() {
       {/* Comunicazioni commerciali */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          <Megaphone size={16} color="var(--primary)" /> Offerte dei locali partner
+          <Megaphone size={16} color="var(--primary)" /> {t('settingspage.marketingTitle')}
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-          Attiva per ricevere <strong>sconti dedicati</strong>, eventi e le serate migliori nei <strong>locali partner</strong> vicino a te.
-          I tuoi dati di consumo restano <strong>anonimi e aggregati</strong>: nessun dato personale identificabile.
+          {t('settingspage.marketingDescPre')}<strong>{t('settingspage.marketingDescBold1')}</strong>{t('settingspage.marketingDescMid1')}<strong>{t('settingspage.marketingDescBold2')}</strong>{t('settingspage.marketingDescMid2')}<strong>{t('settingspage.marketingDescBold3')}</strong>{t('settingspage.marketingDescPost')}
         </p>
         <button
           type="button"
@@ -559,7 +560,7 @@ export default function SettingsPage() {
             padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
           }}
         >
-          <span>Sblocca le offerte dei locali partner</span>
+          <span>{t('settingspage.marketingToggle')}</span>
           <span style={{
             width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
             background: marketingConsent ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
@@ -575,10 +576,10 @@ export default function SettingsPage() {
       {/* GDPR: i tuoi dati (portabilità + diritto all'oblio) */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          🔐 I tuoi dati
+          {t('settingspage.dataTitle')}
         </h3>
         <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
-          Puoi scaricare una copia di tutti i tuoi dati o eliminare definitivamente il tuo account.
+          {t('settingspage.dataDesc')}
         </p>
 
         {dataMsg && <p style={{ fontSize: '13px', color: '#6EE7B7', margin: 0 }}>{dataMsg}</p>}
@@ -591,7 +592,7 @@ export default function SettingsPage() {
           className="btn btn-secondary"
           style={{ width: '100%', justifyContent: 'center' }}
         >
-          {exporting ? 'Esportazione...' : '⬇️ Scarica i miei dati (JSON)'}
+          {exporting ? t('settingspage.exporting') : t('settingspage.downloadData')}
         </button>
 
         <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '12px', marginTop: '2px' }}>
@@ -601,12 +602,12 @@ export default function SettingsPage() {
               onClick={() => { setConfirmDelete(true); setDataErr(''); setDataMsg(''); }}
               style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'none', border: '1px solid var(--error)', color: '#FF7D7D', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
             >
-              🗑️ Elimina il mio account
+              {t('settingspage.deleteAccount')}
             </button>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <p style={{ fontSize: '13px', color: '#FF7D7D', margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
-                Sei sicuro? L&apos;operazione è <strong>irreversibile</strong>: profilo, sessioni, percorsi, follow e commenti verranno eliminati per sempre.
+                {t('settingspage.deleteConfirmPre')}<strong>{t('settingspage.deleteConfirmBold')}</strong>{t('settingspage.deleteConfirmPost')}
               </p>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
@@ -616,7 +617,7 @@ export default function SettingsPage() {
                   className="btn btn-secondary"
                   style={{ flex: 1, justifyContent: 'center' }}
                 >
-                  Annulla
+                  {t('settingspage.cancel')}
                 </button>
                 <button
                   type="button"
@@ -624,7 +625,7 @@ export default function SettingsPage() {
                   disabled={deleting}
                   style={{ flex: 1, padding: '10px', borderRadius: '10px', background: 'var(--error)', border: 'none', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
                 >
-                  {deleting ? 'Elimino...' : 'Elimina definitivamente'}
+                  {deleting ? t('settingspage.deleting') : t('settingspage.deleteForever')}
                 </button>
               </div>
             </div>

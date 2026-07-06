@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { publicName } from '@/lib/names';
 import { Search, Loader } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 // Lente in navbar: apre una tendina con anteprima risultati; "Vedi tutti" → /search
 export default function NavSearch() {
   const router = useRouter();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -51,7 +53,7 @@ export default function NavSearch() {
 
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
-      <button onClick={() => setOpen((v) => !v)} className={`action-btn ${open ? 'active' : ''}`} title="Cerca atleti">
+      <button onClick={() => setOpen((v) => !v)} className={`action-btn ${open ? 'active' : ''}`} title={t('navsearch.searchTitle')}>
         <Search size={20} />
       </button>
 
@@ -66,7 +68,7 @@ export default function NavSearch() {
               ref={inputRef}
               type="text"
               className="form-control"
-              placeholder="Cerca atleti..."
+              placeholder={t('navsearch.placeholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{ height: '40px', fontSize: '14px', paddingLeft: '34px' }}
@@ -77,7 +79,7 @@ export default function NavSearch() {
           {query.trim().length >= 1 && (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {results.length === 0 && !searching ? (
-                <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', padding: '8px 4px' }}>Nessun atleta trovato.</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', padding: '8px 4px' }}>{t('navsearch.noResults')}</span>
               ) : (
                 results.map((u) => (
                   <Link
@@ -100,7 +102,7 @@ export default function NavSearch() {
                 onClick={goToFull}
                 style={{ marginTop: '6px', padding: '8px', borderRadius: '8px', background: 'rgba(255, 59, 47,0.08)', border: '1px solid var(--border-dark)', color: 'var(--primary)', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
               >
-                Vedi tutti i risultati
+                {t('navsearch.seeAll')}
               </button>
             </div>
           )}

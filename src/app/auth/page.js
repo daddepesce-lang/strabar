@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { CONSENT_VERSION } from '@/lib/consent';
 import { Beer, Mail, Lock, User, AtSign, Eye, EyeOff } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 export default function AuthPage() {
+  const t = useT();
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -43,16 +45,16 @@ export default function AuthPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('error') === 'oauth') {
-        setError("Accesso con Google non riuscito. Riprova o usa email e password.");
+        setError(t('authpage.oauthError'));
       }
     }
-  }, [router]);
+  }, [router, t]);
 
   const handleForgotPassword = async () => {
     setError('');
     setInfo('');
     if (!email) {
-      setError('Inserisci la tua email qui sopra, poi clicca di nuovo su "Password dimenticata?".');
+      setError(t('authpage.enterEmailFirst'));
       return;
     }
     setLoading(true);
@@ -66,11 +68,11 @@ export default function AuthPage() {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || 'Impossibile inviare l\'email di reset.');
+        throw new Error(j.error || t('authpage.resetEmailFailed'));
       }
-      setInfo('📧 Ti abbiamo inviato un\'email per reimpostare la password. Controlla la posta (anche lo spam).');
+      setInfo(t('authpage.resetEmailSent'));
     } catch (err) {
-      setError(err.message || 'Impossibile inviare l\'email di reset.');
+      setError(err.message || t('authpage.resetEmailFailed'));
     } finally {
       setLoading(false);
     }
@@ -87,10 +89,10 @@ export default function AuthPage() {
         await db.login(email, password);
       } else {
         if (!displayName || !username) {
-          throw new Error("Tutti i campi sono obbligatori per la registrazione!");
+          throw new Error(t('authpage.allFieldsRequired'));
         }
         if (!acceptedTerms) {
-          throw new Error("Per registrarti devi accettare i Termini di Servizio e la Privacy Policy.");
+          throw new Error(t('authpage.mustAcceptTerms'));
         }
         // Niente consenso marketing qui: resta NULL e il banner-patto lo chiede
         // a tutti (nuovi e vecchi) una volta sola, nel gate post-login.
@@ -105,7 +107,7 @@ export default function AuthPage() {
 
         // Se serve la conferma via email non c'è ancora una sessione: non reindirizzare.
         if (result && result.needsEmailConfirmation) {
-          setInfo("Registrazione completata! 📧 Ti abbiamo inviato una email di conferma: clicca il link al suo interno e poi accedi.");
+          setInfo(t('authpage.signupComplete'));
           setIsLogin(true);
           setPassword('');
           setLoading(false);
@@ -120,7 +122,7 @@ export default function AuthPage() {
       router.push(nextDest());
       router.refresh();
     } catch (err) {
-      setError(err.message || "Qualcosa è andato storto. Riprova!");
+      setError(err.message || t('authpage.genericError'));
     } finally {
       setLoading(false);
     }
@@ -140,10 +142,10 @@ export default function AuthPage() {
             </div>
           )}
           <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>
-            {isLogin ? 'Accedi a Strabar' : 'Registrati a Strabar'}
+            {isLogin ? t('authpage.loginTitle') : t('authpage.signupTitle')}
           </h1>
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-            {isLogin ? 'Condividi le tue bevute con gli amici e pianifica bacari' : 'Inizia subito a tracciare la tua attività alcolica'}
+            {isLogin ? t('authpage.loginSubtitle') : t('authpage.signupSubtitle')}
           </p>
         </div>
 
@@ -163,7 +165,7 @@ export default function AuthPage() {
           {!isLogin && (
             <>
               <div className="form-group">
-                <label className="form-label">Nome Completo</label>
+                <label className="form-label">{t('authpage.fullNameLabel')}</label>
                 <div style={{ position: 'relative' }}>
                   <User size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
                   <input
@@ -171,7 +173,7 @@ export default function AuthPage() {
                     name="name"
                     autoComplete="name"
                     className="form-control"
-                    placeholder="Mario Rossi"
+                    placeholder={t('authpage.fullNamePlaceholder')}
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     style={{ paddingLeft: '45px' }}
@@ -181,7 +183,7 @@ export default function AuthPage() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Username</label>
+                <label className="form-label">{t('authpage.usernameLabel')}</label>
                 <div style={{ position: 'relative' }}>
                   <AtSign size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
                   <input
@@ -191,7 +193,7 @@ export default function AuthPage() {
                     autoCapitalize="none"
                     autoCorrect="off"
                     className="form-control"
-                    placeholder="mario_rossi"
+                    placeholder={t('authpage.usernamePlaceholder')}
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                     style={{ paddingLeft: '45px' }}
@@ -203,7 +205,7 @@ export default function AuthPage() {
           )}
 
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label">{t('authpage.emailLabel')}</label>
             <div style={{ position: 'relative' }}>
               <Mail size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
               <input
@@ -214,7 +216,7 @@ export default function AuthPage() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 className="form-control"
-                placeholder="mario.rossi@email.com"
+                placeholder={t('authpage.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ paddingLeft: '45px' }}
@@ -224,7 +226,7 @@ export default function AuthPage() {
           </div>
 
           <div className="form-group" style={{ marginBottom: '25px' }}>
-            <label className="form-label">Password</label>
+            <label className="form-label">{t('authpage.passwordLabel')}</label>
             <div style={{ position: 'relative' }}>
               <Lock size={18} style={{ position: 'absolute', left: '14px', top: '14px', color: 'var(--text-dark-secondary)' }} />
               <input
@@ -241,8 +243,8 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
-                title={showPassword ? 'Nascondi password' : 'Mostra password'}
+                aria-label={showPassword ? t('authpage.hidePassword') : t('authpage.showPassword')}
+                title={showPassword ? t('authpage.hidePassword') : t('authpage.showPassword')}
                 style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '4px', display: 'flex' }}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -260,22 +262,22 @@ export default function AuthPage() {
                 style={{ width: '18px', height: '18px', marginTop: '1px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
               <span>
-                Ho letto e accetto i{' '}
-                <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Termini di Servizio</Link>
-                {' '}e la{' '}
-                <Link href="/privacy" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Privacy Policy</Link>.
+                {t('authpage.consentPrefix')}{' '}
+                <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('authpage.termsOfService')}</Link>
+                {' '}{t('authpage.consentMiddle')}{' '}
+                <Link href="/privacy" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('authpage.privacyPolicy')}</Link>.
               </span>
             </label>
           )}
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px' }} disabled={loading || (!isLogin && !acceptedTerms)}>
-            {loading ? 'Attendi...' : isLogin ? 'Accedi' : 'Crea Account'}
+            {loading ? t('authpage.loading') : isLogin ? t('authpage.loginButton') : t('authpage.signupButton')}
           </button>
 
           {isLogin && (
             <div style={{ textAlign: 'center', marginTop: '14px' }}>
               <button type="button" onClick={handleForgotPassword} disabled={loading} style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', background: 'none', border: 'none' }}>
-                Password dimenticata?
+                {t('authpage.forgotPassword')}
               </button>
             </div>
           )}
@@ -283,7 +285,7 @@ export default function AuthPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', color: 'var(--text-dark-secondary)' }}>
           <div style={{ flex: 1, height: '1px', background: 'var(--border-dark)' }}></div>
-          <span style={{ padding: '0 10px', fontSize: '12px' }}>oppure</span>
+          <span style={{ padding: '0 10px', fontSize: '12px' }}>{t('authpage.orDivider')}</span>
           <div style={{ flex: 1, height: '1px', background: 'var(--border-dark)' }}></div>
         </div>
 
@@ -293,7 +295,7 @@ export default function AuthPage() {
             setError('');
             // In registrazione, anche l'accesso con Google richiede il consenso a Termini/Privacy.
             if (!isLogin && !acceptedTerms) {
-              setError("Per registrarti devi accettare i Termini di Servizio e la Privacy Policy.");
+              setError(t('authpage.mustAcceptTerms'));
               return;
             }
             setLoading(true);
@@ -304,7 +306,7 @@ export default function AuthPage() {
               router.push(nextDest());
               router.refresh();
             } catch (err) {
-              setError(err.message || "Errore con l'autenticazione Google.");
+              setError(err.message || t('authpage.googleError'));
             } finally {
               setLoading(false);
             }
@@ -319,22 +321,22 @@ export default function AuthPage() {
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          {isLogin ? 'Accedi con Google' : 'Registrati con Google'}
+          {isLogin ? t('authpage.loginWithGoogle') : t('authpage.signupWithGoogle')}
         </button>
 
         <div style={{ textAlign: 'center', marginTop: '25px', borderTop: '1px solid var(--border-dark)', paddingTop: '20px', fontSize: '14px', color: 'var(--text-dark-secondary)' }}>
           {isLogin ? (
             <p>
-              Non hai un account?{' '}
+              {t('authpage.noAccount')}{' '}
               <button onClick={() => setIsLogin(false)} style={{ color: 'var(--primary)', fontWeight: '600', cursor: 'pointer' }}>
-                Registrati
+                {t('authpage.registerCta')}
               </button>
             </p>
           ) : (
             <p>
-              Hai già un account?{' '}
+              {t('authpage.haveAccount')}{' '}
               <button onClick={() => setIsLogin(true)} style={{ color: 'var(--primary)', fontWeight: '600', cursor: 'pointer' }}>
-                Accedi
+                {t('authpage.loginCta')}
               </button>
             </p>
           )}

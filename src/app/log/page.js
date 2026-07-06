@@ -75,7 +75,7 @@ export default function LogActivityPage() {
     e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert("Seleziona un file immagine valido.");
+      alert(t('logpage.invalidImageFile'));
       return;
     }
     setRetroPhotoUploading(true);
@@ -84,7 +84,7 @@ export default function LogActivityPage() {
       setRetroForm((p) => ({ ...p, media: [...p.media, { type: 'image', name: file.name, url, thumb }] }));
     } catch (err) {
       console.error('Errore upload foto:', err);
-      alert("Errore nel caricamento della foto: " + (err.message || err));
+      alert(t('logpage.photoUploadError', { err: err.message || err }));
     } finally {
       setRetroPhotoUploading(false);
     }
@@ -117,7 +117,7 @@ export default function LogActivityPage() {
   const handleRetroSubmit = async (e) => {
     e.preventDefault();
     if (retroForm.drinks.length === 0) {
-      alert('Aggiungi almeno un drink alla sessione!');
+      alert(t('logpage.addAtLeastOneDrink'));
       return;
     }
     setRetroSaving(true);
@@ -135,7 +135,7 @@ export default function LogActivityPage() {
         currentUser?.sex
       );
       await db.createActivity({
-        title: retroForm.title || `Sessione del ${new Date(retroForm.date).toLocaleDateString('it-IT')}`,
+        title: retroForm.title || t('logpage.defaultSessionTitle', { date: new Date(retroForm.date).toLocaleDateString('it-IT') }),
         description: retroForm.description,
         drinks: retroForm.drinks,
         total_units: parseFloat(totalUnits.toFixed(1)),
@@ -150,10 +150,10 @@ export default function LogActivityPage() {
       });
       // Aggiorna il created_at della sessione appena creata se supportato
       // Nota: Supabase permette di passare created_at nell'insert
-      alert('✅ Sessione registrata con successo!');
+      alert(t('logpage.sessionSavedSuccess'));
       router.push('/');
     } catch (err) {
-      alert('Errore nel salvataggio: ' + err.message);
+      alert(t('logpage.saveError', { err: err.message }));
     } finally {
       setRetroSaving(false);
     }
@@ -238,12 +238,12 @@ export default function LogActivityPage() {
   const requestUserLocation = () =>
     new Promise((resolve) => {
       if (typeof navigator === 'undefined' || !navigator.geolocation) {
-        resolve({ error: 'Il tuo browser non supporta la geolocalizzazione.' });
+        resolve({ error: t('logpage.geoNotSupported') });
         return;
       }
       // Il GPS richiede una connessione sicura (HTTPS). In HTTP non parte nemmeno la richiesta.
       if (typeof window !== 'undefined' && window.isSecureContext === false) {
-        resolve({ error: "Il GPS funziona solo su connessione sicura (https). Apri il sito in HTTPS." });
+        resolve({ error: t('logpage.geoNeedsHttps') });
         return;
       }
       const ok = (pos) => resolve({ coords: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
@@ -257,18 +257,18 @@ export default function LogActivityPage() {
           const isIos = /iphone|ipad|ipod/i.test(ua);
           const isAndroid = /android/i.test(ua);
           if (isIos) {
-            error = 'Posizione negata. Su iPhone non si può richiedere di nuovo dal sito: vai in Impostazioni → Privacy e sicurezza → Localizzazione → attivala per Safari (o per Strabar), poi torna qui e tocca "Riprova GPS". Oppure cerca il locale per nome.';
+            error = t('logpage.geoDeniedIos');
           } else if (isAndroid) {
-            error = 'Posizione negata. Tocca il lucchetto 🔒 nella barra dell\'indirizzo → Autorizzazioni → Posizione → Consenti, poi tocca "Riprova GPS". Oppure cerca il locale per nome.';
+            error = t('logpage.geoDeniedAndroid');
           } else {
-            error = 'Posizione negata. Abilitala per Strabar dalle impostazioni del browser (icona accanto all\'indirizzo), poi tocca "Riprova GPS". Oppure cerca il locale per nome.';
+            error = t('logpage.geoDeniedGeneric');
           }
         } else if (err.code === 2) {
-          error = 'Posizione non disponibile. Su Mac/PC controlla che i Servizi di Localizzazione di sistema siano attivi per il browser; in alternativa cerca il locale per nome.';
+          error = t('logpage.geoUnavailable');
         } else if (err.code === 3) {
-          error = 'Tempo scaduto nel rilevare la posizione. Tocca "Riprova GPS".';
+          error = t('logpage.geoTimeout');
         } else {
-          error = 'Impossibile rilevare la posizione. Cerca il locale per nome.';
+          error = t('logpage.geoGeneric');
         }
         resolve({ error });
       };
@@ -293,17 +293,17 @@ export default function LogActivityPage() {
     const coords = loc.coords || null;
     setUserCoords(coords);
     if (!coords) {
-      setGeoError(loc.error || 'Posizione GPS non disponibile. Cerca il tuo locale per nome qui sotto.');
+      setGeoError(loc.error || t('logpage.geoFallbackSearch'));
     }
     try {
       const { venues, widened } = await db.getCombinedNearbyPlaces(coords?.lat, coords?.lng, 200);
       setNearbyVenues(venues);
       setNearbyRadius(200);
       if (coords && venues.length === 0) {
-        setGeoError('Nessun locale rilevato nelle vicinanze. Cercalo per nome o inseriscilo a mano.');
+        setGeoError(t('logpage.noVenuesNearby'));
       } else if (coords && widened) {
         // Nessuno entro 200 m (raggio che "vale" per le classifiche): mostriamo i più vicini fino a 1 km.
-        setGeoError('Nessun locale entro 200 m: ecco i più vicini (oltre i 200 m la sessione non conta per le classifiche).');
+        setGeoError(t('logpage.noVenuesWithin200'));
       }
     } catch (err) {
       console.error('Errore caricamento locali vicini:', err);
@@ -349,14 +349,14 @@ export default function LogActivityPage() {
       await db.closeSession(activeSession.id, {
         is_active: false,
         feeling: activeSession.feeling || 'Sobrio',
-        description: 'Chiusa per avviare una nuova sessione.',
+        description: t('logpage.closedForNewSession'),
         duration: elapsed
       });
       setActiveSession(null);
       setShowActiveSessionWarning(false);
       setShowCloseActiveForm(false);
     } catch (err) {
-      alert("Errore nella chiusura della sessione precedente: " + err.message);
+      alert(t('logpage.closePrevSessionError', { err: err.message }));
     }
   };
 
@@ -381,7 +381,7 @@ export default function LogActivityPage() {
       setShowActiveSessionWarning(false);
       setShowCloseActiveForm(false);
     } catch (err) {
-      alert("Errore nella chiusura della sessione: " + err.message);
+      alert(t('logpage.closeSessionError', { err: err.message }));
     }
   };
 
@@ -416,7 +416,7 @@ export default function LogActivityPage() {
       }
 
       await db.createActivity({
-        title: 'Brindisi Live 🍻',
+        title: t('logpage.liveSessionTitle'),
         drinks: [],
         location,
         full_stomach: fullStomach,
@@ -431,7 +431,7 @@ export default function LogActivityPage() {
       // Apre direttamente il pannello live per iniziare a registrare i drink.
       router.push('/?live=1');
     } catch (err) {
-      alert("Errore nell'avvio della sessione libera: " + err.message);
+      alert(t('logpage.startFreeError', { err: err.message }));
     } finally {
       setStartingSession(false);
     }
@@ -467,7 +467,7 @@ export default function LogActivityPage() {
       lng: venue.lng ?? null,
       visited_at: new Date().toISOString(),
     });
-    const title = `Giro dei Bar: ${sequence.map((s) => s.name).join(' ➔ ')}`;
+    const title = t('logpage.barCrawlTitle', { sequence: sequence.map((s) => s.name).join(' ➔ ') });
     return {
       location: {
         name: venue.name,
@@ -519,7 +519,7 @@ export default function LogActivityPage() {
         } else if (dist > 300) {
           const distLabel = dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`;
           const ok = window.confirm(
-            `Sei a circa ${distLabel} da "${venue.name}".\n\nPuoi registrare comunque, ma la sessione verrà segnata come "non verificata" e NON conterà per le classifiche (del locale e degli atleti).\n\nProcedere?`
+            t('logpage.confirmFarVenue', { dist: distLabel, name: venue.name })
           );
           if (!ok) { setCheckingGps(false); return; }
           unverified = true;
@@ -540,11 +540,11 @@ export default function LogActivityPage() {
           const u = currentUser || await db.getCurrentUser().catch(() => null);
           if (u && typeof db.getActiveSession === 'function') target = await db.getActiveSession(u.id).catch(() => null);
         }
-        if (!target) throw new Error('Nessuna sessione attiva da aggiornare.');
+        if (!target) throw new Error(t('logpage.noActiveSessionToUpdate'));
         await db.updateActivity(target.id, buildAppendFields(target, venue));
       } else {
         await db.createActivity({
-          title: `Brindisi live presso ${venue.name} 🍻`,
+          title: t('logpage.liveAtVenueTitle', { venue: venue.name }),
           location: {
             name: venue.name,
             address: venue.address || '',
@@ -565,7 +565,7 @@ export default function LogActivityPage() {
       // Apre direttamente il pannello live per iniziare a registrare i drink.
       router.push('/?live=1');
     } catch (err) {
-      alert("Errore nell'avvio della sessione: " + (err.message || err));
+      alert(t('logpage.startSessionError', { err: err.message || err }));
       setCheckingGps(false);
     }
   };
@@ -582,7 +582,7 @@ export default function LogActivityPage() {
       if (!u) { router.push(`/auth?next=${encodeURIComponent('/log?src=qr&venue=' + venue.name + (venue.lat != null ? `&lat=${venue.lat}&lng=${venue.lng}` : ''))}`); return; }
       const active = typeof db.getActiveSession === 'function' ? await db.getActiveSession(u.id) : null;
       if (active || activeSession) {
-        alert('Hai già una sessione live attiva: continua su quella. 🍻');
+        alert(t('logpage.alreadyLiveContinue'));
         router.push('/?live=1');
         return;
       }
@@ -611,7 +611,7 @@ export default function LogActivityPage() {
       router.push('/?live=1');
     } catch (err) {
       setCheckingGps(false);
-      alert("Errore nell'avvio della sessione: " + (err.message || err));
+      alert(t('logpage.startSessionError', { err: err.message || err }));
     }
   };
 
@@ -623,13 +623,13 @@ export default function LogActivityPage() {
       const u = await db.getCurrentUser();
       const active = u && typeof db.getActiveSession === 'function' ? await db.getActiveSession(u.id) : null;
       if (active || activeSession) {
-        alert('Hai già una sessione live attiva: il tag è stato registrato, ma per partecipare resta nella tua live in corso.');
+        alert(t('logpage.alreadyLiveTagged'));
         router.push('/?live=1');
         return;
       }
     } catch { /* in dubbio, prosegui col controllo locale sotto */ }
     if (activeSession) {
-      alert('Hai già una sessione live attiva. Chiudila prima di avviarne un\'altra.');
+      alert(t('logpage.alreadyLiveCloseFirst'));
       return;
     }
     const loc = await requestUserLocation();
@@ -647,7 +647,7 @@ export default function LogActivityPage() {
     const name = manualPlace.name.trim();
     const address = manualPlace.address.trim();
     if (!name) {
-      alert('Inserisci almeno il nome del locale!');
+      alert(t('logpage.enterVenueName'));
       return;
     }
 
@@ -659,7 +659,7 @@ export default function LogActivityPage() {
 
     if (lat == null || lng == null) {
       if (!address) {
-        alert('Per mettere il locale sulla mappa serve la posizione.\n\nAttiva il GPS oppure inserisci un indirizzo (via e città) così possiamo localizzarlo.');
+        alert(t('logpage.manualNeedsLocation'));
         return;
       }
       setManualGeocoding(true);
@@ -674,7 +674,7 @@ export default function LogActivityPage() {
         setManualGeocoding(false);
       }
       if (lat == null || lng == null) {
-        alert('Non sono riuscito a trovare la posizione di questo indirizzo.\n\nControlla via e città, oppure avvicinati al locale e attiva il GPS.');
+        alert(t('logpage.addressNotFound'));
         return;
       }
     }
@@ -763,10 +763,10 @@ export default function LogActivityPage() {
     <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '22px' }}>
       <div style={{ textAlign: 'center' }}>
         <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#FFF' }}>
-          Registra 🍻
+          {t('logpage.pageTitle')}
         </h1>
         <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '8px', lineHeight: '1.5' }}>
-          Traccia la serata e il tuo tasso alcolico, minuto per minuto.
+          {t('logpage.pageSubtitle')}
         </p>
       </div>
 
@@ -784,9 +784,9 @@ export default function LogActivityPage() {
             {startingSession ? <Loader size={26} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={26} fill="var(--primary)" />}
           </div>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Registra sessione</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>{t('logpage.recordSession')}</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-              Adesso, in tempo reale. Scegli il locale dove sei o vai libera.
+              {t('logpage.recordSessionDesc')}
             </p>
           </div>
         </div>
@@ -803,9 +803,9 @@ export default function LogActivityPage() {
             <Clock size={26} />
           </div>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>Sessione passata</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#FFF' }}>{t('logpage.pastSession')}</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-              Inserisci una serata già conclusa: data, drink e locale.
+              {t('logpage.pastSessionDesc')}
             </p>
           </div>
         </div>
@@ -818,26 +818,26 @@ export default function LogActivityPage() {
           onClick={() => setShowInfo((v) => !v)}
           style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          <Info size={14} /> Come funziona per le classifiche
+          <Info size={14} /> {t('logpage.howItWorks')}
         </button>
         {showInfo && (
           <div className="card" style={{ textAlign: 'left', marginTop: '10px', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', lineHeight: 1.4 }}>
-            <div>📍 <strong>In un locale dove sei</strong> (GPS attivo) → vale per le classifiche.</div>
-            <div>🚶 <strong>Locale ma sei lontano</strong> → registrata, ma non conta.</div>
-            <div>🍸 <strong>Nessun locale</strong> → sessione libera (festa a casa, picnic…).</div>
+            <div>📍 <strong>{t('logpage.infoAtVenueBold')}</strong> {t('logpage.infoAtVenueRest')}</div>
+            <div>🚶 <strong>{t('logpage.infoFarBold')}</strong> {t('logpage.infoFarRest')}</div>
+            <div>🍸 <strong>{t('logpage.infoNoVenueBold')}</strong> {t('logpage.infoNoVenueRest')}</div>
           </div>
         )}
       </div>
 
       {/* Opzioni avanzate: privacy + stomaco (default sensati, qui solo se vuoi cambiarli) */}
       <details className="card" style={{ padding: '14px 16px' }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '14px', listStyle: 'none' }}>⚙️ Opzioni (privacy, stomaco)</summary>
+        <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '14px', listStyle: 'none' }}>{t('logpage.optionsSummary')}</summary>
         <div style={{ marginTop: '14px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>👀 Chi vede la tua sessione live?</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>{t('logpage.whoSeesLive')}</span>
           <div className="seg-tabs">
-            <div className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>🌍 Tutti</div>
-            <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>👥 Amici</div>
-            <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>🔒 Privata</div>
+            <div className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>{t('logpage.segShareAll')}</div>
+            <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>{t('logpage.segShareFriends')}</div>
+            <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>{t('logpage.segSharePrivate')}</div>
           </div>
 
           {/* Sessione libera: nascondi posizione (no GPS → niente radar/mappa) */}
@@ -848,8 +848,8 @@ export default function LogActivityPage() {
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', width: '100%', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)' }}
             >
               <span style={{ textAlign: 'left' }}>
-                <span style={{ display: 'block', fontSize: '13px', fontWeight: 700 }}>📍 Nascondi la mia posizione</span>
-                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>Sessione libera: non comparirai sul radar/mappa</span>
+                <span style={{ display: 'block', fontSize: '13px', fontWeight: 700 }}>{t('logpage.hideLocationTitle')}</span>
+                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('logpage.hideLocationDesc')}</span>
               </span>
               <span style={{ width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative', background: hideLocation ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s' }}>
                 <span style={{ position: 'absolute', top: 2, left: hideLocation ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
@@ -858,10 +858,10 @@ export default function LogActivityPage() {
           </div>
 
           <div style={{ marginTop: '12px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>🍽️ Hai mangiato? (stima BAC più precisa)</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>{t('logpage.eatenQuestion')}</span>
             <div className="seg-tabs">
-              <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>Stomaco vuoto</div>
-              <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>🍝 Stomaco pieno</div>
+              <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>{t('logpage.emptyStomach')}</div>
+              <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>{t('logpage.fullStomachLabel')}</div>
             </div>
           </div>
         </div>
@@ -871,9 +871,9 @@ export default function LogActivityPage() {
       {showActiveSessionWarning && activeSession && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 59, 47, 0.25)', padding: '24px', position: 'relative' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>Sessione Live Attiva! 🚨</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>{t('logpage.activeSessionTitle')}</h2>
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
-              Hai già un brindisi live attivo presso <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> (durata: {Math.max(1, Math.round((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000))} min).
+              {t('logpage.activeSessionWarnPre')} <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> {t('logpage.activeSessionWarnPost', { min: Math.max(1, Math.round((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000)) })}
             </p>
 
             {!showCloseActiveForm ? (
@@ -887,53 +887,53 @@ export default function LogActivityPage() {
                   className="btn btn-primary"
                   style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                 >
-                  📍 Aggiungi Tappa / Cambia Bar
+                  {t('logpage.addStopChangeBar')}
                 </button>
                 <button 
                   onClick={() => router.push('/')} 
                   className="btn btn-secondary" 
                   style={{ borderRadius: '20px', padding: '10px', fontSize: '14px' }}
                 >
-                  Continua Sessione Attiva 🍻
+                  {t('logpage.continueActiveSession')}
                 </button>
                 <button 
                   onClick={() => setShowCloseActiveForm(true)} 
                   className="btn btn-secondary" 
                   style={{ borderRadius: '20px', padding: '10px', fontSize: '14px' }}
                 >
-                  Termina e Salva Sessione Corrente 🏁
+                  {t('logpage.endAndSaveSession')}
                 </button>
                 <button 
                   onClick={handleForceNewSession} 
                   className="btn btn-secondary" 
                   style={{ borderRadius: '20px', padding: '10px', fontSize: '14px', color: 'var(--error)' }}
                 >
-                  Chiudi e Avvia Nuova Sessione 🚀
+                  {t('logpage.closeAndStartNew')}
                 </button>
               </div>
             ) : (
               <form onSubmit={handleCloseActiveSession} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Stato d&apos;animo finale</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>{t('logpage.finalMoodLabel')}</label>
                   <select name="feeling" className="form-control" style={{ height: '38px', fontSize: '13px' }}>
-                    <option value="Sobrio">Sobrio</option>
-                    <option value="Allegro">Allegro</option>
-                    <option value="Brillo Felice">Brillo Felice</option>
-                    <option value="Intenditore">Intenditore</option>
-                    <option value="Molto Caldo">Molto Caldo 🔥</option>
-                    <option value="Pieno Raso">Pieno Raso 💀</option>
+                    <option value="Sobrio">{t('logpage.feelingSober')}</option>
+                    <option value="Allegro">{t('logpage.feelingHappy')}</option>
+                    <option value="Brillo Felice">{t('logpage.feelingTipsyHappy')}</option>
+                    <option value="Intenditore">{t('logpage.feelingConnoisseur')}</option>
+                    <option value="Molto Caldo">{t('logpage.feelingVeryHot')}</option>
+                    <option value="Pieno Raso">{t('logpage.feelingFull')}</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Note di chiusura</label>
-                  <textarea name="description" className="form-control" placeholder="Com'è andata la serata? Racconta..." rows={2} style={{ fontSize: '13px', resize: 'none' }} />
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>{t('logpage.closingNotesLabel')}</label>
+                  <textarea name="description" className="form-control" placeholder={t('logpage.closingNotesPlaceholder')} rows={2} style={{ fontSize: '13px', resize: 'none' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button type="button" onClick={() => setShowCloseActiveForm(false)} className="btn btn-secondary" style={{ flex: 1, borderRadius: '20px', fontSize: '13px' }}>
-                    Indietro
+                    {t('logpage.back')}
                   </button>
                   <button type="submit" className="btn btn-primary" style={{ flex: 2, borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' }}>
-                    Salva e Chiudi
+                    {t('logpage.saveAndClose')}
                   </button>
                 </div>
               </form>
@@ -954,12 +954,12 @@ export default function LogActivityPage() {
       {showLeagues && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1600, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '440px', width: '100%', position: 'relative', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', padding: '20px' }}>
-            <button onClick={() => setShowLeagues(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
-            <h2 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '4px', paddingRight: '36px' }}>🏆 Leghe</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>Scegli in quali leghe far valere questa sessione.</p>
+            <button onClick={() => setShowLeagues(false)} aria-label={t('logpage.close')} style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
+            <h2 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '4px', paddingRight: '36px' }}>{t('logpage.leaguesTitle')}</h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>{t('logpage.leaguesDesc')}</p>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-              <button type="button" onClick={() => setSelectedLeagues(new Set(myLeagues.map((l) => l.id)))} className="btn btn-secondary" style={{ flex: 1, borderRadius: '14px', fontSize: '12px', padding: '7px' }}>Tutte</button>
-              <button type="button" onClick={() => setSelectedLeagues(new Set())} className="btn btn-secondary" style={{ flex: 1, borderRadius: '14px', fontSize: '12px', padding: '7px' }}>Nessuna</button>
+              <button type="button" onClick={() => setSelectedLeagues(new Set(myLeagues.map((l) => l.id)))} className="btn btn-secondary" style={{ flex: 1, borderRadius: '14px', fontSize: '12px', padding: '7px' }}>{t('logpage.allBtn')}</button>
+              <button type="button" onClick={() => setSelectedLeagues(new Set())} className="btn btn-secondary" style={{ flex: 1, borderRadius: '14px', fontSize: '12px', padding: '7px' }}>{t('logpage.noneBtn')}</button>
             </div>
             <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {myLeagues.map((l) => {
@@ -977,7 +977,7 @@ export default function LogActivityPage() {
                 );
               })}
             </div>
-            <button onClick={() => setShowLeagues(false)} className="btn btn-primary" style={{ borderRadius: '16px', padding: '11px', fontWeight: 700, marginTop: '12px' }}>Fatto</button>
+            <button onClick={() => setShowLeagues(false)} className="btn btn-primary" style={{ borderRadius: '16px', padding: '11px', fontWeight: 700, marginTop: '12px' }}>{t('logpage.done')}</button>
           </div>
         </div>
       )}
@@ -989,19 +989,19 @@ export default function LogActivityPage() {
             <button
               onClick={() => setShowLocaleSelector(false)}
               style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}
-              aria-label="Chiudi"
+              aria-label={t('logpage.close')}
             >
               <X size={22} />
             </button>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '8px', paddingRight: '36px' }}>
-              {isAppendingToSession ? 'Aggiungi Tappa 📍' : 'Dove stai bevendo? 📍'}
+              {isAppendingToSession ? t('logpage.addStopTitle') : t('logpage.whereDrinking')}
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '15px' }}>
               {localeSearchQuery.trim().length >= 2
-                ? 'Risultati della ricerca su mappa.'
+                ? t('logpage.searchResultsHint')
                 : userCoords
-                ? `Bar e locali reali nel raggio di ${nearbyRadius >= 1000 ? (nearbyRadius / 1000) + ' km' : nearbyRadius + ' m'} da te. Non lo trovi? Cercalo per nome.`
-                : 'Cerca il tuo locale per nome oppure inseriscilo manualmente.'}
+                ? t('logpage.venuesWithinRadius', { radius: nearbyRadius >= 1000 ? (nearbyRadius / 1000) + ' km' : nearbyRadius + ' m' })
+                : t('logpage.searchOrManual')}
             </p>
 
             {myLeagues.length > 0 && (
@@ -1010,8 +1010,8 @@ export default function LogActivityPage() {
                 onClick={() => setShowLeagues(true)}
                 style={{ width: '100%', textAlign: 'left', fontSize: '12px', color: selectedLeagues.size ? 'var(--primary)' : 'var(--text-dark-secondary)', background: 'rgba(255,59,47,0.07)', border: '1px solid rgba(255,59,47,0.25)', borderRadius: '8px', padding: '9px 12px', marginBottom: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}
               >
-                <span>🏆 Conta per {selectedLeagues.size === 0 ? 'nessuna lega' : selectedLeagues.size === myLeagues.length ? 'tutte le tue leghe' : `${selectedLeagues.size} ${selectedLeagues.size === 1 ? 'lega' : 'leghe'}`}</span>
-                <span style={{ textDecoration: 'underline', flexShrink: 0 }}>Modifica</span>
+                <span>{selectedLeagues.size === 0 ? t('logpage.countsForNone') : selectedLeagues.size === myLeagues.length ? t('logpage.countsForAll') : t('logpage.countsForN', { n: selectedLeagues.size, unit: selectedLeagues.size === 1 ? t('logpage.leagueSingular') : t('logpage.leaguePlural') })}</span>
+                <span style={{ textDecoration: 'underline', flexShrink: 0 }}>{t('logpage.edit')}</span>
               </button>
             )}
 
@@ -1021,7 +1021,7 @@ export default function LogActivityPage() {
               <input
                 type="text"
                 className="form-control"
-                placeholder="Cerca un locale per nome o città..."
+                placeholder={t('logpage.searchVenuePlaceholder')}
                 value={localeSearchQuery}
                 onChange={(e) => setLocaleSearchQuery(e.target.value)}
                 style={{ paddingLeft: '38px', height: '40px', fontSize: '14px' }}
@@ -1041,7 +1041,7 @@ export default function LogActivityPage() {
                     className="btn btn-secondary"
                     style={{ borderRadius: '16px', fontSize: '12px', padding: '7px 12px', fontWeight: 700, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--secondary)' }}
                   >
-                    <MapPin size={13} /> Attiva / Riprova GPS
+                    <MapPin size={13} /> {t('logpage.retryGps')}
                   </button>
                 )}
               </div>
@@ -1056,10 +1056,10 @@ export default function LogActivityPage() {
               >
                 <MapPin size={22} color="var(--primary)" style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', color: '#FFF', fontWeight: 700 }}>Sei da {displayedVenues[0].name}?</div>
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>Tocca per registrare qui — vale per le classifiche 🏆</span>
+                  <div style={{ fontSize: '14px', color: '#FFF', fontWeight: 700 }}>{t('logpage.areYouAt', { name: displayedVenues[0].name })}</div>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('logpage.tapToRecordHere')}</span>
                 </div>
-                <span className="btn btn-primary" style={{ borderRadius: '16px', padding: '6px 12px', fontSize: '12px', flexShrink: 0 }}>Conferma</span>
+                <span className="btn btn-primary" style={{ borderRadius: '16px', padding: '6px 12px', fontSize: '12px', flexShrink: 0 }}>{t('logpage.confirm')}</span>
               </div>
             )}
 
@@ -1068,13 +1068,13 @@ export default function LogActivityPage() {
               {loadingVenues && localeSearchQuery.trim().length < 2 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '30px 0', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>
                   <Loader size={26} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
-                  Sto cercando i locali vicino a te... 📡
+                  {t('logpage.searchingNearby')}
                 </div>
               ) : displayedVenues.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-dark-secondary)', fontSize: '13px', lineHeight: '1.5' }}>
                   {localeSearchQuery.trim().length >= 2
-                    ? (searchingVenues ? 'Ricerca in corso...' : 'Nessun locale trovato con questo nome.')
-                    : 'Nessun locale rilevato nelle vicinanze. Prova a cercarlo per nome qui sopra, oppure inseriscilo manualmente.'}
+                    ? (searchingVenues ? t('logpage.searchingInProgress') : t('logpage.noVenueFound'))
+                    : t('logpage.noVenuesNearbyLong')}
                 </div>
               ) : (
                 displayedVenues.map((loc) => (
@@ -1099,11 +1099,11 @@ export default function LogActivityPage() {
                     <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '11px', color: 'var(--text-dark-secondary)', flexWrap: 'wrap' }}>
                       {loc.source === 'community' || loc.sessionsCount > 0 ? (
                         <>
-                          <span>⭐ {loc.avgRating || '0.0'} ({loc.reviewsCount || 0} recensioni)</span>
-                          <span>👥 {loc.uniqueDrinkers || 0} atleti</span>
+                          <span>{t('logpage.ratingReviews', { rating: loc.avgRating || '0.0', count: loc.reviewsCount || 0 })}</span>
+                          <span>{t('logpage.athletesCount', { n: loc.uniqueDrinkers || 0 })}</span>
                         </>
                       ) : (
-                        <span style={{ color: 'var(--secondary)' }}>📍 Locale reale</span>
+                        <span style={{ color: 'var(--secondary)' }}>{t('logpage.realVenue')}</span>
                       )}
                     </div>
                   </div>
@@ -1119,7 +1119,7 @@ export default function LogActivityPage() {
                 className="btn btn-secondary"
                 style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '10px', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
-                🍸 Non sono in un locale — Sessione libera
+                {t('logpage.notAtVenueFree')}
               </button>
             )}
 
@@ -1131,14 +1131,14 @@ export default function LogActivityPage() {
                   className="btn btn-secondary"
                   style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px' }}
                 >
-                  ✏️ Locale non in lista? Aggiungilo
+                  {t('logpage.venueNotListed')}
                 </button>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Nome del locale *"
+                    placeholder={t('logpage.venueNamePlaceholder')}
                     value={manualPlace.name}
                     onChange={(e) => setManualPlace((p) => ({ ...p, name: e.target.value }))}
                     style={{ height: '38px', fontSize: '13px', padding: '0 12px' }}
@@ -1146,15 +1146,15 @@ export default function LogActivityPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder={userCoords ? 'Indirizzo / città (opzionale)' : 'Indirizzo: via e città *'}
+                    placeholder={userCoords ? t('logpage.addressOptionalPlaceholder') : t('logpage.addressRequiredPlaceholder')}
                     value={manualPlace.address}
                     onChange={(e) => setManualPlace((p) => ({ ...p, address: e.target.value }))}
                     style={{ height: '38px', fontSize: '13px', padding: '0 12px' }}
                   />
                   <span style={{ fontSize: '11px', color: userCoords ? 'var(--success)' : 'var(--secondary)', lineHeight: '1.4' }}>
                     {userCoords
-                      ? '📍 Useremo la tua posizione attuale (anche se il locale non è nella lista): finirà sulla mappa e sarà trovabile dagli altri atleti.'
-                      : '🛰️ GPS non disponibile: inserisci l\'indirizzo (via e città) — lo localizziamo sulla mappa così altri potranno trovarlo.'}
+                      ? t('logpage.manualUseGpsHint')
+                      : t('logpage.manualNoGpsHint')}
                   </span>
                   <button
                     onClick={handleManualStart}
@@ -1163,8 +1163,8 @@ export default function LogActivityPage() {
                     style={{ width: '100%', borderRadius: '20px', fontSize: '13px', padding: '8px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   >
                     {manualGeocoding
-                      ? (<><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Localizzo l&apos;indirizzo…</>)
-                      : (isAppendingToSession ? 'Aggiungi questa tappa' : 'Avvia qui il brindisi 🍻')}
+                      ? (<><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> {t('logpage.localizingAddress')}</>)
+                      : (isAppendingToSession ? t('logpage.addThisStop') : t('logpage.startHereCheers'))}
                   </button>
                 </div>
               )}
@@ -1185,18 +1185,18 @@ export default function LogActivityPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '16px' }}>
               <Clock size={20} color="#10B981" />
-              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>Registra Sessione Passata</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>{t('logpage.pastSessionModalTitle')}</h2>
             </div>
 
             <form onSubmit={handleRetroSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
               {/* Titolo */}
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Titolo (opzionale)</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.titleOptionalLabel')}</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Es: Aperitivo con amici, Cena di laurea..."
+                  placeholder={t('logpage.titlePlaceholder')}
                   value={retroForm.title}
                   onChange={e => setRetroForm(p => ({ ...p, title: e.target.value }))}
                   style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
@@ -1206,7 +1206,7 @@ export default function LogActivityPage() {
               {/* Data e ora */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Data e Ora Inizio *</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.startDateLabel')}</label>
                   <input
                     type="datetime-local"
                     className="form-control"
@@ -1218,7 +1218,7 @@ export default function LogActivityPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Durata (min)</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.durationLabel')}</label>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -1244,11 +1244,11 @@ export default function LogActivityPage() {
 
               {/* Locale */}
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Locale / Luogo (opzionale)</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.venuePlaceLabel')}</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Es: Momi's Pub, Casa di Marco, Spiaggia..."
+                  placeholder={t('logpage.venuePlacePlaceholder')}
                   value={retroForm.location}
                   onChange={e => setRetroForm(p => ({ ...p, location: e.target.value }))}
                   style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
@@ -1258,23 +1258,23 @@ export default function LogActivityPage() {
               {/* Stato */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Come ti sentivi?</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.howYouFeltLabel')}</label>
                   <select className="form-control" value={retroForm.feeling} onChange={e => setRetroForm(p => ({ ...p, feeling: e.target.value }))} style={{ height: '40px', padding: '0 10px', fontSize: '13px' }}>
-                    <option value="Sobrio">Sobrio</option>
-                    <option value="Allegro">Allegro</option>
-                    <option value="Brillo Felice">Brillo Felice</option>
-                    <option value="Intenditore">Intenditore</option>
-                    <option value="Molto Caldo">Molto Caldo 🔥</option>
-                    <option value="Pieno Raso">Pieno Raso 💀</option>
-                    <option value="Postumi Assicurati">Postumi Assicurati 🤕</option>
+                    <option value="Sobrio">{t('logpage.feelingSober')}</option>
+                    <option value="Allegro">{t('logpage.feelingHappy')}</option>
+                    <option value="Brillo Felice">{t('logpage.feelingTipsyHappy')}</option>
+                    <option value="Intenditore">{t('logpage.feelingConnoisseur')}</option>
+                    <option value="Molto Caldo">{t('logpage.feelingVeryHot')}</option>
+                    <option value="Pieno Raso">{t('logpage.feelingFull')}</option>
+                    <option value="Postumi Assicurati">{t('logpage.feelingHangover')}</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Note</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.notesLabel')}</label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Note brevi..."
+                    placeholder={t('logpage.notesPlaceholder')}
                     value={retroForm.description}
                     onChange={e => setRetroForm(p => ({ ...p, description: e.target.value }))}
                     style={{ height: '40px', padding: '0 12px', fontSize: '13px' }}
@@ -1284,17 +1284,17 @@ export default function LogActivityPage() {
 
               {/* Stomaco pieno/vuoto */}
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: '600' }}>🍽️ Stomaco</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: '600' }}>{t('logpage.stomachLabel')}</label>
                 <div className="seg-tabs">
-                  <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>Vuoto</div>
-                  <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>🍝 Pieno</div>
+                  <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>{t('logpage.emptyShort')}</div>
+                  <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>{t('logpage.fullShort')}</div>
                 </div>
               </div>
 
               {/* Selezione Drink */}
               <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
                 <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '10px', fontWeight: '600' }}>
-                  Drink Consumati * ({retroForm.drinks.reduce((a, d) => a + d.qty, 0)} totali)
+                  {t('logpage.drinksConsumedLabel', { n: retroForm.drinks.reduce((a, d) => a + d.qty, 0) })}
                 </label>
 
                 {/* Preset buttons (rapidi) */}
@@ -1323,7 +1323,7 @@ export default function LogActivityPage() {
                   onClick={() => setShowAllRetroDrinks((v) => !v)}
                   style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, marginBottom: '10px' }}
                 >
-                  {showAllRetroDrinks ? '▲ Nascondi altri drink' : '▾ Altri drink (cocktail, distillati, birre…)'}
+                  {showAllRetroDrinks ? t('logpage.hideMoreDrinks') : t('logpage.showMoreDrinks')}
                 </button>
                 {showAllRetroDrinks && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
@@ -1348,7 +1348,7 @@ export default function LogActivityPage() {
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', padding: '8px 12px', borderRadius: '8px' }}>
                         <div>
                           <strong style={{ fontSize: '13px', color: '#FFF' }}>{d.name}</strong>
-                          <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{(d.units * d.qty).toFixed(1)} U.A. · {d.abv}%</span>
+                          <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('logpage.unitsAbv', { units: (d.units * d.qty).toFixed(1), abv: d.abv })}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <button type="button" onClick={() => handleRetroChangeDrinkQty(i, -1)} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-dark)', color: '#FFF' }}>−</button>
@@ -1359,12 +1359,12 @@ export default function LogActivityPage() {
                       </div>
                     ))}
                     <div style={{ fontSize: '12px', color: '#10B981', fontWeight: '700', textAlign: 'right', marginTop: '4px' }}>
-                      Totale: {retroForm.drinks.reduce((a, d) => a + d.units * d.qty, 0).toFixed(1)} U.A.
+                      {t('logpage.totalUnits', { total: retroForm.drinks.reduce((a, d) => a + d.units * d.qty, 0).toFixed(1) })}
                     </div>
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-dark-secondary)', fontSize: '13px', border: '1px dashed var(--border-dark)', borderRadius: '8px' }}>
-                    Clicca sui preset sopra per aggiungere i drink 🍺
+                    {t('logpage.clickPresetsHint')}
                   </div>
                 )}
               </div>
@@ -1372,13 +1372,13 @@ export default function LogActivityPage() {
               {/* Foto */}
               <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
                 <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '10px', fontWeight: '600' }}>
-                  Foto della serata (opzionale)
+                  {t('logpage.photosLabel')}
                 </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
                   {retroForm.media.map((med, idx) => (
                     <div key={idx} style={{ position: 'relative', width: '64px', height: '64px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-dark)' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={med.url} alt={med.name || 'foto'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={med.url} alt={med.name || t('logpage.photoAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <button
                         type="button"
                         onClick={() => handleRetroRemovePhoto(idx)}
@@ -1394,7 +1394,7 @@ export default function LogActivityPage() {
                     ) : (
                       <>
                         <Camera size={18} />
-                        <span style={{ fontSize: '9px' }}>Aggiungi</span>
+                        <span style={{ fontSize: '9px' }}>{t('logpage.add')}</span>
                       </>
                     )}
                     <input type="file" accept="image/*" onChange={handleRetroAddPhoto} disabled={retroPhotoUploading} style={{ display: 'none' }} />
@@ -1404,14 +1404,14 @@ export default function LogActivityPage() {
 
               {/* Submit */}
               <div style={{ display: 'flex', gap: '10px', paddingTop: '10px' }}>
-                <button type="button" onClick={() => setShowRetroForm(false)} className="btn btn-secondary" style={{ flex: 1, borderRadius: '20px' }}>Annulla</button>
+                <button type="button" onClick={() => setShowRetroForm(false)} className="btn btn-secondary" style={{ flex: 1, borderRadius: '20px' }}>{t('logpage.cancel')}</button>
                 <button
                   type="submit"
                   disabled={retroSaving || retroForm.drinks.length === 0}
                   className="btn btn-primary"
                   style={{ flex: 2, borderRadius: '20px', fontWeight: '800', background: '#10B981', opacity: retroSaving || retroForm.drinks.length === 0 ? 0.5 : 1 }}
                 >
-                  {retroSaving ? 'Salvataggio...' : '✅ Salva Sessione Passata'}
+                  {retroSaving ? t('logpage.saving') : t('logpage.savePastSession')}
                 </button>
               </div>
             </form>
