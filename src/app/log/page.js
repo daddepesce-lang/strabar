@@ -208,7 +208,12 @@ export default function LogActivityPage() {
     const venueName = urlParams.get('venue');
     const vLat = parseFloat(urlParams.get('lat'));
     const vLng = parseFloat(urlParams.get('lng'));
-    if (venueName && Number.isFinite(vLat) && Number.isFinite(vLng)) {
+    // QR della LOCANDINA del locale (?src=qr): la scansione della locandina esposta nel
+    // locale È la prova di presenza → avvio IMMEDIATO e VERIFICATO, senza chiedere il GPS.
+    // Registrazione velocissima: apri il QR → parte la sessione qui → aggiungi i drink.
+    if (venueName && urlParams.get('src') === 'qr') {
+      startFromQr({ name: venueName, lat: Number.isFinite(vLat) ? vLat : null, lng: Number.isFinite(vLng) ? vLng : null });
+    } else if (venueName && Number.isFinite(vLat) && Number.isFinite(vLng)) {
       startFromTag({ name: venueName, lat: vLat, lng: vLng });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,6 +559,46 @@ export default function LogActivityPage() {
   // Avvio da deep-link "tag in live": il locale è già noto (dal taggatore). Verifichiamo il GPS
   // per capire se l'utente è davvero sul posto; in caso contrario parte "non verificata" (non
   // conta per le classifiche), gestito da startSessionAtVenue tramite la distanza.
+  // Avvio da QR della locandina del locale: presenza provata dalla scansione → sessione
+  // VERIFICATA all'istante, niente prompt GPS, niente conferme. Massima velocità.
+  const startFromQr = async (venue) => {
+    if (!venue || !venue.name) return;
+    try {
+      const u = await db.getCurrentUser();
+      if (!u) { router.push(`/auth?next=${encodeURIComponent('/log?src=qr&venue=' + venue.name + (venue.lat != null ? `&lat=${venue.lat}&lng=${venue.lng}` : ''))}`); return; }
+      const active = typeof db.getActiveSession === 'function' ? await db.getActiveSession(u.id) : null;
+      if (active || activeSession) {
+        alert('Hai già una sessione live attiva: continua su quella. 🍻');
+        router.push('/?live=1');
+        return;
+      }
+    } catch { /* prosegui: in caso di dubbio meglio avviare */ }
+    setCheckingGps(true);
+    try {
+      await db.createActivity({
+        title: `Brindisi live presso ${venue.name} 🍻`,
+        location: {
+          name: venue.name,
+          lat: venue.lat ?? null,
+          lng: venue.lng ?? null,
+          share: liveShare,
+          via: 'qr', // check-in autenticato dalla locandina del locale
+          ...(selectedLeagues.size ? { league_ids: [...selectedLeagues] } : {}),
+        },
+        full_stomach: fullStomach,
+        drinks: [],
+        is_active: true,
+        bac_level: 0,
+        total_units: 0,
+        duration: 1,
+      });
+      router.push('/?live=1');
+    } catch (err) {
+      setCheckingGps(false);
+      alert("Errore nell'avvio della sessione: " + (err.message || err));
+    }
+  };
+
   const startFromTag = async (venue) => {
     // Controllo FRESCO dal DB: questo handler parte dal deep-link al mount, quando lo
     // stato `activeSession` può essere ancora null (race) → senza questo, chi è taggato

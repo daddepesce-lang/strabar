@@ -3,7 +3,7 @@
 import { useEffect, useState, use, useRef } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck, ShoppingCart, ImagePlus, Pencil, Trash2, BarChart3, Eye, MousePointerClick, CalendarClock, X, Beer, Plus } from 'lucide-react';
+import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck, ShoppingCart, ImagePlus, Pencil, Trash2, BarChart3, Eye, MousePointerClick, CalendarClock, X, Beer, Plus, QrCode } from 'lucide-react';
 import { OPTION_SCHEMA, defaultOptions, computePrice, euro } from '@/lib/venuePricing';
 import { useT } from '@/lib/i18n';
 
@@ -353,6 +353,19 @@ export default function VenueManagePage({ params }) {
                 </div>
               </div>
               <Link href={`/locale/${encodeURIComponent(placeKey)}`} className="btn btn-secondary" style={{ width: '100%', marginTop: '12px', borderRadius: '16px', fontSize: '13px', padding: '9px' }}>{t('gestione.classViewPublic')}</Link>
+
+              {/* LOCANDINA A4 con QR: i clienti scansionano ed entrano subito in classifica */}
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-dark)' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#FFF', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <QrCode size={17} color="var(--secondary)" /> {t('gestione.posterTitle')}
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                  {t('gestione.posterDesc')}
+                </p>
+                <Link href={`/locale/${encodeURIComponent(placeKey)}/locandina`} className="btn btn-primary" style={{ width: '100%', borderRadius: '16px', fontSize: '13px', padding: '11px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <QrCode size={16} /> {t('gestione.posterCta')}
+                </Link>
+              </div>
             </div>
           )}
 
