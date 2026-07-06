@@ -16,6 +16,24 @@ export default function VenuePosterPage({ params }) {
   const [qr, setQr] = useState(null);
   const [loading, setLoading] = useState(true);
   const [logoOk, setLogoOk] = useState(true);
+  const [scale, setScale] = useState(1); // scala l'A4 per farlo stare nello schermo (PWA/mobile)
+
+  // A4 in px CSS (96dpi): 210mm≈793.7, 297mm≈1122.5. Su schermo lo rimpiccioliamo per
+  // farlo entrare nel viewport (niente più overflow "da culo" su telefono/PWA); in STAMPA
+  // torna a dimensione reale (vedi @media print).
+  const NAT_W = (210 * 96) / 25.4;
+  const NAT_H = (297 * 96) / 25.4;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const fit = () => {
+      const avail = Math.min(window.innerWidth - 24, NAT_W); // mai ingrandire oltre l'A4 reale
+      setScale(avail / NAT_W);
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -52,13 +70,15 @@ export default function VenuePosterPage({ params }) {
       <style>{`
         @page { size: A4 portrait; margin: 0; }
         @media print {
-          /* Stampa SOLO la locandina: nascondi tutto il resto (navbar in alto, barra mobile
-             in basso, footer — vivono nel layout, fuori da questa pagina) e porta l'A4 in
-             cima. La sola display:none su .noprint non bastava: la chrome dell'app restava. */
-          html, body { background: #fff !important; }
+          /* Stampa SOLO la locandina, in UNA sola pagina. Chiave: la chrome dell'app resta
+             in flusso e rende il documento più alto di una pagina → pagine bianche extra.
+             Clampiamo html/body a esattamente A4 con overflow:hidden e mettiamo l'A4 fisso
+             in cima a dimensione reale (transform annullato). */
+          html, body { width: 210mm !important; height: 297mm !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: #fff !important; }
           body * { visibility: hidden !important; }
           .a4, .a4 * { visibility: visible !important; }
-          .a4 { position: absolute !important; left: 0 !important; top: 0 !important; margin: 0 !important; box-shadow: none !important; }
+          .a4-viewport { position: static !important; width: auto !important; height: auto !important; overflow: visible !important; box-shadow: none !important; }
+          .a4 { position: fixed !important; left: 0 !important; top: 0 !important; margin: 0 !important; box-shadow: none !important; transform: none !important; width: 210mm !important; height: 297mm !important; overflow: hidden !important; }
           .noprint { display: none !important; }
         }
       `}</style>
@@ -78,12 +98,19 @@ export default function VenuePosterPage({ params }) {
         </button>
       </div>
 
-      {/* FOGLIO A4 */}
+      {/* Contenitore che scala l'A4 per farlo entrare nello schermo (screen). In stampa
+          torna trasparente e l'A4 va a dimensione reale. */}
+      <div
+        className="a4-viewport"
+        style={{ width: `${NAT_W * scale}px`, height: `${NAT_H * scale}px`, margin: '0 auto', position: 'relative', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.4)' }}
+      >
+      {/* FOGLIO A4 (dimensione reale, scalato via transform sullo schermo) */}
       <div
         className="a4"
         style={{
-          width: '210mm', minHeight: '297mm', background: '#FFFFFF', color: '#0A0A0D', margin: '0 auto',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden',
+          width: '210mm', height: '297mm', background: '#FFFFFF', color: '#0A0A0D',
+          position: 'absolute', top: 0, left: 0, transformOrigin: 'top left', transform: `scale(${scale})`,
+          display: 'flex', flexDirection: 'column', boxSizing: 'border-box', overflow: 'hidden',
         }}
       >
         {/* HEADER brand: fondo scuro (così il logo bianco si vede) + cos'è Strabar */}
@@ -151,6 +178,7 @@ export default function VenuePosterPage({ params }) {
             <strong style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: '#0A0A0D', letterSpacing: '.5px' }}>strabar.app</strong>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
