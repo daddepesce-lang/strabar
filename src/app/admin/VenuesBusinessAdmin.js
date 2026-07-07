@@ -146,6 +146,13 @@ export default function VenuesBusinessAdmin() {
 
       {section === 'orders' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="card" style={{ padding: 12, fontSize: 12, color: 'var(--text-dark-secondary)', lineHeight: 1.5 }}>
+            Cosa fa un ordine <strong style={{ color: '#FFF' }}>attivo</strong> e <strong>dove si vede</strong>:
+            <br />• <strong style={{ color: '#FFF' }}>promo</strong> → crea un <strong>banner nel feed</strong> (lo gestisci anche in <em>Banner</em>) per N giorni.
+            <br />• <strong style={{ color: '#FFF' }}>sponsored_event</strong> → mette l&apos;evento <strong>in cima a Eventi</strong> (+ card nel feed se Spotlight).
+            <br />• <strong style={{ color: '#FFF' }}>notify</strong> → invia una notifica ai clienti (già inviata all&apos;attivazione).
+            <br /><strong style={{ color: 'var(--secondary)' }}>Annulla</strong> ferma subito il banner/sponsor nel feed. <strong style={{ color: 'var(--error)' }}>Elimina</strong> rimuove l&apos;ordine e il suo effetto.
+          </div>
           {orders.length === 0 && <p style={{ color: 'var(--text-dark-secondary)', fontSize: 13 }}>Nessun ordine.</p>}
           {orders.map((o) => (
             <div key={o.id} className="card" style={{ padding: 14 }}>
@@ -153,15 +160,22 @@ export default function VenuesBusinessAdmin() {
                 <div style={{ minWidth: 0 }}>
                   <strong style={{ color: '#FFF', fontSize: 14 }}>{o.venue_name || o.venue_key}</strong>
                   <div style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>{o.service_code} · {euro(o.amount_cents)} · {new Date(o.created_at).toLocaleDateString('it-IT')}</div>
+                  {o.ref_id && <div style={{ fontSize: 11, color: 'var(--text-dark-tertiary)' }}>rif: {o.ref_id}</div>}
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: o.status === 'active' ? 'var(--success)' : o.status === 'pending' ? 'var(--secondary)' : 'var(--text-dark-secondary)', flexShrink: 0 }}>{o.status}</span>
               </div>
-              {o.status !== 'active' && o.status !== 'canceled' && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  <button onClick={() => post('/api/admin/venue-orders', { id: o.id, action: 'activate' })} className="btn btn-primary" style={{ flex: 1, borderRadius: 16, fontSize: 13, padding: 8 }}>Attiva (pagato offline)</button>
-                  <button onClick={() => post('/api/admin/venue-orders', { id: o.id, action: 'cancel' })} className="btn btn-secondary" style={{ flex: 1, borderRadius: 16, fontSize: 13, padding: 8, color: 'var(--error)' }}>Annulla</button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {o.status !== 'active' && o.status !== 'canceled' && (
+                  <button onClick={() => post('/api/admin/venue-orders', { id: o.id, action: 'activate' })} className="btn btn-primary" style={{ flex: 1, minWidth: 120, borderRadius: 16, fontSize: 13, padding: 8 }}>Attiva (pagato offline)</button>
+                )}
+                {o.status === 'active' && (
+                  <button onClick={() => { if (confirm('Annullare questo ordine? Il banner/sponsor nel feed verrà fermato subito.')) post('/api/admin/venue-orders', { id: o.id, action: 'cancel' }); }} className="btn btn-secondary" style={{ flex: 1, minWidth: 120, borderRadius: 16, fontSize: 13, padding: 8, color: 'var(--secondary)' }}>Annulla (ferma nel feed)</button>
+                )}
+                {o.status !== 'active' && o.status !== 'canceled' && (
+                  <button onClick={() => post('/api/admin/venue-orders', { id: o.id, action: 'cancel' })} className="btn btn-secondary" style={{ flex: 1, minWidth: 100, borderRadius: 16, fontSize: 13, padding: 8, color: 'var(--secondary)' }}>Annulla</button>
+                )}
+                <button onClick={() => { if (confirm('Eliminare definitivamente questo ordine? Verrà fermato anche il suo effetto (banner/sponsor).')) post('/api/admin/venue-orders', { id: o.id, action: 'delete' }); }} className="btn btn-secondary" style={{ borderRadius: 16, fontSize: 13, padding: '8px 12px', color: 'var(--error)' }}><Trash2 size={14} /></button>
+              </div>
             </div>
           ))}
         </div>
