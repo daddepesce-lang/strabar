@@ -65,23 +65,19 @@
 }
 
 /* Default Theme: Dark Pub Theme for Strabar */
+html { height: 100%; }
 body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-dark);
   color: var(--text-dark-primary);
   font-family: var(--font-sans);
-  min-height: 100vh;
-  min-height: 100dvh; /* iOS: àncora le barre fixed al viewport VISIBILE (dvh), non a quello "largo" (vh) */
-  /* `clip` e NON `hidden`: con `hidden` il browser calcola overflow-y:auto e il
-     body diventa uno scroll container, facendo "staccare" dal fondo le barre
-     position:fixed (il bottom-nav) su alcuni telefoni/PWA. `clip` blocca solo lo
-     scroll orizzontale lasciando il body NON scrollabile → fixed àncorato al viewport. */
-  overflow-x: clip;
-  /* Niente rubber-band nativo verticale: su iOS l'overscroll elastico è il momento
-     in cui le barre position:fixed "si staccano" e galleggiano a metà schermo.
-     Il pull-to-refresh del feed è custom (delta touch), quindi non serve il bounce nativo. */
-  overscroll-behavior-y: none;
+  /* APP-SHELL: il BODY non scrolla. Lo scroll è nel contenitore interno (#app-scroll).
+     Così le barre position:fixed sono ancorate al VIEWPORT (che non si muove mai) e NON
+     "galleggiano" più a metà schermo durante lo scroll inerziale su iOS/PWA — il bug che
+     né overflow:clip né i transform riuscivano a eliminare del tutto. */
+  height: 100%;
+  overflow: hidden;
   /* Comfort mobile: niente flash blu al tap, niente zoom involontario del testo */
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -168,11 +164,18 @@ button, input, select, textarea {
 }
 
 /* Base Utility Layout */
+/* APP-SHELL: QUESTO è lo scroll container (il body non scrolla). Altezza = viewport
+   visibile (dvh), scroll interno con inerzia iOS. Le barre fixed restano ancorate al
+   viewport → niente più drift. overflow-x: clip evita scroll orizzontali accidentali. */
 .app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: clip;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
 }
 
 .main-content {

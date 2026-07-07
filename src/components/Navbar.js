@@ -138,6 +138,13 @@ export default function Navbar() {
   // Chiudi il foglio "Altro" quando cambia pagina
   useEffect(() => { setMoreOpen(false); }, [pathname]);
 
+  // App-shell: lo scroll è nel contenitore #app-scroll (il body non scrolla), quindi Next
+  // non riporta più in cima da solo al cambio pagina. Lo facciamo noi ad ogni navigazione.
+  useEffect(() => {
+    const sc = document.getElementById('app-scroll');
+    if (sc) sc.scrollTo(0, 0);
+  }, [pathname]);
+
   // Chiudi dropdown cliccando fuori
   useEffect(() => {
     const onClick = (e) => {
@@ -384,7 +391,9 @@ export default function Navbar() {
             // Se sei già sul feed: torna in cima e aggiorna (non ricaricare la rotta).
             if (pathname === '/') {
               e.preventDefault();
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              // App-shell: lo scroll è nel contenitore, non nel window.
+              const sc = document.getElementById('app-scroll');
+              if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' }); else window.scrollTo({ top: 0, behavior: 'smooth' });
               window.dispatchEvent(new Event('strabar:feed-refresh'));
             }
           }}

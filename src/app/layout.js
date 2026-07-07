@@ -95,7 +95,7 @@ export default function RootLayout({ children }) {
           <PwaInstallBanner />
           <LegacyMigrationBanner />
           <PushReminderGate />
-          <div className="app-container">
+          <div className="app-container" id="app-scroll">
             <Navbar />
             <main className="main-content">
               {children}
