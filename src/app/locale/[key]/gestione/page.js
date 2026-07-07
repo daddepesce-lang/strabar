@@ -326,17 +326,19 @@ export default function VenueManagePage({ params }) {
       {/* GESTORE: menu a sezioni */}
       {isManager && (
         <>
-          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', WebkitOverflowScrolling: 'touch' }}>
-            {TABS.map((tb) => {
-              const Icon = tb.icon; const active = tab === tb.id;
-              return (
-                <button key={tb.id} type="button" onClick={() => setTab(tb.id)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', flexShrink: 0, fontSize: '13px', fontWeight: 700, padding: '9px 14px', borderRadius: '20px', cursor: 'pointer', border: `1px solid ${active ? 'var(--primary)' : 'var(--border-dark)'}`, background: active ? 'var(--primary)' : 'transparent', color: active ? '#fff' : 'var(--text-dark-secondary)' }}>
-                  <Icon size={15} /> {tb.label}
-                </button>
-              );
-            })}
-          </div>
+          {/* Tendina di sezione (prima era una barra a scorrimento orizzontale poco
+              evidente su mobile → non si capiva che si potesse scorrere). */}
+          <select
+            value={tab}
+            onChange={(e) => setTab(e.target.value)}
+            className="form-control"
+            aria-label={t('gestione.areaLabel')}
+            style={{ width: '100%', height: 46, fontSize: 15, fontWeight: 700, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)' }}
+          >
+            {TABS.map((tb) => (
+              <option key={tb.id} value={tb.id}>{tb.label}</option>
+            ))}
+          </select>
 
           {/* SEZIONE: CLASSIFICHE */}
           {tab === 'classifiche' && (
