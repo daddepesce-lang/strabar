@@ -10,6 +10,7 @@ import UsersAdmin from './UsersAdmin';
 import GdprAdmin from './GdprAdmin';
 import DrinksAdmin from './DrinksAdmin';
 import VenuesAdmin from './VenuesAdmin';
+import VenuesMapAdmin from './VenuesMapAdmin';
 import VenuesBusinessAdmin from './VenuesBusinessAdmin';
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { id: 'gdpr', label: 'GDPR', Icon: Lock },
   { id: 'drink', label: 'Drink', Icon: Beer },
   { id: 'locali', label: 'Locali', Icon: MapPin },
+  { id: 'mappa', label: 'Mappa bevute', Icon: MapPin },
   { id: 'business', label: 'Area locali', Icon: Store },
   { id: 'notifiche', label: 'Notifiche', Icon: Bell },
   { id: 'banner', label: 'Banner', Icon: Megaphone },
@@ -215,19 +217,27 @@ export default function AdminPage() {
           </p>
         </div>
 
-        {/* Navigazione mobile (<900px): barra tab scrollabile */}
-        <div className="adm-mobile-tabs seg-tabs admin-tabs">
-          {NAV_ITEMS.map((item) => (
-            <button key={item.id} onClick={() => setTab(item.id)} className={`seg-tab ${tab === item.id ? 'active' : ''}`}>
-              <item.Icon size={15} /> {item.label}
-            </button>
-          ))}
+        {/* Navigazione mobile (<900px): tendina (prima era una barra a scorrimento
+            orizzontale poco evidente → non si capiva si potesse scorrere). */}
+        <div className="adm-mobile-tabs">
+          <label style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-dark-tertiary)', fontWeight: 700, marginBottom: 6 }}>Sezione</label>
+          <select
+            className="form-control"
+            value={tab}
+            onChange={(e) => setTab(e.target.value)}
+            style={{ width: '100%', height: 46, fontSize: 15, fontWeight: 600, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)' }}
+          >
+            {NAV_ITEMS.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
         </div>
 
         {tab === 'utenti' && <UsersAdmin />}
         {tab === 'gdpr' && <GdprAdmin />}
         {tab === 'drink' && <DrinksAdmin />}
         {tab === 'locali' && <VenuesAdmin />}
+        {tab === 'mappa' && <VenuesMapAdmin />}
         {tab === 'business' && <VenuesBusinessAdmin />}
         {tab === 'notifiche' && <NotificationsAdmin />}
         {tab === 'banner' && <BannersAdmin />}
