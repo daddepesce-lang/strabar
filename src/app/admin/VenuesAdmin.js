@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader, Search, MapPin, Users, Beer, Clock, Repeat, ChevronDown, TrendingUp, BadgeCheck, GitMerge, Pencil } from 'lucide-react';
+import { Loader, Search, MapPin, Users, Beer, Clock, Repeat, ChevronDown, TrendingUp, BadgeCheck, GitMerge, Pencil, Plus } from 'lucide-react';
 import AccountPicker from './AccountPicker';
+import { db } from '@/lib/db';
+
+const normKey = (n) => (n || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 const fmtAgo = (d) => {
   if (!d) return '—';
@@ -24,6 +27,10 @@ export default function VenuesAdmin() {
   const [picker, setPicker] = useState(null); // venue per cui collegare un account
   const [mergeFrom, setMergeFrom] = useState(null); // venue da unire (sorgente)
   const [mergeQuery, setMergeQuery] = useState(''); // ricerca destinazione
+  const [addQ, setAddQ] = useState(''); // ricerca locale reale da aggiungere
+  const [addRes, setAddRes] = useState([]);
+  const [addBusy, setAddBusy] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -72,6 +79,28 @@ export default function VenuesAdmin() {
     } finally { setBusy(false); }
   };
   const linkAccount = (v) => setPicker(v);
+
+  // Correggi/imposta le coordinate del locale (registro). Utile per locali senza coord
+  // o con posizione sbagliata. Le coord del registro fanno da fallback in mappa/statistiche.
+  const editCoords = async (v) => {
+    const cur = (typeof v.lat === 'number' && typeof v.lng === 'number') ? `${v.lat}, ${v.lng}` : '';
+    const input = prompt('Coordinate "lat, lng" (copiabili da Google Maps):', cur);
+    if (input == null) return;
+    const [la, ln] = input.split(',').map((s) => parseFloat(s.trim()));
+    if (!Number.isFinite(la) || !Number.isFinite(ln)) { alert('Formato non valido. Esempio: 45.4946, 12.1077'); return; }
+    const r = await post({ action: 'verify', key: v.key, name: v.name, lat: la, lng: ln, verified: v.verified });
+    if (r) alert('Coordinate salvate.');
+  };
+
+  // Ricerca un locale REALE (Google/OSM) da aggiungere anche se non è ancora in lista.
+  const runAddSearch = async () => {
+    const q = addQ.trim();
+    if (q.length < 2) { setAddRes([]); return; }
+    setAddBusy(true);
+    try { const r = await db.searchVenues(q); setAddRes((r || []).slice(0, 8)); }
+    catch { setAddRes([]); }
+    finally { setAddBusy(false); }
+  };
   const unlinkAccount = (v) => { if (v.manager?.claimId && confirm(`Scollegare ${v.manager.name || 'l’account'} da "${v.name}"?`)) claimPost({ action: 'unlink', id: v.manager.claimId }); };
 
   if (!data) return <div style={{ color: 'var(--text-dark-secondary)' }}><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Carico…</div>;
@@ -97,6 +126,44 @@ export default function VenuesAdmin() {
       <div style={{ position: 'relative' }}>
         <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
         <input className="form-control" placeholder="Cerca un locale…" value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 36, fontSize: 14 }} />
+      </div>
+
+      {/* AGGIUNGI UN LOCALE non ancora in lista: cerca il locale reale (Google/OSM),
+          assegnalo a un account per farlo gestire. Crea anche la posizione (coord). */}
+      <div className="card" style={{ padding: 14 }}>
+        <button type="button" onClick={() => setAddOpen((v) => !v)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#FFF', display: 'flex', alignItems: 'center', gap: 6 }}><Plus size={16} color="var(--primary)" /> Aggiungi un locale non in lista</span>
+          <ChevronDown size={16} style={{ color: 'var(--text-dark-secondary)', transform: addOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+        </button>
+        {addOpen && (
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: 12, color: 'var(--text-dark-secondary)', margin: '0 0 10px', lineHeight: 1.5 }}>
+              Cerca il locale reale (Google/OpenStreetMap) e assegnalo a un account: verrà creato con le sue coordinate e reso gestibile da quell&apos;utente.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="form-control" placeholder="Nome del locale…" value={addQ} onChange={(e) => setAddQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') runAddSearch(); }} style={{ fontSize: 14, flex: 1 }} />
+              <button type="button" disabled={addBusy || addQ.trim().length < 2} onClick={runAddSearch} className="btn btn-primary" style={{ borderRadius: 12, fontSize: 13, padding: '0 14px' }}>{addBusy ? '…' : 'Cerca'}</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+              {addRes.map((r, i) => {
+                const hasCoord = typeof r.lat === 'number' && typeof r.lng === 'number';
+                const already = (data.venues || []).some((v) => v.key === normKey(r.name));
+                return (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)' }}>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14, color: '#FFF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: 'var(--text-dark-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {r.address || '—'}{hasCoord ? ` · ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}` : ' · senza coordinate'}{already ? ' · già in lista' : ''}
+                      </span>
+                    </span>
+                    <button type="button" disabled={busy} onClick={() => setPicker({ key: normKey(r.name), name: r.name, lat: hasCoord ? r.lat : null, lng: hasCoord ? r.lng : null })} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 10px', borderRadius: 12, flexShrink: 0 }}>Assegna account</button>
+                  </div>
+                );
+              })}
+              {!addBusy && addQ.trim().length >= 2 && addRes.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-dark-secondary)', margin: 0 }}>Nessun risultato. Premi Cerca o cambia nome.</p>}
+            </div>
+          </div>
+        )}
       </div>
 
       {venues.length === 0 ? (
@@ -144,6 +211,20 @@ export default function VenuesAdmin() {
                   <span style={{ display: 'flex', gap: 6 }}>
                     <button type="button" disabled={busy} onClick={() => linkAccount(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 10px', borderRadius: 12 }}>{v.manager ? 'Ricollega' : 'Collega account'}</button>
                     {v.manager && <button type="button" disabled={busy} onClick={() => unlinkAccount(v)} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 10px', borderRadius: 12, color: 'var(--error)' }}>Scollega</button>}
+                  </span>
+                </div>
+
+                {/* Posizione: coordinate + verifica su mappa + correzione */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-dark-secondary)' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <MapPin size={13} color={typeof v.lat === 'number' ? 'var(--secondary)' : 'var(--error)'} />
+                    {typeof v.lat === 'number' ? `${v.lat.toFixed(5)}, ${v.lng.toFixed(5)}` : 'coordinate mancanti'}
+                  </span>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    {typeof v.lat === 'number' && (
+                      <a href={`https://www.google.com/maps?q=${v.lat},${v.lng}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ fontSize: 11, padding: '5px 10px', borderRadius: 10 }}>Vedi su mappa</a>
+                    )}
+                    <button type="button" disabled={busy} onClick={() => editCoords(v)} className="btn btn-secondary" style={{ fontSize: 11, padding: '5px 10px', borderRadius: 10 }}>Correggi</button>
                   </span>
                 </div>
 
@@ -210,7 +291,7 @@ export default function VenuesAdmin() {
         <AccountPicker
           title={`Collega un account a "${picker.name}"`}
           onClose={() => setPicker(null)}
-          onPick={async (u) => { setPicker(null); await claimPost({ action: 'link_account', user_id: u.id, venue_key: picker.key, venue_name: picker.name }); }}
+          onPick={async (u) => { setPicker(null); await claimPost({ action: 'link_account', user_id: u.id, venue_key: picker.key, venue_name: picker.name, lat: picker.lat, lng: picker.lng }); }}
         />
       )}
 

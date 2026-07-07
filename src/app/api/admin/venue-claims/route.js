@@ -18,7 +18,14 @@ export async function GET() {
     const { data: profs } = await gate.admin.from('profiles').select('id, display_name, username').in('id', ids);
     (profs || []).forEach((p) => { profMap[p.id] = p; });
   }
-  return NextResponse.json({ claims: (claims || []).map((c) => ({ ...c, requester: profMap[c.user_id] || null })) });
+  // Anche i profili degli ADMIN che hanno risolto i claim (per mostrare "chi ha approvato").
+  const resolverIds = [...new Set((claims || []).map((c) => c.resolved_by).filter(Boolean))];
+  const newResolverIds = resolverIds.filter((id) => !profMap[id]);
+  if (newResolverIds.length) {
+    const { data: rs } = await gate.admin.from('profiles').select('id, display_name, username').in('id', newResolverIds);
+    (rs || []).forEach((p) => { profMap[p.id] = p; });
+  }
+  return NextResponse.json({ claims: (claims || []).map((c) => ({ ...c, requester: profMap[c.user_id] || null, resolver: c.resolved_by ? (profMap[c.resolved_by] || null) : null })) });
 }
 
 export async function POST(req) {
@@ -46,11 +53,13 @@ export async function POST(req) {
     // collega: aggiorna un claim esistente (lead) o creane uno approvato
     const { data: existing } = await gate.admin.from('venue_claims').select('id').eq('venue_key', venueKey).or(`user_id.is.null,user_id.eq.${uid}`).limit(1);
     if (existing && existing.length) {
-      await gate.admin.from('venue_claims').update({ user_id: uid, status: 'approved', venue_name: venueName, resolved_at: new Date().toISOString() }).eq('id', existing[0].id);
+      await gate.admin.from('venue_claims').update({ user_id: uid, status: 'approved', venue_name: venueName, resolved_at: new Date().toISOString(), resolved_by: gate.user.id }).eq('id', existing[0].id);
     } else {
-      await gate.admin.from('venue_claims').insert({ venue_key: venueKey, venue_name: venueName, user_id: uid, status: 'approved', resolved_at: new Date().toISOString() });
+      await gate.admin.from('venue_claims').insert({ venue_key: venueKey, venue_name: venueName, user_id: uid, status: 'approved', resolved_at: new Date().toISOString(), resolved_by: gate.user.id });
     }
-    await gate.admin.from('venues').upsert({ key: venueKey, name: venueName, verified: true, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    const venueRow = { key: venueKey, name: venueName, verified: true, updated_at: new Date().toISOString() };
+    if (Number.isFinite(body.lat) && Number.isFinite(body.lng)) { venueRow.lat = body.lat; venueRow.lng = body.lng; }
+    await gate.admin.from('venues').upsert(venueRow, { onConflict: 'key' });
     try { await gate.admin.from('notifications').insert({ user_id: uid, type: 'venue_claim', message: `✅ Il tuo account è collegato a "${venueName}"`, link: `/locale/${encodeURIComponent(venueKey)}/gestione` }); } catch { /* noop */ }
     return NextResponse.json({ ok: true });
   }
@@ -61,7 +70,7 @@ export async function POST(req) {
     if (!body.id) return NextResponse.json({ error: 'id mancante' }, { status: 400 });
     const { data: c, error: e0 } = await gate.admin.from('venue_claims').select('*').eq('id', body.id).single();
     if (e0) return NextResponse.json({ error: e0.message }, { status: 500 });
-    await gate.admin.from('venue_claims').update({ status: 'revoked', resolved_at: new Date().toISOString() }).eq('id', c.id);
+    await gate.admin.from('venue_claims').update({ status: 'revoked', resolved_at: new Date().toISOString(), resolved_by: gate.user.id }).eq('id', c.id);
     if (c.user_id) {
       const { data: others } = await gate.admin.from('venue_claims').select('id').eq('user_id', c.user_id).eq('status', 'approved').limit(1);
       if (!others || others.length === 0) {
@@ -77,7 +86,7 @@ export async function POST(req) {
   }
   const status = body.action === 'approve' ? 'approved' : 'rejected';
   const { data: claim, error } = await gate.admin.from('venue_claims')
-    .update({ status, admin_note: body.admin_note || null, resolved_at: new Date().toISOString() })
+    .update({ status, admin_note: body.admin_note || null, resolved_at: new Date().toISOString(), resolved_by: gate.user.id })
     .eq('id', body.id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

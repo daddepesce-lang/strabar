@@ -141,10 +141,30 @@ export async function GET() {
 
   // Annota verificati (registro venues) e l'account gestore collegato (claim approvato).
   const [{ data: reg }, { data: claims }] = await Promise.all([
-    gate.admin.from('venues').select('key, name, verified'),
+    gate.admin.from('venues').select('key, name, verified, lat, lng'),
     gate.admin.from('venue_claims').select('id, venue_key, status, user_id'),
   ]);
   const verifiedSet = new Set((reg || []).filter((r) => r.verified).map((r) => r.key));
+  const regMap = {};
+  (reg || []).forEach((r) => { regMap[r.key] = r; });
+  const listKeys = new Set(list.map((v) => v.key));
+  // Coordinate del registro come FALLBACK quando le sessioni non ne hanno.
+  list.forEach((v) => {
+    if ((typeof v.lat !== 'number' || typeof v.lng !== 'number') && regMap[v.key]) {
+      const r = regMap[v.key];
+      if (typeof r.lat === 'number') { v.lat = r.lat; v.lng = r.lng; }
+    }
+  });
+  // Locali PRESENTI solo nel registro (aggiunti a mano, senza sessioni) → mostrali comunque
+  // così sono gestibili/assegnabili dalla lista admin.
+  (reg || []).forEach((r) => {
+    if (listKeys.has(r.key)) return;
+    list.push({
+      key: r.key, name: r.name || r.key, lat: typeof r.lat === 'number' ? r.lat : null, lng: typeof r.lng === 'number' ? r.lng : null,
+      sessions: 0, uniqueUsers: 0, repeatUsers: 0, repeatRate: 0, units: 0, drinkCount: 0, avgUnits: 0,
+      topDrinks: [], hours: new Array(24).fill(0), peakHour: 0, days: new Array(7).fill(0), topDay: '—', lastSeen: null,
+    });
+  });
   const approved = (claims || []).filter((c) => c.status === 'approved');
   // profili dei gestori per mostrarne il nome
   const mgrIds = [...new Set(approved.map((c) => c.user_id).filter(Boolean))];

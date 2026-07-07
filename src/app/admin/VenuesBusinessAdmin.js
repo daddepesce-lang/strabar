@@ -84,6 +84,16 @@ export default function VenuesBusinessAdmin() {
                   background: c.status === 'approved' ? 'rgba(16,185,129,0.15)' : c.status === 'pending' ? 'rgba(223,255,0,0.15)' : 'rgba(239,68,68,0.15)',
                   color: c.status === 'approved' ? 'var(--success)' : c.status === 'pending' ? 'var(--secondary)' : 'var(--error)' }}>{c.status}</span>
               </div>
+              {/* Provenienza + chi ha risolto (approvato/collegato/scollegato) */}
+              <div style={{ fontSize: 11, color: 'var(--text-dark-tertiary)', marginTop: 6, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ padding: '2px 8px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)' }}>
+                  {c.details ? '📝 richiesta dall’utente' : '🔗 collegato da admin'}
+                </span>
+                {c.resolved_by && (
+                  <span>risolto da <strong style={{ color: 'var(--text-dark-secondary)' }}>{c.resolver?.display_name || c.resolver?.username || c.resolved_by.slice(0, 8)}</strong>{c.resolved_at ? ` · ${new Date(c.resolved_at).toLocaleDateString('it-IT')}` : ''}</span>
+                )}
+                {!c.resolved_by && c.status !== 'pending' && <span style={{ fontStyle: 'italic' }}>risolto prima del tracciamento (admin ignoto)</span>}
+              </div>
               {c.status === 'pending' && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                   <button onClick={async () => { const r = await post('/api/admin/venue-claims', { id: c.id, action: 'approve' }); if (r) alert(r.linked ? 'Approvata e account collegato ✅' : r.emailedTo ? `Approvata. Email d'invito inviata a ${r.emailedTo} (si collega registrandosi con quella email).` : 'Approvata. Nessuna email nel form: collega l’account a mano.'); }} className="btn btn-primary" style={{ flex: 1, borderRadius: 16, fontSize: 13, padding: 8 }}><Check size={14} /> Approva</button>
