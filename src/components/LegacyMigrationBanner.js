@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { X, Download } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 // Link assoluto al nuovo dominio: se il banner compare ancora sul vecchio host,
 // un link relativo resterebbe lì. Forziamo strabar.app.
@@ -14,6 +15,7 @@ const LEGACY_HOSTS = new Set(['strabar-delta.vercel.app']);
 const DISMISS_KEY = 'legacy_migration_dismissed';
 
 export default function LegacyMigrationBanner() {
+  const t = useT();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -58,12 +60,12 @@ export default function LegacyMigrationBanner() {
           📦
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <strong style={{ fontSize: '14px', color: '#FFF', display: 'block', marginBottom: 2 }}>Reinstalla Strabar dal nuovo indirizzo</strong>
+          <strong style={{ fontSize: '14px', color: '#FFF', display: 'block', marginBottom: 2 }}>{t('legacybanner.title')}</strong>
           <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.45 }}>
-            Strabar ora è su <strong>strabar.app</strong>. L&apos;app installata col vecchio indirizzo non riceve più <strong>notifiche</strong> né aggiornamenti: eliminala dalla schermata Home e reinstallala da qui.
+            {t('legacybanner.bodyPre')} <strong>strabar.app</strong>{t('legacybanner.bodyMid')} <strong>{t('legacybanner.notificationsWord')}</strong> {t('legacybanner.bodyPost')}
           </span>
         </div>
-        <button onClick={dismiss} aria-label="Chiudi" style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, padding: '4px', background: 'none', border: 'none' }}>
+        <button onClick={dismiss} aria-label={t('legacybanner.close')} style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, padding: '4px', background: 'none', border: 'none' }}>
           <X size={18} />
         </button>
       </div>
@@ -72,7 +74,7 @@ export default function LegacyMigrationBanner() {
         className="btn btn-primary"
         style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '11px', borderRadius: '24px', fontWeight: 700, fontSize: '14px', textDecoration: 'none' }}
       >
-        <Download size={16} /> Reinstalla l&apos;app
+        <Download size={16} /> {t('legacybanner.reinstall')}
       </a>
     </div>
   );

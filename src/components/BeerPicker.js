@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
+import { useT } from '@/lib/i18n';
 
 // Selettore birre con TAGLIA: si sceglie prima il tipo (Bionda/Rossa/IPA/Doppio Malto),
 // poi si apre la riga delle taglie (Piccola/Media/Grande). Toccare una taglia aggiunge
 // quel drink via onPick(preset); per più birre basta toccare ancora (la quantità si regola
 // poi con i +/- nella lista). Riutilizzabile in tutti i punti di registrazione drink.
 export default function BeerPicker({ onPick, disabled = false }) {
+  const t = useT();
   const [openKey, setOpenKey] = useState(null);
   const { beerFamilies } = useDrinkCatalog();
   const open = beerFamilies.find((f) => f.key === openKey);
@@ -15,7 +17,7 @@ export default function BeerPicker({ onPick, disabled = false }) {
   return (
     <div>
       <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
-        Birra — scegli tipo e taglia:
+        {t('beerpicker.label')}
       </span>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         {beerFamilies.map((f) => {
@@ -48,9 +50,9 @@ export default function BeerPicker({ onPick, disabled = false }) {
               disabled={disabled}
               className="btn btn-secondary"
               style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'wait' : 'pointer' }}
-              title={`${preset.units.toFixed(1)} U.A. · ${preset.abv}%`}
+              title={`${preset.units.toFixed(1)} ${t('beerpicker.unitsLabel')} · ${preset.abv}%`}
             >
-              {open.label.replace(/^🍺\s*/, '🍺 ')} {preset.size} <span style={{ color: 'var(--secondary)', fontWeight: 700 }}>· {preset.abv}°</span> <span style={{ color: 'var(--text-dark-secondary)' }}>· {preset.units.toFixed(1)} U.A.</span>
+              {open.label.replace(/^🍺\s*/, '🍺 ')} {preset.size} <span style={{ color: 'var(--secondary)', fontWeight: 700 }}>· {preset.abv}°</span> <span style={{ color: 'var(--text-dark-secondary)' }}>· {preset.units.toFixed(1)} {t('beerpicker.unitsLabel')}</span>
             </button>
           ))}
         </div>

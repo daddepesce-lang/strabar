@@ -6,10 +6,12 @@ import { db } from '@/lib/db';
 import Avatar from '@/components/Avatar';
 import { publicName } from '@/lib/names';
 import { Loader, X, Search } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 // Modale follower/seguiti caricata ON-DEMAND: la lista viene scaricata solo quando si apre
 // (e si cambia scheda), non al caricamento del profilo. Riutilizzabile in u/[id] e profilo.
 export default function FollowsModal({ userId, initialTab = 'followers', counts = {}, onClose, onNavigate }) {
+  const t = useT();
   const [tab, setTab] = useState(initialTab);
   const [lists, setLists] = useState({}); // { followers: [...], following: [...] } — cache per scheda
   const [q, setQ] = useState('');
@@ -39,14 +41,14 @@ export default function FollowsModal({ userId, initialTab = 'followers', counts 
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={onClose}>
       <div className="card" style={{ width: '100%', maxWidth: 440, maxHeight: '76vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-dark)' }}>
-          <button type="button" onClick={() => { setTab('followers'); setQ(''); }} style={tabStyle('followers')}>Seguaci{counts.followers != null ? ` (${counts.followers})` : ''}</button>
-          <button type="button" onClick={() => { setTab('following'); setQ(''); }} style={tabStyle('following')}>Seguiti{counts.following != null ? ` (${counts.following})` : ''}</button>
+          <button type="button" onClick={() => { setTab('followers'); setQ(''); }} style={tabStyle('followers')}>{t('followsmodal.followers')}{counts.followers != null ? ` (${counts.followers})` : ''}</button>
+          <button type="button" onClick={() => { setTab('following'); setQ(''); }} style={tabStyle('following')}>{t('followsmodal.following')}{counts.following != null ? ` (${counts.following})` : ''}</button>
           <button onClick={onClose} className="btn btn-secondary" style={{ margin: '0 8px', padding: '4px 10px', borderRadius: '50%', minWidth: 32, height: 32 }}><X size={16} /></button>
         </div>
 
         <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-dark)', position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 22, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-          <input className="form-control" placeholder="Filtra…" value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 36, fontSize: 14, paddingLeft: 32 }} />
+          <input className="form-control" placeholder={t('followsmodal.filterPlaceholder')} value={q} onChange={(e) => setQ(e.target.value)} style={{ height: 36, fontSize: 14, paddingLeft: 32 }} />
         </div>
 
         <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -54,7 +56,7 @@ export default function FollowsModal({ userId, initialTab = 'followers', counts 
             <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-dark-secondary)' }}><Loader size={18} style={{ animation: 'spin 1s linear infinite' }} /></div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: 13 }}>
-              {tab === 'followers' ? 'Nessun seguace.' : 'Non segue nessuno.'}
+              {tab === 'followers' ? t('followsmodal.emptyFollowers') : t('followsmodal.emptyFollowing')}
             </div>
           ) : filtered.map((u) => (
             <Link

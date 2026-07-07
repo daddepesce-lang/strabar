@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Beer, X, Share, Plus, Download } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 // Rileva se l'app è già installata / in modalità standalone
 function isStandalone() {
@@ -21,6 +22,7 @@ const DISMISS_KEY = 'pwa_banner_dismissed_at';
 const DISMISS_DAYS = 7;
 
 export default function PwaInstallBanner() {
+  const t = useT();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [visible, setVisible] = useState(false);
   const [showIosHelp, setShowIosHelp] = useState(false);
@@ -110,9 +112,9 @@ export default function PwaInstallBanner() {
           <Beer size={22} fill="var(--primary)" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>Installa Strabar</strong>
+          <strong style={{ fontSize: '14px', color: '#FFF', display: 'block' }}>{t('pwabanner.title')}</strong>
           <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
-            {ios ? 'Aggiungila alla Home in 2 tap' : 'Aprila come una vera app, anche offline'}
+            {ios ? t('pwabanner.iosSubtitle') : t('pwabanner.subtitle')}
           </span>
         </div>
         <button
@@ -120,9 +122,9 @@ export default function PwaInstallBanner() {
           className="btn btn-primary"
           style={{ borderRadius: '20px', padding: '8px 14px', fontSize: '13px', fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
         >
-          <Download size={15} /> Installa
+          <Download size={15} /> {t('pwabanner.install')}
         </button>
-        <button onClick={dismiss} aria-label="Chiudi" style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, padding: '4px' }}>
+        <button onClick={dismiss} aria-label={t('pwabanner.close')} style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, padding: '4px' }}>
           <X size={18} />
         </button>
       </div>
@@ -139,21 +141,21 @@ export default function PwaInstallBanner() {
             style={{ width: '100%', maxWidth: '480px', borderRadius: '18px 18px 0 0', border: '1px solid var(--border-dark)', padding: '24px', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>Installa su iPhone 🍺</h3>
-              <button onClick={dismiss} aria-label="Chiudi" style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={20} /></button>
+              <h3 style={{ fontSize: '18px', fontWeight: 800 }}>{t('pwabanner.iosTitle')}</h3>
+              <button onClick={dismiss} aria-label={t('pwabanner.close')} style={{ color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '14px', padding: 0 }}>
               <li style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ background: 'var(--bg-input-dark)', borderRadius: '10px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Share size={18} color="var(--primary)" /></span>
-                <span style={{ fontSize: '14px' }}>Tocca l&apos;icona <strong>Condividi</strong> nella barra di Safari.</span>
+                <span style={{ fontSize: '14px' }}>{t('pwabanner.iosStep1Pre')} <strong>{t('pwabanner.iosShareBtn')}</strong> {t('pwabanner.iosStep1Post')}</span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ background: 'var(--bg-input-dark)', borderRadius: '10px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Plus size={18} color="var(--primary)" /></span>
-                <span style={{ fontSize: '14px' }}>Scegli <strong>&quot;Aggiungi alla schermata Home&quot;</strong>.</span>
+                <span style={{ fontSize: '14px' }}>{t('pwabanner.iosStep2Pre')} <strong>{t('pwabanner.iosAddToHome')}</strong>.</span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ background: 'var(--bg-input-dark)', borderRadius: '10px', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>🍻</span>
-                <span style={{ fontSize: '14px' }}>Conferma con <strong>Aggiungi</strong>: Strabar è sulla tua Home!</span>
+                <span style={{ fontSize: '14px' }}>{t('pwabanner.iosStep3Pre')} <strong>{t('pwabanner.iosAddBtn')}</strong>{t('pwabanner.iosStep3Post')}</span>
               </li>
             </ol>
           </div>

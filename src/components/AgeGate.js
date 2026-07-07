@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Beer } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 const KEY = 'strabar_age_ok';
 
 // Conferma 18+ mostrata una sola volta (memorizzata in localStorage).
 // Trattandosi di contenuti legati all'alcol, è una buona prassi di conformità.
 export default function AgeGate() {
+  const t = useT();
   const [status, setStatus] = useState('loading'); // loading | show | ok | denied
 
   useEffect(() => {
@@ -59,27 +61,27 @@ export default function AgeGate() {
 
         {status === 'denied' ? (
           <>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '10px' }}>Spiacenti 🚫</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '10px' }}>{t('agegate.deniedTitle')}</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5 }}>
-              Strabar tratta contenuti legati al consumo di alcol ed è riservato ai maggiorenni (18+). Torna a trovarci quando avrai l&apos;età.
+              {t('agegate.deniedBody')}
             </p>
           </>
         ) : (
           <>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px' }}>Hai almeno 18 anni?</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px' }}>{t('agegate.title')}</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '22px' }}>
-              Strabar contiene riferimenti al consumo di alcol ed è riservato ai maggiorenni. Confermando dichiari di avere 18 anni o più.
+              {t('agegate.body')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button onClick={confirm} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
-                Sì, ho 18 anni o più 🍻
+                {t('agegate.confirm')}
               </button>
               <button onClick={() => setStatus('denied')} className="btn btn-secondary" style={{ width: '100%', padding: '12px', borderRadius: '30px', fontSize: '14px' }}>
-                No, sono minorenne
+                {t('agegate.deny')}
               </button>
             </div>
             <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '16px' }}>
-              Bevi responsabilmente. Se bevi, non guidare.
+              {t('agegate.disclaimer')}
             </p>
           </>
         )}
