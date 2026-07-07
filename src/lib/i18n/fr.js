@@ -146,6 +146,8 @@ export const fr = {
     tabUpcoming: 'À venir',
     tabMine: 'Mes événements',
     tabInvites: 'Invitations reçues',
+    tabPast: 'Passés',
+    emptyPast: 'Aucun événement passé auquel tu as participé. Les classements des événements passés apparaissent ici. 🏆',
     loadingList: 'Chargement des événements...',
     emptyInvites: 'Aucune invitation reçue pour le moment.',
     emptyMine: 'Vous n\'avez encore créé aucun événement.',

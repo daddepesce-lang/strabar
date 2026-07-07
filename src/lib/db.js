@@ -3556,6 +3556,53 @@ export const db = {
       .sort((a, b) => new Date(a.date) - new Date(b.date));
   },
 
+  // Eventi PASSATI a cui l'utente ha partecipato (ospitati o con una sua risposta), così
+  // può riaprire la CLASSIFICA dell'evento. Query MIRATA (solo i suoi eventi) per non
+  // gonfiare l'egress: prima gli id da event_responses, poi gli eventi passati host|responded.
+  async getMyPastEvents() {
+    const user = await this.getCurrentUser();
+    if (!user) return [];
+    if (isSupabaseConfigured) {
+      const nowIso = new Date().toISOString();
+      const { data: resp } = await supabase.from('event_responses').select('event_id').eq('user_id', user.id);
+      const ids = [...new Set((resp || []).map((r) => r.event_id).filter(Boolean))];
+      const orParts = [`host_id.eq.${user.id}`];
+      if (ids.length) orParts.push(`id.in.(${ids.join(',')})`);
+      const { data, error } = await supabase
+        .from('events')
+        .select(`*, event_responses(user_id, status)`)
+        .or(orParts.join(','))
+        .lt('date', nowIso)
+        .order('date', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      const hostMap = await this._profilesByIds((data || []).map((e) => e.host_id));
+      return (data || []).map((e) => {
+        const responses = e.event_responses || [];
+        const host = hostMap[e.host_id] || { display_name: 'Organizzatore', username: 'host' };
+        return {
+          ...e,
+          host,
+          host_name: host.display_name || host.username,
+          goingCount: responses.filter((r) => r.status === 'going').length,
+          myResponse: responses.find((r) => r.user_id === user.id)?.status || null,
+          isInvited: e.host_id === user.id || (e.invited || []).includes(user.id),
+        };
+      });
+    }
+    // localStorage
+    const nowMs = Date.now();
+    const events = this.getEventsRaw();
+    const profiles = await this.getAllProfiles();
+    return events
+      .filter((e) => new Date(e.date).getTime() < nowMs && (e.host_id === user.id || (e.responses || []).some((r) => r.user_id === user.id)))
+      .map((e) => {
+        const host = profiles.find((p) => p.id === e.host_id) || { display_name: e.host_name, username: 'host' };
+        return { ...e, host, goingCount: (e.responses || []).filter((r) => r.status === 'going').length, myResponse: (e.responses || []).find((r) => r.user_id === user.id)?.status || null, isInvited: true };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  },
+
   async getEvent(eventId) {
     const user = await this.getCurrentUser();
     if (isSupabaseConfigured) {

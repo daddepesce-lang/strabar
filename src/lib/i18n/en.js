@@ -146,6 +146,8 @@ export const en = {
     tabUpcoming: 'Upcoming',
     tabMine: 'My events',
     tabInvites: 'Invites received',
+    tabPast: 'Past',
+    emptyPast: 'No past events you took part in. Leaderboards of past events show up here. 🏆',
     loadingList: 'Loading events...',
     emptyInvites: 'No invites received right now.',
     emptyMine: "You haven't created any events yet.",

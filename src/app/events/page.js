@@ -27,7 +27,9 @@ export default function EventsPage() {
   const [events, setEvents] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('upcoming'); // upcoming | mine | invites
+  const [tab, setTab] = useState('upcoming'); // upcoming | mine | invites | past
+  const [pastEvents, setPastEvents] = useState(null); // caricati SOLO al primo click su "Passati" (egress)
+  const [pastLoading, setPastLoading] = useState(false);
 
   // Form di creazione
   const [showForm, setShowForm] = useState(false);
@@ -177,11 +179,13 @@ export default function EventsPage() {
   };
 
   const now = Date.now();
-  const visibleEvents = events.filter((e) => {
-    if (tab === 'mine') return currentUser && e.host_id === currentUser.id;
-    if (tab === 'invites') return currentUser && e.host_id !== currentUser.id && (e.invited || []).includes(currentUser.id);
-    return new Date(e.date).getTime() >= now - 6 * 3600 * 1000; // prossimi
-  });
+  const visibleEvents = tab === 'past'
+    ? (pastEvents || [])
+    : events.filter((e) => {
+        if (tab === 'mine') return currentUser && e.host_id === currentUser.id;
+        if (tab === 'invites') return currentUser && e.host_id !== currentUser.id && (e.invited || []).includes(currentUser.id);
+        return new Date(e.date).getTime() >= now - 6 * 3600 * 1000; // prossimi
+      });
 
   const openCreate = () => {
     if (!currentUser) { router.push('/auth'); return; }
@@ -215,10 +219,18 @@ export default function EventsPage() {
           { key: 'upcoming', label: t('events.tabUpcoming') },
           { key: 'mine', label: t('events.tabMine') },
           { key: 'invites', label: t('events.tabInvites') },
+          { key: 'past', label: t('events.tabPast') },
         ].map((tb) => (
           <button
             key={tb.key}
-            onClick={() => setTab(tb.key)}
+            onClick={() => {
+              setTab(tb.key);
+              // "Passati": carica una sola volta, solo su richiesta (niente egress inutile).
+              if (tb.key === 'past' && pastEvents === null && !pastLoading) {
+                setPastLoading(true);
+                db.getMyPastEvents().then(setPastEvents).catch(() => setPastEvents([])).finally(() => setPastLoading(false));
+              }
+            }}
             className={`btn ${tab === tb.key ? 'btn-primary' : 'btn-secondary'}`}
             style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}
           >
@@ -228,15 +240,15 @@ export default function EventsPage() {
       </div>
 
       {/* Lista eventi */}
-      {loading ? (
+      {(loading || (tab === 'past' && pastLoading)) ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-dark-secondary)' }}>{t('events.loadingList')}</div>
       ) : visibleEvents.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '44px' }}>
           <Calendar size={36} color="var(--text-dark-secondary)" style={{ marginBottom: '12px' }} />
-          <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '18px' }}>
-            {tab === 'invites' ? t('events.emptyInvites') : tab === 'mine' ? t('events.emptyMine') : t('events.emptyUpcoming')}
+          <p style={{ color: 'var(--text-dark-secondary)', marginBottom: tab === 'past' ? 0 : '18px' }}>
+            {tab === 'past' ? t('events.emptyPast') : tab === 'invites' ? t('events.emptyInvites') : tab === 'mine' ? t('events.emptyMine') : t('events.emptyUpcoming')}
           </p>
-          <button onClick={openCreate} className="btn btn-primary"><Plus size={16} /> {t('events.createFirst')}</button>
+          {tab !== 'past' && <button onClick={openCreate} className="btn btn-primary"><Plus size={16} /> {t('events.createFirst')}</button>}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
