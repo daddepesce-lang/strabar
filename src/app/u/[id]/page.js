@@ -8,6 +8,7 @@ import { publicName, publicUsername } from '@/lib/names';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import FollowsModal from '@/components/FollowsModal';
+import { useT } from '@/lib/i18n';
 import {
   Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus, Users,
   ArrowLeft, CalendarPlus, MapPin, Sparkles,
@@ -15,6 +16,7 @@ import {
 
 export default function AthleteProfilePage({ params }) {
   const router = useRouter();
+  const t = useT();
   const { id } = use(params);
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -89,7 +91,7 @@ export default function AthleteProfilePage({ params }) {
       }
       await load();
     } catch (err) {
-      alert(err.message || 'Errore');
+      alert(err.message || t('userprofile.errorGeneric'));
     } finally {
       setBusy(false);
     }
@@ -99,7 +101,7 @@ export default function AthleteProfilePage({ params }) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div className="pulse" style={{ color: 'var(--primary)', fontSize: '20px', fontWeight: 'bold' }}>
-          Carico il profilo atleta... 🍺
+          {t('userprofile.loadingProfile')}
         </div>
       </div>
     );
@@ -108,11 +110,11 @@ export default function AthleteProfilePage({ params }) {
   if (!profile) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '50px 20px' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '10px' }}>Atleta non trovato 🤷</h2>
+        <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '10px' }}>{t('userprofile.notFoundTitle')}</h2>
         <p style={{ color: 'var(--text-dark-secondary)', marginBottom: '20px' }}>
-          Questo profilo non esiste o è stato rimosso.
+          {t('userprofile.notFoundText')}
         </p>
-        <Link href="/" className="btn btn-primary">Torna al Feed</Link>
+        <Link href="/" className="btn btn-primary">{t('userprofile.backToFeed')}</Link>
       </div>
     );
   }
@@ -138,7 +140,7 @@ export default function AthleteProfilePage({ params }) {
 
   const drinkCounts = {};
   combinedActivities.forEach((a) => (a.drinks || []).forEach((d) => { drinkCounts[d.name] = (drinkCounts[d.name] || 0) + (d.qty || 0); }));
-  let favoriteDrink = 'Nessuno';
+  let favoriteDrink = t('userprofile.noneFavorite');
   let maxQty = 0;
   Object.entries(drinkCounts).forEach(([name, qty]) => { if (qty > maxQty) { maxQty = qty; favoriteDrink = name; } });
 
@@ -172,7 +174,7 @@ export default function AthleteProfilePage({ params }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <Link href="/profile" className="action-btn" style={{ fontSize: '14px', width: 'fit-content' }}>
-        <ArrowLeft size={16} /> Indietro
+        <ArrowLeft size={16} /> {t('userprofile.back')}
       </Link>
 
       {/* Intestazione profilo amico */}
@@ -187,18 +189,18 @@ export default function AthleteProfilePage({ params }) {
               )}
               {isFriend && (
                 <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,0.12)', padding: '3px 10px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <Sparkles size={11} /> Amico
+                  <Sparkles size={11} /> {t('userprofile.friendBadge')}
                 </span>
               )}
             </h1>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginTop: '2px' }}>
               {publicUsername(profile) && <>@{publicUsername(profile)} •{' '}</>}
               <button type="button" onClick={() => setFollowsModal('following')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontSize: '14px' }}>
-                <strong style={{ color: '#FFF' }}>{followCounts.following}</strong> seguiti
+                <strong style={{ color: '#FFF' }}>{followCounts.following}</strong> {t('userprofile.following')}
               </button>
               {' • '}
               <button type="button" onClick={() => setFollowsModal('followers')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', fontSize: '14px' }}>
-                <strong style={{ color: '#FFF' }}>{followCounts.followers}</strong> seguaci
+                <strong style={{ color: '#FFF' }}>{followCounts.followers}</strong> {t('userprofile.followers')}
               </button>
             </p>
           </div>
@@ -210,14 +212,14 @@ export default function AthleteProfilePage({ params }) {
               className={`btn ${isFollowing ? 'btn-secondary' : 'btn-primary'}`}
               style={{ borderRadius: '20px' }}
             >
-              {isFollowing ? (<><UserMinus size={16} /> Smetti di seguire</>) : (<><UserPlus size={16} /> Segui</>)}
+              {isFollowing ? (<><UserMinus size={16} /> {t('userprofile.unfollow')}</>) : (<><UserPlus size={16} /> {t('userprofile.follow')}</>)}
             </button>
             <Link
               href={`/events?invite=${profile.id}`}
               className="btn btn-secondary"
               style={{ borderRadius: '20px' }}
             >
-              <CalendarPlus size={16} /> Invita a un evento
+              <CalendarPlus size={16} /> {t('userprofile.inviteToEvent')}
             </Link>
           </div>
         </div>
@@ -227,22 +229,22 @@ export default function AthleteProfilePage({ params }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ color: 'var(--primary)', marginBottom: '8px' }}><Beer size={26} /></div>
-          <span className="stat-label">Drink Totali</span>
+          <span className="stat-label">{t('userprofile.totalDrinks')}</span>
           <div style={{ fontSize: '28px', fontWeight: 800 }}>{totalDrinks}</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ color: 'var(--secondary)', marginBottom: '8px' }}><TrendingUp size={26} /></div>
-          <span className="stat-label">Unità Alcoliche</span>
+          <span className="stat-label">{t('userprofile.alcoholUnits')}</span>
           <div style={{ fontSize: '28px', fontWeight: 800 }}>{totalUnits.toFixed(1)}</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ color: '#10B981', marginBottom: '8px' }}><Clock size={26} /></div>
-          <span className="stat-label">Tempo al Tavolo</span>
+          <span className="stat-label">{t('userprofile.timeAtTable')}</span>
           <div style={{ fontSize: '28px', fontWeight: 800 }}>{Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ color: '#3B82F6', marginBottom: '8px' }}><Heart size={26} /></div>
-          <span className="stat-label">Drink Preferito</span>
+          <span className="stat-label">{t('userprofile.favoriteDrink')}</span>
           <div style={{ fontSize: '15px', fontWeight: 800, marginTop: '12px', color: 'var(--primary)', overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.25 }}>{favoriteDrink}</div>
         </div>
       </div>
@@ -257,7 +259,7 @@ export default function AthleteProfilePage({ params }) {
             <span style={{ background: 'rgba(255,255,255,0.04)', width: 52, height: 52, borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '24px' }}>🍺</span>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tasso alcolico attuale</strong>
+                <strong style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('userprofile.currentBac')}</strong>
                 <BacInfo />
                 {hasActiveLive && (
                   <span className="pulse" style={{ fontSize: '10px', fontWeight: 800, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -276,12 +278,12 @@ export default function AthleteProfilePage({ params }) {
       {/* Attività recenti */}
       <div>
         <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Users size={20} color="var(--primary)" /> Attività di {publicName(profile)}
+          <Users size={20} color="var(--primary)" /> {t('userprofile.activitiesOf', { name: publicName(profile) })}
         </h2>
 
         {combinedActivities.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '34px', color: 'var(--text-dark-secondary)' }}>
-            Questo atleta non ha ancora registrato sessioni. 🍻
+            {t('userprofile.noSessions')}
           </div>
         ) : (
           <div className="feed-list">
@@ -299,16 +301,16 @@ export default function AthleteProfilePage({ params }) {
                 )}
                 <div className="activity-stats">
                   <div className="stat-box">
-                    <span className="stat-label">Drink</span>
+                    <span className="stat-label">{t('userprofile.drink')}</span>
                     <span className="stat-value highlight">{(act.drinks || []).reduce((s, d) => s + d.qty, 0)}</span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Durata</span>
+                    <span className="stat-label">{t('userprofile.duration')}</span>
                     <span className="stat-value">{Math.floor(act.duration / 60)}h {act.duration % 60}m</span>
                   </div>
                   <div className="stat-box">
-                    <span className="stat-label">Carico</span>
-                    <span className="stat-value">{act.total_units} U.A.</span>
+                    <span className="stat-label">{t('userprofile.load')}</span>
+                    <span className="stat-value">{act.total_units} {t('userprofile.unitsAbbr')}</span>
                   </div>
                 </div>
                 {act.location && (

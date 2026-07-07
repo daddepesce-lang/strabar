@@ -11,13 +11,14 @@ import {
 } from 'lucide-react';
 
 import { publicName } from '@/lib/names';
-
-const PERIODS = [
-  { k: 'week', l: '📅 Settimana' },
-  { k: 'all', l: '♾️ Sempre' },
-];
+import { useT } from '@/lib/i18n';
 
 export default function GroupDetailPage({ params }) {
+  const t = useT();
+  const PERIODS = [
+    { k: 'week', l: t('groupdetail.periodWeek') },
+    { k: 'all', l: t('groupdetail.periodAll') },
+  ];
   const { id } = usePromise(params);
   const router = useRouter();
   const [token, setToken] = useState(null);
@@ -90,7 +91,7 @@ export default function GroupDetailPage({ params }) {
       await db.addGroupMember(id, uid);
       setAddQ(''); setAddResults([]);
       setMembers(await db.getGroupMembers(id));
-    } catch (e) { alert(e.message || 'Errore'); }
+    } catch (e) { alert(e.message || t('groupdetail.error')); }
   };
 
   const handleJoin = async () => {
@@ -98,20 +99,20 @@ export default function GroupDetailPage({ params }) {
     try {
       await db.joinGroup(id, token);
       await loadAll();
-    } catch (e) { alert(e.message || 'Errore'); }
+    } catch (e) { alert(e.message || t('groupdetail.error')); }
     finally { setBusy(false); }
   };
 
   const handleLeave = async () => {
-    if (!confirm('Vuoi lasciare la lega?')) return;
+    if (!confirm(t('groupdetail.confirmLeave'))) return;
     try { await db.leaveGroup(id); router.push('/groups'); }
-    catch (e) { alert(e.message || 'Errore'); }
+    catch (e) { alert(e.message || t('groupdetail.error')); }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Eliminare la lega per tutti? Operazione irreversibile.')) return;
+    if (!confirm(t('groupdetail.confirmDelete'))) return;
     try { await db.deleteGroup(id); router.push('/groups'); }
-    catch (e) { alert(e.message || 'Errore'); }
+    catch (e) { alert(e.message || t('groupdetail.error')); }
   };
 
   const inviteUrl = () => siteUrl(`/groups/${id}${group?.share_token ? `?t=${group.share_token}` : ''}`);
@@ -122,32 +123,32 @@ export default function GroupDetailPage({ params }) {
 
   const changeRole = async (uid, role) => {
     try { await db.setGroupRole(id, uid, role); setMembers(await db.getGroupMembers(id)); }
-    catch (e) { alert(e.message || 'Errore'); }
+    catch (e) { alert(e.message || t('groupdetail.error')); }
   };
   const removeMember = async (uid) => {
-    if (!confirm('Rimuovere questo membro dalla lega?')) return;
+    if (!confirm(t('groupdetail.confirmRemoveMember'))) return;
     try { await db.removeGroupMember(id, uid); setMembers(await db.getGroupMembers(id)); }
-    catch (e) { alert(e.message || 'Errore'); }
+    catch (e) { alert(e.message || t('groupdetail.error')); }
   };
 
   const createGroupEvent = async () => {
-    if (!evTitle.trim() || !evDate) { alert('Titolo e data sono obbligatori.'); return; }
+    if (!evTitle.trim() || !evDate) { alert(t('groupdetail.titleDateRequired')); return; }
     setBusy(true);
     try {
       await db.createEvent({ title: evTitle, date: evDate, description: evDesc, group_id: id, visibility: 'private', link_sharing: false });
       setShowEvent(false); setEvTitle(''); setEvDate(''); setEvDesc('');
       setEvents(await db.getGroupEvents(id));
-    } catch (e) { alert(e.message || 'Errore'); }
+    } catch (e) { alert(e.message || t('groupdetail.error')); }
     finally { setBusy(false); }
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-dark-secondary)' }}>Caricamento…</div>;
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-dark-secondary)' }}>{t('groupdetail.loading')}</div>;
 
   // Invitato (link) ma non ancora membro, oppure gruppo non accessibile
   if (!isMember) {
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto' }}>
-        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> Leghe</Link>
+        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> {t('groupdetail.leaguesBack')}</Link>
         <div className="card" style={{ textAlign: 'center', padding: '32px', marginTop: '16px' }}>
           <Users size={40} color="var(--primary)" style={{ margin: '0 auto 12px' }} />
           {group ? (
@@ -155,22 +156,22 @@ export default function GroupDetailPage({ params }) {
               <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{group.name}</h2>
               {group.description && <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: '8px 0' }}>{group.description}</p>}
               <button onClick={handleJoin} disabled={busy || !currentUser} className="btn btn-primary" style={{ borderRadius: '20px', padding: '12px 24px', marginTop: '12px', fontWeight: 700 }}>
-                {currentUser ? (busy ? 'Attendi…' : 'Unisciti alla lega') : 'Accedi per unirti'}
+                {currentUser ? (busy ? t('groupdetail.wait') : t('groupdetail.joinLeague')) : t('groupdetail.loginToJoin')}
               </button>
               {!currentUser && (
-                <button onClick={() => router.push(`/auth?next=${encodeURIComponent(`/groups/${id}${token ? `?t=${token}` : ''}`)}`)} className="btn btn-secondary" style={{ borderRadius: '20px', padding: '10px 20px', marginTop: '10px' }}>Accedi / Registrati</button>
+                <button onClick={() => router.push(`/auth?next=${encodeURIComponent(`/groups/${id}${token ? `?t=${token}` : ''}`)}`)} className="btn btn-secondary" style={{ borderRadius: '20px', padding: '10px 20px', marginTop: '10px' }}>{t('groupdetail.loginRegister')}</button>
               )}
             </>
           ) : token ? (
             <>
-              <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Sei stato invitato a una lega 🏆</h2>
-              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: '8px 0 16px' }}>Unisciti per vedere classifica ed eventi.</p>
+              <h2 style={{ fontSize: '18px', fontWeight: 800 }}>{t('groupdetail.invitedTitle')}</h2>
+              <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', margin: '8px 0 16px' }}>{t('groupdetail.invitedSubtitle')}</p>
               <button onClick={currentUser ? handleJoin : () => router.push(`/auth?next=${encodeURIComponent(`/groups/${id}?t=${token}`)}`)} disabled={busy} className="btn btn-primary" style={{ borderRadius: '20px', padding: '12px 24px', fontWeight: 700 }}>
-                {currentUser ? (busy ? 'Attendi…' : 'Unisciti alla lega') : 'Accedi e unisciti'}
+                {currentUser ? (busy ? t('groupdetail.wait') : t('groupdetail.joinLeague')) : t('groupdetail.loginAndJoin')}
               </button>
             </>
           ) : (
-            <p style={{ color: 'var(--text-dark-secondary)' }}>Lega non trovata o privata. Serve un invito.</p>
+            <p style={{ color: 'var(--text-dark-secondary)' }}>{t('groupdetail.notFound')}</p>
           )}
         </div>
       </div>
@@ -180,14 +181,14 @@ export default function GroupDetailPage({ params }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
       <div>
-        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> Leghe</Link>
+        <Link href="/groups" style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><ChevronLeft size={16} /> {t('groupdetail.leaguesBack')}</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '10px' }}>
           <div className="activity-avatar" style={{ width: 56, height: 56, fontSize: 22, flexShrink: 0, background: 'rgba(255,59,47,0.12)', color: 'var(--primary)' }}>{(group.name || 'G').charAt(0).toUpperCase()}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: '24px', fontWeight: 800, lineHeight: 1.1 }}>{group.name}</h1>
             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-              {group.visibility === 'public' ? <><Globe size={12} /> Pubblico</> : <><Lock size={12} /> Privato</>}
-              · {members.length} membri · {group.myRole === 'owner' ? 'Proprietario' : group.myRole === 'admin' ? 'Admin' : 'Membro'}
+              {group.visibility === 'public' ? <><Globe size={12} /> {t('groupdetail.public')}</> : <><Lock size={12} /> {t('groupdetail.private')}</>}
+              · {t('groupdetail.members', { n: members.length })} · {group.myRole === 'owner' ? t('groupdetail.roleOwner') : group.myRole === 'admin' ? t('groupdetail.roleAdmin') : t('groupdetail.roleMember')}
             </span>
           </div>
         </div>
@@ -195,23 +196,23 @@ export default function GroupDetailPage({ params }) {
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '14px' }}>
           <button onClick={() => router.push(`/log?group=${id}&groupName=${encodeURIComponent(group.name)}`)} className="btn btn-primary" style={{ borderRadius: '18px', padding: '9px 14px', fontSize: '13px', fontWeight: 700 }}>
-            <PlusCircle size={16} /> Brinda con la lega
+            <PlusCircle size={16} /> {t('groupdetail.toastWithLeague')}
           </button>
           <button onClick={copyInvite} className="btn btn-secondary" style={{ borderRadius: '18px', padding: '9px 14px', fontSize: '13px' }}>
-            <Share2 size={16} /> {copied ? 'Link copiato!' : 'Invita'}
+            <Share2 size={16} /> {copied ? t('groupdetail.linkCopied') : t('groupdetail.invite')}
           </button>
           {!isOwner && (
             <button onClick={handleLeave} className="btn btn-secondary" style={{ borderRadius: '18px', padding: '9px 14px', fontSize: '13px', color: 'var(--error)' }}>
-              <LogOut size={16} /> Lascia
+              <LogOut size={16} /> {t('groupdetail.leave')}
             </button>
           )}
         </div>
       </div>
 
       <div className="seg-tabs">
-        <button onClick={() => setTab('board')} className={`seg-tab ${tab === 'board' ? 'active' : ''}`}><Trophy size={15} /> Classifica</button>
-        <button onClick={() => setTab('events')} className={`seg-tab ${tab === 'events' ? 'active' : ''}`}><Calendar size={15} /> Eventi</button>
-        <button onClick={() => setTab('members')} className={`seg-tab ${tab === 'members' ? 'active' : ''}`}><Users size={15} /> Membri</button>
+        <button onClick={() => setTab('board')} className={`seg-tab ${tab === 'board' ? 'active' : ''}`}><Trophy size={15} /> {t('groupdetail.tabBoard')}</button>
+        <button onClick={() => setTab('events')} className={`seg-tab ${tab === 'events' ? 'active' : ''}`}><Calendar size={15} /> {t('groupdetail.tabEvents')}</button>
+        <button onClick={() => setTab('members')} className={`seg-tab ${tab === 'members' ? 'active' : ''}`}><Users size={15} /> {t('groupdetail.tabMembers')}</button>
       </div>
 
       {tab === 'board' && (
@@ -223,8 +224,8 @@ export default function GroupDetailPage({ params }) {
           </div>
           {board.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>
-              Nessuna sessione della lega {period === 'week' ? 'questa settimana' : period === 'weekend' ? 'nel weekend' : 'finora'}.<br />
-              Tocca <strong>“Brinda con la lega”</strong> per aprire la gara! 🍻
+              {t('groupdetail.emptyBoard', { period: period === 'week' ? t('groupdetail.periodThisWeek') : period === 'weekend' ? t('groupdetail.periodWeekend') : t('groupdetail.periodSoFar') })}<br />
+              {t('groupdetail.emptyBoardCtaPre')}<strong>{t('groupdetail.emptyBoardCtaAction')}</strong>{t('groupdetail.emptyBoardCtaPost')}
             </div>
           ) : (
             <div className="card" style={{ padding: '8px' }}>
@@ -233,7 +234,7 @@ export default function GroupDetailPage({ params }) {
                   <span style={{ width: 24, textAlign: 'center', fontWeight: 800, color: i === 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>{i + 1}</span>
                   <Link href={`/u/${u.user_id}`} className="activity-avatar" style={{ width: 36, height: 36, fontSize: 14, flexShrink: 0, textDecoration: 'none' }}>{(u.name || 'A').charAt(0).replace('@', '').toUpperCase()}</Link>
                   <span style={{ flex: 1, minWidth: 0, color: '#FFF', fontWeight: 600, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
-                  <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{u.units} <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>U.A.</span></span>
+                  <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{u.units} <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{t('groupdetail.unitsShort')}</span></span>
                 </div>
               ))}
             </div>
@@ -245,11 +246,11 @@ export default function GroupDetailPage({ params }) {
         <>
           {canAdmin && (
             <button onClick={() => setShowEvent(true)} className="btn btn-secondary" style={{ borderRadius: '18px', padding: '10px', alignSelf: 'flex-start' }}>
-              <Plus size={16} /> Crea evento della lega
+              <Plus size={16} /> {t('groupdetail.createLeagueEvent')}
             </button>
           )}
           {events.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>Nessun evento della lega.</div>
+            <div className="card" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dark-secondary)', fontSize: '14px' }}>{t('groupdetail.emptyEvents')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {events.map((e) => (
@@ -267,10 +268,10 @@ export default function GroupDetailPage({ params }) {
 
       {tab === 'members' && canAdmin && (
         <div className="card" style={{ padding: '12px' }}>
-          <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}><UserPlus size={14} style={{ verticalAlign: '-2px' }} /> Aggiungi un membro</label>
+          <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}><UserPlus size={14} style={{ verticalAlign: '-2px' }} /> {t('groupdetail.addMember')}</label>
           <div style={{ position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-            <input className="form-control" placeholder="Cerca per nome o @username…" value={addQ} onChange={(e) => setAddQ(e.target.value)} style={{ paddingLeft: '34px' }} />
+            <input className="form-control" placeholder={t('groupdetail.searchPlaceholder')} value={addQ} onChange={(e) => setAddQ(e.target.value)} style={{ paddingLeft: '34px' }} />
           </div>
           {addResults.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
@@ -297,23 +298,23 @@ export default function GroupDetailPage({ params }) {
                   {m.role === 'owner' && <Crown size={13} color="var(--secondary)" />}
                   {m.role === 'admin' && <Shield size={12} color="var(--primary)" />}
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{m.role === 'owner' ? 'Proprietario' : m.role === 'admin' ? 'Admin' : 'Membro'}</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{m.role === 'owner' ? t('groupdetail.roleOwner') : m.role === 'admin' ? t('groupdetail.roleAdmin') : t('groupdetail.roleMember')}</span>
               </div>
               {canAdmin && m.role !== 'owner' && m.user_id !== currentUser?.id && (
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {m.role === 'member' ? (
-                    <button onClick={() => changeRole(m.user_id, 'admin')} title="Promuovi admin" className="action-btn"><UserPlus size={16} /></button>
+                    <button onClick={() => changeRole(m.user_id, 'admin')} title={t('groupdetail.promoteAdmin')} className="action-btn"><UserPlus size={16} /></button>
                   ) : (
-                    <button onClick={() => changeRole(m.user_id, 'member')} title="Rimuovi admin" className="action-btn"><UserMinus size={16} /></button>
+                    <button onClick={() => changeRole(m.user_id, 'member')} title={t('groupdetail.demoteAdmin')} className="action-btn"><UserMinus size={16} /></button>
                   )}
-                  <button onClick={() => removeMember(m.user_id)} title="Rimuovi dalla lega" className="action-btn" style={{ color: 'var(--error)' }}><X size={16} /></button>
+                  <button onClick={() => removeMember(m.user_id)} title={t('groupdetail.removeFromLeague')} className="action-btn" style={{ color: 'var(--error)' }}><X size={16} /></button>
                 </div>
               )}
             </div>
           ))}
           {isOwner && (
             <button onClick={handleDelete} className="btn btn-secondary" style={{ width: '100%', marginTop: '10px', borderRadius: '14px', color: 'var(--error)' }}>
-              <Trash2 size={16} /> Elimina lega
+              <Trash2 size={16} /> {t('groupdetail.deleteLeague')}
             </button>
           )}
         </div>
@@ -322,13 +323,13 @@ export default function GroupDetailPage({ params }) {
       {showEvent && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '20px' }}>
           <div className="card" style={{ maxWidth: '440px', width: '100%', position: 'relative', maxHeight: '85dvh', overflowY: 'auto' }}>
-            <button onClick={() => setShowEvent(false)} aria-label="Chiudi" style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
-            <h2 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '14px', paddingRight: '36px' }}>Evento della lega</h2>
+            <button onClick={() => setShowEvent(false)} aria-label={t('groupdetail.close')} style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.06)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer' }}><X size={22} /></button>
+            <h2 style={{ fontSize: '19px', fontWeight: 800, marginBottom: '14px', paddingRight: '36px' }}>{t('groupdetail.leagueEvent')}</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <input className="form-control" placeholder="Titolo *" value={evTitle} onChange={(e) => setEvTitle(e.target.value)} />
+              <input className="form-control" placeholder={t('groupdetail.titlePlaceholder')} value={evTitle} onChange={(e) => setEvTitle(e.target.value)} />
               <input type="datetime-local" className="form-control" value={evDate} onChange={(e) => setEvDate(e.target.value)} />
-              <textarea className="form-control" rows={2} placeholder="Descrizione (opzionale)" value={evDesc} onChange={(e) => setEvDesc(e.target.value)} style={{ resize: 'none' }} />
-              <button onClick={createGroupEvent} disabled={busy} className="btn btn-primary" style={{ borderRadius: '18px', padding: '11px', fontWeight: 700 }}>{busy ? 'Attendi…' : 'Crea evento'}</button>
+              <textarea className="form-control" rows={2} placeholder={t('groupdetail.descPlaceholder')} value={evDesc} onChange={(e) => setEvDesc(e.target.value)} style={{ resize: 'none' }} />
+              <button onClick={createGroupEvent} disabled={busy} className="btn btn-primary" style={{ borderRadius: '18px', padding: '11px', fontWeight: 700 }}>{busy ? t('groupdetail.wait') : t('groupdetail.createEvent')}</button>
             </div>
           </div>
         </div>

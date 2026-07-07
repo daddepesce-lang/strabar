@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
+import { useT } from '@/lib/i18n';
 import { Bell, Beer, MessageSquare, UserPlus, Calendar, Check } from 'lucide-react';
 
 const ICONS = {
@@ -23,18 +24,19 @@ const TYPE_COLOR = {
   event_rsvp: '#10B981',
 };
 
-function timeAgo(ds) {
+function timeAgo(ds, t) {
   const diff = Date.now() - new Date(ds).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'ora';
-  if (mins < 60) return `${mins} min fa`;
+  if (mins < 1) return t('notifpage.now');
+  if (mins < 60) return t('notifpage.minAgo', { mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ore fa`;
+  if (hrs < 24) return t('notifpage.hoursAgo', { hrs });
   const days = Math.floor(hrs / 24);
-  return `${days} ${days === 1 ? 'giorno' : 'giorni'} fa`;
+  return days === 1 ? t('notifpage.dayAgo', { days }) : t('notifpage.daysAgo', { days });
 }
 
 export default function NotificationsPage() {
+  const t = useT();
   const router = useRouter();
   const [notifs, setNotifs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function NotificationsPage() {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-        <div className="pulse" style={{ color: 'var(--primary)', fontSize: '18px', fontWeight: 'bold' }}>Carico le notifiche...</div>
+        <div className="pulse" style={{ color: 'var(--primary)', fontSize: '18px', fontWeight: 'bold' }}>{t('notifpage.loading')}</div>
       </div>
     );
   }
@@ -69,8 +71,8 @@ export default function NotificationsPage() {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '50px 20px' }}>
         <Bell size={36} color="var(--text-dark-secondary)" style={{ marginBottom: '12px' }} />
-        <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '10px' }}>Accedi per vedere le notifiche</h2>
-        <Link href="/auth" className="btn btn-primary">Accedi</Link>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '10px' }}>{t('notifpage.loginPrompt')}</h2>
+        <Link href="/auth" className="btn btn-primary">{t('notifpage.login')}</Link>
       </div>
     );
   }
@@ -78,12 +80,12 @@ export default function NotificationsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '680px', margin: '0 auto', width: '100%' }}>
       <h1 style={{ fontSize: '28px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <Bell size={28} color="var(--primary)" /> Notifiche
+        <Bell size={28} color="var(--primary)" /> {t('notifpage.title')}
       </h1>
 
       {notifs.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '44px', color: 'var(--text-dark-secondary)' }}>
-          Nessuna notifica per ora. Quando qualcuno ti segue, mette Cheers o ti invita a un evento, lo vedrai qui. 🍺
+          {t('notifpage.empty')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -117,7 +119,7 @@ export default function NotificationsPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '14px', color: '#FFF', lineHeight: 1.4, overflowWrap: 'anywhere' }}>{n.message}</div>
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{timeAgo(n.created_at)}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{timeAgo(n.created_at, t)}</span>
                 </div>
                 {!n.read && (
                   <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />

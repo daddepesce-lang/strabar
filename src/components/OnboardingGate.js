@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { CONSENT_VERSION } from '@/lib/consent';
+import { useT } from '@/lib/i18n';
 import { ShieldCheck, Scale, Handshake } from 'lucide-react';
 
 // Gate post-login: se nel profilo manca qualcosa di obbligatorio, lo chiede PRIMA
@@ -23,6 +24,7 @@ const withTimeout = (p, ms = 12000) =>
   ]);
 
 export default function OnboardingGate() {
+  const t = useT();
   const [user, setUser] = useState(null);
   const [step, setStep] = useState(null); // null | 'consent' | 'marketing' | 'profile'
   const [accepted, setAccepted] = useState(false);
@@ -77,7 +79,7 @@ export default function OnboardingGate() {
       // Onboarding obbligatorio completato → segnala così la mini-guida può apparire.
       window.dispatchEvent(new Event('auth-change'));
     } catch (err) {
-      setError(err.message || 'Errore nel salvataggio. Riprova.');
+      setError(err.message || t('onboarding.errSave'));
     } finally {
       setBusy(false);
     }
@@ -93,7 +95,7 @@ export default function OnboardingGate() {
       setUser(u);
       evaluate(u);
     } catch (err) {
-      setError(err.message || 'Errore nel salvataggio. Riprova.');
+      setError(err.message || t('onboarding.errSave'));
     } finally {
       setBusy(false);
     }
@@ -101,9 +103,9 @@ export default function OnboardingGate() {
 
   const saveProfile = async () => {
     const w = parseInt(weight, 10);
-    if (!sex) { setError('Seleziona il sesso biologico.'); return; }
-    if (!(w >= 30 && w <= 250)) { setError('Inserisci un peso valido (30–250 kg).'); return; }
-    if (nameMode === 'alias' && !alias.trim()) { setError('Scrivi il nome di fantasia o scegli un\'altra opzione.'); return; }
+    if (!sex) { setError(t('onboarding.errSex')); return; }
+    if (!(w >= 30 && w <= 250)) { setError(t('onboarding.errWeight')); return; }
+    if (nameMode === 'alias' && !alias.trim()) { setError(t('onboarding.errAlias')); return; }
     setBusy(true);
     setError('');
     try {
@@ -116,7 +118,7 @@ export default function OnboardingGate() {
       setStep(null);
       window.dispatchEvent(new Event('auth-change'));
     } catch (err) {
-      setError(err.message || 'Errore nel salvataggio. Riprova.');
+      setError(err.message || t('onboarding.errSave'));
     } finally {
       setBusy(false);
     }
@@ -137,19 +139,19 @@ export default function OnboardingGate() {
             <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <Handshake size={32} />
             </div>
-            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Facciamo un patto? 🤝</h2>
+            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>{t('onboarding.pactTitle')}</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', lineHeight: 1.55, marginBottom: '10px' }}>
-              Tu ci dai l&apos;ok alle offerte. Noi ti troviamo <strong style={{ color: 'var(--text-dark-primary)' }}>sconti, eventi e le scuse perfette per uscire</strong> nei locali vicino a te. 🍻
+              {t('onboarding.pactBody1')}<strong style={{ color: 'var(--text-dark-primary)' }}>{t('onboarding.pactBodyStrong')}</strong>{t('onboarding.pactBody2')}
             </p>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', lineHeight: 1.5, marginBottom: '18px' }}>
-              I tuoi dati di consumo restano <strong style={{ color: 'var(--text-dark-primary)' }}>anonimi e aggregati</strong> — niente nome, niente profilo. Cambi idea quando vuoi dalle impostazioni.
+              {t('onboarding.pactPrivacy1')}<strong style={{ color: 'var(--text-dark-primary)' }}>{t('onboarding.pactPrivacyStrong')}</strong>{t('onboarding.pactPrivacy2')}
             </p>
             {error && <p style={{ color: '#FF7D7D', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
             <button onClick={() => acceptMarketing(true)} disabled={busy} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
-              {busy ? 'Attendi...' : 'Ci sto 🤝'}
+              {busy ? t('onboarding.waiting') : t('onboarding.pactAccept')}
             </button>
             <button onClick={() => acceptMarketing(false)} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', marginTop: '12px', width: '100%' }}>
-              No grazie
+              {t('onboarding.pactDecline')}
             </button>
           </>
         ) : step === 'consent' ? (
@@ -157,9 +159,9 @@ export default function OnboardingGate() {
             <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <ShieldCheck size={32} />
             </div>
-            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Un ultimo passo</h2>
+            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>{t('onboarding.consentTitle')}</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '18px' }}>
-              Abbiamo aggiornato i nostri documenti. Per continuare a usare Strabar devi accettare Termini e Privacy.
+              {t('onboarding.consentIntro')}
             </p>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '18px', fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: 1.5, cursor: 'pointer', textAlign: 'left' }}>
               <input
@@ -169,15 +171,15 @@ export default function OnboardingGate() {
                 style={{ width: '18px', height: '18px', marginTop: '1px', flexShrink: 0, accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
               <span>
-                Ho letto e accetto i{' '}
-                <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Termini di Servizio</Link>
-                {' '}e la{' '}
-                <Link href="/privacy" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>Privacy Policy</Link>.
+                {t('onboarding.consentCheckboxPre')}{' '}
+                <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('onboarding.consentTermsLink')}</Link>
+                {' '}{t('onboarding.consentCheckboxMid')}{' '}
+                <Link href="/privacy" target="_blank" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('onboarding.consentPrivacyLink')}</Link>.
               </span>
             </label>
             {error && <p style={{ color: '#FF7D7D', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
             <button onClick={acceptConsent} disabled={!accepted || busy} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700, opacity: !accepted || busy ? 0.6 : 1 }}>
-              {busy ? 'Attendi...' : 'Accetto e continuo'}
+              {busy ? t('onboarding.waiting') : t('onboarding.consentSubmit')}
             </button>
           </>
         ) : (
@@ -185,40 +187,40 @@ export default function OnboardingGate() {
             <div style={{ display: 'inline-flex', background: 'rgba(255, 59, 47,0.12)', padding: '14px', borderRadius: '18px', color: 'var(--primary)', marginBottom: '14px' }}>
               <Scale size={32} />
             </div>
-            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>Completa il profilo</h2>
+            <h2 style={{ fontSize: '21px', fontWeight: 800, marginBottom: '8px' }}>{t('onboarding.profileTitle')}</h2>
             <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', lineHeight: 1.5, marginBottom: '18px' }}>
-              Servono per stimare il tuo tasso alcolico in modo accurato (formula di Widmark). Restano privati.
+              {t('onboarding.profileIntro')}
             </p>
 
             <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-              <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>Sesso biologico</label>
+              <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>{t('onboarding.sexLabel')}</label>
               <div className="seg-tabs" style={{ display: 'flex', gap: '8px' }}>
-                <div className={`seg-tab ${sex === 'm' ? 'active' : ''}`} onClick={() => setSex('m')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>♂ Uomo</div>
-                <div className={`seg-tab ${sex === 'f' ? 'active' : ''}`} onClick={() => setSex('f')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>♀ Donna</div>
+                <div className={`seg-tab ${sex === 'm' ? 'active' : ''}`} onClick={() => setSex('m')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>{t('onboarding.sexMale')}</div>
+                <div className={`seg-tab ${sex === 'f' ? 'active' : ''}`} onClick={() => setSex('f')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>{t('onboarding.sexFemale')}</div>
               </div>
             </div>
 
             <div style={{ marginBottom: '18px', textAlign: 'left' }}>
-              <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>Peso (kg)</label>
+              <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>{t('onboarding.weightLabel')}</label>
               <input
                 type="number"
                 inputMode="numeric"
                 min={30}
                 max={250}
                 className="form-control"
-                placeholder="Es. 75"
+                placeholder={t('onboarding.weightPlaceholder')}
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
               />
             </div>
 
             <div style={{ marginBottom: '18px', textAlign: 'left' }}>
-              <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>Come vuoi apparire agli altri</label>
+              <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>{t('onboarding.nameModeLabel')}</label>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {[
-                  { v: 'name', t: 'Nome' },
-                  { v: 'username', t: '@username' },
-                  { v: 'alias', t: 'Fantasia' },
+                  { v: 'name', t: t('onboarding.nameModeName') },
+                  { v: 'username', t: t('onboarding.nameModeUsername') },
+                  { v: 'alias', t: t('onboarding.nameModeAlias') },
                 ].map((o) => (
                   <div key={o.v} onClick={() => setNameMode(o.v)} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '9px 4px', borderRadius: '10px', fontWeight: 700, fontSize: '13px', border: nameMode === o.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: nameMode === o.v ? 'var(--primary)' : 'var(--text-dark-primary)', background: 'var(--bg-input-dark)' }}>{o.t}</div>
                 ))}
@@ -227,7 +229,7 @@ export default function OnboardingGate() {
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Il tuo nome di fantasia"
+                  placeholder={t('onboarding.aliasPlaceholder')}
                   value={alias}
                   maxLength={40}
                   onChange={(e) => setAlias(e.target.value)}
@@ -238,10 +240,10 @@ export default function OnboardingGate() {
 
             {error && <p style={{ color: '#FF7D7D', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
             <button onClick={saveProfile} disabled={busy} className="btn btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '30px', fontSize: '16px', fontWeight: 700 }}>
-              {busy ? 'Attendi...' : 'Salva e continua'}
+              {busy ? t('onboarding.waiting') : t('onboarding.profileSubmit')}
             </button>
             <button onClick={snoozeProfile} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', fontSize: '13px', cursor: 'pointer', marginTop: '12px', width: '100%' }}>
-              Imposta più tardi
+              {t('onboarding.profileLater')}
             </button>
           </>
         )}
