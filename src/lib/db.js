@@ -1031,6 +1031,16 @@ export const db = {
     }
   },
 
+  // Salva la lingua preferita sul profilo (per le email nella lingua giusta). Best-effort,
+  // non blocca nulla se fallisce o se non sei loggato.
+  async setMyLang(lang) {
+    if (!isSupabaseConfigured || !lang) return;
+    try {
+      const user = await this.getCurrentUser();
+      if (user?.id && user.lang !== lang) await supabase.from('profiles').update({ lang }).eq('id', user.id);
+    } catch { /* noop */ }
+  },
+
   async updateProfile(userId, profileData) {
     if (isSupabaseConfigured) {
       const { error } = await supabase

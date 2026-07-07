@@ -6,10 +6,11 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { CONSENT_VERSION } from '@/lib/consent';
 import { Beer, Mail, Lock, User, AtSign, Eye, EyeOff } from 'lucide-react';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
 
 export default function AuthPage() {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -64,7 +65,7 @@ export default function AuthPage() {
       const res = await fetch('/api/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, lang: locale }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -102,7 +103,7 @@ export default function AuthPage() {
         fetch('/api/welcome', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, name: displayName }),
+          body: JSON.stringify({ email, name: displayName, lang: locale }),
         }).catch(() => {});
 
         // Se serve la conferma via email non c'è ancora una sessione: non reindirizzare.

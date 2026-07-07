@@ -9,9 +9,9 @@ import { sendPasswordResetEmail } from '@/lib/email';
 // Il link usa token_hash → la pagina /auth/reset lo verifica con verifyOtp,
 // quindi funziona anche cross-dispositivo / cross-dominio.
 export async function POST(request) {
-  let email;
+  let email, lang;
   try {
-    ({ email } = await request.json());
+    ({ email, lang } = await request.json());
   } catch {
     return NextResponse.json({ error: 'Body non valido' }, { status: 400 });
   }
@@ -43,7 +43,7 @@ export async function POST(request) {
     const tokenHash = data?.properties?.hashed_token;
     if (tokenHash) {
       const link = `${siteUrl}/auth/reset?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
-      await sendPasswordResetEmail(email, link);
+      await sendPasswordResetEmail(email, link, lang);
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

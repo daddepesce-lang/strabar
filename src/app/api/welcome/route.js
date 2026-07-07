@@ -5,11 +5,11 @@ import { sendWelcomeEmail } from '@/lib/email';
 // Invia l'email di benvenuto via Resend (best-effort).
 export async function POST(request) {
   try {
-    const { email, name } = await request.json();
+    const { email, name, lang } = await request.json();
     if (!email) {
       return NextResponse.json({ error: 'Email mancante' }, { status: 400 });
     }
-    const result = await sendWelcomeEmail(email, name);
+    const result = await sendWelcomeEmail(email, name, lang);
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error('Errore invio email di benvenuto:', err);
