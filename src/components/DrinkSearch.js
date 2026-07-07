@@ -8,6 +8,21 @@ import { useT } from '@/lib/i18n';
 // Normalizza per la ricerca: minuscolo + niente accenti, così "però" ≈ "pero".
 const norm = (s = '') => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+// Emoji del drink: usa quella già nel label; altrimenti la deduce dal NOME. I drink
+// aggiunti da admin (incluse le birre "Bionda Media 0,5L", "Lattina"…) non hanno emoji
+// nel label → prima finivano col fallback 🍸 sbagliato. Ora le birre mostrano 🍺.
+function pillEmoji(d) {
+  const m = (d.label || '').match(/^\p{Emoji}/u)?.[0];
+  if (m) return m;
+  const n = `${d.name || ''} ${d._family || ''}`.toLowerCase();
+  if (/birr|bionda|rossa|scura|ambrat|malto|\bipa\b|lager|weiss|blanche|stout|pils|artigian|lattina|analcolic/.test(n)) return '🍺';
+  if (/vino|wine|prosecco|spuman|bollicin|bianco|rosso|passito|bellini|mimosa/.test(n)) return '🍷';
+  if (/spritz|aperol|campari|negroni|americano|hugo/.test(n)) return '🍹';
+  if (/gin|vodka|\brum\b|whisky|whiskey|tequila|shot|amaro|grappa|limoncello|sambuca|cocktail|mojito|margarita|cosmopolitan|martini|sidro/.test(n)) return '🍸';
+  if (/acqua|water|coca|cola|soda|succo|\bte\b|caff/.test(n)) return '🥤';
+  return '🍹';
+}
+
 // Foglio a tutto schermo per registrare i drink in live: una barra di ricerca usabile +
 // categorie ordinate, un tap per aggiungere (anche più di uno). Sostituisce il muro di
 // bottoni. `venueDrinks` (opz.) sono i drink propri del locale, mostrati in cima.
@@ -106,7 +121,7 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
           onClick={() => add(d)}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
         >
-          <span style={{ fontSize: '15px', lineHeight: 1 }}>{(d.label || '').match(/^\p{Emoji}/u)?.[0] || '🍸'}</span>
+          <span style={{ fontSize: '15px', lineHeight: 1 }}>{pillEmoji(d)}</span>
           <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <span style={{ color: '#FFF', fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
               {(d.label || d.name).replace(/^\p{Emoji}\s*/u, '')}

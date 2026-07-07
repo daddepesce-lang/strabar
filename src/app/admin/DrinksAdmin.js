@@ -58,9 +58,14 @@ export default function DrinksAdmin() {
 
   const flash = (type, text) => { setMsg({ type, text }); setTimeout(() => setMsg((m) => (m?.text === text ? null : m)), 5000); };
 
+  // Se il drink ha un VOLUME (ml), le U.A. sono SEMPRE calcolate da volume × gradi
+  // (l'admin non deve più conoscerle). I drink vecchi senza ml mantengono le U.A. salvate.
+  const round1 = (n) => Math.round(n * 10) / 10;
+  const recalc = (d) => (Number(d.ml) > 0 ? { ...d, units: round1(uaFromVolAbv(Number(d.ml), Number(d.abv) || 0)) } : d);
+
   // Helpers di mutazione immutabile
   const updItem = (section, i, field, val) => setCat((c) => {
-    const arr = [...c[section]]; arr[i] = { ...arr[i], [field]: val }; return { ...c, [section]: arr };
+    const arr = [...c[section]]; arr[i] = recalc({ ...arr[i], [field]: val }); return { ...c, [section]: arr };
   });
   // Modifica l'etichetta e ricava da essa il "nome" (senza emoji): l'admin scrive un solo campo.
   const updLabel = (section, i, val) => setCat((c) => {
@@ -76,10 +81,10 @@ export default function DrinksAdmin() {
   const delFam = (fi) => setCat((c) => ({ ...c, beerFamilies: c.beerFamilies.filter((_, k) => k !== fi) }));
   const addFam = () => setCat((c) => ({ ...c, beerFamilies: [...c.beerFamilies, { key: `fam${Date.now()}`, label: '🍺 Nuova', abv: 5, sizes: [] }] }));
   const updSize = (fi, si, field, val) => setCat((c) => {
-    const f = [...c.beerFamilies]; const sizes = [...f[fi].sizes]; sizes[si] = { ...sizes[si], [field]: val }; f[fi] = { ...f[fi], sizes }; return { ...c, beerFamilies: f };
+    const f = [...c.beerFamilies]; const sizes = [...f[fi].sizes]; sizes[si] = recalc({ ...sizes[si], [field]: val }); f[fi] = { ...f[fi], sizes }; return { ...c, beerFamilies: f };
   });
   const delSize = (fi, si) => setCat((c) => { const f = [...c.beerFamilies]; f[fi] = { ...f[fi], sizes: f[fi].sizes.filter((_, k) => k !== si) }; return { ...c, beerFamilies: f }; });
-  const addSize = (fi) => setCat((c) => { const f = [...c.beerFamilies]; const fam = f[fi]; f[fi] = { ...fam, sizes: [...fam.sizes, { name: `${fam.label.replace(/^🍺\s*/, '')} Nuova`, abv: fam.abv, units: 1.0, label: '🍺 Nuova', size: 'Media 0,4L' }] }; return { ...c, beerFamilies: f }; });
+  const addSize = (fi) => setCat((c) => { const f = [...c.beerFamilies]; const fam = f[fi]; const nm = `${fam.label.replace(/^🍺\s*/, '')} Media 0,4L`; f[fi] = { ...fam, sizes: [...fam.sizes, { name: nm, abv: fam.abv, ml: 400, units: round1(uaFromVolAbv(400, Number(fam.abv) || 0)), label: `🍺 ${nm}`, size: 'Media 0,4L' }] }; return { ...c, beerFamilies: f }; });
 
   const save = async () => {
     // Pulisce i numeri (string vuote → 0).
@@ -183,8 +188,13 @@ export default function DrinksAdmin() {
                   <Inp value={d.label} onChange={(v) => updLabel(section, i, v)} w="100%" placeholder="es. 🍷 Vino Rosso" />
                 </label>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                  <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Gradi °<br /><Inp type="number" step="0.1" value={d.abv} onChange={(v) => updItem(section, i, 'abv', v)} w={84} /></label>
-                  <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>U.A.<br /><Inp type="number" step="0.1" value={d.units} onChange={(v) => updItem(section, i, 'units', v)} w={84} /></label>
+                  <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Volume (ml)<br /><Inp type="number" step="10" value={d.ml} onChange={(v) => updItem(section, i, 'ml', v)} w={90} placeholder="es. 400" /></label>
+                  <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Gradi °<br /><Inp type="number" step="0.1" value={d.abv} onChange={(v) => updItem(section, i, 'abv', v)} w={72} /></label>
+                  <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>U.A. {Number(d.ml) > 0 ? '(auto)' : ''}<br />
+                    {Number(d.ml) > 0
+                      ? <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--secondary)' }}>{(Number(d.units) || 0).toFixed(1)}</span>
+                      : <Inp type="number" step="0.1" value={d.units} onChange={(v) => updItem(section, i, 'units', v)} w={72} />}
+                  </div>
                   <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>BAC<br /><span style={{ fontSize: 18, fontWeight: 800, color: bacColor(rowBac(d)) }}>{rowBac(d).toFixed(2)}</span></div>
                   <div style={{ flex: 1 }} />
                   <button type="button" onClick={() => delItem(section, i)} title="Elimina" className="btn btn-secondary" style={{ padding: '8px 12px', borderRadius: 12, color: 'var(--error)' }}><Trash2 size={16} /></button>
@@ -223,9 +233,14 @@ export default function DrinksAdmin() {
                       <div key={si} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-dark)', paddingTop: 10 }}>
                         <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Nome taglia<Inp value={s.label} onChange={(v) => updSizeLabel(fi, si, v)} w="100%" placeholder="es. 🍺 Bionda Media 0,4L" /></label>
                         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Taglia<br /><Inp value={s.size} onChange={(v) => updSize(fi, si, 'size', v)} w={120} placeholder="Media 0,4L" /></label>
-                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Gradi °<br /><Inp type="number" step="0.1" value={s.abv} onChange={(v) => updSize(fi, si, 'abv', v)} w={80} /></label>
-                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>U.A.<br /><Inp type="number" step="0.1" value={s.units} onChange={(v) => updSize(fi, si, 'units', v)} w={80} /></label>
+                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Taglia<br /><Inp value={s.size} onChange={(v) => updSize(fi, si, 'size', v)} w={110} placeholder="Media 0,4L" /></label>
+                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Volume (ml)<br /><Inp type="number" step="10" value={s.ml} onChange={(v) => updSize(fi, si, 'ml', v)} w={84} placeholder="es. 400" /></label>
+                          <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>Gradi °<br /><Inp type="number" step="0.1" value={s.abv} onChange={(v) => updSize(fi, si, 'abv', v)} w={64} /></label>
+                          <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>U.A. {Number(s.ml) > 0 ? '(auto)' : ''}<br />
+                            {Number(s.ml) > 0
+                              ? <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--secondary)' }}>{(Number(s.units) || 0).toFixed(1)}</span>
+                              : <Inp type="number" step="0.1" value={s.units} onChange={(v) => updSize(fi, si, 'units', v)} w={64} />}
+                          </div>
                           <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', fontWeight: 700 }}>BAC<br /><span style={{ fontSize: 17, fontWeight: 800, color: bacColor(rowBac(s)) }}>{rowBac(s).toFixed(2)}</span></div>
                           <div style={{ flex: 1 }} />
                           <button type="button" onClick={() => delSize(fi, si)} className="btn btn-secondary" style={{ padding: '8px 12px', borderRadius: 12, color: 'var(--error)' }}><Trash2 size={15} /></button>
