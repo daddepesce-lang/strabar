@@ -16,15 +16,17 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { it } from './it';
 import { en } from './en';
 import { fr } from './fr';
+import { es } from './es';
 
 export const LOCALES = {
   it: { label: 'Italiano', flag: '🇮🇹' },
   en: { label: 'English', flag: '🇬🇧' },
   fr: { label: 'Français', flag: '🇫🇷' },
+  es: { label: 'Español', flag: '🇪🇸' },
 };
 export const DEFAULT_LOCALE = 'it';
 const STORAGE_KEY = 'strabar_lang';
-const DICTS = { it, en, fr };
+const DICTS = { it, en, fr, es };
 
 // Risolve un percorso "a.b.c" dentro un oggetto annidato.
 function lookup(dict, key) {
@@ -56,6 +58,7 @@ export function resolveInitialLocale() {
   if (nav.startsWith('it')) return 'it';
   if (nav.startsWith('en')) return 'en';
   if (nav.startsWith('fr')) return 'fr';
+  if (nav.startsWith('es')) return 'es';
   return DEFAULT_LOCALE;
 }
 
