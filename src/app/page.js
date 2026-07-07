@@ -640,11 +640,9 @@ export default function FeedPage() {
     const onFeedRefresh = () => doRefresh();
     window.addEventListener('strabar:feed-refresh', onFeedRefresh);
 
-    // App-shell: lo scroll è nel contenitore #app-scroll, non nel window.
-    const scrollTopNow = () => document.getElementById('app-scroll')?.scrollTop ?? window.scrollY;
     // Gesto pull-to-refresh (solo quando sei in cima alla pagina).
     const onStart = (e) => {
-      if (scrollTopNow() <= 0 && !refreshingRef.current) {
+      if (window.scrollY <= 0 && !refreshingRef.current) {
         pullRef.current.startY = e.touches[0].clientY;
         pullRef.current.active = true;
       } else {
@@ -654,7 +652,7 @@ export default function FeedPage() {
     const onMove = (e) => {
       if (!pullRef.current.active) return;
       const dy = e.touches[0].clientY - pullRef.current.startY;
-      if (dy > 0 && scrollTopNow() <= 0) {
+      if (dy > 0 && window.scrollY <= 0) {
         pullRef.current.dist = Math.min(dy * 0.5, 90); // resistenza
         setPullPx(pullRef.current.dist);
       } else {
