@@ -1075,13 +1075,13 @@ export default function FeedPage() {
             if (distance <= 300) {
               const newVisited = (tour.visited || []).map((v, i) => (i === cur ? { ...v, verified: true } : v));
               locationUpdate = { ...base.location, unverified: false, tour: { ...tour, visited: newVisited } };
-              verifyMessage = `✅ Sei a ${curStop.name}: tappa verificata, conta per le classifiche!`;
+              verifyMessage = t('session.stopVerifiedMsg', { name: curStop.name });
             } else {
               const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-              verifyMessage = `📍 Sei a ~${dist} da ${curStop.name}: drink registrato, ma la tappa non conta per le classifiche finché non ti avvicini.`;
+              verifyMessage = t('session.stopTooFarDrinkMsg', { dist, name: curStop.name });
             }
           } else {
-            verifyMessage = `📍 GPS non disponibile: la tappa non conta per le classifiche finché non verifichi la posizione sul posto.`;
+            verifyMessage = t('session.gpsUnavailableMsg');
           }
         }
       }
@@ -1128,7 +1128,7 @@ export default function FeedPage() {
       try { drivingWarned = localStorage.getItem(dKey) === '1'; } catch { /* noop */ }
       if (newBac >= 0.5 && !drivingWarned && currentUser?.notif_prefs?.driving !== false) {
         try { localStorage.setItem(dKey, '1'); } catch { /* noop */ }
-        triggerLocalNotification('⚠️ Limite di guida superato', 'Hai superato 0,5 g/L: NON metterti alla guida. Smaltisci con calma o chiama un taxi/NCC. 🚕');
+        triggerLocalNotification(t('session.drivingLimitTitle'), t('session.drivingLimitBody'));
       }
 
       const updatedFields = {
@@ -1162,14 +1162,14 @@ export default function FeedPage() {
       // Notifica SOLO gli eventi importanti (verifica tappa). Niente notifica per ogni
       // singolo drink: era troppo rumorosa.
       if (verifyMessage) {
-        triggerLocalNotification(locationUpdate ? 'Tappa verificata! ✅' : 'Drink registrato 🍺', verifyMessage);
+        triggerLocalNotification(locationUpdate ? t('session.stopVerifiedNotifTitle') : t('session.drinkLoggedNotifTitle'), verifyMessage);
         // Mostralo anche IN-APP per intero: la notifica di sistema tronca il testo.
         setTourMsg(verifyMessage);
         setTimeout(() => setTourMsg((m) => (m === verifyMessage ? null : m)), 9000);
       }
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione attiva:", err);
-      alert("Impossibile aggiungere il drink: " + err.message);
+      alert(`${t('session.cannotAddDrinkAlert')} ${err.message}`);
     } finally {
       addingDrinkRef.current = false;
       setAddingDrink(false);
@@ -1365,14 +1365,14 @@ export default function FeedPage() {
         const { distance } = db.checkGeofencing(stop.lat, stop.lng, pos.lat, pos.lng, Infinity);
         if (distance <= 300) {
           verified = true;
-          msg = `✅ Sei già a ${stop.name}: tappa verificata, conta per le classifiche!`;
-          setToast({ variant: 'success', title: 'Ti riconosco: sei qui! 📍', message: `${stop.name} — tappa verificata, conta per le classifiche.` });
+          msg = t('session.alreadyAtStopMsg', { name: stop.name });
+          setToast({ variant: 'success', title: t('session.recognizedToastTitle'), message: t('session.stopVerifiedToastMsg', { name: stop.name }) });
         } else {
           const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-          msg = `🧭 ${stop.name} è a ~${d}: usa "Guidami" per arrivarci, poi premi "Sono qui" per validare la tappa.`;
+          msg = t('session.stopFarNavigateMsg', { name: stop.name, dist: d });
         }
       } else {
-        msg = `📍 GPS non disponibile: quando arrivi a ${stop.name} premi "Sono qui" per validare la tappa.`;
+        msg = t('session.stopNoGpsMsg', { name: stop.name });
       }
     }
 
@@ -1397,7 +1397,7 @@ export default function FeedPage() {
       await db.updateActivity(activeSession.id, { location: newLocation });
     } catch (err) {
       console.error('Errore cambio tappa:', err);
-      alert('Impossibile passare alla tappa: ' + (err.message || err));
+      alert(`${t('session.cannotAdvanceStopAlert')} ${err.message || err}`);
     }
   };
 
@@ -1410,23 +1410,23 @@ export default function FeedPage() {
     if (!tour) return;
     const cur = tour.current || 0;
     const curStop = (tour.stops || [])[cur];
-    if (!curStop?.lat || !curStop?.lng) { setTourMsg('Questa tappa non ha coordinate: registra qui i tuoi drink.'); return; }
+    if (!curStop?.lat || !curStop?.lng) { setTourMsg(t('session.stopNoCoordsMsg')); return; }
     setCheckingStop(true);
     try {
       const pos = await getCurrentPosition();
-      if (!pos) { setTourMsg('📍 GPS non disponibile. Attiva la posizione e riprova.'); return; }
+      if (!pos) { setTourMsg(t('session.gpsRetryMsg')); return; }
       const { distance } = db.checkGeofencing(curStop.lat, curStop.lng, pos.lat, pos.lng, Infinity);
       if (distance <= 300) {
         const newVisited = (tour.visited || []).map((v, i) => (i === cur ? { ...v, verified: true } : v));
         const locationUpdate = { ...activeSession.location, unverified: false, tour: { ...tour, visited: newVisited } };
         setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
         try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
-        setTourMsg(`✅ Sei a ${curStop.name}: tappa verificata, conta per le classifiche!`);
-        setToast({ variant: 'success', title: 'Ti riconosco: sei qui! 📍', message: `${curStop.name} — tappa verificata, conta per le classifiche.` });
+        setTourMsg(t('session.stopVerifiedMsg', { name: curStop.name }));
+        setToast({ variant: 'success', title: t('session.recognizedToastTitle'), message: t('session.stopVerifiedToastMsg', { name: curStop.name }) });
       } else {
         const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-        setTourMsg(`📍 Sei a ~${dist} da ${curStop.name}: avvicinati e riprova. La tappa non conta finché non sei sul posto.`);
-        setToast({ variant: 'warning', title: 'Non ci sei ancora', message: `Sei a ~${dist} da ${curStop.name}: avvicinati e riprova.` });
+        setTourMsg(t('session.stopTooFarRetryMsg', { dist, name: curStop.name }));
+        setToast({ variant: 'warning', title: t('session.notThereYetToastTitle'), message: t('session.notThereYetToastMsg', { dist, name: curStop.name }) });
       }
     } finally {
       setCheckingStop(false);
@@ -1441,16 +1441,16 @@ export default function FeedPage() {
     setCheckingStop(true);
     try {
       const pos = await getCurrentPosition();
-      if (!pos) { setToast({ variant: 'warning', title: 'GPS non disponibile', message: 'Attiva la posizione per Strabar e riprova.' }); return; }
+      if (!pos) { setToast({ variant: 'warning', title: t('session.gpsUnavailableToastTitle'), message: t('session.gpsUnavailableToastMsg') }); return; }
       const { distance } = db.checkGeofencing(loc.lat, loc.lng, pos.lat, pos.lng, Infinity);
       if (distance <= 300) {
         const locationUpdate = { ...loc, unverified: false };
         setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
         try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
-        setToast({ variant: 'success', title: 'Ti riconosco: sei qui! 📍', message: `${loc.name || 'Locale'} — posizione confermata, la sessione conta per le classifiche.` });
+        setToast({ variant: 'success', title: t('session.recognizedToastTitle'), message: t('session.venueConfirmedToastMsg', { name: loc.name || t('session.genericVenueFallback') }) });
       } else {
         const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-        setToast({ variant: 'warning', title: 'Non ci sei ancora', message: `Sei a ~${d} dal locale: avvicinati e riprova.` });
+        setToast({ variant: 'warning', title: t('session.notThereYetToastTitle'), message: t('session.venueTooFarToastMsg', { dist: d }) });
       }
     } finally {
       setCheckingStop(false);
@@ -1488,7 +1488,7 @@ export default function FeedPage() {
       await db.updateActivity(activeSession.id, { location: newLocation });
     } catch (err) {
       console.error('Errore ritorno tappa:', err);
-      alert('Impossibile tornare alla tappa precedente: ' + (err.message || err));
+      alert(`${t('session.cannotGoBackStopAlert')} ${err.message || err}`);
     }
   };
 
@@ -1545,7 +1545,7 @@ export default function FeedPage() {
       name: venue.name,
       lat: typeof venue.lat === 'number' ? venue.lat : null,
       lng: typeof venue.lng === 'number' ? venue.lng : null,
-      note: 'Tappa extra (non in programma)',
+      note: t('session.extraStopNote'),
       unscheduled: true,
     });
     await goToTourStop(stops, cur + 1);
@@ -2588,9 +2588,9 @@ export default function FeedPage() {
                         </svg>
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                           <div style={{ fontFamily: 'var(--font-display)', fontSize: '58px', lineHeight: 0.85, color: '#FFF' }}>{liveBac.toFixed(2)}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, marginTop: '5px', letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>g/l · BAC ATTUALE <BacInfo size={12} /></div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 600, marginTop: '5px', letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>g/l · {t('session.bacRingLabel')} <BacInfo size={12} /></div>
                           {liveResidualGrams > 0 && (
-                            <div style={{ fontSize: '10px', color: 'var(--secondary)', marginTop: '2px' }}>include residuo precedente</div>
+                            <div style={{ fontSize: '10px', color: 'var(--secondary)', marginTop: '2px' }}>{t('session.residualIncluded')}</div>
                           )}
                         </div>
                       </div>
@@ -2600,7 +2600,7 @@ export default function FeedPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255, 59, 47, 0.1)', border: '1px solid rgba(255, 59, 47, 0.35)', borderRadius: '14px', padding: '11px 13px', marginBottom: '14px' }}>
                         <AlertTriangle size={20} style={{ color: '#FF6B5E', flexShrink: 0 }} />
                         <span style={{ fontSize: '12.5px', color: '#FFB0A8', fontWeight: 600, lineHeight: 1.35 }}>
-                          Sopra <strong style={{ color: '#FFF' }}>0,5 g/l</strong> — non metterti alla guida.
+                          {t('session.drivingWarnPrefix')} <strong style={{ color: '#FFF' }}>{t('session.drivingWarnValue')}</strong> — {t('session.drivingWarnSuffix')}
                         </span>
                       </div>
                     )}
@@ -2612,15 +2612,15 @@ export default function FeedPage() {
               <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
                 <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '11px', textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: 'var(--secondary)', lineHeight: 1 }}>{activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0'}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>U.A. carico</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>{t('session.statLoad')}</div>
                 </div>
                 <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '11px', textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: '#FFF', lineHeight: 1 }}>{(activeSession.drinks || []).reduce((sum, d) => sum + (d.qty || 1), 0)}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>drink</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>{t('session.statDrinksLabel')}</div>
                 </div>
                 <div style={{ flex: 1, background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '11px', textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: '#FFF', lineHeight: 1 }}>{Math.floor((elapsedMinutes || 0) / 60)}:{String((elapsedMinutes || 0) % 60).padStart(2, '0')}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>durata</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '3px' }}>{t('session.statDuration')}</div>
                 </div>
               </div>
               {/* Pannello TOUR guidato (se la sessione è una modalità percorso) */}
@@ -2648,7 +2648,7 @@ export default function FeedPage() {
                     {/* Intestazione + avanzamento del tour a SEGMENTI (uno per tappa) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '.4px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🗺️ {tour.route_name}</span>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{cur + 1} di {stops.length} tappe</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{t('session.stopCounter', { cur: cur + 1, total: stops.length })}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '18px' }}>
                       {stops.map((_, segIdx) => (
@@ -2700,7 +2700,7 @@ export default function FeedPage() {
                                         </span>
                                       )}
                                     </button>
-                                    {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)', paddingTop: '2px' }}>{isLast ? 'tappa finale' : 'in programma'}</div>}
+                                    {!isCur && !isPast && <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)', paddingTop: '2px' }}>{isLast ? t('session.stopFinal') : t('session.stopUpcoming')}</div>}
 
                                     {/* Tappa PASSATA espansa: cosa hai bevuto qui */}
                                     {isPast && open && (
@@ -2710,7 +2710,7 @@ export default function FeedPage() {
                                             <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '10px', padding: '2px 7px', opacity: 0.85 }}>{drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}</span>
                                           ))}
                                         </div>
-                                      ) : <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginTop: '4px' }}>nessun drink qui</div>
+                                      ) : <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginTop: '4px' }}>{t('session.noDrinksAtStop')}</div>
                                     )}
                                   </>
                                 );
@@ -2723,11 +2723,11 @@ export default function FeedPage() {
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '12px' }}>
                                     <div style={{ minWidth: 0 }}>
                                       <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.name}</div>
-                                      <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)', marginTop: '1px' }}>Tappa corrente</div>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-dark-tertiary)', marginTop: '1px' }}>{t('session.currentStopLabel')}</div>
                                     </div>
                                     {curStop?.lat && curStop?.lng && (
                                       <a href={`https://www.google.com/maps/dir/?api=1&destination=${curStop.lat},${curStop.lng}`} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'var(--bg-input-dark)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-dark-primary)', borderRadius: '12px', padding: '7px 12px', fontSize: '12px', fontWeight: 600 }}>
-                                        <Navigation size={14} style={{ color: 'var(--secondary)' }} /> Guidami
+                                        <Navigation size={14} style={{ color: 'var(--secondary)' }} /> {t('session.guideMeBtn')}
                                       </a>
                                     )}
                                   </div>
@@ -2735,10 +2735,10 @@ export default function FeedPage() {
                                   {!v && curStop?.lat && curStop?.lng ? (
                                     <button onClick={confirmStopPresence} disabled={checkingStop} style={{ width: '100%', fontSize: '13px', padding: '11px', borderRadius: '13px', marginBottom: '12px', fontWeight: 700, cursor: 'pointer', background: 'rgba(223, 255, 0, 0.1)', border: '1px solid rgba(223, 255, 0, 0.4)', color: 'var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
                                       {checkingStop ? <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={15} />}
-                                      {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica la tappa'}
+                                      {checkingStop ? t('session.confirmingPosition') : t('session.confirmStopBtn')}
                                     </button>
                                   ) : v ? (
-                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--secondary)', marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>✅ Verificata · conta per le classifiche</div>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--secondary)', marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>{t('session.stopVerifiedBadge')}</div>
                                   ) : null}
 
                                   {tourMsg && (
@@ -2750,17 +2750,17 @@ export default function FeedPage() {
                                   {/* Drink di questa tappa: lista con stepper (aggiungi = gestisci) */}
                                   <div style={{ marginBottom: '12px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFF' }}>Bevuti qui</span>
+                                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFF' }}>{t('session.drunkHereLabel')}</span>
                                       <span style={{ fontSize: '11px', fontWeight: 700, color: atThisStop >= target ? 'var(--error)' : 'var(--text-dark-tertiary)' }}>{atThisStop} / {target}</span>
                                     </div>
                                     {!(perStopLive[cur]?.drinks?.length > 0) && (
-                                      <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginBottom: '8px' }}>Niente ancora — aggiungi qui sotto 👇</div>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginBottom: '8px' }}>{t('session.nothingYetHint')}</div>
                                     )}
                                     {renderDrinkStepperList(perStopLive[cur]?.drinks, t('session.addDrinkHere'))}
                                   </div>
 
                                   {!(curStop?.lat && curStop?.lng) && (
-                                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>📍 Tappa extra: registra qui i drink.</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '10px' }}>{t('session.extraStopHint')}</div>
                                   )}
 
                                   {/* Foto di questa tappa */}
@@ -2771,22 +2771,22 @@ export default function FeedPage() {
                                   {/* Navigazione tappe: ⬅ / Prossima tappa → / + */}
                                   <div style={{ display: 'flex', gap: '8px' }}>
                                     {cur > 0 && (
-                                      <button onClick={handleGoBackTourStop} title="Torna alla tappa precedente" aria-label="Tappa precedente" style={{ width: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '13px', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '10px 0' }}>
+                                      <button onClick={handleGoBackTourStop} title={t('session.prevStopTitleAttr')} aria-label={t('session.prevStopAria')} style={{ width: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '13px', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '10px 0' }}>
                                         <ChevronLeft size={16} />
                                       </button>
                                     )}
                                     {nextStop ? (
                                       <button onClick={handleAdvanceTourStop} disabled={checkingStop} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px', background: 'linear-gradient(135deg, #FF3B2F, #D81A00)', color: '#FFF', fontSize: '13px', fontWeight: 700, padding: '11px', borderRadius: '13px', border: 'none', cursor: checkingStop ? 'wait' : 'pointer', opacity: checkingStop ? 0.7 : 1, boxShadow: '0 6px 18px rgba(255, 59, 47, 0.35)', minWidth: 0 }}>
                                         {checkingStop ? (
-                                          <><Loader size={15} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Controllo posizione…</span></>
+                                          <><Loader size={15} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('session.checkingPosition')}</span></>
                                         ) : (
-                                          <><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Prossima tappa</span> <ArrowRight size={15} style={{ flexShrink: 0 }} /></>
+                                          <><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('session.nextStopBtn')}</span> <ArrowRight size={15} style={{ flexShrink: 0 }} /></>
                                         )}
                                       </button>
                                     ) : (
-                                      <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center', textAlign: 'center' }}>Ultima tappa — chiudi per il recap 🏁</span>
+                                      <span style={{ flex: 1, fontSize: '11px', color: 'var(--text-dark-secondary)', alignSelf: 'center', textAlign: 'center' }}>{t('session.lastStopHint')}</span>
                                     )}
-                                    <button onClick={handleAddUnscheduledStop} title="Aggiungi una tappa non prevista" aria-label="Aggiungi tappa" style={{ width: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '13px', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '10px 0', fontSize: '18px', lineHeight: 1 }}>
+                                    <button onClick={handleAddUnscheduledStop} title={t('session.addUnscheduledTitleAttr')} aria-label={t('session.addUnscheduledAria')} style={{ width: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '13px', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '10px 0', fontSize: '18px', lineHeight: 1 }}>
                                       +
                                     </button>
                                   </div>
@@ -2824,7 +2824,7 @@ export default function FeedPage() {
                       style={{ fontSize: '13px', padding: '9px 12px', borderRadius: '14px', fontWeight: 700, border: '1px solid var(--secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     >
                       {checkingStop ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
-                      {checkingStop ? 'Verifico la posizione…' : 'Sono qui — verifica per la classifica'}
+                      {checkingStop ? t('session.confirmingPosition') : t('session.confirmPresenceBtn')}
                     </button>
                   )}
                   <button
@@ -2832,7 +2832,7 @@ export default function FeedPage() {
                     className="btn btn-secondary"
                     style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '5px', alignSelf: 'flex-start' }}
                   >
-                    📍 Cambia bar
+                    {t('session.changeVenueBtn')}
                   </button>
                 </div>
               )}
@@ -4494,13 +4494,13 @@ export default function FeedPage() {
             style={{ width: '100%', maxWidth: '480px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '22px 22px 0 0', padding: '20px', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '85dvh' }}
           >
             <div style={{ width: '40px', height: '4px', borderRadius: '4px', background: 'var(--border-dark)', margin: '0 auto 2px' }} />
-            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', textAlign: 'center' }}>➕ Tappa extra</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '-4px' }}>Cerca il locale dove ti sei fermato: con la posizione la tappa può contare per le classifiche.</p>
+            <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', textAlign: 'center' }}>{t('session.extraStopModalTitle')}</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', textAlign: 'center', marginTop: '-4px' }}>{t('session.extraStopModalDesc')}</p>
             <input
               type="text"
               value={stopQuery}
               onChange={(e) => setStopQuery(e.target.value)}
-              placeholder="Cerca un locale per nome…"
+              placeholder={t('session.searchVenuePlaceholder')}
               className="form-control"
               style={{ fontSize: '14px' }}
               autoFocus
@@ -4508,13 +4508,13 @@ export default function FeedPage() {
             <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {(stopLoading || stopSearching) && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>
-                  <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Cerco i locali…
+                  <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> {t('session.searchingVenues')}
                 </div>
               )}
               {(() => {
                 const list = stopQuery.trim().length >= 2 ? stopResults : stopNearby;
                 if (!stopLoading && !stopSearching && list.length === 0) {
-                  return <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>{stopQuery.trim().length >= 2 ? 'Nessun locale trovato.' : 'Nessun locale nelle vicinanze: cercalo per nome.'}</div>;
+                  return <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-dark-secondary)', fontSize: '13px' }}>{stopQuery.trim().length >= 2 ? t('session.noVenueFound') : t('session.noVenueNearby')}</div>;
                 }
                 return list.map((v, i) => {
                   const dist = typeof v.distance === 'number' ? (v.distance >= 1000 ? `${(v.distance / 1000).toFixed(1)} km` : `${v.distance} m`) : null;
@@ -4534,7 +4534,7 @@ export default function FeedPage() {
                 });
               })()}
             </div>
-            <button onClick={() => setStopPicker(false)} className="btn btn-secondary" style={{ width: '100%', borderRadius: '16px', padding: '10px', fontSize: '14px' }}>Annulla</button>
+            <button onClick={() => setStopPicker(false)} className="btn btn-secondary" style={{ width: '100%', borderRadius: '16px', padding: '10px', fontSize: '14px' }}>{t('common.cancel')}</button>
           </div>
         </div>
       )}
