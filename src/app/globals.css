@@ -916,6 +916,8 @@ select.form-control {
 .calendar-day.drink-level-3 { background-color: rgba(255, 59, 47, 0.7); color: #FFF; border-color: var(--primary); }
 .calendar-day.drink-level-4 { background-color: #D81A00; color: #FFF; border-color: #FF3B2F; box-shadow: 0 0 8px rgba(255, 59, 47, 0.5); }
 
+.calendar-day-empty { background: transparent; cursor: default; pointer-events: none; }
+
 /* Leaflet maps container */
 .map-container {
   height: 450px;

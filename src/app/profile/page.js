@@ -294,6 +294,8 @@ export default function ProfilePage() {
   const calMonth = calNow.getMonth(); // 0-indexed
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const monthName = calNow.toLocaleDateString(dloc, { month: 'long', year: 'numeric' });
+  // getDay() JS: 0=Domenica..6=Sabato. L'header parte da Lunedì, quindi si riconverte a 0=Lun..6=Dom.
+  const leadingBlanks = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
 
   // Mappa le attività sui giorni del mese corrente basandosi sulla data di creazione
   const getDayAlcolLevel = (dayNum) => {
@@ -540,6 +542,10 @@ export default function ProfilePage() {
                     <div key={day} className="calendar-day-header">{day}</div>
                   ))}
                   
+                  {Array.from({ length: leadingBlanks }).map((_, i) => (
+                    <div key={`blank-${i}`} className="calendar-day calendar-day-empty" />
+                  ))}
+
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const dayNum = i + 1;
                     const dayInfo = getDayAlcolLevel(dayNum);

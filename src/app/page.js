@@ -582,7 +582,7 @@ export default function FeedPage() {
           const liveBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, mins, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
           if (liveBac >= 0.5) {
             localStorage.setItem(dKey, '1');
-            triggerLocalNotification('⚠️ Limite di guida superato', 'Hai superato 0,5 g/L: NON metterti alla guida. Smaltisci con calma o chiama un taxi/NCC. 🚕');
+            triggerLocalNotification(t('session.drivingLimitTitle'), t('session.drivingLimitBody'));
           }
         }
       } catch { /* noop */ }
@@ -593,7 +593,7 @@ export default function FeedPage() {
         try {
           if (!localStorage.getItem(key)) {
             localStorage.setItem(key, '1');
-            triggerLocalNotification('La sessione live si sta per chiudere ⏳', 'Sei ancora in giro? Se non la chiudi tu, verrà chiusa automaticamente tra circa 1 ora.');
+            triggerLocalNotification(t('session.closingWarnTitle'), t('session.closingWarnBody'));
           }
         } catch { /* noop */ }
       }
@@ -602,11 +602,11 @@ export default function FeedPage() {
       if (mins >= 300) {
         db.closeSession(activeSession.id, {
           feeling: activeSession.feeling || 'Sobrio',
-          description: activeSession.description || 'Chiusa automaticamente dopo 5 ore.',
+          description: activeSession.description || t('session.autoClosedDesc'),
           duration: mins,
         })
           .then(() => {
-            triggerLocalNotification('Sessione chiusa automaticamente 🏁', 'La tua sessione live è stata chiusa dopo 5 ore.');
+            triggerLocalNotification(t('session.autoClosedTitle'), t('session.autoClosedBody'));
             setActiveSession(null);
             setShowLivePanel(false);
             if (typeof window !== 'undefined') window.dispatchEvent(new Event('strabar:live-changed'));
@@ -1557,8 +1557,8 @@ export default function FeedPage() {
   // Annulla (elimina) la sessione live in corso, con doppia conferma
   const handleCancelActiveSession = async () => {
     if (!activeSession) return;
-    if (!window.confirm('Vuoi annullare la sessione live in corso? Non verrà salvata nel tuo diario.')) return;
-    if (!window.confirm('Sei sicuro? La sessione e i drink registrati verranno eliminati definitivamente.')) return;
+    if (!window.confirm(t('session.confirmCancelLive1'))) return;
+    if (!window.confirm(t('session.confirmCancelLive2'))) return;
     try {
       await db.deleteActivity(activeSession.id);
       setActiveSession(null);
@@ -1631,7 +1631,7 @@ export default function FeedPage() {
       const drinkCount = (sess.drinks || []).reduce((n, d) => n + (d.qty || 1), 0);
       setCompletedSession({
         id: sess.id,
-        title: sess.title || 'Brindisi Live 🍻',
+        title: sess.title || t('session.defaultTitle'),
         units: parseFloat(sess.total_units || 0),
         drinkCount,
         peakBac,
@@ -2426,7 +2426,7 @@ export default function FeedPage() {
 
   // Lista unica dei drink con STEPPER [ − N + ]: aggiungere e gestire è lo stesso gesto.
   // Sotto, il bottone tratteggiato apre il picker completo (voci rapide incluse).
-  const renderDrinkStepperList = (drinksArr, addLabel = 'Aggiungi un altro drink') => {
+  const renderDrinkStepperList = (drinksArr, addLabel = t('session.addAnotherDrink')) => {
     const grouped = groupDrinks(drinksArr || []);
     return (
       <div>
@@ -2470,7 +2470,7 @@ export default function FeedPage() {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '9px' }}>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dark-primary)' }}>Foto della serata</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dark-primary)' }}>{t('session.photoStripTitle')}</span>
           {imgs.length > 0 && <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{imgs.length}</span>}
         </div>
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
@@ -2484,14 +2484,14 @@ export default function FeedPage() {
                   setActiveSession((prev) => ({ ...prev, media: updated }));
                   await db.updateActivity(activeSession.id, { media: updated });
                 }}
-                aria-label="Rimuovi foto"
+                aria-label={t('session.removePhotoAria')}
                 style={{ position: 'absolute', top: '3px', right: '3px', background: 'rgba(0,0,0,0.65)', color: '#FFF', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '13px', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >×</button>
             </div>
           ))}
           <label style={{ width: '66px', height: '66px', flexShrink: 0, borderRadius: '14px', border: '1.5px dashed rgba(255,255,255,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', color: 'var(--text-dark-secondary)', cursor: photoUploading ? 'wait' : 'pointer' }}>
             {photoUploading ? <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={20} />}
-            <span style={{ fontSize: '9px', fontWeight: 600 }}>{photoUploading ? 'Carico…' : 'Aggiungi'}</span>
+            <span style={{ fontSize: '9px', fontWeight: 600 }}>{photoUploading ? t('session.photoUploading') : t('session.photoAdd')}</span>
             <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
           </label>
         </div>
@@ -2510,25 +2510,25 @@ export default function FeedPage() {
               {/* Banner compatto: la diretta non occupa più il feed. Tocca per gestirla. */}
               <button type="button" onClick={() => setShowLivePanel(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #141419 0%, #1c130c 100%)', borderRadius: '14px', padding: '12px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 16px rgba(255,59,47,0.2)' }}>
                 <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> {t('session.liveBadge')}
                 </span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: '13px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Sei in diretta · <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> · ⏱️ {elapsedMinutes} min
+                  {t('session.liveBannerPrefix')} · <strong>{activeSession.location ? activeSession.location.name : t('session.freeSession')}</strong> · ⏱️ {elapsedMinutes} min
                 </span>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>Gestisci ›</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{t('session.manageBtn')}</span>
               </button>
 
               {showLivePanel && (
               <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 'calc(12px + env(safe-area-inset-top, 0px)) 16px 24px', overflowY: 'auto' }}>
               <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginBottom: '40px' }}>
             <div className="card" style={{ border: '1px solid rgba(255, 59, 47, 0.35)', background: activeSession.location?.tour ? 'radial-gradient(120% 50% at 50% 0%, rgba(223,255,0,0.07), transparent 60%), var(--bg-card-dark)' : 'radial-gradient(120% 60% at 50% 0%, rgba(255, 59, 47, 0.10), transparent 60%), var(--bg-card-dark)', marginBottom: '25px', position: 'relative', boxShadow: 'var(--shadow-lg)', borderRadius: '22px' }}>
-              <button onClick={() => setShowLivePanel(false)} aria-label="Chiudi" className="btn btn-secondary" style={{ position: 'absolute', top: '10px', right: '10px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
+              <button onClick={() => setShowLivePanel(false)} aria-label={t('common.close')} className="btn btn-secondary" style={{ position: 'absolute', top: '10px', right: '10px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
               {/* Header: stato live (Bebas) + timer; sotto, titolo e locale centrati */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingRight: '48px' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                   <span className="pulse" style={{ width: '9px', height: '9px', borderRadius: '50%', background: activeSession.location?.tour ? 'var(--secondary)' : 'var(--primary)', display: 'inline-block', flexShrink: 0 }} />
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: '22px', letterSpacing: '1px', lineHeight: 1, color: activeSession.location?.tour ? 'var(--secondary)' : '#FFF', whiteSpace: 'nowrap' }}>
-                    {activeSession.location?.tour ? 'LIVE SU PERCORSO' : 'IN DIRETTA'}
+                    {activeSession.location?.tour ? t('session.liveOnRoute') : t('session.liveNowBadge')}
                   </span>
                 </span>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-dark-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
@@ -2538,25 +2538,25 @@ export default function FeedPage() {
               <div style={{ textAlign: 'center', marginBottom: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '8px' }}>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-dark-primary)', wordBreak: 'break-word' }}>
-                    {activeSession.title || 'Brindisi Live 🍻'}
+                    {activeSession.title || t('session.defaultTitle')}
                   </div>
                   <span style={{ display: 'inline-flex', gap: '4px', flexShrink: 0 }}>
                     <button
                       onClick={() => setShareSheet({ id: activeSession.id, caption: `Sono in diretta su Strabar 🍻 — ${activeSession.total_units ? activeSession.total_units.toFixed(1) + ' U.A.' : 'segui la mia sessione'}!` })}
-                      title="Condividi la diretta (link o scheda social)"
-                      aria-label="Condividi la diretta"
+                      title={t('session.shareLiveTitleAttr')}
+                      aria-label={t('session.shareLiveAria')}
                       style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '3px' }}
                     ><Share2 size={14} /></button>
                     <button
                       onClick={() => handleEditActivity(activeSession)}
-                      title="Modifica titolo e dettagli"
-                      aria-label="Modifica la sessione"
+                      title={t('session.editSessionTitleAttr')}
+                      aria-label={t('session.editSessionAria')}
                       style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: '3px' }}
                     ><Edit size={14} /></button>
                   </span>
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-dark-tertiary)', marginTop: '1px' }}>
-                  📍 {activeSession.location ? activeSession.location.name : 'Sessione Libera'}
+                  📍 {activeSession.location ? activeSession.location.name : t('session.freeSession')}
                 </div>
                 {activeSession.description && (
                   <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>{activeSession.description}</p>
@@ -2756,7 +2756,7 @@ export default function FeedPage() {
                                     {!(perStopLive[cur]?.drinks?.length > 0) && (
                                       <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginBottom: '8px' }}>Niente ancora — aggiungi qui sotto 👇</div>
                                     )}
-                                    {renderDrinkStepperList(perStopLive[cur]?.drinks, 'Aggiungi un drink qui')}
+                                    {renderDrinkStepperList(perStopLive[cur]?.drinks, t('session.addDrinkHere'))}
                                   </div>
 
                                   {!(curStop?.lat && curStop?.lng) && (
@@ -2839,10 +2839,10 @@ export default function FeedPage() {
 
               {/* Stomaco pieno/vuoto (compatto): incide sulla stima del BAC */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>🍽️ Stomaco</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('session.stomachLabel')}</span>
                 <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '3px' }}>
-                  <button type="button" onClick={() => handleToggleFullStomach(false)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: !activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: !activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>Vuoto</button>
-                  <button type="button" onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>🍝 Pieno</button>
+                  <button type="button" onClick={() => handleToggleFullStomach(false)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: !activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: !activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>{t('session.stomachEmpty')}</button>
+                  <button type="button" onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>{t('session.stomachFull')}</button>
                 </div>
               </div>
 
@@ -2863,7 +2863,7 @@ export default function FeedPage() {
               {!activeSession.location?.tour && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dark-primary)' }}>Cosa stai bevendo</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dark-primary)' }}>{t('session.whatDrinking')}</span>
                   <span style={{ fontSize: '12px', color: 'var(--text-dark-tertiary)' }}>
                     {(activeSession.drinks || []).reduce((s, d) => s + (d.qty || 1), 0)} drink · {activeSession.total_units ? activeSession.total_units.toFixed(1) : '0.0'} U.A.
                   </span>
@@ -2871,7 +2871,7 @@ export default function FeedPage() {
                 {(activeSession.drinks || []).length === 0 && (
                   <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginBottom: '8px' }}>{t('session.liveNoDrinks')}</div>
                 )}
-                {renderDrinkStepperList(activeSession.drinks, (activeSession.drinks || []).length ? 'Aggiungi un altro drink' : 'Aggiungi il primo drink')}
+                {renderDrinkStepperList(activeSession.drinks, (activeSession.drinks || []).length ? t('session.addAnotherDrink') : t('session.addFirstDrink'))}
               </div>
               )}
 
@@ -2885,7 +2885,7 @@ export default function FeedPage() {
                       {t('session.pacingBody')}
                     </span>
                   </div>
-                  <button onClick={() => setPacingTip(false)} aria-label="Chiudi" style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, fontSize: '16px', lineHeight: 1, padding: '2px' }}>×</button>
+                  <button onClick={() => setPacingTip(false)} aria-label={t('common.close')} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', flexShrink: 0, fontSize: '16px', lineHeight: 1, padding: '2px' }}>×</button>
                 </div>
               )}
 
@@ -2900,7 +2900,7 @@ export default function FeedPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Cerca un amico per nome o @username..."
+                    placeholder={t('session.editSearchFriends')}
                     value={friendQuery}
                     onChange={(e) => setFriendQuery(e.target.value)}
                     style={{ height: '34px', fontSize: '12px', padding: '0 10px 0 30px' }}
@@ -2941,7 +2941,7 @@ export default function FeedPage() {
                           onClick={() => addCompanion(friendQuery.trim())}
                           style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dark-secondary)', fontSize: '12px' }}
                         >
-                          Nessun atleta registrato. Tagga &quot;<strong style={{ color: '#FFF' }}>{friendQuery.trim()}</strong>&quot; come ospite ↵
+                          {t('session.noAthleteFound')} &quot;<strong style={{ color: '#FFF' }}>{friendQuery.trim()}</strong>&quot; {t('session.tagAsGuestSuffix')}
                         </button>
                       )}
                     </div>
@@ -2983,47 +2983,46 @@ export default function FeedPage() {
                     className="btn"
                     style={{ flex: 1, borderRadius: '16px', padding: '13px', fontSize: '15px', fontWeight: 700, color: '#FFF', background: 'linear-gradient(135deg, #FF3B2F, #D81A00)', boxShadow: '0 8px 24px rgba(255, 59, 47, 0.4)' }}
                   >
-                    🏁 Termina attività
+                    {t('session.endActivityBtn')}
                   </button>
                   <button
                     onClick={handleCancelActiveSession}
                     className="btn btn-secondary"
-                    title="Annulla la sessione senza salvarla"
+                    title={t('session.cancelSessionTitleAttr')}
                     style={{ borderRadius: '16px', padding: '8px 14px', fontSize: '13px', color: 'var(--error)', flexShrink: 0 }}
                   >
-                    <Trash2 size={15} /> Annulla
+                    <Trash2 size={15} /> {t('common.cancel')}
                   </button>
                 </div>
                 <p style={{ margin: '10px 2px 0', fontSize: '11px', color: 'var(--text-dark-secondary)', textAlign: 'center', lineHeight: 1.45 }}>
-                  Chiudi con <strong style={{ color: 'var(--text-dark-primary)' }}>×</strong> per continuare a bere: la diretta resta attiva in background.
-                  <br /><strong style={{ color: 'var(--text-dark-primary)' }}>Termina</strong> la salva, <strong style={{ color: 'var(--error)' }}>Annulla</strong> la elimina.
+                  {t('session.closeHint')}
                 </p>
                 </>
               ) : (
                 <form onSubmit={handleCloseActiveSession} style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '15px', marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Stato d&apos;animo</label>
+                      <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>{t('session.moodLabel')}</label>
                       <select name="feeling" className="form-control" style={{ height: '36px', fontSize: '13px', padding: '0 8px' }}>
-                        <option value="Sobrio">Sobrio</option>
-                        <option value="Allegro">Allegro</option>
-                        <option value="Brillo Felice">Brillo Felice</option>
-                        <option value="Intenditore">Intenditore</option>
-                        <option value="Molto Caldo">Molto Caldo 🔥</option>
-                        <option value="Pieno Raso">Pieno Raso 💀</option>
+                        <option value="Sobrio">{t('session.moodSobrio')}</option>
+                        <option value="Allegro">{t('session.moodAllegro')}</option>
+                        <option value="Brillo Felice">{t('session.moodBrillo')}</option>
+                        <option value="Intenditore">{t('session.moodIntenditore')}</option>
+                        <option value="Molto Caldo">{t('session.moodCaldo')}</option>
+                        <option value="Pieno Raso">{t('session.moodPieno')}</option>
                       </select>
                     </div>
                   </div>
                   <div>
-                    <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Note sulla sessione</label>
-                    <textarea name="description" className="form-control" placeholder="Com'è andata la serata? Racconta..." rows={2} style={{ fontSize: '13px', resize: 'none' }} />
+                    <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>{t('session.notesLabel')}</label>
+                    <textarea name="description" className="form-control" placeholder={t('session.notesPlaceholder')} rows={2} style={{ fontSize: '13px', resize: 'none' }} />
                   </div>
                   <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
                     <button type="button" onClick={() => setShowCloseForm(false)} className="btn btn-secondary" style={{ flex: 1, borderRadius: '20px', fontSize: '13px', padding: '6px' }}>
-                      Annulla
+                      {t('common.cancel')}
                     </button>
                     <button type="submit" className="btn btn-primary" style={{ flex: 2, borderRadius: '20px', fontSize: '13px', padding: '6px', fontWeight: 'bold' }}>
-                      Salva e Chiudi
+                      {t('session.saveCloseBtn')}
                     </button>
                   </div>
                 </form>
@@ -4207,13 +4206,13 @@ export default function FeedPage() {
                     onChange={(e) => handleUpdateEditField('feeling', e.target.value)}
                     style={{ height: '40px', padding: '0 10px', fontSize: '14px' }}
                   >
-                    <option value="Sobrio">Sobrio</option>
-                    <option value="Allegro">Allegro</option>
-                    <option value="Brillo Felice">Brillo Felice</option>
-                    <option value="Intenditore">Intenditore</option>
-                    <option value="Molto Caldo">Molto Caldo 🔥</option>
-                    <option value="Pieno Raso">Pieno Raso 💀</option>
-                    <option value="Postumi Assicurati">Postumi Assicurati 🤕</option>
+                    <option value="Sobrio">{t('session.moodSobrio')}</option>
+                    <option value="Allegro">{t('session.moodAllegro')}</option>
+                    <option value="Brillo Felice">{t('session.moodBrillo')}</option>
+                    <option value="Intenditore">{t('session.moodIntenditore')}</option>
+                    <option value="Molto Caldo">{t('session.moodCaldo')}</option>
+                    <option value="Pieno Raso">{t('session.moodPieno')}</option>
+                    <option value="Postumi Assicurati">{t('session.moodPostumi')}</option>
                   </select>
                 </div>
               </div>
