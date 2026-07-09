@@ -1,11 +1,14 @@
 'use client';
 
+import { useT } from '@/lib/i18n';
+
 // Vera curva di ebbrezza: BAC (g/l) nel tempo — salita per assorbimento, picco,
 // discesa per smaltimento. Grafico ad area in SVG con scala UNIFORME (viewBox a
 // proporzioni fisse, width 100%): si rende identica su desktop e iOS PWA.
 // Mostra: linea del limite legale 0,5 g/l, punto di picco, riferimenti orari sull'asse
 // X e il momento in cui si scende sotto 0,5. `curve` = output di db.calculateBACCurve().
 export default function BacCurve({ curve, height = 170 }) {
+  const t = useT();
   if (!curve || !curve.series || curve.series.length < 2) return null;
   const { series, start, end, peak, belowLimit } = curve;
 
@@ -67,7 +70,7 @@ export default function BacCurve({ curve, height = 170 }) {
         {showLimit && (
           <>
             <line x1={padL} y1={fy(LIMIT)} x2={VBW - padR} y2={fy(LIMIT)} stroke="#EF4444" strokeOpacity="0.7" strokeWidth="1" strokeDasharray="4 3" />
-            <text x={padL + 1} y={fy(LIMIT) - 2.5} textAnchor="start" fontSize="8.5" fill="#FF7D7D">0,5 limite</text>
+            <text x={padL + 1} y={fy(LIMIT) - 2.5} textAnchor="start" fontSize="8.5" fill="#FF7D7D">{t('session.curveLimitLabel')}</text>
           </>
         )}
 
@@ -80,23 +83,23 @@ export default function BacCurve({ curve, height = 170 }) {
           <>
             <line x1={limitX} y1={fy(LIMIT)} x2={limitX} y2={axisY} stroke="#10B981" strokeWidth="1" strokeDasharray="3 2" />
             <circle cx={limitX} cy={fy(LIMIT)} r="2.6" fill="#10B981" stroke="#000" strokeWidth="1" />
-            <text x={limitLabelX} y={fy(LIMIT) + 11} textAnchor="middle" fontSize="9" fontWeight="700" fill="#10B981">↓0,5 · {belowLimit.label}</text>
+            <text x={limitLabelX} y={fy(LIMIT) + 11} textAnchor="middle" fontSize="9" fontWeight="700" fill="#10B981">{t('session.curveBelowLimitMarker', { time: belowLimit.label })}</text>
           </>
         )}
 
         {/* Punto e valore di picco */}
         <circle cx={peakX} cy={peakY} r="3.4" fill={color} stroke="#000" strokeWidth="1.4" />
         <text x={peakLabelX} y={peakY - 8} textAnchor="middle" fontSize="11" fontWeight="800" fill={color}>
-          picco {peak.val.toFixed(2)} g/l · {peak.label}
+          {t('session.curvePeakLabel', { val: peak.val.toFixed(2), time: peak.label })}
         </text>
       </svg>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, fontSize: 10, color: 'var(--text-dark-secondary)', marginTop: 4 }}>
-        <span>🟢 inizio {curve.startLabel}</span>
+        <span>{t('session.curveStartLabel', { time: curve.startLabel })}</span>
         {belowLimit
-          ? <span style={{ color: '#10B981' }}>🚗 sotto 0,5 g/l alle {belowLimit.label}</span>
-          : <span>sempre sotto 0,5 g/l</span>}
-        <span>🏁 sobrio {curve.endLabel}</span>
+          ? <span style={{ color: '#10B981' }}>{t('session.curveBelowLimitLabel', { time: belowLimit.label })}</span>
+          : <span>{t('session.curveAlwaysBelowLabel')}</span>}
+        <span>{t('session.curveEndLabel', { time: curve.endLabel })}</span>
       </div>
     </div>
   );

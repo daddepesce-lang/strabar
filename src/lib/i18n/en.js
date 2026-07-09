@@ -541,6 +541,15 @@ export const en = {
     searchingVenues: 'Searching venues…',
     noVenueFound: 'No venue found.',
     noVenueNearby: 'No venues nearby: search by name.',
+    bacCurveLabel: '📈 Intoxication curve (g/L)',
+    curveLimitLabel: '0.5 limit',
+    curveBelowLimitMarker: '↓0.5 · {time}',
+    curvePeakLabel: 'peak {val} g/L · {time}',
+    curveStartLabel: '🟢 start {time}',
+    curveBelowLimitLabel: '🚗 below 0.5 g/L at {time}',
+    curveAlwaysBelowLabel: 'always below 0.5 g/L',
+    curveEndLabel: '🏁 sober {time}',
+    saveEditBtn: 'Save Changes',
   },
   landing: {
     hero: {

@@ -541,6 +541,15 @@ export const fr = {
     searchingVenues: 'Recherche des établissements…',
     noVenueFound: 'Aucun établissement trouvé.',
     noVenueNearby: 'Aucun établissement à proximité : recherchez par nom.',
+    bacCurveLabel: '📈 Courbe d\'ivresse (g/L)',
+    curveLimitLabel: '0,5 limite',
+    curveBelowLimitMarker: '↓0,5 · {time}',
+    curvePeakLabel: 'pic {val} g/L · {time}',
+    curveStartLabel: '🟢 début {time}',
+    curveBelowLimitLabel: '🚗 sous 0,5 g/L à {time}',
+    curveAlwaysBelowLabel: 'toujours sous 0,5 g/L',
+    curveEndLabel: '🏁 sobre {time}',
+    saveEditBtn: 'Enregistrer les modifications',
   },
   landing: {
     hero: {

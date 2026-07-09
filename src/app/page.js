@@ -2852,7 +2852,7 @@ export default function FeedPage() {
                 if (!curve) return null;
                 return (
                   <div style={{ marginBottom: '16px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '14px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>📈 Curva di ebbrezza (g/l)</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>{t('session.bacCurveLabel')}</span>
                     <BacCurve curve={curve} height={140} />
                   </div>
                 );
@@ -4390,7 +4390,7 @@ export default function FeedPage() {
                 className="btn btn-secondary"
                 style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', borderRadius: '20px', padding: '8px 16px' }}
               >
-                <Trash2 size={14} /> Elimina
+                <Trash2 size={14} /> {t('session.deleteBtn')}
               </button>
 
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -4400,7 +4400,7 @@ export default function FeedPage() {
                   className="btn btn-secondary"
                   style={{ borderRadius: '20px', padding: '8px 16px', fontSize: '13px' }}
                 >
-                  Annulla
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -4408,7 +4408,7 @@ export default function FeedPage() {
                   className="btn btn-primary"
                   style={{ borderRadius: '20px', padding: '8px 20px', fontSize: '13px', fontWeight: 'bold' }}
                 >
-                  Salva Modifiche
+                  {t('session.saveEditBtn')}
                 </button>
               </div>
             </div>

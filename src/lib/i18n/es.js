@@ -541,6 +541,15 @@ export const es = {
     searchingVenues: 'Buscando locales…',
     noVenueFound: 'No se encontró ningún local.',
     noVenueNearby: 'No hay locales cerca: búscalo por nombre.',
+    bacCurveLabel: '📈 Curva de embriaguez (g/L)',
+    curveLimitLabel: '0,5 límite',
+    curveBelowLimitMarker: '↓0,5 · {time}',
+    curvePeakLabel: 'pico {val} g/L · {time}',
+    curveStartLabel: '🟢 inicio {time}',
+    curveBelowLimitLabel: '🚗 por debajo de 0,5 g/L a las {time}',
+    curveAlwaysBelowLabel: 'siempre por debajo de 0,5 g/L',
+    curveEndLabel: '🏁 sobrio {time}',
+    saveEditBtn: 'Guardar cambios',
   },
   landing: {
     hero: {
