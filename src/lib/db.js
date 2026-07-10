@@ -354,15 +354,18 @@ export const db = {
   // `cover_url`: URL della SOLA foto di copertina (anteprima nel feed). Leggero (una
   // stringa) → mostriamo la thumbnail senza scaricare l'intera colonna `media` (che può
   // contenere base64 pesante). Le altre foto si caricano on-demand all'apertura.
-  _SESSION_LIST_COLS: 'id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, residual_grams, cover_url, created_at',
+  _SESSION_LIST_COLS: 'id, user_id, title, description, drinks, total_units, duration, drank_with, feeling, location, bac_level, is_active, full_stomach, residual_grams, cover_url, driving_alert_sent, created_at',
   async _selectSessions(buildQuery) {
     let res = await buildQuery(this._SESSION_LIST_COLS);
     // Degrada con grazia se il DB non ha ancora la migrazione delle colonne opzionali.
+    if (res.error && /driving_alert_sent/i.test(res.error.message || '')) {
+      res = await buildQuery(this._SESSION_LIST_COLS.replace(', driving_alert_sent', ''));
+    }
     if (res.error && /residual_grams/i.test(res.error.message || '')) {
-      res = await buildQuery(this._SESSION_LIST_COLS.replace(', residual_grams', ''));
+      res = await buildQuery(this._SESSION_LIST_COLS.replace(', driving_alert_sent', '').replace(', residual_grams', ''));
     }
     if (res.error && /cover_url/i.test(res.error.message || '')) {
-      res = await buildQuery(this._SESSION_LIST_COLS.replace(', cover_url', '').replace(', residual_grams', ''));
+      res = await buildQuery(this._SESSION_LIST_COLS.replace(', driving_alert_sent', '').replace(', cover_url', '').replace(', residual_grams', ''));
     }
     return res;
   },
@@ -1233,7 +1236,13 @@ export const db = {
         // Fallback: se una colonna opzionale (is_active/cover_url) non esiste ancora nel DB,
         // rimuoviamola e riproviamo invece di far fallire tutto l'update.
         if (error.code === '42703' || /column .* does not exist/i.test(error.message || '')) {
-          const { is_active, cover_url, ended_at, ...rest } = updatedData;
+          // Rimuovi le colonne opzionali non ancora migrate e riprova (incluse le colonne
+          // dell'avviso guida in background: se la migration *_driving_alerts non è ancora
+          // applicata, l'aggiunta drink NON deve fallire — semplicemente niente push finché
+          // non si migra; l'avviso locale ad app aperta continua a funzionare).
+          const { is_active, cover_url, ended_at,
+            driving_alert_at, driving_alert_sent, driving_alert_title, driving_alert_body,
+            ...rest } = updatedData;
           if (Object.keys(rest).length > 0) {
             const { data: retryData, error: retryError } = await supabase
               .from('sessions')
@@ -1534,7 +1543,17 @@ export const db = {
       if (!d.added_at) return;
       const times = Array.isArray(d.added_times) && d.added_times.length > 0 ? d.added_times : null;
       if (times) {
-        times.forEach(t => withTs.push({ ...d, qty: 1, added_at: t, added_times: undefined }));
+        // `added_stomach` è parallelo ad `added_times` (come `added_places`): registra lo
+        // stato stomaco pieno/vuoto AL MOMENTO di ogni aggiunta. Così il picco passato non
+        // cambia più quando cambi stomaco a metà serata: ogni drink porta con sé il suo stato.
+        // Dati vecchi senza `added_stomach` → ricadono su `d.full` (poi sul default sessione).
+        const stomachs = Array.isArray(d.added_stomach) && d.added_stomach.length === times.length
+          ? d.added_stomach : null;
+        times.forEach((t, i) => withTs.push({
+          ...d, qty: 1, added_at: t,
+          full: stomachs ? stomachs[i] : d.full,
+          added_times: undefined, added_stomach: undefined,
+        }));
       } else {
         withTs.push(d);
       }
@@ -1667,19 +1686,25 @@ export const db = {
     return this._isFemale(sex) ? 0.55 : 0.68;
   },
 
-  // β = velocità di smaltimento BAC (g/l/h).
-  // Donna: ~0.14 (meno ADH epatico), Uomo: ~0.17. Fonte: Widmark, Jones & Pounder.
+  // β = velocità di smaltimento BAC (g/l/h). Media di letteratura ≈ 0.15 g/l/h.
+  // Donna ~0.14, Uomo ~0.15. NB: prima l'uomo era 0.17 (estremo alto del range):
+  // combinato con l'assorbimento lento sotto, schiacciava il picco maschile a ~65%
+  // del reale (confermato da segnalazioni sul campo → etilometro). Fonte: Jones 2010.
   _beta(sex) {
-    return this._isFemale(sex) ? 0.14 : 0.17;
+    return this._isFemale(sex) ? 0.14 : 0.15;
   },
 
-  // Frazione assorbita al tempo dt_h dopo il drink (modello esponenziale).
-  // Donna: tau più basso (minore ADH gastrico → assorbimento più rapido).
-  // Picco vuoto: Donna ~30min, Uomo ~40min; Pieno: Donna ~75min, Uomo ~90min.
+  // Frazione assorbita al tempo dt_h dopo il drink (modello esponenziale, τ = costante di
+  // tempo in ore). L'emivita reale di assorbimento a stomaco vuoto è ~10-15 min: i vecchi τ
+  // (0.28-0.35) erano troppo LENTI e, poiché l'eliminazione parte dal primo drink, gran parte
+  // dell'alcol veniva "smaltito" prima ancora di essere conteggiato → picco sottostimato,
+  // soprattutto sugli uomini (τ ancora più alto). τ ridotti per allineare il picco al reale.
+  // Donna: assorbimento un filo più rapido (minore ADH gastrico).
+  // Picco stomaco vuoto: ~20-30min; pieno: ~50-70min.
   _absorbedFraction(dt_h, fullStomach, sex) {
     if (dt_h <= 0) return 0;
     const female = this._isFemale(sex);
-    const tau = fullStomach ? (female ? 0.60 : 0.75) : (female ? 0.28 : 0.35);
+    const tau = fullStomach ? (female ? 0.40 : 0.45) : (female ? 0.15 : 0.18);
     return 1 - Math.exp(-dt_h / tau);
   },
 
@@ -1711,7 +1736,11 @@ export const db = {
     let absorbed = 0;
     parsedDrinks.forEach(d => {
       const dt_h = (refMs - new Date(d.added_at).getTime()) / 3600000;
-      absorbed += this._drinkGrams(d) * this._absorbedFraction(dt_h, fullStomach, sex);
+      // Stato stomaco PER DRINK (timbrato all'aggiunta): un drink bevuto a stomaco vuoto
+      // resta "vuoto" anche se più tardi mangi. `fullStomach` (sessione) è solo il fallback
+      // per i dati vecchi che non hanno il flag → comportamento invariato su quelli.
+      const drinkFull = (d.full === true || d.full === false) ? d.full : fullStomach;
+      absorbed += this._drinkGrams(d) * this._absorbedFraction(dt_h, drinkFull, sex);
     });
     const eliminated = eliminationPerHour * Math.max(0, (refMs - startTime) / 3600000);
     return Math.max(0, prior + absorbed - eliminated);
@@ -1743,6 +1772,28 @@ export const db = {
 
     const bac = this._netGramsAtTime(parsedDrinks, refMs, w, fullStomach, sex, priorResidualGrams) / (w * r);
     return parseFloat(bac.toFixed(2));
+  },
+
+  // Istante FUTURO in cui il BAC supererà per la prima volta `limit` (default 0,5 g/L),
+  // partendo da ADESSO. Serve a PROGRAMMARE il push in background: l'alcol continua ad
+  // assorbirsi dopo l'ultimo drink, quindi si può superare il limite ad app chiusa. Il
+  // client salva questo istante su `sessions.driving_alert_at`; una pg_cron lato Supabase
+  // invia il push quando l'istante è passato (vedi migration *_driving_alerts.sql).
+  // Ritorna ISO string, oppure null se: già sopra adesso / non lo supererà più (in discesa).
+  projectDrivingCrossingISO(drinks, created_at, durationMinutes, weightKg, fullStomach, sex, priorResidualGrams = 0, limit = 0.5) {
+    const parsedDrinks = this.getDrinksWithTimestamps(drinks, created_at, durationMinutes);
+    const w = parseFloat(weightKg) > 0 ? parseFloat(weightKg) : 70;
+    const r = this._widmarkR(sex);
+    const nowMs = Date.now();
+    const bacAt = (T) => this._netGramsAtTime(parsedDrinks, T, w, fullStomach, sex, priorResidualGrams) / (w * r);
+    if (bacAt(nowMs) >= limit) return null; // già oltre adesso → lo gestisce il notif locale
+    const lastDrink = parsedDrinks.length ? Math.max(...parsedDrinks.map(d => new Date(d.added_at).getTime())) : nowMs;
+    const endMs = lastDrink + 4 * 60 * 60 * 1000; // il picco cade entro ~3-4h dall'ultimo drink
+    const stepMs = 2 * 60 * 1000; // risoluzione 2 min: precisione più che sufficiente
+    for (let T = nowMs; T <= endMs; T += stepMs) {
+      if (bacAt(T) >= limit) return new Date(T).toISOString();
+    }
+    return null; // non supererà il limite (o è già in fase di discesa sotto soglia)
   },
 
   // BAC di PICCO della sessione: il massimo valore raggiunto lungo la curva.

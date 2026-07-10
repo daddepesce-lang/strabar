@@ -578,11 +578,15 @@ export default function FeedPage() {
       // una volta sola per sessione (guardia in localStorage condivisa con l'add-drink).
       try {
         const dKey = 'sb_driving_warned_' + activeSession.id;
-        if (!localStorage.getItem(dKey) && currentUser?.notif_prefs?.driving !== false) {
+        // Salta se già avvisato su questo device O se il server ha già mandato il push
+        // in background (driving_alert_sent) → niente doppia notifica riaprendo l'app.
+        if (!localStorage.getItem(dKey) && !activeSession.driving_alert_sent && currentUser?.notif_prefs?.driving !== false) {
           const liveBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, mins, undefined, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
           if (liveBac >= 0.5) {
             localStorage.setItem(dKey, '1');
             triggerLocalNotification(t('session.drivingLimitTitle'), t('session.drivingLimitBody'));
+            // Segna lato server che l'avviso è partito → il cron non ripete il push.
+            db.updateActivity(activeSession.id, { driving_alert_at: null, driving_alert_sent: true }).catch(() => {});
           }
         }
       } catch { /* noop */ }
@@ -985,6 +989,8 @@ export default function FeedPage() {
   };
 
   // Cambia stomaco pieno/vuoto durante la live e ricalcola subito il BAC.
+  // NON è retroattivo: i drink già registrati portano il loro stato stomaco (added_stomach),
+  // quindi cambiare qui vale solo per i drink SUCCESSIVI — il picco passato resta invariato.
   const handleToggleFullStomach = async (value) => {
     if (!activeSession || !!activeSession.full_stomach === !!value) return;
     const duration = activeSession.duration || 1;
@@ -1051,6 +1057,11 @@ export default function FeedPage() {
       newDrink.place_key = curPlace?.key || null;
       newDrink.place_name = curPlace?.name || null;
       newDrink.added_places = [curPlace || null];
+      // Timbra lo stato stomaco pieno/vuoto ATTUALE su questo drink: se più tardi cambi
+      // stomaco (es. dopo cena), questo drink NON si sposta → il picco passato resta fermo.
+      const stomachNow = !!base.full_stomach;
+      newDrink.full = stomachNow;
+      newDrink.added_stomach = [stomachNow];
       // Attribuzione ESPLICITA alla tappa corrente del tour: il drink appartiene alla
       // tappa in cui sei ORA. Prima l'assegnazione era per finestra temporale (arrivo a
       // una tappa → arrivo alla successiva): se una tappa NON veniva verificata o gli
@@ -1101,11 +1112,17 @@ export default function FeedPage() {
         const exPlaces = Array.isArray(ex.added_places) && ex.added_places.length === exTimes.length
           ? ex.added_places
           : exTimes.map(() => (ex.place_name ? { key: ex.place_key || null, name: ex.place_name } : null));
+        // Stato stomaco parallelo agli orari: le aggiunte storiche senza flag ricadono su
+        // ex.full (o false). La NUOVA aggiunta porta lo stato stomaco di adesso.
+        const exStomach = Array.isArray(ex.added_stomach) && ex.added_stomach.length === exTimes.length
+          ? ex.added_stomach
+          : exTimes.map(() => (ex.full === true));
         updatedDrinks[dupIdx] = {
           ...ex,
           qty: (ex.qty || 1) + 1,
           added_times: [...exTimes, nowStr],
           added_places: [...exPlaces, curPlace || null],
+          added_stomach: [...exStomach, stomachNow],
         };
       } else {
         updatedDrinks = [...currentDrinks, newDrink];
@@ -1126,9 +1143,32 @@ export default function FeedPage() {
       const dKey = 'sb_driving_warned_' + activeSession.id;
       let drivingWarned = false;
       try { drivingWarned = localStorage.getItem(dKey) === '1'; } catch { /* noop */ }
-      if (newBac >= 0.5 && !drivingWarned && currentUser?.notif_prefs?.driving !== false) {
+      // "Già avvisato" = notifica locale mostrata su QUESTO device (localStorage) OPPURE
+      // push già inviato dal server (driving_alert_sent). Così non parte una seconda
+      // notifica se l'utente apre l'app dopo aver ricevuto il push in background.
+      const alreadyAlerted = drivingWarned || !!base.driving_alert_sent;
+      const drivingPrefOn = currentUser?.notif_prefs?.driving !== false;
+      if (newBac >= 0.5 && !alreadyAlerted && drivingPrefOn) {
         try { localStorage.setItem(dKey, '1'); } catch { /* noop */ }
         triggerLocalNotification(t('session.drivingLimitTitle'), t('session.drivingLimitBody'));
+      }
+
+      // PROGRAMMAZIONE PUSH BACKGROUND per il superamento di 0,5 (app chiusa).
+      // Foldato nella stessa updateActivity qui sotto → nessuna richiesta/egress extra.
+      //  • già ≥0,5 adesso  → l'ha gestito il notif locale (se app aperta): blocca il cron.
+      //  • <0,5 ma salirà   → salva l'istante di superamento + testo localizzato: il cron
+      //                        (pg_cron Supabase) invierà il push a quell'ora, anche ad app chiusa.
+      //  • non supererà     → azzera un'eventuale programmazione stale.
+      let drivingAlertFields = {};
+      if (!drivingPrefOn) {
+        drivingAlertFields = {}; // preferenza off → non programmare nulla
+      } else if (newBac >= 0.5) {
+        drivingAlertFields = { driving_alert_at: null, driving_alert_sent: true };
+      } else if (!alreadyAlerted) {
+        const crossISO = db.projectDrivingCrossingISO(updatedDrinks, activeSession.created_at, duration, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
+        drivingAlertFields = crossISO
+          ? { driving_alert_at: crossISO, driving_alert_sent: false, driving_alert_title: t('session.drivingLimitTitle'), driving_alert_body: t('session.drivingLimitBody') }
+          : { driving_alert_at: null };
       }
 
       const updatedFields = {
@@ -1136,6 +1176,7 @@ export default function FeedPage() {
         total_units: parseFloat(newTotalUnits.toFixed(1)),
         duration: duration,
         bac_level: parseFloat(newBac.toFixed(2)),
+        ...drivingAlertFields,
         ...(locationUpdate ? { location: locationUpdate } : {})
       };
 
@@ -1149,15 +1190,23 @@ export default function FeedPage() {
       // PRIMO drink della live → invita a scattare una foto: poche persone le caricano e
       // un feed con foto è molto più bello. Una sola volta per sessione, e disattivabile
       // per sempre ("non chiedermelo più", salvato in locale → zero costi DB/egress).
-      try {
-        const hasPhoto = (base.media || []).some((m) => m.type === 'image') || !!base.cover_url;
-        const optedOut = localStorage.getItem('strabar_photo_prompt_off') === '1';
-        const sKey = `strabar_photo_prompt_${activeSession.id}`;
-        if (wasFirstDrink && !hasPhoto && !optedOut && sessionStorage.getItem(sKey) !== '1') {
-          sessionStorage.setItem(sKey, '1');
-          setShowPhotoPrompt(true);
-        }
-      } catch { /* storage non disponibile: nessun prompt */ }
+      //
+      // iOS FIX: su iPhone in PWA / Navigazione privata l'accesso a session/localStorage può
+      // LANCIARE (SecurityError/QuotaExceeded). Prima tutto il blocco era in un try/catch e la
+      // scrittura su sessionStorage stava PRIMA di setShowPhotoPrompt: se falliva, il prompt
+      // non appariva mai (Android non ha questo problema → "su Android va, su iPhone no").
+      // Ora: letture difensive (se lo storage non è leggibile, mostriamo comunque), stato
+      // impostato PRIMA, e la persistenza del guard è isolata in un try/catch che non può
+      // impedire il prompt.
+      const safeGet = (store, key) => { try { return store.getItem(key); } catch { return null; } };
+      const hasPhoto = (base.media || []).some((m) => m.type === 'image') || !!base.cover_url;
+      const optedOut = safeGet(localStorage, 'strabar_photo_prompt_off') === '1';
+      const sKey = `strabar_photo_prompt_${activeSession.id}`;
+      const alreadyShown = safeGet(sessionStorage, sKey) === '1';
+      if (wasFirstDrink && !hasPhoto && !optedOut && !alreadyShown) {
+        setShowPhotoPrompt(true);
+        try { sessionStorage.setItem(sKey, '1'); } catch { /* storage non scrivibile: pazienza */ }
+      }
 
       // Notifica SOLO gli eventi importanti (verifica tappa). Niente notifica per ogni
       // singolo drink: era troppo rumorosa.
