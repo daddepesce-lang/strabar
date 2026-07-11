@@ -1695,16 +1695,20 @@ export const db = {
   },
 
   // Frazione assorbita al tempo dt_h dopo il drink (modello esponenziale, τ = costante di
-  // tempo in ore). L'emivita reale di assorbimento a stomaco vuoto è ~10-15 min: i vecchi τ
-  // (0.28-0.35) erano troppo LENTI e, poiché l'eliminazione parte dal primo drink, gran parte
-  // dell'alcol veniva "smaltito" prima ancora di essere conteggiato → picco sottostimato,
-  // soprattutto sugli uomini (τ ancora più alto). τ ridotti per allineare il picco al reale.
-  // Donna: assorbimento un filo più rapido (minore ADH gastrico).
-  // Picco stomaco vuoto: ~20-30min; pieno: ~50-70min.
+  // tempo in ore). CALIBRAZIONE v2 su dati reali (200 sessioni) confrontati con la formula
+  // Widmark standard degli etilometri  BAC_picco ≈ A/(r·W) − β·T :
+  //   • vuoto: i vecchi τ (0.15-0.18) davano solo il 79-93% dello standard (picco sotto il
+  //     reale su sessioni corte/singolo drink). τ ridotti (0.10-0.12, emivita ~7-8 min, entro
+  //     il range fisiologico dello stomaco vuoto) → ora ~90% dello standard (leggermente cauto).
+  //   • pieno: i vecchi τ (0.40-0.45) schiacciavano il picco al 46-87% dello standard, troppo
+  //     (il cibo riduce il picco del ~9-23%, non del 50%). τ 0.26-0.30 → riduzione realistica
+  //     ~10-15% rispetto allo stomaco vuoto.
+  // Sotto-stima = lato PERICOLOSO per un'app anti-guida (dice "sei sotto 0,5" a chi è sopra):
+  // meglio allineati/leggermente cauti. Donna: assorbimento un filo più rapido (meno ADH gastrico).
   _absorbedFraction(dt_h, fullStomach, sex) {
     if (dt_h <= 0) return 0;
     const female = this._isFemale(sex);
-    const tau = fullStomach ? (female ? 0.40 : 0.45) : (female ? 0.15 : 0.18);
+    const tau = fullStomach ? (female ? 0.26 : 0.30) : (female ? 0.10 : 0.12);
     return 1 - Math.exp(-dt_h / tau);
   },
 

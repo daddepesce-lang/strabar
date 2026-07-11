@@ -989,14 +989,35 @@ export default function FeedPage() {
   };
 
   // Cambia stomaco pieno/vuoto durante la live e ricalcola subito il BAC.
-  // NON è retroattivo: i drink già registrati portano il loro stato stomaco (added_stomach),
-  // quindi cambiare qui vale solo per i drink SUCCESSIVI — il picco passato resta invariato.
+  // NON è retroattivo — e lo garantiamo anche sui drink VECCHI (loggati prima che esistesse
+  // added_stomach): prima di cambiare, "CONGELIAMO" ogni drink già registrato con lo stato
+  // stomaco ATTUALE. Da quel momento il nuovo valore vale solo per i drink SUCCESSIVI, quindi
+  // il picco già raggiunto non si abbassa mai (fisiologicamente corretto: l'alcol già in
+  // circolo non si può "dis-assorbire"; il cibo rallenta solo l'assorbimento di ciò che
+  // entra DOPO). Gestisce anche pieno→vuoto (es. tocco per errore): ogni drink resta con lo
+  // stato del suo momento.
   const handleToggleFullStomach = async (value) => {
     if (!activeSession || !!activeSession.full_stomach === !!value) return;
+    const cur = !!activeSession.full_stomach; // stato sotto cui sono stati bevuti i drink finora
+    const frozen = (activeSession.drinks || []).map((d) => {
+      const times = Array.isArray(d.added_times) && d.added_times.length
+        ? d.added_times
+        : (d.added_at ? [d.added_at] : []);
+      const added_stomach = (Array.isArray(d.added_stomach) && d.added_stomach.length === times.length)
+        ? d.added_stomach
+        : times.map(() => cur);
+      return {
+        ...d,
+        full: (d.full === true || d.full === false) ? d.full : cur,
+        ...(times.length ? { added_stomach } : {}),
+      };
+    });
     const duration = activeSession.duration || 1;
-    const newBac = db.calculateCurrentBAC(activeSession.drinks || [], activeSession.created_at, duration, undefined, currentUser?.weight, value, currentUser?.sex, liveResidualGrams);
-    const updated = { full_stomach: value, bac_level: parseFloat(newBac.toFixed(2)) };
+    // Ricalcolo sui drink CONGELATI: `value` è solo il default per i (nuovi) drink futuri.
+    const newBac = db.calculateCurrentBAC(frozen, activeSession.created_at, duration, undefined, currentUser?.weight, value, currentUser?.sex, liveResidualGrams);
+    const updated = { drinks: frozen, full_stomach: value, bac_level: parseFloat(newBac.toFixed(2)) };
     setActiveSession((prev) => (prev ? { ...prev, ...updated } : prev));
+    patchActivity(activeSession.id, (a) => ({ ...a, ...updated }));
     try {
       await db.updateActivity(activeSession.id, updated);
     } catch (err) {
@@ -1180,24 +1201,15 @@ export default function FeedPage() {
         ...(locationUpdate ? { location: locationUpdate } : {})
       };
 
-      await db.updateActivity(activeSession.id, updatedFields);
-
-      // Aggiorna lo stato locale SENZA ricaricare tutto il feed (più leggero e veloce
-      // quando ci sono più utenti collegati). Il feed completo si aggiorna agli eventi chiave.
-      setActiveSession((prev) => (prev ? { ...prev, ...updatedFields } : prev));
-      patchActivity(activeSession.id, (a) => ({ ...a, ...updatedFields }));
-
-      // PRIMO drink della live → invita a scattare una foto: poche persone le caricano e
-      // un feed con foto è molto più bello. Una sola volta per sessione, e disattivabile
-      // per sempre ("non chiedermelo più", salvato in locale → zero costi DB/egress).
+      // PRIMO drink della live → invita a scattare una foto: poche persone le caricano e un
+      // feed con foto è molto più bello. Una sola volta per sessione, disattivabile per sempre.
       //
-      // iOS FIX: su iPhone in PWA / Navigazione privata l'accesso a session/localStorage può
-      // LANCIARE (SecurityError/QuotaExceeded). Prima tutto il blocco era in un try/catch e la
-      // scrittura su sessionStorage stava PRIMA di setShowPhotoPrompt: se falliva, il prompt
-      // non appariva mai (Android non ha questo problema → "su Android va, su iPhone no").
-      // Ora: letture difensive (se lo storage non è leggibile, mostriamo comunque), stato
-      // impostato PRIMA, e la persistenza del guard è isolata in un try/catch che non può
-      // impedire il prompt.
+      // iOS FIX (2 cause distinte):
+      //  1) session/localStorage su iPhone PWA/Navigazione privata può LANCIARE → letture
+      //     difensive (safeGet) e stato impostato PRIMA della persistenza del guard.
+      //  2) Questo blocco stava DOPO `await db.updateActivity`: su iOS con rete instabile la
+      //     scrittura poteva fallire e il prompt non partiva mai. Ora sta PRIMA della scrittura,
+      //     così dipende solo dal fatto che sia il primo drink, non dalla rete.
       const safeGet = (store, key) => { try { return store.getItem(key); } catch { return null; } };
       const hasPhoto = (base.media || []).some((m) => m.type === 'image') || !!base.cover_url;
       const optedOut = safeGet(localStorage, 'strabar_photo_prompt_off') === '1';
@@ -1207,6 +1219,13 @@ export default function FeedPage() {
         setShowPhotoPrompt(true);
         try { sessionStorage.setItem(sKey, '1'); } catch { /* storage non scrivibile: pazienza */ }
       }
+
+      // Aggiorna subito lo stato locale (ottimistico), poi persisti. Il feed completo si
+      // aggiorna agli eventi chiave.
+      setActiveSession((prev) => (prev ? { ...prev, ...updatedFields } : prev));
+      patchActivity(activeSession.id, (a) => ({ ...a, ...updatedFields }));
+
+      await db.updateActivity(activeSession.id, updatedFields);
 
       // Notifica SOLO gli eventi importanti (verifica tappa). Niente notifica per ogni
       // singolo drink: era troppo rumorosa.

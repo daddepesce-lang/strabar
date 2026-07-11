@@ -1,10 +1,15 @@
 // Service worker minimale per Strabar PWA.
 // Strategia: network-first per le navigazioni (così i dati restano freschi),
 // cache-first per gli asset statici, con fallback offline.
-// v3: aggiunto `tag` alle notifiche push per evitare duplicati a video (se un utente
-// ha più subscription, es. l'endpoint è cambiato e la riga vecchia è rimasta, il
-// sistema riceveva più push identiche → ora collassano in UNA sola).
-const CACHE = 'strabar-v3';
+// v3: aggiunto `tag` alle notifiche push per evitare duplicati a video.
+// v4: bump per FORZARE l'aggiornamento dei client rimasti sul bundle vecchio (su iPhone
+//     la PWA resta "calda" e non ricaricava mai → alcune fix, es. prompt foto, non
+//     arrivavano). Insieme a ServiceWorkerRegister.js (update al foreground + reload su
+//     controllerchange) garantisce che i client passino al codice nuovo.
+// IMPORTANTE: bumpare BUILD a ogni deploy che deve raggiungere i client "caldi" — è ciò che
+// cambia i byte di sw.js e fa scattare l'update lato browser.
+const BUILD = '2026-07-11-1';
+const CACHE = 'strabar-v4-' + BUILD;
 const OFFLINE_ASSETS = ['/', '/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
