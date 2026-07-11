@@ -18,6 +18,7 @@ import { siteUrl } from '@/lib/site';
 import MediaLightbox from '@/components/MediaLightbox';
 import BeerPicker from '@/components/BeerPicker';
 import DrinkSearch from '@/components/DrinkSearch';
+import CommentsSection from '@/components/CommentsSection';
 import BadgeUnlock from '@/components/BadgeUnlock';
 import { earnedBadgeIds } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
@@ -133,8 +134,6 @@ export default function FeedPage() {
   const [myActivities, setMyActivities] = useState([]); // sessioni dell'utente (statistiche personali)
   const [myActivitiesLoaded, setMyActivitiesLoaded] = useState(false); // sessioni utente caricate?
   const [loading, setLoading] = useState(true);
-  const [newCommentText, setNewCommentText] = useState({});
-  const [editingComment, setEditingComment] = useState(null); // { id, text } commento in modifica
   const [activeCommentsSection, setActiveCommentsSection] = useState({});
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [lightbox, setLightbox] = useState(null); // { images: [url], index } per lo slideshow foto
@@ -825,86 +824,11 @@ export default function FeedPage() {
   };
 
   const toggleCommentsSection = (activityId) => {
-    const opening = !activeCommentsSection[activityId];
+    // Apre/chiude la sezione. I commenti (con risposte, cheers e menzioni) li carica
+    // on-demand il componente <CommentsSection/> stesso → egress solo alla prima apertura.
     setActiveCommentsSection(prev => ({ ...prev, [activityId]: !prev[activityId] }));
-    // EGRESS: il feed scarica solo il CONTEGGIO dei commenti. Alla prima espansione
-    // carichiamo i commenti veri SOLO per quel post, on-demand.
-    if (opening) {
-      const act = activities.find((a) => a.id === activityId);
-      const needLoad = act && (!Array.isArray(act.comments) || act.comments.length === 0) && (act.comment_count || 0) > 0;
-      if (needLoad && typeof db.getComments === 'function') {
-        db.getComments(activityId)
-          .then((list) => patchActivity(activityId, (a) => ({ ...a, comments: list })))
-          .catch(() => {});
-      }
-    }
   };
 
-  const handleCommentSubmit = async (e, activityId) => {
-    e.preventDefault();
-    const text = (newCommentText[activityId] || '').trim();
-    if (!text) return;
-
-    if (!currentUser) {
-      router.push('/auth');
-      return;
-    }
-
-    // Commento ottimistico: appare subito, indipendentemente dal reload del feed
-    const tempId = 'temp-' + Date.now();
-    const optimistic = {
-      id: tempId,
-      user_id: currentUser.id,
-      user_name: currentUser.display_name || currentUser.username || 'Tu',
-      text,
-      created_at: new Date().toISOString(),
-    };
-    patchActivity(activityId, (a) => ({ ...a, comments: [...(a.comments || []), optimistic] }));
-    setNewCommentText(prev => ({ ...prev, [activityId]: '' }));
-
-    try {
-      const saved = await db.addComment(activityId, text);
-      if (saved && saved.id) {
-        patchActivity(activityId, (a) => ({
-          ...a,
-          comments: (a.comments || []).map((c) => (c.id === tempId ? { ...c, id: saved.id } : c)),
-        }));
-      }
-    } catch (err) {
-      console.error('Errore invio commento:', err);
-      // Rollback del commento ottimistico
-      patchActivity(activityId, (a) => ({
-        ...a,
-        comments: (a.comments || []).filter((c) => c.id !== tempId),
-      }));
-      setNewCommentText((prev) => ({ ...prev, [activityId]: text }));
-      alert('Impossibile inviare il commento: ' + (err.message || err));
-    }
-  };
-
-  // Modifica/elimina un PROPRIO commento
-  const handleSaveCommentEdit = async (activityId, commentId) => {
-    const text = (editingComment?.text || '').trim();
-    if (!text) return;
-    patchActivity(activityId, (a) => ({ ...a, comments: (a.comments || []).map((c) => (c.id === commentId ? { ...c, text } : c)) }));
-    setEditingComment(null);
-    try {
-      await db.updateComment(commentId, text);
-    } catch (err) {
-      console.error('Errore modifica commento:', err);
-      alert('Impossibile modificare il commento: ' + (err.message || err));
-    }
-  };
-  const handleDeleteComment = async (activityId, commentId) => {
-    if (!window.confirm('Eliminare questo commento?')) return;
-    patchActivity(activityId, (a) => ({ ...a, comments: (a.comments || []).filter((c) => c.id !== commentId) }));
-    try {
-      await db.deleteComment(commentId);
-    } catch (err) {
-      console.error('Errore eliminazione commento:', err);
-      alert('Impossibile eliminare il commento: ' + (err.message || err));
-    }
-  };
 
   const handleAddDrinkToSession = async (preset) => {
     if (!selectedActivity) return;
@@ -1893,13 +1817,6 @@ export default function FeedPage() {
         })}
       </div>
     );
-  };
-
-  const handleCommentChange = (activityId, text) => {
-    setNewCommentText(prev => ({
-      ...prev,
-      [activityId]: text
-    }));
   };
 
   const formatDate = (dateString) => {
@@ -3419,66 +3336,12 @@ export default function FeedPage() {
                 {/* Comments Section */}
                 {activeCommentsSection[act.id] && (
                   <div data-no-open onClick={(e) => e.stopPropagation()} style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-dark)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '15px' }}>
-                      {act.comments && act.comments.map((comment) => (
-                        <div key={comment.id} style={{ display: 'flex', gap: '10px', fontSize: '14px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px' }}>
-                          <div className="activity-avatar" style={{ width: '28px', height: '28px', fontSize: '12px' }}>
-                            {comment.user_name ? comment.user_name.charAt(0) : 'U'}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                              <strong>{comment.user_name}</strong>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>{formatDate(comment.created_at)}</span>
-                                {currentUser && comment.user_id === currentUser.id && editingComment?.id !== comment.id && (
-                                  <>
-                                    <button type="button" onClick={() => setEditingComment({ id: comment.id, text: comment.text })} title={t('feed.editTitle')} style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>✏️</button>
-                                    <button type="button" onClick={() => handleDeleteComment(act.id, comment.id)} title={t('feed.deleteTitle')} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 0, fontSize: '12px' }}>🗑️</button>
-                                  </>
-                                )}
-                              </span>
-                            </div>
-                            {editingComment?.id === comment.id ? (
-                              <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                                <input
-                                  className="form-control"
-                                  value={editingComment.text}
-                                  onChange={(e) => setEditingComment((p) => ({ ...p, text: e.target.value }))}
-                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveCommentEdit(act.id, comment.id); if (e.key === 'Escape') setEditingComment(null); }}
-                                  style={{ flex: 1, height: '32px', fontSize: '13px' }}
-                                  autoFocus
-                                />
-                                <button type="button" onClick={() => handleSaveCommentEdit(act.id, comment.id)} className="btn btn-primary" style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '12px' }}>{t('feed.saveBtn')}</button>
-                                <button type="button" onClick={() => setEditingComment(null)} className="btn btn-secondary" style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '12px' }}>✕</button>
-                              </div>
-                            ) : (
-                              <p style={{ color: 'var(--text-dark-primary)' }}>{comment.text}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {currentUser ? (
-                      <form onSubmit={(e) => handleCommentSubmit(e, act.id)} style={{ display: 'flex', gap: '10px' }}>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder={t('feed.commentPh')}
-                          value={newCommentText[act.id] || ''}
-                          onChange={(e) => handleCommentChange(act.id, e.target.value)}
-                          style={{ height: '40px', padding: '10px 15px', borderRadius: '20px', fontSize: '14px' }}
-                          required
-                        />
-                        <button type="submit" className="btn btn-primary" style={{ padding: '0 20px', borderRadius: '20px', fontSize: '14px' }}>
-                          {t('feed.sendBtn')}
-                        </button>
-                      </form>
-                    ) : (
-                      <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center' }}>
-                        <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: '600' }}>{t('feed.loginLink')}</Link>{t('feed.loginToCommentRest')}
-                      </p>
-                    )}
+                    <CommentsSection
+                      activityId={act.id}
+                      currentUser={currentUser}
+                      formatDate={formatDate}
+                      onCountChange={(n) => patchActivity(act.id, (a) => ({ ...a, comment_count: n }))}
+                    />
                   </div>
                 )}
               </article>
@@ -4095,7 +3958,7 @@ export default function FeedPage() {
                 </button>
                 <span className="action-btn" style={{ cursor: 'default' }}>
                   <MessageSquare size={18} />
-                  <span>Commenti ({selectedActivity.comments?.length || 0})</span>
+                  <span>Commenti ({selectedActivity.comment_count ?? selectedActivity.comments?.length ?? 0})</span>
                 </span>
               </div>
 
@@ -4134,45 +3997,15 @@ export default function FeedPage() {
                 );
               })()}
 
-              {selectedActivity.comments && selectedActivity.comments.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', maxHeight: '240px', overflowY: 'auto' }}>
-                  {selectedActivity.comments.map((comment) => (
-                    <div key={comment.id} style={{ display: 'flex', gap: '10px', fontSize: '14px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px' }}>
-                      <div className="activity-avatar" style={{ width: '28px', height: '28px', fontSize: '12px', flexShrink: 0 }}>
-                        {comment.user_name ? comment.user_name.charAt(0) : 'U'}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '2px' }}>
-                          <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{comment.user_name}</strong>
-                          <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', flexShrink: 0 }}>{formatDate(comment.created_at)}</span>
-                        </div>
-                        <p style={{ color: 'var(--text-dark-primary)', overflowWrap: 'anywhere' }}>{comment.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {currentUser ? (
-                <form onSubmit={(e) => handleCommentSubmit(e, selectedActivity.id)} style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder={t('session.commentPh')}
-                    value={newCommentText[selectedActivity.id] || ''}
-                    onChange={(e) => handleCommentChange(selectedActivity.id, e.target.value)}
-                    style={{ height: '40px', padding: '10px 15px', borderRadius: '20px', fontSize: '14px' }}
-                    required
-                  />
-                  <button type="submit" className="btn btn-primary" style={{ padding: '0 20px', borderRadius: '20px', fontSize: '14px' }}>
-                    {t('session.send')}
-                  </button>
-                </form>
-              ) : (
-                <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center' }}>
-                  <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: '600' }}>{t('nav.login')}</Link> {t('session.loginToComment')}
-                </p>
-              )}
+              <CommentsSection
+                activityId={selectedActivity.id}
+                currentUser={currentUser}
+                formatDate={formatDate}
+                onCountChange={(n) => {
+                  setSelectedActivity((prev) => (prev ? { ...prev, comment_count: n } : prev));
+                  patchActivity(selectedActivity.id, (a) => ({ ...a, comment_count: n }));
+                }}
+              />
             </div>
 
           </div>

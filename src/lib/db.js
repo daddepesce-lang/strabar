@@ -483,23 +483,91 @@ export const db = {
   // commenti nel feed). Tiene il feed leggero: la lista scarica solo il conteggio.
   async getComments(activityId) {
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('id, text, created_at, user_id, profiles(username, display_name, alias, name_mode, avatar_url, weight)')
-        .eq('session_id', activityId)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return (data || []).map(c => ({
+      const map = (rows) => (rows || []).map(c => ({
         id: c.id,
         user_id: c.user_id,
         user_name: publicName(c.profiles, 'Utente Sconosciuto'),
+        username: c.profiles?.username || null,
+        avatar_url: c.profiles?.avatar_url || null,
         text: c.text,
         created_at: c.created_at,
+        parent_id: c.parent_id || null,
+        cheer_count: c.comment_cheers?.[0]?.count ?? 0,
       }));
+      const FULL = 'id, text, created_at, user_id, parent_id, comment_cheers(count), profiles(username, display_name, alias, name_mode, avatar_url, weight)';
+      const { data, error } = await supabase
+        .from('comments')
+        .select(FULL)
+        .eq('session_id', activityId)
+        .order('created_at', { ascending: true });
+      if (error) {
+        // Migration commenti-social non ancora applicata → degrada senza parent_id/cheers.
+        if (/comment_cheers|parent_id/i.test(error.message || '')) {
+          const { data: d2, error: e2 } = await supabase
+            .from('comments')
+            .select('id, text, created_at, user_id, profiles(username, display_name, alias, name_mode, avatar_url, weight)')
+            .eq('session_id', activityId)
+            .order('created_at', { ascending: true });
+          if (e2) throw e2;
+          return map(d2);
+        }
+        throw error;
+      }
+      return map(data);
     }
     if (typeof window === 'undefined') return [];
     const all = getStored('sb_comments') || [];
     return all.filter((c) => c.session_id === activityId);
+  },
+
+  // Quali dei commenti dati ha "cheerato" l'utente corrente. UNA query batch (mirror di
+  // getMyCheers) → imposta lo stato del cuore senza scaricare tutti gli elenchi. Ritorna Set.
+  async getMyCommentCheers(commentIds = []) {
+    if (!isSupabaseConfigured || !commentIds.length) return new Set();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return new Set();
+      const { data } = await supabase
+        .from('comment_cheers')
+        .select('comment_id')
+        .eq('user_id', user.id)
+        .in('comment_id', commentIds);
+      return new Set((data || []).map((r) => r.comment_id));
+    } catch { return new Set(); }
+  },
+
+  // Cheers su un COMMENTO (mirror di toggleCheers). Ritorna true se ora è cheerato.
+  async toggleCommentCheer(commentId) {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error("Devi essere loggato per mettere Cheers!");
+    if (!isSupabaseConfigured) return false;
+    const { data: existing } = await supabase
+      .from('comment_cheers').select('id')
+      .eq('comment_id', commentId).eq('user_id', user.id).maybeSingle();
+    if (existing) {
+      const { error } = await supabase.from('comment_cheers').delete()
+        .eq('comment_id', commentId).eq('user_id', user.id);
+      if (error) throw error;
+      return false;
+    }
+    const { error: insErr } = await supabase.from('comment_cheers')
+      .insert({ comment_id: commentId, user_id: user.id });
+    if (insErr && insErr.code !== '23505') throw insErr; // 23505 = già cheerato (tap doppio)
+    if (insErr && insErr.code === '23505') return true;
+    try {
+      const { data: c } = await supabase.from('comments')
+        .select('user_id, session_id').eq('id', commentId).maybeSingle();
+      if (c && c.user_id !== user.id) {
+        this.pushNotification(c.user_id, {
+          type: 'comment_cheers',
+          actor_id: user.id,
+          actor_name: user.display_name || user.username,
+          message: `${user.display_name || user.username} ha messo Cheers al tuo commento`,
+          link: `/?activity=${c.session_id}`,
+        });
+      }
+    } catch (e) { console.warn('Notifica cheers commento non inviata:', e.message || e); }
+    return true;
   },
 
   // Quali delle sessioni passate ha "cheerato" l'utente corrente. UNA query leggera per
@@ -846,37 +914,75 @@ export const db = {
     }
   },
 
-  async addComment(activityId, commentText) {
+  // Notifica gli utenti @menzionati nel testo di un commento (mirror di
+  // _notifyTaggedCompanions): UNA query batch username→id, salta chi è già stato notificato.
+  async _notifyCommentMentions(actor, actorName, text, activityId, notified = new Set()) {
+    if (!isSupabaseConfigured) return;
+    const names = [...new Set((String(text).match(/@([a-zA-Z0-9_.]+)/g) || []).map((m) => m.slice(1)))];
+    if (!names.length) return;
+    try {
+      const { data: profs } = await supabase.from('profiles').select('id, username').in('username', names);
+      (profs || []).forEach((p) => {
+        if (!p?.id || notified.has(p.id)) return;
+        notified.add(p.id);
+        this.pushNotification(p.id, {
+          type: 'mention',
+          actor_id: actor.id,
+          actor_name: actorName,
+          message: `${actorName} ti ha menzionato in un commento`,
+          link: `/?activity=${activityId}`,
+        });
+      });
+    } catch (err) { console.warn('Notifica menzione non inviata:', err.message || err); }
+  },
+
+  async addComment(activityId, commentText, parentId = null) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Devi essere loggato per commentare!");
 
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase
-        .from('comments')
-        .insert({
-          session_id: activityId,
-          user_id: user.id,
-          text: commentText
-        })
-        .select()
-        .single();
+      const payload = { session_id: activityId, user_id: user.id, text: commentText };
+      if (parentId) payload.parent_id = parentId;
+      let { data, error } = await supabase.from('comments').insert(payload).select().single();
+      // Migration non applicata (niente parent_id) → reinserisci senza, per non bloccare.
+      if (error && parentId && /parent_id/i.test(error.message || '')) {
+        ({ data, error } = await supabase.from('comments')
+          .insert({ session_id: activityId, user_id: user.id, text: commentText })
+          .select().single());
+      }
       if (error) throw error;
-      // Notifica il proprietario della sessione
+      const actorName = user.display_name || user.username;
+      const notified = new Set([user.id]); // non notificare mai sé stessi, una volta sola a testa
       try {
         const { data: sess } = await supabase
-          .from('sessions')
-          .select('user_id, title')
-          .eq('id', activityId)
-          .maybeSingle();
-        if (sess && sess.user_id !== user.id) {
+          .from('sessions').select('user_id, title').eq('id', activityId).maybeSingle();
+        // Proprietario della sessione (commento)
+        if (sess && !notified.has(sess.user_id)) {
+          notified.add(sess.user_id);
           this.pushNotification(sess.user_id, {
             type: 'comment',
             actor_id: user.id,
-            actor_name: user.display_name || user.username,
-            message: `${user.display_name || user.username} ha commentato la tua sessione "${sess.title}"`,
+            actor_name: actorName,
+            message: `${actorName} ha commentato la tua sessione "${sess.title}"`,
             link: `/?activity=${activityId}`,
           });
         }
+        // Autore del commento a cui si risponde (reply)
+        if (parentId) {
+          const { data: parent } = await supabase.from('comments').select('user_id').eq('id', parentId).maybeSingle();
+          if (parent && !notified.has(parent.user_id)) {
+            notified.add(parent.user_id);
+            this.pushNotification(parent.user_id, {
+              type: 'comment_reply',
+              actor_id: user.id,
+              actor_name: actorName,
+              message: `${actorName} ha risposto al tuo commento`,
+              link: `/?activity=${activityId}`,
+            });
+          }
+        }
+        // Menzioni @username nel testo
+        await this._notifyCommentMentions(user, actorName, commentText, activityId, notified);
       } catch (notifyErr) {
         console.warn('Notifica commento non inviata:', notifyErr.message || notifyErr);
       }
@@ -894,6 +1000,8 @@ export const db = {
         user_id: user.id,
         user_name: user.display_name,
         text: commentText,
+        parent_id: parentId || null,
+        cheer_count: 0,
         created_at: new Date().toISOString()
       };
       
@@ -4075,7 +4183,7 @@ export const db = {
     // ha mai toccato i toggle, `notif_prefs` è vuoto sul DB e qui si bloccava (es. eventi e
     // follow erano OFF di default → niente notifiche pur con flag verde). Ora coerenti.
     const NOTIF_DEFAULTS = { follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true };
-    const category = { cheers: 'cheers', comment: 'comment', follow: 'follow', event_invite: 'events', event_rsvp: 'events', session_tag: 'tagged', inactivity: 'inactivity' }[payload.type] || null;
+    const category = { cheers: 'cheers', comment_cheers: 'cheers', comment: 'comment', comment_reply: 'comment', mention: 'tagged', follow: 'follow', event_invite: 'events', event_rsvp: 'events', session_tag: 'tagged', inactivity: 'inactivity' }[payload.type] || null;
     if (category && isSupabaseConfigured) {
       try {
         const { data: prof } = await supabase.from('profiles').select('notif_prefs').eq('id', recipientId).maybeSingle();

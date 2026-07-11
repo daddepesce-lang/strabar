@@ -5,12 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
-import { Bell, Beer, MessageSquare, UserPlus, Calendar, Check } from 'lucide-react';
+import { Bell, Beer, MessageSquare, UserPlus, Calendar, Check, AtSign, Reply } from 'lucide-react';
 
 const ICONS = {
   follow: UserPlus,
   cheers: Beer,
+  comment_cheers: Beer,
   comment: MessageSquare,
+  comment_reply: Reply,
+  mention: AtSign,
+  session_tag: AtSign,
   event_invite: Calendar,
   event_rsvp: Check,
 };
@@ -19,7 +23,11 @@ const ICONS = {
 const TYPE_COLOR = {
   follow: '#3B82F6',
   cheers: 'var(--primary)',
+  comment_cheers: 'var(--primary)',
   comment: '#10B981',
+  comment_reply: '#10B981',
+  mention: '#8B5CF6',
+  session_tag: '#8B5CF6',
   event_invite: 'var(--secondary)',
   event_rsvp: '#10B981',
 };
