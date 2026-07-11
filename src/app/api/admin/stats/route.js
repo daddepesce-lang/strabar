@@ -120,6 +120,19 @@ export async function GET() {
       return { label, count };
     });
 
+    // Sessioni giornaliere ultimi 14 giorni (stesso bucketing delle iscrizioni).
+    // Riusa `sess` già scaricato sopra → ZERO egress aggiuntivo.
+    const dailySessions = Array.from({ length: 14 }, (_, i) => {
+      const dayStart = now - (13 - i) * DAY;
+      const d = new Date(dayStart);
+      const label = `${d.getDate()}/${d.getMonth() + 1}`;
+      const count = sess.filter((s) => {
+        const t = new Date(s.created_at).getTime();
+        return t >= dayStart - (dayStart % DAY) && t < dayStart - (dayStart % DAY) + DAY;
+      }).length;
+      return { label, count };
+    });
+
     // Ultimi iscritti (minimale)
     const recentUsers = [...users]
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -148,6 +161,7 @@ export async function GET() {
       topVenues,
       topUsers,
       signups,
+      dailySessions,
       recentUsers,
     });
   } catch (err) {

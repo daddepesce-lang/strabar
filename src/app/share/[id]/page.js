@@ -148,14 +148,21 @@ export default function ShareActivityPage({ params }) {
         ctx.fillStyle = glow; ctx.fillRect(0, H * 0.45, W, H * 0.55);
       }
 
+      // --- Logo + LIVE badge (riga in alto) ---
+      // Su STORIA (9:16) Instagram sovrappone in alto la barra col nome profilo/avatar
+      // (a sinistra) e i pulsanti chiudi/opzioni (a destra): con la riga a y≈74 il logo
+      // Strabar finiva SEMPRE dietro il nome profilo IG. La spostiamo più in basso, sotto
+      // la chrome di IG. Sul POST (1:1) non c'è quell'overlay → resta in alto come prima.
+      const topY = compact ? 74 : 220;
+
       // --- Logo in alto a sinistra ---
       ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       if (logoReady && logoRef.current && logoRef.current.naturalWidth) {
         const lh = 58; const lw = lh * (logoRef.current.naturalWidth / logoRef.current.naturalHeight);
-        ctx.drawImage(logoRef.current, M, 74, lw, lh);
+        ctx.drawImage(logoRef.current, M, topY, lw, lh);
       } else {
         ctx.fillStyle = '#FF3B2F'; ctx.font = '800 48px "DM Sans", sans-serif';
-        ctx.fillText('strabar', M, 120);
+        ctx.fillText('strabar', M, topY + 46);
       }
 
       // --- LIVE badge in alto a destra ---
@@ -163,7 +170,7 @@ export default function ShareActivityPage({ params }) {
         ctx.textBaseline = 'middle';
         ctx.font = '800 32px "DM Sans", sans-serif';
         const tw = ctx.measureText('LIVE').width;
-        const pw = tw + 84, ph = 56, px = W - M - pw, py = 76;
+        const pw = tw + 84, ph = 56, px = W - M - pw, py = topY + 2;
         ctx.fillStyle = '#FF3B2F'; ctx.beginPath(); ctx.roundRect(px, py, pw, ph, ph / 2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px + 30, py + ph / 2, 9, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.fillText('LIVE', px + 50, py + ph / 2 + 1);

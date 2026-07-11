@@ -161,22 +161,34 @@ export default function AdminPage() {
     return <div className="card" style={{ maxWidth: 520, margin: '60px auto', textAlign: 'center', padding: '30px', color: 'var(--error)' }}>Errore: {errMsg}</div>;
   }
 
-  const maxSignup = Math.max(1, ...stats.signups.map((s) => s.count));
   const activeItem = NAV_ITEMS.find((n) => n.id === tab) || NAV_ITEMS[0];
   const meName = me?.display_name || me?.username || '';
 
-  // Punti del grafico iscrizioni (stesso array dati, resa area/linea)
+  // Resa area+linea per una serie {label,count}: ritorna { line, area, n }.
+  // Usata sia dalle iscrizioni sia dalle sessioni giornaliere → stesso stile visivo.
   const CHART_W = 100;
   const CHART_H = 40;
-  const nPts = stats.signups.length;
-  const chartPts = stats.signups.map((s, i) => [
-    nPts > 1 ? (i * CHART_W) / (nPts - 1) : 0,
-    CHART_H - 2 - (s.count / maxSignup) * (CHART_H - 6),
-  ]);
-  const chartLine = chartPts.map((p) => `${p[0]},${p[1]}`).join(' ');
-  const chartArea = nPts > 0
-    ? `M ${chartPts[0][0]},${CHART_H} L ${chartPts.map((p) => `${p[0]},${p[1]}`).join(' L ')} L ${chartPts[nPts - 1][0]},${CHART_H} Z`
-    : '';
+  const buildChart = (series) => {
+    const data = series || [];
+    const n = data.length;
+    const max = Math.max(1, ...data.map((s) => s.count));
+    const pts = data.map((s, i) => [
+      n > 1 ? (i * CHART_W) / (n - 1) : 0,
+      CHART_H - 2 - (s.count / max) * (CHART_H - 6),
+    ]);
+    return {
+      n,
+      line: pts.map((p) => `${p[0]},${p[1]}`).join(' '),
+      area: n > 0
+        ? `M ${pts[0][0]},${CHART_H} L ${pts.map((p) => `${p[0]},${p[1]}`).join(' L ')} L ${pts[n - 1][0]},${CHART_H} Z`
+        : '',
+    };
+  };
+  const signupChart = buildChart(stats.signups);
+  const sessionsChart = buildChart(stats.dailySessions);
+  const nPts = signupChart.n;
+  const chartLine = signupChart.line;
+  const chartArea = signupChart.area;
 
   return (
     <div className="adm-shell">
@@ -298,6 +310,38 @@ export default function AdminPage() {
             ))}
           </div>
         </div>
+
+        {/* Sessioni giornaliere: stessa resa area/linea delle iscrizioni */}
+        {stats.dailySessions && (
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Beer size={16} color="#10B981" /> Sessioni giornaliere
+              </h3>
+              <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>ultimi {sessionsChart.n} giorni</span>
+            </div>
+            <svg
+              viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+              preserveAspectRatio="none"
+              style={{ display: 'block', width: '100%', height: 120 }}
+              aria-hidden="true"
+            >
+              <defs>
+                <linearGradient id="admSessionsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(16,185,129,.35)" />
+                  <stop offset="100%" stopColor="rgba(16,185,129,0)" />
+                </linearGradient>
+              </defs>
+              <path d={sessionsChart.area} fill="url(#admSessionsGrad)" />
+              <polyline points={sessionsChart.line} fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+            </svg>
+            <div style={{ display: 'flex', marginTop: 8 }}>
+              {stats.dailySessions.map((s, i) => (
+                <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: 'var(--text-dark-tertiary)' }}>{s.label}</div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="r-grid-2" style={{ gap: 18 }}>
           {/* Top locali */}
