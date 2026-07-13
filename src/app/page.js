@@ -128,6 +128,24 @@ export default function FeedPage() {
   const router = useRouter();
   const FEED_PAGE_SIZE = 5;
   const [currentUser, setCurrentUser] = useState(null);
+  // Landing: la curva di ebbrezza demo dell'hero si calcola SOLO dopo il mount, così gli
+  // orari (toLocaleTimeString) non generano mismatch di hydration tra server e client.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const demoCurve = useMemo(() => {
+    if (!mounted) return null;
+    const base = new Date(); base.setHours(21, 0, 0, 0);
+    const at = (min) => new Date(base.getTime() + min * 60000).toISOString();
+    // Serata tipo: 5 drink in ~2h → picco oltre 0,5 g/l e rientro. Dati d'esempio, non reali.
+    const demoDrinks = [
+      { name: 'Birra', units: 1.5, added_at: at(0) },
+      { name: 'Spritz', units: 1.6, added_at: at(30) },
+      { name: 'Birra', units: 1.5, added_at: at(62) },
+      { name: 'Spritz', units: 1.6, added_at: at(96) },
+      { name: 'Amaro', units: 1.1, added_at: at(128) },
+    ];
+    return db.calculateBACCurve(demoDrinks, base.toISOString(), 150, 72, false, 'm', 0);
+  }, [mounted]);
   const [activities, setActivities] = useState([]);
   const [feedHasMore, setFeedHasMore] = useState(false);
   const [feedLoadingMore, setFeedLoadingMore] = useState(false);
@@ -2050,16 +2068,25 @@ export default function FeedPage() {
               <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
             </div>
 
-            {/* Gauge BAC animato */}
+            {/* Tasso attuale + avviso superamento 0,5 g/l + curva di ebbrezza reale */}
             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-dark)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('landing.hero.mockBacLabel')}</span>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: 'var(--primary)', lineHeight: 1 }}>0,68 <span style={{ fontSize: '12px', fontFamily: 'var(--font-sans)', color: 'var(--text-dark-secondary)' }}>g/l</span></span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('landing.hero.mockCurrentLabel')}</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: 'var(--primary)', lineHeight: 1 }}>{(demoCurve?.peak?.val ?? 0.68).toFixed(2).replace('.', ',')} <span style={{ fontSize: '12px', fontFamily: 'var(--font-sans)', color: 'var(--text-dark-secondary)' }}>g/l</span></span>
               </div>
-              <div className="bac-track"><div className="bac-fill" /></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '7px', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                <span>{t('landing.hero.mockSober')}</span><span>{t('landing.hero.mockLimit')}</span><span>{t('landing.hero.mockHigh')}</span>
+
+              {/* Notifica push mock: superamento del limite di guida (anche ad app chiusa) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '10px', padding: '9px 11px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '18px', flexShrink: 0 }}>🚕</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#FF7D7D' }}>{t('landing.hero.mockAlertTitle')}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', lineHeight: 1.35 }}>{t('landing.hero.mockAlertBody')}</div>
+                </div>
               </div>
+
+              {/* Curva di ebbrezza: stesso grafico dell'app (linea del limite 0,5, picco, rientro) */}
+              <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{t('landing.hero.mockCurveTitle')}</div>
+              {demoCurve ? <BacCurve curve={demoCurve} height={150} /> : <div style={{ height: 150 }} />}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-dark)' }}>
