@@ -28,12 +28,19 @@ export async function POST(req) {
 
   if (body.kind === 'override') {
     if (!body.venue_key || !body.service_type_id) return NextResponse.json({ error: 'venue_key e service_type_id obbligatori' }, { status: 400 });
+    const venue_key = String(body.venue_key).trim().toLowerCase().replace(/\s+/g, ' ');
+    // PATCH PARZIALE: parti dalla riga esistente e sovrascrivi SOLO i campi presenti nel
+    // body, così salvare l'abilitazione non azzera il prezzo personalizzato e viceversa.
+    const { data: existing } = await gate.admin.from('venue_service_overrides')
+      .select('*').eq('venue_key', venue_key).eq('service_type_id', body.service_type_id).maybeSingle();
     const row = {
-      venue_key: String(body.venue_key).trim().toLowerCase().replace(/\s+/g, ' '),
+      venue_key,
       service_type_id: body.service_type_id,
-      price_cents: body.price_cents === '' || body.price_cents == null ? null : Number(body.price_cents),
-      enabled: body.enabled == null ? null : !!body.enabled,
-      pricing: body.pricing != null ? body.pricing : null,
+      price_cents: 'price_cents' in body
+        ? (body.price_cents === '' || body.price_cents == null ? null : Number(body.price_cents))
+        : (existing?.price_cents ?? null),
+      enabled: 'enabled' in body ? (body.enabled == null ? null : !!body.enabled) : (existing?.enabled ?? null),
+      pricing: 'pricing' in body ? (body.pricing != null ? body.pricing : null) : (existing?.pricing ?? null),
     };
     const { data, error } = await gate.admin.from('venue_service_overrides')
       .upsert(row, { onConflict: 'venue_key,service_type_id' }).select().single();

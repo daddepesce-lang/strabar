@@ -11,23 +11,24 @@ Due esigenze diverse, non confonderle:
 
 ---
 
-## Caselle: opzioni (Zoho free non è più disponibile)
+## Caselle: opzioni
 
 | Opzione | Costo | Note |
 |---|---|---|
-| **Cloudflare Email Routing** (+ Gmail send-as + Brevo SMTP) ⭐ gratis | **€0** | 100% gratuito per sempre. Inoltro `@strabar.app` → Gmail; rispondi come `@strabar.app` con Gmail "Invia come" + relay Brevo (300/giorno gratis). Richiede nameserver su Cloudflare (sito resta su Vercel). |
-| **ImprovMX** (+ Gmail send-as + Brevo) | **€0** | Come sopra ma **senza spostare i nameserver**: solo 2 record MX su Vercel. |
-| **iCloud+ Custom Email Domain** | ~€0,99/mese | Caselle vere send+receive, zero attrito su Mac (Apple Mail/Outlook). Apple genera i record per Vercel. |
-| **Purelymail** | ~$10/anno | Caselle illimitate su dominio, IMAP. |
+| **Zoho Mail (Forever Free)** ⭐ | **€0** | Caselle **vere** gratuite: fino a 5 utenti, 5GB/utente, 1 dominio. Registrati come **Business** ("own domain"). Limite free: accesso solo da webmail/app Zoho (IMAP/Outlook è a pagamento). |
+| **iCloud+ Custom Email Domain** | ~€0,99/mese | Caselle vere send+receive, zero attrito su Mac (Apple Mail/Outlook). |
+| **Cloudflare Routing / ImprovMX** (+ Gmail send-as + Brevo) | €0 | Solo inoltro + send-as: più fiddly. Fallback se Zoho non va. |
 | **Google Workspace** | ~€6/utente/mese | Quando l'outreach diventa serio: deliverability top. |
 
-**Vuoi spesa zero:** Cloudflare Email Routing (o ImprovMX) per ricevere + Gmail "Invia come" con SMTP Brevo per inviare. **Vuoi zero attrito a ~€1:** iCloud+ Custom Domain.
+**Consigliato ora: Zoho Mail Forever Free** — caselle vere a costo zero.
 
-### Via gratis — passi (ImprovMX, senza toccare i nameserver)
-1. Registrati su ImprovMX, aggiungi `strabar.app`.
-2. In **Vercel → Domains → strabar.app → DNS** aggiungi i 2 record **MX** ImprovMX + il **TXT SPF** indicato.
-3. Crea gli alias: `bizdev@` e `marketing@` → inoltro alla tua Gmail.
-4. **Inviare come `@strabar.app`**: crea account Brevo (free), prendi le credenziali SMTP; in Gmail → Impostazioni → Account → "Invia messaggi come" → aggiungi `bizdev@strabar.app` con SMTP Brevo. Aggiungi in Vercel i record **SPF/DKIM** che Brevo fornisce per l'invio.
+### Zoho — passi
+1. Registrazione Zoho Mail → **Business Email** → **"Sign up with a domain I already own"** → `strabar.app`.
+2. Scegli il piano **Forever Free** (in fondo alla lista piani).
+3. **Verifica dominio**: incolla il TXT/CNAME di Zoho in **Vercel → Domains → strabar.app → DNS**.
+4. Aggiungi i **MX** di Zoho + **SPF** + **DKIM** (sempre in Vercel DNS).
+5. Crea gli utenti `bizdev@strabar.app`, `marketing@strabar.app`.
+6. Convivenza con Resend: Zoho tiene le MX (ricezione), Resend invia da `send.strabar.app` (SPF/DKIM su sottodominio) → nessun conflitto.
 
 ### iCloud+ — passi
 1. iPhone/Mac → Impostazioni → il tuo nome → iCloud → **iCloud+ → Dominio email personalizzato** → aggiungi `strabar.app`.

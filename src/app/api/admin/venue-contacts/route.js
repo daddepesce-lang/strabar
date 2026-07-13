@@ -93,6 +93,9 @@ export async function POST(req) {
       if (info.phone) patch.phone = info.phone;
       if (info.website) patch.website = info.website;
       if (info.address) patch.address = info.address;
+      // `name` è NOT NULL: se l'upsert INSERISCE una riga nuova (locale non ancora nel CRM)
+      // deve avere sempre un nome. `name` = body.name || key → mai null.
+      patch.name = name;
       if (!body.name && info.name) patch.name = info.name;
       const { error } = await gate.admin.from('venue_contacts').upsert(patch, { onConflict: 'key' });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });

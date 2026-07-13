@@ -75,6 +75,25 @@ export async function GET() {
     if (t > v.lastSeen) v.lastSeen = t;
   });
 
+  // Sessioni LIBERE geolocalizzate (freeform): hanno GPS ma NESSUN locale identificato.
+  // Non contano per le statistiche di vendita (non sono un locale), ma sulla mappa admin
+  // danno copertura geografica come marker distinti. Aggregate per coordinata (~11 m) così
+  // più sessioni nello stesso punto collassano in un unico marker.
+  const freeformAgg = {};
+  (sessions || []).forEach((s) => {
+    const loc = s.location;
+    if (!loc || !loc.freeform || loc.share === 'private') return;
+    if (typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
+    const key = `${loc.lat.toFixed(4)},${loc.lng.toFixed(4)}`;
+    if (!freeformAgg[key]) freeformAgg[key] = { key, name: loc.name || 'Sessione Libera', lat: loc.lat, lng: loc.lng, sessions: 0, users: new Set(), units: 0, lastSeen: 0 };
+    const v = freeformAgg[key];
+    v.sessions += 1;
+    v.users.add(s.user_id);
+    v.units += parseFloat(s.total_units || 0) || 0;
+    const t = new Date(s.created_at).getTime();
+    if (t > v.lastSeen) v.lastSeen = t;
+  });
+
   const DOW = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
   const venues = {};
 
@@ -224,12 +243,28 @@ export async function GET() {
     }))
     .sort((a, b) => b.sessions - a.sessions);
 
+  // Sessioni libere geolocalizzate: marker distinti, non conteggiate nelle statistiche di vendita.
+  const freeformVenues = Object.values(freeformAgg)
+    .map((v) => ({
+      key: v.key,
+      name: v.name,
+      lat: v.lat,
+      lng: v.lng,
+      sessions: v.sessions,
+      uniqueUsers: v.users.size,
+      units: parseFloat(v.units.toFixed(1)),
+      lastSeen: v.lastSeen ? new Date(v.lastSeen).toISOString() : null,
+      freeform: true,
+    }))
+    .sort((a, b) => b.sessions - a.sessions);
+
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     totalVenues: list.length,
     totalGeoSessions: geo.length,
     venues: list,
     unverifiedVenues,
+    freeformVenues,
   });
 }
 

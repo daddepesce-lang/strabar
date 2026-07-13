@@ -4496,12 +4496,21 @@ export const db = {
 
   // Banner pubblicitari attivi (la RLS restituisce solo quelli attivi e in finestra temporale),
   // ordinati per priorità. Usati nel feed. Best effort: se la tabella non esiste, [].
+  // Banner mostrati nel feed. Condizioni ESPLICITE (oltre alla RLS lato DB, come difesa in
+  // profondità e per chiarezza): solo attivi e dentro la finestra temporale
+  //   active = true  E  (starts_at nullo o già iniziato)  E  (ends_at nullo o non ancora scaduto).
+  // Ordinati per priorità (più alta prima). Un banner sparisce dal feed appena viene
+  // disattivato (admin/gestore) o superata la data di fine.
   async getActiveBanners() {
     if (!isSupabaseConfigured) return [];
     try {
+      const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('ad_banners')
         .select('id, title, body, image_url, link_url, cta, partner, category, priority')
+        .eq('active', true)
+        .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
+        .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
         .order('priority', { ascending: false })
         .limit(10);
       if (error) return [];

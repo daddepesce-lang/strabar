@@ -44,7 +44,20 @@ export default function VenuesMapAdmin() {
       note: `⚠︎ non verificata · ${v.sessions} check-in · ${v.uniqueUsers} clienti · ${v.units} U.A.`,
     }));
 
-  const points = [...verifiedPoints, ...unverifiedPoints];
+  // Sessioni libere geolocalizzate (GPS senza locale): marker blu, solo copertura geografica.
+  // Non contano per le statistiche di vendita.
+  const freeformPoints = (data.freeformVenues || [])
+    .filter((v) => typeof v.lat === 'number' && typeof v.lng === 'number')
+    .map((v) => ({
+      name: v.name,
+      lat: v.lat,
+      lng: v.lng,
+      label: v.sessions,
+      color: '#4A90E2',
+      note: `📍 sessione libera · ${v.sessions} check-in · ${v.uniqueUsers} utenti · ${v.units} U.A.`,
+    }));
+
+  const points = [...verifiedPoints, ...unverifiedPoints, ...freeformPoints];
 
   return (
     <div className="card" style={{ padding: 16 }}>
@@ -65,6 +78,9 @@ export default function VenuesMapAdmin() {
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#F5A623', border: '2px solid #fff' }} /> Non verificata (lontano / senza GPS)
             </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#4A90E2', border: '2px solid #fff' }} /> Sessione libera (senza locale)
+            </span>
           </div>
           <div style={{ display: 'flex', gap: 24, marginTop: 12, flexWrap: 'wrap' }}>
             <div>
@@ -79,6 +95,12 @@ export default function VenuesMapAdmin() {
               <div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, lineHeight: 1, color: '#F5A623' }}>{unverifiedPoints.length}</div>
                 <div style={{ fontSize: 10, color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 3 }}>Locali non verificati</div>
+              </div>
+            )}
+            {freeformPoints.length > 0 && (
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, lineHeight: 1, color: '#4A90E2' }}>{freeformPoints.length}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-dark-tertiary)', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 3 }}>Sessioni libere</div>
               </div>
             )}
           </div>

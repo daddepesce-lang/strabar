@@ -3,6 +3,38 @@
 import { useEffect, useState } from 'react';
 import { Loader, Check, X, Trash2, Plus } from 'lucide-react';
 import AccountPicker from './AccountPicker';
+import { computePrice, defaultOptions, euro } from '@/lib/venuePricing';
+
+// Oggetto servizio nel formato atteso dal motore prezzi condiviso (`computePrice`):
+// stesso merge override→catalogo usato dal gestore in db.getVenueServices e dal checkout.
+const svcForEngine = (type, ov) => ({
+  code: type?.code,
+  pricing: ov?.pricing != null ? ov.pricing : type?.pricing,
+  price_cents: ov?.price_cents != null ? ov.price_cents : type?.default_price_cents,
+});
+
+// Prezzo REALE che vede il locale, identico al cruscotto gestore. Per i modelli a
+// giornata/pubblico è un intervallo (min–max sulle scelte possibili), non un numero secco.
+function realPriceLabel(type, ov) {
+  const svc = svcForEngine(type, ov);
+  const model = svc.pricing?.model || 'flat';
+  if (model === 'per_day') {
+    const durs = (svc.pricing?.durations || [7]).slice().sort((a, b) => a - b);
+    const min = computePrice(svc, { ...defaultOptions(svc.code), days: durs[0], position: 'feed' });
+    const max = computePrice(svc, { ...defaultOptions(svc.code), days: durs[durs.length - 1], position: 'top' });
+    return min === max ? euro(min) : `${euro(min)} – ${euro(max)}`;
+  }
+  if (model === 'audience') {
+    const tiers = svc.pricing?.tiers || {};
+    const vals = Object.keys(tiers).map((a) => computePrice(svc, { audience: a })).filter((v) => v > 0);
+    if (!vals.length) return euro(computePrice(svc, defaultOptions(svc.code)));
+    const min = Math.min(...vals), max = Math.max(...vals);
+    return min === max ? euro(min) : `${euro(min)} – ${euro(max)}`;
+  }
+  const base = computePrice(svc, defaultOptions(svc.code));
+  const withExtra = computePrice(svc, { ...defaultOptions(svc.code), spotlight: true });
+  return withExtra > base ? `${euro(base)} (+${euro(withExtra - base)})` : euro(base);
+}
 
 // Pannello admin "Area locali": richieste di gestione, catalogo servizi (prezzi/attivazione,
 // anche per-locale) e ordini (attivazione manuale per pagamenti offline).
@@ -43,8 +75,6 @@ export default function VenuesBusinessAdmin() {
     } finally { setBusy(null); }
   };
   const del = async (url) => { if (!confirm('Eliminare?')) return; await fetch(url, { method: 'DELETE' }); await load(); };
-
-  const euro = (c) => `€${((c || 0) / 100).toFixed(2).replace('.', ',')}`;
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Loader size={24} style={{ animation: 'spin 1s linear infinite' }} /></div>;
 
@@ -134,19 +164,15 @@ export default function VenuesBusinessAdmin() {
           {/* Override per-locale */}
           <div className="card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Prezzi/disponibilità per locale</h3>
-            <p style={{ fontSize: 12, color: 'var(--text-dark-secondary)', marginBottom: 12 }}>Sovrascrivi prezzo o disattiva un servizio per un singolo locale (chiave = nome in minuscolo).</p>
-            <NewOverride types={types} onCreate={(b) => post('/api/admin/venue-services', { kind: 'override', ...b })} />
+            <p style={{ fontSize: 12, color: 'var(--text-dark-secondary)', marginBottom: 12 }}>Personalizza prezzi o disattiva un servizio per un singolo locale (chiave = nome in minuscolo). Il prezzo per-locale usa lo <strong>stesso motore</strong> del cruscotto: quello che imposti qui è esattamente ciò che vedrà il gestore.</p>
+            <NewOverride types={types} euro={euro} onCreate={(b) => post('/api/admin/venue-services', { kind: 'override', ...b })} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
               {overrides.map((o) => {
                 const t = types.find((x) => x.id === o.service_type_id);
                 return (
-                  <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)', fontSize: 13 }}>
-                    <span style={{ color: '#FFF', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.venue_key} · {t?.name || '?'}</span>
-                    <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                      <span style={{ color: 'var(--text-dark-secondary)' }}>{o.price_cents != null ? euro(o.price_cents) : 'prezzo std'} · {o.enabled === false ? 'OFF' : o.enabled === true ? 'ON' : 'std'}</span>
-                      <button onClick={() => del(`/api/admin/venue-services?kind=override&id=${o.id}`)} className="btn btn-secondary" style={{ padding: '2px 6px', borderRadius: 8 }}><Trash2 size={13} /></button>
-                    </span>
-                  </div>
+                  <OverrideRow key={o.id} o={o} t={t} euro={euro}
+                    onSave={(patch) => post('/api/admin/venue-services', { kind: 'override', venue_key: o.venue_key, service_type_id: o.service_type_id, ...patch })}
+                    onDelete={() => del(`/api/admin/venue-services?kind=override&id=${o.id}`)} />
                 );
               })}
             </div>
@@ -205,6 +231,7 @@ export default function VenuesBusinessAdmin() {
 function ServiceTypeRow({ t, euro, onSave, onDelete }) {
   const [price, setPrice] = useState(((t.default_price_cents || 0) / 100).toFixed(2));
   const [showPricing, setShowPricing] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
   const modelLabel = { flat: 'prezzo fisso', per_day: 'a giornata', audience: 'per pubblico' }[t.pricing?.model || 'flat'];
   return (
     <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border-dark)' }}>
@@ -213,14 +240,30 @@ function ServiceTypeRow({ t, euro, onSave, onDelete }) {
           <strong style={{ color: '#FFF', fontSize: 14 }}>{t.name}</strong>
           <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>{t.code} · {modelLabel}</div>
         </div>
-        <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} title="prezzo base/fallback (usato se la config prezzi non lo specifica)" style={{ width: 80, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
-        <button onClick={() => onSave({ default_price_cents: Math.round(parseFloat(price || '0') * 100) })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>Salva</button>
+        {/* Prezzo REALE che vede il locale (stesso motore del cruscotto e del checkout) */}
+        <span title="Prezzo che vede il locale nel suo cruscotto" style={{ fontSize: 15, fontWeight: 800, color: 'var(--secondary)', whiteSpace: 'nowrap' }}>{realPriceLabel(t)}</span>
         <button onClick={() => onSave({ active: !t.active })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, color: t.active ? 'var(--success)' : 'var(--error)' }}>{t.active ? 'Attivo' : 'Spento'}</button>
         <button onClick={() => setShowPricing((v) => !v)} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12, color: showPricing ? 'var(--primary)' : undefined }}>⚙︎ Prezzi</button>
         <button onClick={onDelete} className="btn btn-secondary" style={{ padding: '6px 8px', borderRadius: 8 }}><Trash2 size={13} /></button>
       </div>
       {showPricing && (
-        <PricingEditor pricing={t.pricing} fallbackCents={t.default_price_cents} euro={euro} onSave={(pricing) => { onSave({ pricing }); setShowPricing(false); }} />
+        <>
+          <PricingEditor pricing={t.pricing} fallbackCents={t.default_price_cents} euro={euro} onSave={(pricing) => { onSave({ pricing }); setShowPricing(false); }} />
+          {/* Prezzo di riserva: usato SOLO se la config sopra non specifica un importo (dati vecchi).
+              Nascosto di default per non confondere con il prezzo reale. */}
+          <div style={{ marginTop: 8 }}>
+            {!showFallback ? (
+              <button onClick={() => setShowFallback(true)} style={{ background: 'none', border: 'none', color: 'var(--text-dark-tertiary)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>Prezzo di riserva (avanzato)</button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>Prezzo di riserva (fallback)</span>
+                <input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: 80, padding: '6px 8px', borderRadius: 8, background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', color: '#FFF', fontSize: 13 }} />
+                <button onClick={() => onSave({ default_price_cents: Math.round(parseFloat(price || '0') * 100) })} className="btn btn-secondary" style={{ padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>Salva</button>
+                <span style={{ fontSize: 10, color: 'var(--text-dark-tertiary)' }}>usato solo se la config prezzi non specifica l’importo</span>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -258,7 +301,7 @@ function NumField({ label, value, onChange, suffix = '€', step = '0.01', width
   );
 }
 
-function PricingEditor({ pricing, fallbackCents, euro, onSave }) {
+function PricingEditor({ pricing, fallbackCents, euro, onSave, saveLabel = 'Salva prezzi' }) {
   const init = pricing && Object.keys(pricing).length ? pricing : { model: 'flat' };
   const [model, setModel] = useState(init.model || 'flat');
 
@@ -388,7 +431,7 @@ function PricingEditor({ pricing, fallbackCents, euro, onSave }) {
       {/* Anteprima + salva */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, borderTop: '1px solid var(--border-dark)', paddingTop: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12, color: 'var(--text-dark-secondary)' }}>Anteprima: <strong style={{ color: 'var(--secondary)' }}>{preview}</strong></span>
-        <button onClick={() => onSave(build())} className="btn btn-primary" style={{ padding: '7px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700 }}>Salva prezzi</button>
+        <button onClick={() => onSave(build())} className="btn btn-primary" style={{ padding: '7px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700 }}>{saveLabel}</button>
       </div>
     </div>
   );
@@ -411,32 +454,84 @@ function NewServiceType({ onCreate }) {
   );
 }
 
-function NewOverride({ types, onCreate }) {
-  const [f, setF] = useState({ venue_key: '', service_type_id: '', price: '', enabled: 'std' });
+function NewOverride({ types, euro, onCreate }) {
+  const [f, setF] = useState({ venue_key: '', service_type_id: '', enabled: 'std' });
+  const [customPricing, setCustomPricing] = useState(false);
+  const selType = types.find((t) => t.id === f.service_type_id);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <input placeholder="chiave locale (es. momi's pub)" value={f.venue_key} onChange={(e) => setF({ ...f, venue_key: e.target.value })} className="form-control" style={{ fontSize: 13 }} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <select value={f.service_type_id} onChange={(e) => setF({ ...f, service_type_id: e.target.value })} className="form-control" style={{ fontSize: 13, flex: 1, minWidth: 120 }}>
+        <select value={f.service_type_id} onChange={(e) => { setF({ ...f, service_type_id: e.target.value }); setCustomPricing(false); }} className="form-control" style={{ fontSize: 13, flex: 1, minWidth: 120 }}>
           <option value="">servizio…</option>
           {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-        <input type="number" step="0.01" placeholder="prezzo € (vuoto=std)" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} className="form-control" style={{ fontSize: 13, width: 130 }} />
-        <select value={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.value })} className="form-control" style={{ fontSize: 13, width: 100 }}>
-          <option value="std">std</option>
-          <option value="on">ON</option>
-          <option value="off">OFF</option>
+        <select value={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.value })} title="Disponibilità per questo locale" className="form-control" style={{ fontSize: 13, width: 130 }}>
+          <option value="std">disp. standard</option>
+          <option value="on">forza ON</option>
+          <option value="off">disattiva</option>
         </select>
       </div>
-      <button onClick={async () => {
-        if (!f.venue_key.trim() || !f.service_type_id) { alert('Chiave locale e servizio obbligatori'); return; }
-        const ok = await onCreate({
-          venue_key: f.venue_key, service_type_id: f.service_type_id,
-          price_cents: f.price === '' ? null : Math.round(parseFloat(f.price) * 100),
-          enabled: f.enabled === 'std' ? null : f.enabled === 'on',
-        });
-        if (ok) setF({ venue_key: '', service_type_id: '', price: '', enabled: 'std' });
-      }} className="btn btn-primary" style={{ borderRadius: 12, fontSize: 13, padding: 8 }}>Imposta override</button>
+      {/* Prezzo personalizzato per-locale: usa lo stesso editor del catalogo, pre-riempito
+          dal prezzo standard del servizio. Se non lo apri, il locale eredita il prezzo standard. */}
+      {selType && (
+        !customPricing ? (
+          <button onClick={() => setCustomPricing(true)} className="btn btn-secondary" style={{ borderRadius: 10, fontSize: 12, padding: '6px 10px', alignSelf: 'flex-start' }}>⚙︎ Prezzo personalizzato per questo locale</button>
+        ) : (
+          <div style={{ border: '1px solid var(--border-dark)', borderRadius: 12, padding: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>Prezzo solo per <strong>{f.venue_key || 'questo locale'}</strong></span>
+              <button onClick={() => setCustomPricing(false)} style={{ background: 'none', border: 'none', color: 'var(--text-dark-tertiary)', fontSize: 11, cursor: 'pointer' }}>usa prezzo standard</button>
+            </div>
+            <PricingEditor pricing={selType.pricing} fallbackCents={selType.default_price_cents} euro={euro}
+              saveLabel="Crea override con questo prezzo"
+              onSave={async (pricing) => {
+                if (!f.venue_key.trim()) { alert('Inserisci la chiave del locale'); return; }
+                const ok = await onCreate({ venue_key: f.venue_key, service_type_id: f.service_type_id, pricing, enabled: f.enabled === 'std' ? null : f.enabled === 'on' });
+                if (ok) { setF({ venue_key: '', service_type_id: '', enabled: 'std' }); setCustomPricing(false); }
+              }} />
+          </div>
+        )
+      )}
+      {!customPricing && (
+        <button onClick={async () => {
+          if (!f.venue_key.trim() || !f.service_type_id) { alert('Chiave locale e servizio obbligatori'); return; }
+          const ok = await onCreate({ venue_key: f.venue_key, service_type_id: f.service_type_id, enabled: f.enabled === 'std' ? null : f.enabled === 'on' });
+          if (ok) setF({ venue_key: '', service_type_id: '', enabled: 'std' });
+        }} className="btn btn-primary" style={{ borderRadius: 12, fontSize: 13, padding: 8 }}>Imposta disponibilità (prezzo standard)</button>
+      )}
+    </div>
+  );
+}
+
+// Riga di un override esistente: mostra il prezzo REALE (motore condiviso), permette di
+// cambiare disponibilità, personalizzare/azzerare il prezzo e cancellare l'override.
+function OverrideRow({ o, t, euro, onSave, onDelete }) {
+  const [showPricing, setShowPricing] = useState(false);
+  const enabledLabel = o.enabled === false ? 'OFF' : o.enabled === true ? 'ON' : 'std';
+  const custom = o.pricing != null;
+  return (
+    <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ color: '#FFF', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 13, flex: 1 }}>{o.venue_key} · {t?.name || '?'}</span>
+        <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--secondary)' }}>{t ? realPriceLabel(t, o) : '—'}</span>
+          <span style={{ fontSize: 10, color: custom ? 'var(--primary)' : 'var(--text-dark-tertiary)' }}>{custom ? 'prezzo su misura' : 'prezzo standard'}</span>
+          <select value={enabledLabel === 'OFF' ? 'off' : enabledLabel === 'ON' ? 'on' : 'std'} onChange={(e) => onSave({ enabled: e.target.value === 'std' ? null : e.target.value === 'on' })} className="form-control" style={{ fontSize: 12, width: 100, height: 30, padding: '2px 8px' }}>
+            <option value="std">disp. std</option>
+            <option value="on">ON</option>
+            <option value="off">OFF</option>
+          </select>
+          <button onClick={() => setShowPricing((v) => !v)} className="btn btn-secondary" style={{ padding: '4px 8px', borderRadius: 8, fontSize: 12, color: showPricing ? 'var(--primary)' : undefined }}>⚙︎</button>
+          {custom && <button onClick={() => onSave({ pricing: null })} title="Torna al prezzo standard" className="btn btn-secondary" style={{ padding: '4px 8px', borderRadius: 8, fontSize: 11 }}>↺ std</button>}
+          <button onClick={onDelete} className="btn btn-secondary" style={{ padding: '4px 6px', borderRadius: 8 }}><Trash2 size={13} /></button>
+        </span>
+      </div>
+      {showPricing && t && (
+        <PricingEditor pricing={o.pricing || t.pricing} fallbackCents={o.price_cents ?? t.default_price_cents} euro={euro}
+          saveLabel="Salva prezzo per questo locale"
+          onSave={(pricing) => { onSave({ pricing }); setShowPricing(false); }} />
+      )}
     </div>
   );
 }

@@ -177,30 +177,45 @@ export default function BannersAdmin() {
       </div>
 
       <div className="card" style={{ padding: 18 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>Banner attivi e in archivio</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Banner attivi e in archivio</h3>
+        {/* Condizioni per comparire nel feed: rese esplicite perché prima non erano chiare. */}
+        <div style={{ fontSize: 11.5, color: 'var(--text-dark-secondary)', lineHeight: 1.5, marginBottom: 12, padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dark)' }}>
+          Un banner compare nel feed <strong style={{ color: '#FFF' }}>solo se</strong>: è <strong>Attivo</strong>, la data <em>“mostra da”</em> è passata (o vuota) e la <em>scadenza</em> non è ancora arrivata (o vuota). Nel feed appare dopo le prime 2 sessioni e poi ogni 3, a rotazione con gli altri attivi (priorità più alta = mostrato più spesso).
+        </div>
         {loading ? (
           <div style={{ color: 'var(--text-dark-secondary)' }}><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Carico…</div>
         ) : banners.length === 0 ? (
           <p style={{ color: 'var(--text-dark-secondary)', fontSize: 13 }}>Nessun banner ancora.</p>
-        ) : banners.map((b) => (
+        ) : banners.map((b) => {
+          // Stato reale nel feed = stesse condizioni della query pubblica.
+          const now = new Date();
+          const notStarted = b.starts_at && new Date(b.starts_at) > now;
+          const expired = b.ends_at && new Date(b.ends_at) < now;
+          const st = !b.active ? { l: '○ Spento', c: 'var(--text-dark-secondary)' }
+            : expired ? { l: '⏳ Scaduto', c: 'var(--error)' }
+            : notStarted ? { l: '🕒 Programmato', c: 'var(--secondary)' }
+            : { l: '● Nel feed', c: 'var(--success)' };
+          return (
           <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border-dark)' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: '#FFF', fontWeight: 600 }}>
                 {b.title} {b.partner && <span style={{ color: 'var(--text-dark-secondary)', fontWeight: 400 }}>· {b.partner}</span>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-dark-secondary)', marginTop: 2 }}>
-                {CATEGORIES.find((c) => c.key === b.category)?.label || b.category} · priorità {b.priority}
+                <span style={{ color: st.c, fontWeight: 700 }}>{st.l}</span> · {CATEGORIES.find((c) => c.key === b.category)?.label || b.category} · priorità {b.priority}
+                {b.starts_at ? ` · da ${new Date(b.starts_at).toLocaleDateString('it-IT')}` : ''}
                 {b.ends_at ? ` · scade ${new Date(b.ends_at).toLocaleDateString('it-IT')}` : ''}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <button onClick={() => toggle(b)} className="btn btn-secondary" style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12, color: b.active ? 'var(--success)' : 'var(--text-dark-secondary)' }}>
-                {b.active ? '● Attivo' : '○ Spento'}
+                {b.active ? 'Disattiva' : 'Attiva'}
               </button>
               <button onClick={() => remove(b.id)} className="action-btn" title="Elimina" style={{ color: 'var(--error)' }}><Trash2 size={16} /></button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
