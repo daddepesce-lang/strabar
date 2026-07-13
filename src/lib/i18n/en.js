@@ -584,7 +584,7 @@ export const en = {
       { t: 'Widmark', s: 'Scientific BAC calculation' },
       { t: 'Real GPS', s: 'Real maps & venues' },
       { t: 'Free', s: 'No cost, no app store' },
-      { t: 'PWA', s: 'Installable + notifications' },
+      { t: 'Alert at 0.5 g/L', s: 'We warn you at the driving limit' },
     ],
     community: {
       eyebrow: 'Community',
@@ -615,11 +615,11 @@ export const en = {
       title: 'Everything Strabar does',
       subtitle: 'Not just a drink diary: a complete assistant for your nights out.',
       cards: [
-        { t: 'Blood alcohol (BAC)', d: 'We estimate your blood alcohol with the Widmark formula based on weight, sex, drinks and time. Sobering curve and estimated time back to 0.0 g/L. Indicative only — never medical or legal advice.' },
+        { t: 'Intoxication curve (BAC)', d: 'We estimate your blood alcohol with the Widmark formula based on weight, sex, drinks and time. See your BAC curve in real time — how it climbs with each drink and when it starts dropping — with the estimated time back to 0.0 g/L. Indicative only — never medical or legal advice.' },
         { t: 'Alcohol Units', d: 'Every drink counts in real Units, computed from strength (ABV) and glass volume. Understand how much you are really drinking and when to stop.' },
-        { t: 'Push notifications', d: 'Get alerts when a friend tags you, comments or toasts with you, when you lose a venue throne or when a new challenge starts. Even with the app closed.' },
+        { t: 'Driving alert 0.5 & notifications', d: 'We send you a push notification when you go over 0.5 g/L, the driving limit — even with the app closed, so you know when it\'s better not to get behind the wheel. Plus the social alerts: when a friend tags you, comments or toasts with you, when you lose a venue throne or a new challenge starts.' },
         { t: 'Events', d: 'Create or join events: aperitivos, pub crawls and group nights. See who is in, meet at the venue and start the shared session with one tap.' },
-        { t: 'Routes & Pub Crawls', d: 'Plan itineraries across real bars on the map. True GPS coordinates, walking distances between stops and ready-made routes like the Bacari Tour in Venice.' },
+        { t: 'Guided tours & Pub Crawls', d: 'Plan itineraries across real bars on the map and follow them like a live guided tour: stop-by-stop navigation and GPS check-in at each venue. True GPS coordinates, walking distances and ready-made routes like the Bacari Tour in Venice.' },
         { t: 'Leaderboards & Legend', d: 'Every venue has its own leaderboard. Stack up visits and Units to become the Venue Legend, unlock badges and climb the weekly rankings with friends.' },
       ],
     },

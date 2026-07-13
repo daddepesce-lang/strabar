@@ -584,7 +584,7 @@ export const fr = {
       { t: 'Widmark', s: 'Calcul scientifique de l\'alcoolémie' },
       { t: 'GPS réel', s: 'Cartes & établissements réels' },
       { t: 'Gratuit', s: 'Aucun coût, pas d\'app store' },
-      { t: 'PWA', s: 'Installable + notifications' },
+      { t: 'Alerte 0,5 g/L', s: 'On vous prévient à la limite de conduite' },
     ],
     community: {
       eyebrow: 'Communauté',
@@ -615,11 +615,11 @@ export const fr = {
       title: 'Tout ce que fait Strabar',
       subtitle: 'Pas seulement un journal de verres : un assistant complet pour vos sorties.',
       cards: [
-        { t: 'Alcoolémie (BAC)', d: 'On estime votre alcoolémie avec la formule de Widmark selon le poids, le sexe, les verres et le temps. Courbe de dégrisement et heure estimée de retour à 0,0 g/L. Indicatif seulement — jamais un avis médical ou légal.' },
+        { t: 'Courbe d\'alcoolémie (BAC)', d: 'On estime votre alcoolémie avec la formule de Widmark selon le poids, le sexe, les verres et le temps. Voyez votre courbe d\'alcoolémie en temps réel — comment elle monte à chaque verre et quand elle redescend — avec l\'heure estimée de retour à 0,0 g/L. Indicatif seulement — jamais un avis médical ou légal.' },
         { t: 'Unités d\'Alcool', d: 'Chaque verre compte en Unités réelles, calculées à partir du degré (ABV) et du volume du verre. Comprenez combien vous buvez vraiment et quand vous arrêter.' },
-        { t: 'Notifications push', d: 'Recevez des alertes quand un ami vous tague, commente ou trinque avec vous, quand vous perdez un trône d\'établissement ou quand un nouveau défi démarre. Même app fermée.' },
+        { t: 'Alerte conduite 0,5 & notifications', d: 'On vous envoie une notification push quand vous dépassez 0,5 g/L, la limite légale pour conduire — même app fermée, pour savoir quand il vaut mieux ne pas prendre le volant. Et aussi les alertes sociales : quand un ami vous tague, commente ou trinque avec vous, quand vous perdez un trône d\'établissement ou qu\'un nouveau défi démarre.' },
         { t: 'Événements', d: 'Créez ou rejoignez des événements : apéros, pub crawls et soirées de groupe. Voyez qui est présent, retrouvez-vous à l\'établissement et démarrez la session partagée en un tap.' },
-        { t: 'Parcours & pub crawls', d: 'Planifiez des itinéraires à travers de vrais bars sur la carte. Vraies coordonnées GPS, distances à pied entre les étapes et parcours prêts à l\'emploi comme le Tour des Bacari à Venise.' },
+        { t: 'Tours guidés & pub crawls', d: 'Planifiez des itinéraires à travers de vrais bars sur la carte et suivez-les comme un tour guidé en direct : navigation étape par étape et check-in GPS à chaque établissement. Vraies coordonnées GPS, distances à pied et parcours prêts à l\'emploi comme le Tour des Bacari à Venise.' },
         { t: 'Classements & Légende', d: 'Chaque établissement a son propre classement. Accumulez visites et Unités pour devenir la Légende de l\'établissement, débloquez des badges et grimpez au classement hebdomadaire avec vos amis.' },
       ],
     },

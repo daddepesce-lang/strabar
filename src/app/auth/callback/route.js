@@ -3,6 +3,17 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { sendWelcomeEmail } from '@/lib/email';
 
+// Lingua della welcome per i signup Google: il flusso email+password la passa dal client
+// (locale dell'app), ma nell'OAuth non abbiamo quel dato → la deduciamo dall'header
+// Accept-Language del browser. Fallback: it (come emailLang lato server).
+function langFromAcceptLanguage(header) {
+  const first = (header || '').split(',')[0]?.trim().toLowerCase() || '';
+  if (first.startsWith('en')) return 'en';
+  if (first.startsWith('fr')) return 'fr';
+  if (first.startsWith('es')) return 'es';
+  return 'it';
+}
+
 // Route handler che completa il login OAuth (Google) scambiando il `code`
 // per una sessione e impostando i cookie (flusso PKCE con @supabase/ssr).
 export async function GET(request) {
@@ -24,7 +35,8 @@ export async function GET(request) {
         const isNewSignup = createdMs && (Date.now() - createdMs < 2 * 60 * 1000);
         if (isNewSignup && u?.email) {
           const name = u.user_metadata?.full_name || u.user_metadata?.name || '';
-          await sendWelcomeEmail(u.email, name);
+          const lang = langFromAcceptLanguage(request.headers.get('accept-language'));
+          await sendWelcomeEmail(u.email, name, lang);
         }
       } catch (e) {
         console.error('Welcome email (Google) non inviata:', e?.message || e);

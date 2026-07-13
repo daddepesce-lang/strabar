@@ -584,7 +584,7 @@ export const es = {
       { t: 'Widmark', s: 'Cálculo científico de la alcoholemia' },
       { t: 'GPS real', s: 'Mapas y locales reales' },
       { t: 'Gratis', s: 'Sin coste, sin app store' },
-      { t: 'PWA', s: 'Instalable + notificaciones' },
+      { t: 'Aviso 0,5 g/L', s: 'Te avisamos en el límite de conducción' },
     ],
     community: {
       eyebrow: 'Comunidad',
@@ -615,11 +615,11 @@ export const es = {
       title: 'Todo lo que hace Strabar',
       subtitle: 'No es solo un diario de copas: un asistente completo para tus noches de fiesta.',
       cards: [
-        { t: 'Tasa de alcoholemia (BAC)', d: 'Estimamos tu tasa de alcoholemia con la fórmula de Widmark según el peso, el sexo, las copas y el tiempo. Curva de sobriedad y tiempo estimado para volver a 0,0 g/L. Solo orientativo, nunca consejo médico ni legal.' },
+        { t: 'Curva de embriaguez (BAC)', d: 'Estimamos tu tasa de alcoholemia con la fórmula de Widmark según el peso, el sexo, las copas y el tiempo. Mira tu curva de alcoholemia en tiempo real — cómo sube con cada copa y cuándo empieza a bajar — con el tiempo estimado para volver a 0,0 g/L. Solo orientativo, nunca consejo médico ni legal.' },
         { t: 'Unidades de Alcohol', d: 'Cada copa cuenta en Unidades reales, calculadas a partir de la graduación (ABV) y el volumen del vaso. Entiende cuánto estás bebiendo de verdad y cuándo parar.' },
-        { t: 'Notificaciones push', d: 'Recibe avisos cuando un amigo te etiqueta, comenta o brinda contigo, cuando pierdes un trono de local o cuando empieza un nuevo reto. Incluso con la app cerrada.' },
+        { t: 'Aviso de conducción 0,5 y notificaciones', d: 'Te enviamos una notificación push cuando superas 0,5 g/L, el límite legal para conducir — incluso con la app cerrada, para que sepas cuándo es mejor no ponerte al volante. Y además los avisos sociales: cuando un amigo te etiqueta, comenta o brinda contigo, cuando pierdes un trono de local o empieza un nuevo reto.' },
         { t: 'Eventos', d: 'Crea o únete a eventos: aperitivos, rutas de bares y noches en grupo. Ve quién se apunta, quedad en el local y empieza la sesión compartida con un toque.' },
-        { t: 'Rutas y rutas de bares', d: 'Planifica itinerarios por bares reales en el mapa. Coordenadas GPS reales, distancias a pie entre paradas y rutas ya hechas como el Tour de los Bacari en Venecia.' },
+        { t: 'Tours guiados y rutas de bares', d: 'Planifica itinerarios por bares reales en el mapa y síguelos como un tour guiado en directo: navegación parada a parada y check-in GPS en cada local. Coordenadas GPS reales, distancias a pie y rutas ya hechas como el Tour de los Bacari en Venecia.' },
         { t: 'Clasificaciones y Leyenda', d: 'Cada local tiene su propia clasificación. Acumula visitas y Unidades para convertirte en la Leyenda del local, desbloquea insignias y escala los rankings semanales con tus amigos.' },
       ],
     },

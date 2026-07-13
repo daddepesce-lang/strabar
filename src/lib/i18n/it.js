@@ -585,7 +585,7 @@ export const it = {
       { t: 'Widmark', s: 'Calcolo BAC scientifico' },
       { t: 'GPS reale', s: 'Mappe e locali reali' },
       { t: 'Gratis', s: 'Nessun costo, niente store' },
-      { t: 'PWA', s: 'Installabile + notifiche' },
+      { t: 'Avviso 0,5 g/l', s: 'Ti avvisiamo al limite guida' },
     ],
     community: {
       eyebrow: 'Community',
@@ -616,11 +616,11 @@ export const it = {
       title: 'Tutto quello che fa Strabar',
       subtitle: 'Non solo un diario delle bevute: un assistente completo per le tue serate.',
       cards: [
-        { t: 'Tasso alcolico (BAC)', d: 'Stimiamo il tuo tasso alcolico con la formula di Widmark in base a peso, sesso, drink e tempo. Curva di smaltimento e momento stimato del ritorno a 0,0 g/l. Valore indicativo, mai medico o legale.' },
+        { t: 'Curva dell\'ebbrezza (BAC)', d: 'Stimiamo il tuo tasso alcolico con la formula di Widmark in base a peso, sesso, drink e tempo. Vedi la curva dell\'ebbrezza in tempo reale — come sale a ogni drink e quando ricomincia a scendere — con il momento stimato del ritorno a 0,0 g/l. Valore indicativo, mai medico o legale.' },
         { t: 'Unità Alcoliche (U.A.)', d: 'Ogni drink pesa in U.A. reali, calcolate da gradazione (ABV) e volume del bicchiere. Capisci quanto stai realmente bevendo e quando è il caso di fermarti.' },
-        { t: 'Notifiche push', d: 'Ricevi avvisi quando un amico ti tagga, commenta o brinda con te, quando perdi il trono di un locale o quando parte una nuova sfida. Anche ad app chiusa.' },
+        { t: 'Avviso guida 0,5 & notifiche', d: 'Ti mandiamo una notifica push quando superi 0,5 g/l, il limite legale per guidare — anche ad app chiusa, così sai quando è meglio non metterti al volante. E poi gli avvisi social: quando un amico ti tagga, commenta o brinda con te, quando perdi il trono di un locale o parte una nuova sfida.' },
         { t: 'Eventi', d: 'Crea o unisciti agli eventi: aperitivi, pub crawl e serate di gruppo. Vedi chi partecipa, ritrovati nel locale e fai partire la sessione condivisa con un tap.' },
-        { t: 'Percorsi & Pub Crawl', d: 'Pianifica itinerari tra bar reali su mappa. Coordinate GPS vere, distanze a piedi tra le tappe e itinerari pronti come il Giro dei Bacari a Venezia.' },
+        { t: 'Tour guidati & Pub Crawl', d: 'Pianifica itinerari tra bar reali su mappa e seguili come un tour guidato dal vivo: navigazione tappa per tappa e check-in GPS a ogni locale. Coordinate GPS vere, distanze a piedi e itinerari pronti come il Giro dei Bacari a Venezia.' },
         { t: 'Classifiche & Leggenda', d: 'Ogni locale ha la sua classifica. Accumula visite e U.A. per diventare la Leggenda del Locale, sblocca badge e scala le classifiche settimanali con gli amici.' },
       ],
     },
