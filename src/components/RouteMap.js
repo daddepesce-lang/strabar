@@ -87,10 +87,10 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
 
-  const makeIcon = (label, active) => {
+  const makeIcon = (label, active, color) => {
     const L = leafletRef.current;
     const size = active ? 38 : 28;
-    const bg = active ? '#DFFF00' : markerColor;
+    const bg = active ? '#DFFF00' : (color || markerColor);
     const ring = active ? '3px solid #fff' : '2px solid #fff';
     const glow = active ? '0 0 0 4px rgba(223, 255, 0,0.35), 0 2px 10px rgba(0,0,0,0.6)' : '0 2px 8px rgba(0,0,0,0.5)';
     return L.divIcon({
@@ -106,7 +106,7 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
       if (!marker) return;
       const wp = waypoints[idx];
       const label = wp && wp.label != null ? wp.label : idx + 1;
-      marker.setIcon(makeIcon(label, idx === activeIndex));
+      marker.setIcon(makeIcon(label, idx === activeIndex, wp && wp.color));
       if (idx === activeIndex) marker.setZIndexOffset(1000);
       else marker.setZIndexOffset(0);
     });
@@ -160,7 +160,7 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
       if (typeof lat !== 'number' || typeof lng !== 'number') return;
 
       const label = wp.label != null ? wp.label : idx + 1;
-      const marker = L.marker([lat, lng], { icon: makeIcon(label, idx === activeIndex) })
+      const marker = L.marker([lat, lng], { icon: makeIcon(label, idx === activeIndex, wp.color) })
         .addTo(map)
         .bindPopup(`<strong>${wp.name || 'Tappa'}</strong>${wp.note ? `<br/>${wp.note}` : ''}`);
       marker.on('click', () => { if (onSelectRef.current) onSelectRef.current(idx); });

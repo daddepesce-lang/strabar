@@ -56,6 +56,25 @@ export async function GET() {
       typeof loc.lat === 'number' && typeof loc.lng === 'number' && loc.share !== 'private';
   });
 
+  // Check-in geolocalizzati NON verificati (loggati lontano dal locale o senza prova GPS):
+  // esclusi da classifiche e statistiche di vendita, ma mostrati sulla mappa admin come
+  // copertura geografica (marker distinti). Aggregazione leggera per nome locale.
+  const unverifiedAgg = {};
+  (sessions || []).forEach((s) => {
+    const loc = s.location;
+    if (!loc || !loc.name || loc.freeform || loc.share === 'private') return;
+    if (!loc.unverified) return; // le verificate sono già nella lista principale
+    if (typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return;
+    const key = norm(loc.name);
+    if (!unverifiedAgg[key]) unverifiedAgg[key] = { key, name: loc.name, lat: loc.lat, lng: loc.lng, sessions: 0, users: new Set(), units: 0, lastSeen: 0 };
+    const v = unverifiedAgg[key];
+    v.sessions += 1;
+    v.users.add(s.user_id);
+    v.units += parseFloat(s.total_units || 0) || 0;
+    const t = new Date(s.created_at).getTime();
+    if (t > v.lastSeen) v.lastSeen = t;
+  });
+
   const DOW = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
   const venues = {};
 
@@ -187,11 +206,30 @@ export async function GET() {
     v.claimed = !!v.manager;
   });
 
+  // Locali con SOLO check-in non verificati (nessuna presenza verificata con lo stesso nome):
+  // sulla mappa admin vanno mostrati come marker distinti, senza toccare le statistiche di vendita.
+  const finalKeys = new Set(list.map((v) => v.key));
+  const unverifiedVenues = Object.values(unverifiedAgg)
+    .filter((v) => !finalKeys.has(v.key))
+    .map((v) => ({
+      key: v.key,
+      name: v.name,
+      lat: v.lat,
+      lng: v.lng,
+      sessions: v.sessions,
+      uniqueUsers: v.users.size,
+      units: parseFloat(v.units.toFixed(1)),
+      lastSeen: v.lastSeen ? new Date(v.lastSeen).toISOString() : null,
+      unverified: true,
+    }))
+    .sort((a, b) => b.sessions - a.sessions);
+
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     totalVenues: list.length,
     totalGeoSessions: geo.length,
     venues: list,
+    unverifiedVenues,
   });
 }
 

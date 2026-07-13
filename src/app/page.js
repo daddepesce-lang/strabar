@@ -23,7 +23,7 @@ import BadgeUnlock from '@/components/BadgeUnlock';
 import { earnedBadgeIds } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Minus, Award, BadgeCheck, AlertTriangle, Navigation, Calendar, Volume2, Camera, Video, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronLeft, ChevronRight, ArrowRight, Sparkles } from 'lucide-react';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Minus, Award, BadgeCheck, AlertTriangle, Navigation, Calendar, Camera, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronLeft, ChevronRight, ArrowRight, Sparkles } from 'lucide-react';
 
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
@@ -3810,31 +3810,7 @@ export default function FeedPage() {
               </div>
             )}
 
-            {/* SEZIONE ALLEGATI MULTIMEDIALI (FOTO / AUDIO / VIDEO) */}
-            {selectedActivity.media && selectedActivity.media.length > 0 && (
-              <div style={{ marginBottom: '25px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px' }}>
-                  {t('session.mediaTitle')}
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
-                  {selectedActivity.media.map((med, idx) => (
-                    <div key={idx} onClick={med.type === 'image' ? () => openSessionPhotos(selectedActivity, idx) : undefined} style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px', textAlign: 'center', position: 'relative', overflow: 'hidden', height: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: med.type === 'image' ? 'pointer' : 'default' }}>
-                      {med.type === 'image' && (
-                        <div style={{ width: '100%', height: '100%', backgroundSize: 'cover', backgroundImage: `url(${med.url})`, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-                      )}
-
-                      <div style={{ zIndex: 1, color: med.type === 'image' ? '#FFF' : 'var(--primary)', background: med.type === 'image' ? 'rgba(0,0,0,0.6)' : 'none', padding: med.type === 'image' ? '6px' : '0', borderRadius: med.type === 'image' ? '50%' : '0' }}>
-                        {med.type === 'video' ? <Video size={32} /> : med.type === 'audio' ? <Volume2 size={32} /> : <Camera size={20} />}
-                      </div>
-
-                      <span style={{ zIndex: 1, fontSize: '11px', fontWeight: '600', color: '#FFF', background: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: '4px', maxWidth: '90%', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                        {med.name || (med.type.toUpperCase())}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Le foto della serata sono mostrate nello slideshow qui sopra. */}
 
             {/* Elenco consumazioni — ordinato, con icona per tipo, quantità e barra U.A. */}
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

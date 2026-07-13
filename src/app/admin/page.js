@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { Loader, Users, Beer, MapPin, TrendingUp, ShieldCheck, UserPlus, UserCheck, LayoutGrid, Lock, Store, Bell, Megaphone } from 'lucide-react';
+import { Loader, Users, Beer, MapPin, TrendingUp, ShieldCheck, UserPlus, UserCheck, LayoutGrid, Lock, Store, Bell, Megaphone, Mail } from 'lucide-react';
 import NotificationsAdmin from './NotificationsAdmin';
 import BannersAdmin from './BannersAdmin';
 import UsersAdmin from './UsersAdmin';
@@ -12,6 +12,7 @@ import DrinksAdmin from './DrinksAdmin';
 import VenuesAdmin from './VenuesAdmin';
 import VenuesMapAdmin from './VenuesMapAdmin';
 import VenuesBusinessAdmin from './VenuesBusinessAdmin';
+import VenueContactsAdmin from './VenueContactsAdmin';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutGrid },
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { id: 'locali', label: 'Locali', Icon: MapPin },
   { id: 'mappa', label: 'Mappa bevute', Icon: MapPin },
   { id: 'business', label: 'Area locali', Icon: Store },
+  { id: 'contatti', label: 'Contatti locali', Icon: Mail },
   { id: 'notifiche', label: 'Notifiche', Icon: Bell },
   { id: 'banner', label: 'Banner', Icon: Megaphone },
 ];
@@ -251,6 +253,7 @@ export default function AdminPage() {
         {tab === 'locali' && <VenuesAdmin />}
         {tab === 'mappa' && <VenuesMapAdmin />}
         {tab === 'business' && <VenuesBusinessAdmin />}
+        {tab === 'contatti' && <VenueContactsAdmin />}
         {tab === 'notifiche' && <NotificationsAdmin />}
         {tab === 'banner' && <BannersAdmin />}
 

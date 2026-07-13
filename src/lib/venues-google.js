@@ -125,4 +125,39 @@ export async function googleNearbySearch(lat, lng, radius = 1000) {
   return (data.places || []).map(normalizeGooglePlace).filter(Boolean);
 }
 
+// Recupera i CONTATTI di un locale (telefono + sito) per l'outreach admin. Usa searchText
+// con field mask estesa. NB: telefono/sito sono nello SKU "Pro" di Places → costa un po' di
+// più della sola ricerca base; da chiamare on-demand (bottone admin), non in massa.
+export async function googleVenueContact(query, near = null) {
+  const body = { textQuery: query, languageCode: 'it', maxResultCount: 1 };
+  if (near && typeof near.lat === 'number' && typeof near.lng === 'number') {
+    body.locationBias = { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 5000 } };
+  }
+  const res = await fetch(`${PLACES_ENDPOINT}/places:searchText`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey(),
+      'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.internationalPhoneNumber,places.websiteUri,places.location',
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`Google contact ${res.status}: ${txt.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const p = (data.places || [])[0];
+  if (!p) return null;
+  return {
+    name: p.displayName?.text || null,
+    address: p.formattedAddress || null,
+    phone: p.internationalPhoneNumber || null,
+    website: p.websiteUri || null,
+    lat: p.location?.latitude ?? null,
+    lng: p.location?.longitude ?? null,
+  };
+}
+
 export const GOOGLE_VENUES_ENABLED = !!process.env.GOOGLE_MAPS_API_KEY;

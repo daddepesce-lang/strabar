@@ -2577,6 +2577,30 @@ export const db = {
   },
 
   async getPlaces() {
+    // EGRESS: in produzione la directory dei locali è aggregata dal DB (RPC
+    // get_venue_directory) e servita dal CDN via /api/venues/directory — NON più
+    // scaricando l'intera tabella sessions sul client come faceva prima. La ricerca e
+    // l'ordinamento avvengono lato client su questo unico payload cacheato.
+    if (isSupabaseConfigured) {
+      try {
+        const res = await fetch('/api/venues/directory', { cache: 'no-store' });
+        if (res.ok) {
+          const d = await res.json();
+          return (d.venues || []).map((v) => ({
+            ...v,
+            sessionsCount: Number(v.sessionsCount) || 0,
+            uniqueDrinkers: Number(v.uniqueDrinkers) || 0,
+            totalUnits: Number(v.totalUnits) || 0,
+            totalDrinks: Number(v.totalDrinks) || 0,
+            avgRating: Number(v.avgRating) || 0,
+            reviewsCount: Number(v.reviewsCount) || 0,
+          }));
+        }
+      } catch { /* fallback: meglio una lista vuota che scaricare tutte le sessioni */ }
+      return [];
+    }
+
+    // --- Demo/localStorage: aggregazione client (dati locali, nessun egress) ---
     const activities = await this.getActivities();
     const map = {};
     activities.forEach((act) => {
@@ -3613,14 +3637,64 @@ export const db = {
   },
 
   async getPlaceReviews(placeKey) {
+    // Lettura via API con cache CDN (RPC aggregata) → niente scan della tabella lato client.
+    if (isSupabaseConfigured) {
+      try {
+        const res = await fetch(`/api/venue/${encodeURIComponent(placeKey)}/reviews`, { cache: 'no-store' });
+        if (res.ok) {
+          const d = await res.json();
+          return (d.reviews || []).map((r, i) => ({
+            id: `${r.createdAt || ''}-${i}`,
+            user_name: r.name,
+            rating: r.rating,
+            text: r.text || '',
+            created_at: r.createdAt,
+          }));
+        }
+      } catch { /* noop */ }
+      return [];
+    }
+    // demo/localStorage
     return this.getReviewsRaw()
       .filter((r) => r.place_key === placeKey)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   },
 
+  // L'utente corrente può recensire questo locale? Vero solo se ha un check-in VERIFICATO
+  // in quel locale (stesso gate della RLS). Usato per mostrare/nascondere il form.
+  async canReviewVenue(placeKey) {
+    if (!isSupabaseConfigured) return true; // demo: sempre consentito
+    try {
+      const { data, error } = await supabase.rpc('can_review_venue', { p_key: placeKey });
+      if (error) return false;
+      return !!data;
+    } catch { return false; }
+  },
+
   async addReview(placeKey, placeName, rating, text) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error('Devi essere loggato per recensire un locale!');
+    const r = Math.max(1, Math.min(5, parseInt(rating || 5)));
+    if (isSupabaseConfigured) {
+      // Upsert: 1 recensione per utente per locale (modificabile). Il gate "solo chi c'è
+      // stato" è applicato dalla RLS: senza un check-in verificato qui, l'insert fallisce.
+      const { error } = await supabase.from('place_reviews').upsert({
+        place_key: placeKey,
+        place_name: placeName,
+        user_id: user.id,
+        rating: r,
+        text: (text || '').trim() || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'place_key,user_id' });
+      if (error) {
+        if (/row-level security|policy|violates/i.test(error.message || '')) {
+          throw new Error('Puoi recensire solo un locale dove hai registrato una sessione verificata (GPS sul posto).');
+        }
+        throw error;
+      }
+      return { ok: true };
+    }
+    // demo/localStorage
     const reviews = this.getReviewsRaw();
     const review = {
       id: 'rev-' + Math.random().toString(36).substr(2, 9),
@@ -3628,7 +3702,7 @@ export const db = {
       place_name: placeName,
       user_id: user.id,
       user_name: user.display_name || user.username,
-      rating: Math.max(1, Math.min(5, parseInt(rating || 5))),
+      rating: r,
       text: text || '',
       created_at: new Date().toISOString(),
     };

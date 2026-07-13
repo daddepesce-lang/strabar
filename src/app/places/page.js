@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import {
-  MapPin, Search, Trophy, Beer, Star, X, Crown, TrendingUp, ExternalLink, Loader, Users, Award, Info, QrCode, BadgeCheck,
+  MapPin, Search, Trophy, Beer, Star, X, TrendingUp, ExternalLink, Loader, Users, Award, Info, QrCode, BadgeCheck,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 import { useT } from '@/lib/i18n';
@@ -71,6 +71,7 @@ export default function ClassifichePage() {
   const [newRating, setNewRating] = useState(5);
   const [newReview, setNewReview] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [canReview, setCanReview] = useState(false); // solo chi ha un check-in verificato qui
 
   // Geofencing and GPS States
   const [showGeofencingModal, setShowGeofencingModal] = useState(false);
@@ -311,10 +312,12 @@ export default function ClassifichePage() {
   const openPlace = async (place) => {
     setPlacePeriod('all');
     setSelected(place);
+    setCanReview(false);
     const rv = await db.getPlaceReviews(place.key).catch(() => []);
     setReviews(rv);
     setNewRating(5);
     setNewReview('');
+    if (currentUser) db.canReviewVenue(place.key).then(setCanReview).catch(() => setCanReview(false));
   };
 
   const submitReview = async () => {
@@ -605,9 +608,10 @@ export default function ClassifichePage() {
                     </div>
                   </div>
 
-                  {place.localLegend && place.localLegend.units > 0 && (
+                  {place.topDrink && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--secondary)' }}>
-                      <Crown size={14} /> {t('places.legend')} <strong>{place.localLegend.name}</strong> ({place.localLegend.units.toFixed(1)} {t('places.rowMetricUnits')})
+                      <Beer size={14} /> {t('places.topDrink')} <strong>{place.topDrink}</strong>
+                      {place.totalDrinks > 0 && <span style={{ color: 'var(--text-dark-secondary)' }}>· {t('places.totalDrinks', { n: place.totalDrinks })}</span>}
                     </div>
                   )}
                 </button>
@@ -640,13 +644,37 @@ export default function ClassifichePage() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '16px' }}>
               <div style={{ minWidth: 0 }}>
-                <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#FFF' }}>{selected.name}</h2>
+                <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {selected.name}
+                  {selected.verified && <BadgeCheck size={18} color="var(--secondary)" style={{ flexShrink: 0 }} aria-label={t('places.verifiedBadge')} />}
+                </h2>
                 {selected.address && <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{selected.address}</p>}
               </div>
               <button onClick={() => setSelected(null)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '34px', height: '34px', flexShrink: 0 }}>
                 <X size={16} />
               </button>
             </div>
+
+            {/* Statistiche locale (dati che invogliano il gestore) */}
+            {(selected.topDrink || selected.totalDrinks > 0) && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                {selected.topDrink && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--secondary)', background: 'rgba(223,255,0,0.08)', border: '1px solid rgba(223,255,0,0.2)', borderRadius: '20px', padding: '5px 12px' }}>
+                    <Beer size={13} /> {t('places.topDrink')} {selected.topDrink}
+                  </span>
+                )}
+                {selected.totalDrinks > 0 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#FFF', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '20px', padding: '5px 12px' }}>
+                    🍻 {t('places.totalDrinks', { n: selected.totalDrinks })}
+                  </span>
+                )}
+                {selected.verified && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--secondary)', background: 'rgba(223,255,0,0.08)', border: '1px solid rgba(223,255,0,0.2)', borderRadius: '20px', padding: '5px 12px' }}>
+                    <BadgeCheck size={13} /> {t('places.verifiedBadge')}
+                  </span>
+                )}
+              </div>
+            )}
 
             <button
               onClick={handleStartBrindisi}
@@ -717,8 +745,12 @@ export default function ClassifichePage() {
               )}
             </h3>
 
-            {/* Form recensione */}
-            {currentUser ? (
+            {/* Form recensione — solo per chi ha un check-in VERIFICATO in questo locale */}
+            {!currentUser ? (
+              <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
+                <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('nav.login')}</Link> {t('places.loginToReview')}
+              </p>
+            ) : canReview ? (
               <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>{t('places.yourRating')}</span>
@@ -737,8 +769,8 @@ export default function ClassifichePage() {
                 </button>
               </div>
             ) : (
-              <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px' }}>
-                <Link href="/auth" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('nav.login')}</Link> {t('places.loginToReview')}
+              <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '16px', background: 'rgba(255,255,255,0.02)', border: '1px dashed var(--border-dark)', borderRadius: '10px', padding: '12px' }}>
+                {t('places.reviewGate')}
               </p>
             )}
 
