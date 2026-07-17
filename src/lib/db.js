@@ -2748,7 +2748,10 @@ export const db = {
     return Array.from(seen.values());
   },
 
-  // Cerca locali per nome/indirizzo. Prova prima Google Places (via route server, che
+  // Cerca locali per nome/indirizzo. Include SEMPRE i locali già usati su Strabar
+  // (community, dalla directory cacheata) così un locale già censito — anche una sagra
+  // o un evento temporaneo che Google/OSM non conoscono — si ritrova sempre e non viene
+  // mai ri-creato come doppione. In aggiunta, prova Google Places (via route server, che
   // rispetta la quota gratuita mensile); se la route risponde 'osm' (Google non
   // configurato / quota esaurita / errore) ripiega su OpenStreetMap (Nominatim), gratis.
   // Il fallback OSM avviene dal browser: il payload non passa da Vercel.
@@ -2756,18 +2759,27 @@ export const db = {
   async searchVenues(query, near = null) {
     const q = (query || '').trim();
     if (q.length < 2) return [];
+    const ql = q.toLowerCase();
+    const community = (await this.getPlaces().catch(() => []))
+      .filter((p) => p.name.toLowerCase().includes(ql) || (p.address || '').toLowerCase().includes(ql))
+      .map((p) => ({ ...p, source: p.source || 'community', isVenue: true }));
+
+    let external = [];
     try {
       const params = new URLSearchParams({ q });
       if (near && near.lat && near.lng) { params.set('lat', String(near.lat)); params.set('lng', String(near.lng)); }
       const res = await fetch(`/api/venues/search?${params.toString()}`);
       if (res.ok) {
         const j = await res.json();
-        if (j && j.source === 'google' && Array.isArray(j.venues)) {
-          return this._dedupeVenues(j.venues);
-        }
+        if (j && j.source === 'google' && Array.isArray(j.venues)) external = j.venues;
       }
     } catch { /* rete/SSR non disponibile: ripiega su OSM */ }
-    return this._searchVenuesOsm(q, near);
+    if (external.length === 0) external = await this._searchVenuesOsm(q, near);
+
+    // Community per prima: a parità di locale, _dedupeVenues preferisce chi ha più
+    // sessionsCount, quindi un locale già noto su Strabar non viene mai scavalcato da un
+    // risultato Google/OSM omonimo (niente doppioni da "registrare").
+    return this._dedupeVenues([...community, ...external]);
   },
 
   // Ricerca locali su OpenStreetMap (Nominatim). Fallback di searchVenues.
