@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { user_ids, title, body, url } = await req.json();
+    const { user_ids, title, body, url, tag, renotify, platforms } = await req.json();
     if (!Array.isArray(user_ids) || user_ids.length === 0) {
       return new Response(JSON.stringify({ error: "user_ids mancanti" }), { status: 400, headers: cors });
     }
@@ -37,13 +37,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: subs, error } = await supabase
+    let query = supabase
       .from("push_subscriptions")
-      .select("id, subscription")
+      .select("id, subscription, platform")
       .in("user_id", user_ids);
+    // Filtro piattaforma opzionale (es. notifica live → solo 'android'). Le subscription
+    // storiche senza platform (null) vengono escluse quando si filtra.
+    if (Array.isArray(platforms) && platforms.length > 0) query = query.in("platform", platforms);
+    const { data: subs, error } = await query;
     if (error) throw error;
 
-    const payload = JSON.stringify({ title: title || "Strabar 🍻", body: body || "", url: url || "/" });
+    const payload = JSON.stringify({
+      title: title || "Strabar 🍻",
+      body: body || "",
+      url: url || "/",
+      ...(tag ? { tag } : {}),
+      ...(renotify != null ? { renotify: !!renotify } : {}),
+    });
 
     let sent = 0;
     const stale: string[] = [];

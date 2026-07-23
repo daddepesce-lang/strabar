@@ -1,9 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X, Check, Plus } from 'lucide-react';
+import { Search, X, Check, Plus, Trash2 } from 'lucide-react';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
+import { localizeDrink, localizeBeerFamilyLabel, drinkTypeOptions, drinkUnits } from '@/lib/drinkLabel';
+
+// Chiave d'identità di un drink nel foglio: id (catalogo/custom) o nome. I custom NON
+// hanno un nome di catalogo, quindi si usa l'id.
+const keyOf = (d) => d.id || d.name;
 
 // Normalizza per la ricerca: minuscolo + niente accenti, così "però" ≈ "pero".
 const norm = (s = '') => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -27,14 +32,20 @@ function pillEmoji(d) {
 // categorie ordinate, un tap per aggiungere (anche più di uno). Sostituisce il muro di
 // bottoni. `venueDrinks` (opz.) sono i drink propri del locale, mostrati in cima.
 // `scope` = 'session' | 'stop' cambia solo l'etichetta del contatore.
-export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [], scope = 'session' }) {
+export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [], customDrinks = [], onAddCustom, onDeleteCustom, scope = 'session' }) {
   const t = useT();
+  const { locale } = useI18n();
   const { quick, extra, beerFamilies } = useDrinkCatalog();
   const [q, setQ] = useState('');
   const [openBeer, setOpenBeer] = useState(null);
-  const [addedCounts, setAddedCounts] = useState({}); // { name: quantità aggiunta in questo foglio }
-  const [lastAdded, setLastAdded] = useState(null); // nome dell'ultimo aggiunto (per il flash ✓)
+  const [addedCounts, setAddedCounts] = useState({}); // { key: quantità aggiunta in questo foglio }
+  const [lastAdded, setLastAdded] = useState(null); // key dell'ultimo aggiunto (per il flash ✓)
   const [showPacing, setShowPacing] = useState(false); // avviso "non loggarli tutti insieme"
+  // Form "crea drink personalizzato".
+  const typeOptions = useMemo(() => drinkTypeOptions(locale), [locale]);
+  const [showForm, setShowForm] = useState(false);
+  const [savingCustom, setSavingCustom] = useState(false);
+  const [form, setForm] = useState({ typeKey: 'beer', volumeMl: '400', abv: '5', note: '' });
   const lastAddTs = useRef(0);
   const inputRef = useRef(null);
 
@@ -54,10 +65,11 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
   }, [onClose]);
 
   const add = (preset) => {
+    const k = keyOf(preset);
     onPick?.(preset);
-    setAddedCounts((m) => ({ ...m, [preset.name]: (m[preset.name] || 0) + 1 }));
-    setLastAdded(preset.name);
-    setTimeout(() => setLastAdded((cur) => (cur === preset.name ? null : cur)), 900);
+    setAddedCounts((m) => ({ ...m, [k]: (m[k] || 0) + 1 }));
+    setLastAdded(k);
+    setTimeout(() => setLastAdded((cur) => (cur === k ? null : cur)), 900);
     // Pacing: due drink entro 60s → suggerisci di registrarli quando li bevi davvero.
     const now = Date.now();
     if (lastAddTs.current && now - lastAddTs.current < 60000) setShowPacing(true);
@@ -65,15 +77,29 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
   };
 
   const remove = (preset) => {
-    if (!(addedCounts[preset.name] > 0)) return;
+    const k = keyOf(preset);
+    if (!(addedCounts[k] > 0)) return;
     onRemove?.(preset.name);
     setAddedCounts((m) => {
-      const n = (m[preset.name] || 0) - 1;
+      const n = (m[k] || 0) - 1;
       const next = { ...m };
-      if (n > 0) next[preset.name] = n; else delete next[preset.name];
+      if (n > 0) next[k] = n; else delete next[k];
       return next;
     });
   };
+
+  // Salva un nuovo drink personalizzato e chiude il form.
+  const submitCustom = async () => {
+    if (savingCustom || !onAddCustom) return;
+    setSavingCustom(true);
+    try {
+      await onAddCustom({ typeKey: form.typeKey, volumeMl: form.volumeMl, abv: form.abv, note: form.note });
+      setShowForm(false);
+      setForm({ typeKey: 'beer', volumeMl: '400', abv: '5', note: '' });
+    } catch { /* errore silenzioso: il pulsante torna attivo */ }
+    finally { setSavingCustom(false); }
+  };
+  const customPreviewUnits = drinkUnits(form.volumeMl, form.abv);
 
   // Tutte le taglie birra "appiattite" per la ricerca testuale.
   const beerFlat = useMemo(
@@ -90,22 +116,26 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
   const results = useMemo(() => {
     const nq = norm(q.trim());
     if (!nq) return null;
-    const match = (d) => norm(`${d.name} ${d.label || ''}`).includes(nq);
+    const match = (d) => {
+      const loc = localizeDrink(d, locale);
+      return norm(`${d.name} ${d.label || ''} ${loc.name} ${loc.label}`).includes(nq);
+    };
     const seen = new Set();
     const out = [];
-    [...venue, ...quick, ...beerFlat, ...extra].forEach((d) => {
+    [...(customDrinks || []), ...venue, ...quick, ...beerFlat, ...extra].forEach((d) => {
       if (!match(d)) return;
-      const key = d.name;
+      const key = keyOf(d);
       if (seen.has(key)) return;
       seen.add(key);
       out.push(d);
     });
     return out;
-  }, [q, venue, quick, beerFlat, extra]);
+  }, [q, customDrinks, venue, quick, beerFlat, extra, locale]);
 
   const Pill = ({ d }) => {
-    const count = addedCounts[d.name] || 0;
-    const just = lastAdded === d.name;
+    const k = keyOf(d);
+    const count = addedCounts[k] || 0;
+    const just = lastAdded === k;
     const active = count > 0;
     return (
       <div
@@ -124,7 +154,7 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
           <span style={{ fontSize: '15px', lineHeight: 1 }}>{pillEmoji(d)}</span>
           <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <span style={{ color: '#FFF', fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
-              {(d.label || d.name).replace(/^\p{Emoji}\s*/u, '')}
+              {(() => { const loc = localizeDrink(d, locale); return (loc.label || loc.name).replace(/^\p{Emoji}\s*/u, ''); })()}
             </span>
             <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
               {d.abv > 0 ? t('drink.perUnit', { abv: d.abv, units: (d.units || 0).toFixed(1) }) : t('drink.analc')}
@@ -146,6 +176,16 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
             aria-label={t('drink.removeOne')}
             style={{ flexShrink: 0, width: '34px', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.08)', background: 'rgba(239,68,68,0.12)', color: '#EF4444', cursor: 'pointer', fontSize: '18px', lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
           >−</button>
+        )}
+        {/* Elimina il drink dai "miei drink" salvati (solo nella sezione custom). */}
+        {d.custom && count === 0 && onDeleteCustom && (
+          <button
+            type="button"
+            onClick={() => onDeleteCustom(d.id)}
+            title={t('drink.deleteCustom')}
+            aria-label={t('drink.deleteCustom')}
+            style={{ flexShrink: 0, width: '30px', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-dark-secondary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+          ><Trash2 size={13} /></button>
         )}
       </div>
     );
@@ -208,6 +248,66 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
             )
           ) : (
             <>
+              {/* I MIEI DRINK: personalizzati salvati dall'utente + pulsante "crea drink". */}
+              {(onAddCustom || (customDrinks && customDrinks.length > 0)) && (
+                <Section label={t('drink.myDrinksSection')}>
+                  {customDrinks && customDrinks.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: onAddCustom ? '10px' : 0 }}>
+                      {customDrinks.map((d, i) => <Pill key={`c-${d.id || i}`} d={d} />)}
+                    </div>
+                  )}
+                  {onAddCustom && !showForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowForm(true)}
+                      className="btn btn-secondary"
+                      style={{ padding: '9px 14px', fontSize: 13, borderRadius: 14, border: '1px dashed var(--border-dark)', fontWeight: 700 }}
+                    >
+                      {t('drink.createCustom')}
+                    </button>
+                  )}
+                  {onAddCustom && showForm && (
+                    <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: 14, padding: 12 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: '#FFF', marginBottom: 10 }}>{t('drink.customTitle')}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>
+                          {t('drink.customType')}
+                          <select
+                            value={form.typeKey}
+                            onChange={(e) => setForm((f) => ({ ...f, typeKey: e.target.value }))}
+                            className="form-control"
+                            style={{ height: 40, marginTop: 4, fontSize: 14 }}
+                          >
+                            {typeOptions.map((o) => (
+                              <option key={o.key} value={o.key}>{o.emoji} {o.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <label style={{ flex: 1, fontSize: 11, color: 'var(--text-dark-secondary)' }}>
+                            {t('drink.customVolume')}
+                            <input type="number" inputMode="numeric" min="0" value={form.volumeMl} onChange={(e) => setForm((f) => ({ ...f, volumeMl: e.target.value }))} className="form-control" style={{ height: 40, marginTop: 4, fontSize: 14 }} />
+                          </label>
+                          <label style={{ flex: 1, fontSize: 11, color: 'var(--text-dark-secondary)' }}>
+                            {t('drink.customAbv')}
+                            <input type="number" inputMode="decimal" min="0" step="0.1" value={form.abv} onChange={(e) => setForm((f) => ({ ...f, abv: e.target.value }))} className="form-control" style={{ height: 40, marginTop: 4, fontSize: 14 }} />
+                          </label>
+                        </div>
+                        <label style={{ fontSize: 11, color: 'var(--text-dark-secondary)' }}>
+                          {t('drink.customNote')}
+                          <input type="text" maxLength={60} value={form.note} placeholder={t('drink.customNotePh')} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} className="form-control" style={{ height: 40, marginTop: 4, fontSize: 14 }} />
+                        </label>
+                        <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 700 }}>{t('drink.customPreview', { units: customPreviewUnits.toFixed(1) })}</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button type="button" onClick={submitCustom} disabled={savingCustom} className="btn btn-primary" style={{ flex: 1, borderRadius: 12, padding: '10px', fontSize: 14, fontWeight: 700 }}>{t('drink.customSave')}</button>
+                          <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary" style={{ borderRadius: 12, padding: '10px 16px', fontSize: 14 }}>{t('drink.customCancel')}</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Section>
+              )}
+
               {venue.length > 0 && (
                 <Section label={t('drink.venueSection')}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -234,7 +334,7 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
                         className="btn btn-secondary"
                         style={{ padding: '9px 12px', fontSize: 13, borderRadius: 14, border: active ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: active ? 'var(--primary)' : undefined, fontWeight: active ? 700 : 600 }}
                       >
-                        {f.label} {active ? '▴' : '▾'}
+                        {localizeBeerFamilyLabel(f, locale)} {active ? '▴' : '▾'}
                       </button>
                     );
                   })}

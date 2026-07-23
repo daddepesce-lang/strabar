@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 import { useT } from '@/lib/i18n';
+import { locationDisplayName } from '@/lib/sessionLabels';
 
 const PLACE_SORTS = [
   { key: 'sessions', label: 'Più registrazioni', icon: Beer },
@@ -161,7 +162,7 @@ export default function ClassifichePage() {
       // Chiudi sessione precedente
       await db.closeSession(activeSession.id, {
         is_active: false,
-        feeling: activeSession.feeling || 'Sobrio',
+        feeling: activeSession.feeling || 'sober',
         description: 'Chiuso per iniziare un nuovo brindisi.',
         duration: elapsed
       });
@@ -238,7 +239,7 @@ export default function ClassifichePage() {
         const elapsed = Math.max(1, Math.round(diffMs / (60 * 1000)));
         await db.closeSession(activeSession.id, {
           is_active: false,
-          feeling: activeSession.feeling || 'Sobrio',
+          feeling: activeSession.feeling || 'sober',
           description: 'Chiuso per iniziare un nuovo brindisi.',
           duration: elapsed
         });
@@ -856,7 +857,7 @@ export default function ClassifichePage() {
             <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF' }}>{t('places.activeTitle')}</h3>
 
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: '1.6' }}>
-              {t('places.activeMsg', { place: activeSession.location ? activeSession.location.name : t('session.freeSession') })}
+              {t('places.activeMsg', { place: locationDisplayName(activeSession.location, t) })}
             </p>
 
             <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', lineHeight: '1.5' }}>

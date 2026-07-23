@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck, ShoppingCart, ImagePlus, Pencil, Trash2, BarChart3, Eye, MousePointerClick, CalendarClock, X, Beer, Plus, QrCode } from 'lucide-react';
 import { OPTION_SCHEMA, defaultOptions, computePrice, euro } from '@/lib/venuePricing';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
+import { drinkTypeOptions } from '@/lib/drinkLabel';
 
 const SERVICE_ICON = { sponsored_event: Star, promo: Megaphone, notify: Bell };
 
@@ -15,6 +16,8 @@ export default function VenueManagePage({ params }) {
   const { key } = use(params);
   const placeKey = decodeURIComponent(key || '');
   const t = useT();
+  const { locale } = useI18n();
+  const drinkTypes = drinkTypeOptions(locale);
 
   const svcName = {
     sponsored_event: t('gestione.svcEvent'),
@@ -65,7 +68,7 @@ export default function VenueManagePage({ params }) {
   const [extendDays, setExtendDays] = useState({}); // bannerId -> giorni proroga
 
   const [venueDrinks, setVenueDrinks] = useState([]); // drink propri del locale
-  const [drinkForm, setDrinkForm] = useState({ name: '', abv: '', units: '' });
+  const [drinkForm, setDrinkForm] = useState({ name: '', abv: '', units: '', typeKey: 'beer' });
   const [addingDrink, setAddingDrink] = useState(false);
 
   const loadManagerData = async () => {
@@ -87,8 +90,10 @@ export default function VenueManagePage({ params }) {
     try {
       const abv = parseFloat(String(drinkForm.abv).replace(',', '.')) || 0;
       const units = parseFloat(String(drinkForm.units).replace(',', '.')) || 0;
-      await db.addVenueDrink(placeKey, { name, abv, units, label: `🍸 ${name}` });
-      setDrinkForm({ name: '', abv: '', units: '' });
+      const cat = drinkTypes.find((o) => o.key === drinkForm.typeKey);
+      const emoji = cat?.emoji || '🍸';
+      await db.addVenueDrink(placeKey, { name, abv, units, typeKey: drinkForm.typeKey, label: `${emoji} ${name}` });
+      setDrinkForm({ name: '', abv: '', units: '', typeKey: drinkForm.typeKey });
       setVenueDrinks(await db.getVenueDrinks(placeKey).catch(() => venueDrinks));
     } catch (e) { alert('Errore: ' + (e.message || e)); }
     finally { setAddingDrink(false); }
@@ -393,6 +398,10 @@ export default function VenueManagePage({ params }) {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
                 <input value={drinkForm.name} onChange={(e) => setDrinkForm((p) => ({ ...p, name: e.target.value }))} placeholder={t('gestione.drinkNamePh')} className="form-control" style={{ fontSize: '13px' }} />
+                {/* Categoria: rende il drink traducibile sul feed di utenti con altra lingua. */}
+                <select value={drinkForm.typeKey} onChange={(e) => setDrinkForm((p) => ({ ...p, typeKey: e.target.value }))} className="form-control" style={{ fontSize: '13px', height: 38 }}>
+                  {drinkTypes.map((o) => (<option key={o.key} value={o.key}>{o.emoji} {o.label}</option>))}
+                </select>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input value={drinkForm.abv} onChange={(e) => setDrinkForm((p) => ({ ...p, abv: e.target.value }))} placeholder={t('gestione.drinkAbvPh')} type="number" step="0.1" className="form-control" style={{ fontSize: '13px', flex: 1 }} />
                   <input value={drinkForm.units} onChange={(e) => setDrinkForm((p) => ({ ...p, units: e.target.value }))} placeholder={t('gestione.drinkUnitsPh')} type="number" step="0.1" className="form-control" style={{ fontSize: '13px', flex: 1 }} />

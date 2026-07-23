@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
+import { localizeDrink, localizeBeerFamilyLabel } from '@/lib/drinkLabel';
 
 // Selettore birre con TAGLIA: si sceglie prima il tipo (Bionda/Rossa/IPA/Doppio Malto),
 // poi si apre la riga delle taglie (Piccola/Media/Grande). Toccare una taglia aggiunge
@@ -10,6 +11,7 @@ import { useT } from '@/lib/i18n';
 // poi con i +/- nella lista). Riutilizzabile in tutti i punti di registrazione drink.
 export default function BeerPicker({ onPick, disabled = false }) {
   const t = useT();
+  const { locale } = useI18n();
   const [openKey, setOpenKey] = useState(null);
   const { beerFamilies } = useDrinkCatalog();
   const open = beerFamilies.find((f) => f.key === openKey);
@@ -34,7 +36,7 @@ export default function BeerPicker({ onPick, disabled = false }) {
                 color: active ? 'var(--primary)' : undefined, fontWeight: active ? 700 : undefined,
               }}
             >
-              {f.label} {active ? '▴' : '▾'}
+              {localizeBeerFamilyLabel(f, locale)} {active ? '▴' : '▾'}
             </button>
           );
         })}
@@ -52,7 +54,7 @@ export default function BeerPicker({ onPick, disabled = false }) {
               style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '15px', border: '1px solid var(--border-dark)', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'wait' : 'pointer' }}
               title={`${preset.units.toFixed(1)} ${t('beerpicker.unitsLabel')} · ${preset.abv}%`}
             >
-              {open.label.replace(/^🍺\s*/, '🍺 ')} {preset.size} <span style={{ color: 'var(--secondary)', fontWeight: 700 }}>· {preset.abv}°</span> <span style={{ color: 'var(--text-dark-secondary)' }}>· {preset.units.toFixed(1)} {t('beerpicker.unitsLabel')}</span>
+              {localizeDrink(preset, locale).label} <span style={{ color: 'var(--secondary)', fontWeight: 700 }}>· {preset.abv}°</span> <span style={{ color: 'var(--text-dark-secondary)' }}>· {preset.units.toFixed(1)} {t('beerpicker.unitsLabel')}</span>
             </button>
           ))}
         </div>

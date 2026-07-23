@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
+import { localizeDrink } from '@/lib/drinkLabel';
+import { localizeFeeling, isNeutralFeeling, locationDisplayName, feelingKey } from '@/lib/sessionLabels';
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
@@ -123,6 +125,7 @@ function FeedBanner({ b, onSeen, onClick }) {
 
 export default function FeedPage() {
   const t = useT();
+  const { locale } = useI18n();
   // Catalogo drink dinamico (gestito da admin), con fallback statico immediato.
   const { quick: QUICK_DRINKS, extra: EXTRA_DRINKS } = useDrinkCatalog();
   const router = useRouter();
@@ -622,7 +625,7 @@ export default function FeedPage() {
       // A 5 ore: chiusura automatica
       if (mins >= 300) {
         db.closeSession(activeSession.id, {
-          feeling: activeSession.feeling || 'Sobrio',
+          feeling: activeSession.feeling || 'sober',
           description: activeSession.description || t('session.autoClosedDesc'),
           duration: mins,
         })
@@ -859,7 +862,15 @@ export default function FeedPage() {
         units: preset.units,
         qty: 1,
         added_at: nowStr,
-        added_times: [nowStr]
+        added_times: [nowStr],
+        // Identità per la localizzazione sul feed (i18n): id di catalogo oppure
+        // categoria+specifiche per i drink custom/bar. Campi opzionali → salvati solo se
+        // presenti, per non gonfiare il JSON (egress).
+        ...(preset.id ? { id: preset.id } : {}),
+        ...(preset.typeKey ? { typeKey: preset.typeKey } : {}),
+        ...(preset.volumeMl ? { volumeMl: preset.volumeMl } : {}),
+        ...(preset.note ? { note: preset.note } : {}),
+        ...(preset.custom ? { custom: true } : {}),
       };
 
       // IMPORTANTE: rileggi sempre la sessione fresca dal DB per evitare stato stale
@@ -967,6 +978,18 @@ export default function FeedPage() {
     }
   };
 
+  // Crea/rimuove un drink PERSONALIZZATO dell'utente (salvato nel profilo). Aggiorna anche
+  // lo stato locale currentUser così la lista si rinfresca subito senza rileggere il profilo.
+  const handleCreateCustomDrink = async (drinkData) => {
+    const created = await db.addUserCustomDrink(drinkData);
+    setCurrentUser((prev) => (prev ? { ...prev, custom_drinks: [...(prev.custom_drinks || []), created] } : prev));
+    return created;
+  };
+  const handleDeleteCustomDrink = async (id) => {
+    await db.removeUserCustomDrink(id);
+    setCurrentUser((prev) => (prev ? { ...prev, custom_drinks: (prev.custom_drinks || []).filter((d) => d.id !== id) } : prev));
+  };
+
   const handleAddDrinkToActiveSession = async (preset) => {
     if (!activeSession) return;
     // Guard anti doppio-tap: ignora nuove selezioni finché l'aggiunta in corso non è
@@ -983,7 +1006,15 @@ export default function FeedPage() {
         units: preset.units,
         qty: 1,
         added_at: nowStr,
-        added_times: [nowStr]
+        added_times: [nowStr],
+        // Identità per la localizzazione sul feed (i18n): id di catalogo oppure
+        // categoria+specifiche per i drink custom/bar. Campi opzionali → salvati solo se
+        // presenti, per non gonfiare il JSON (egress).
+        ...(preset.id ? { id: preset.id } : {}),
+        ...(preset.typeKey ? { typeKey: preset.typeKey } : {}),
+        ...(preset.volumeMl ? { volumeMl: preset.volumeMl } : {}),
+        ...(preset.note ? { note: preset.note } : {}),
+        ...(preset.custom ? { custom: true } : {}),
       };
 
       // IMPORTANTE: rileggi sempre la sessione fresca dal DB per evitare
@@ -1605,7 +1636,7 @@ export default function FeedPage() {
     e.preventDefault();
     if (!activeSession) return;
 
-    const feeling = e.target.feeling.value || 'Brillo Felice';
+    const feeling = e.target.feeling.value || 'tipsy_happy';
     let description = e.target.description.value || '';
 
     // Recap automatico per i Tour guidati
@@ -2448,18 +2479,18 @@ export default function FeedPage() {
               <div key={i} className="drink-stepper-row">
                 <span className="dsr-emoji">{drinkEmoji(d.name)}</span>
                 <div className="dsr-info">
-                  <div className="dsr-name">{d.name}</div>
+                  <div className="dsr-name">{localizeDrink(d, locale).name}</div>
                   <div className="dsr-meta">
-                    {d.abv > 0 ? `${d.abv}% vol` : 'analcolico'}
-                    {typeof d.units === 'number' && d.units > 0 ? ` · ${Number(d.units.toFixed(1))} U.A.` : ''}
+                    {d.abv > 0 ? `${d.abv}% vol` : t('session.nonAlcoholic')}
+                    {typeof d.units === 'number' && d.units > 0 ? ` · ${Number(d.units.toFixed(1))} ${t('session.uaShort')}` : ''}
                   </div>
                 </div>
                 <div className="stepper">
-                  <button type="button" onClick={() => handleRemoveDrinkFromActiveSession(d.name)} disabled={addingDrink} aria-label={`Togli un ${d.name}`}>
+                  <button type="button" onClick={() => handleRemoveDrinkFromActiveSession(d.name)} disabled={addingDrink} aria-label={t('session.removeOne', { name: localizeDrink(d, locale).name })}>
                     <Minus size={16} />
                   </button>
                   <span className="stepper-qty">{d.qty || 1}</span>
-                  <button type="button" className="plus" onClick={() => handleAddDrinkToActiveSession({ name: d.name, abv: d.abv, units: d.units })} disabled={addingDrink} aria-label={`Aggiungi un ${d.name}`}>
+                  <button type="button" className="plus" onClick={() => handleAddDrinkToActiveSession({ name: d.name, abv: d.abv, units: d.units, id: d.id, typeKey: d.typeKey, volumeMl: d.volumeMl, note: d.note, custom: d.custom })} disabled={addingDrink} aria-label={t('session.addOne', { name: localizeDrink(d, locale).name })}>
                     <Plus size={16} />
                   </button>
                 </div>
@@ -2525,7 +2556,7 @@ export default function FeedPage() {
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> {t('session.liveBadge')}
                 </span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: '13px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {t('session.liveBannerPrefix')} · <strong>{activeSession.location ? activeSession.location.name : t('session.freeSession')}</strong> · ⏱️ {elapsedMinutes} min
+                  {t('session.liveBannerPrefix')} · <strong>{locationDisplayName(activeSession.location, t)}</strong> · ⏱️ {elapsedMinutes} min
                 </span>
                 <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{t('session.manageBtn')}</span>
               </button>
@@ -2568,7 +2599,7 @@ export default function FeedPage() {
                   </span>
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-dark-tertiary)', marginTop: '1px' }}>
-                  📍 {activeSession.location ? activeSession.location.name : t('session.freeSession')}
+                  📍 {locationDisplayName(activeSession.location, t)}
                 </div>
                 {activeSession.description && (
                   <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '4px' }}>{activeSession.description}</p>
@@ -2719,7 +2750,7 @@ export default function FeedPage() {
                                       pastDrinks.length > 0 ? (
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
                                           {pastDrinks.map((d, k) => (
-                                            <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '10px', padding: '2px 7px', opacity: 0.85 }}>{drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{d.name}</span>
+                                            <span key={k} className="drink-tag" style={{ margin: 0, fontSize: '10px', padding: '2px 7px', opacity: 0.85 }}>{drinkEmoji(d.name)} {(d.qty || 1) > 1 ? `${d.qty}× ` : ''}{localizeDrink(d, locale).name}</span>
                                           ))}
                                         </div>
                                       ) : <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', marginTop: '4px' }}>{t('session.noDrinksAtStop')}</div>
@@ -3016,12 +3047,12 @@ export default function FeedPage() {
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>{t('session.moodLabel')}</label>
                       <select name="feeling" className="form-control" style={{ height: '36px', fontSize: '13px', padding: '0 8px' }}>
-                        <option value="Sobrio">{t('session.moodSobrio')}</option>
-                        <option value="Allegro">{t('session.moodAllegro')}</option>
-                        <option value="Brillo Felice">{t('session.moodBrillo')}</option>
-                        <option value="Intenditore">{t('session.moodIntenditore')}</option>
-                        <option value="Molto Caldo">{t('session.moodCaldo')}</option>
-                        <option value="Pieno Raso">{t('session.moodPieno')}</option>
+                        <option value="sober">{t('session.moodSobrio')}</option>
+                        <option value="happy">{t('session.moodAllegro')}</option>
+                        <option value="tipsy_happy">{t('session.moodBrillo')}</option>
+                        <option value="connoisseur">{t('session.moodIntenditore')}</option>
+                        <option value="very_hot">{t('session.moodCaldo')}</option>
+                        <option value="full">{t('session.moodPieno')}</option>
                       </select>
                     </div>
                   </div>
@@ -3049,6 +3080,9 @@ export default function FeedPage() {
                 <DrinkSearch
                   scope={activeSession.location?.tour ? 'stop' : 'session'}
                   venueDrinks={liveVenueDrinks}
+                  customDrinks={currentUser?.custom_drinks || []}
+                  onAddCustom={handleCreateCustomDrink}
+                  onDeleteCustom={handleDeleteCustomDrink}
                   onPick={handleAddDrinkToActiveSession}
                   onRemove={handleRemoveDrinkFromActiveSession}
                   onClose={() => setDrinkSearchOpen(false)}
@@ -3169,7 +3203,7 @@ export default function FeedPage() {
                     )}
                     {act.location && (
                       <span className="cover-overlay" style={{ bottom: 14, left: 16, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#FFF', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        📍 {act.location.name}
+                        📍 {locationDisplayName(act.location, t)}
                       </span>
                     )}
                     <span className="cover-overlay" style={{ bottom: 12, right: 14, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -3193,8 +3227,8 @@ export default function FeedPage() {
                     </div>
                     <div className="activity-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {formatDate(act.created_at)}
-                      {act.feeling && act.feeling !== 'Normale' && (
-                        <> · <strong style={{ color: 'var(--primary)' }}>{act.feeling}</strong></>
+                      {!isNeutralFeeling(act.feeling) && (
+                        <> · <strong style={{ color: 'var(--primary)' }}>{localizeFeeling(act.feeling, t)}</strong></>
                       )}
                     </div>
                   </div>
@@ -3250,7 +3284,7 @@ export default function FeedPage() {
                   {groupDrinks(act.drinks).map((drink, idx) => (
                     <span key={idx} className="drink-tag">
                       <span style={{ fontSize: '14px', lineHeight: 1 }}>{drinkEmoji(drink.name)}</span>
-                      {drink.name}
+                      {localizeDrink(drink, locale).name}
                       {drink.qty > 1 && (
                         <span style={{ color: 'var(--text-dark-tertiary)', fontWeight: 600, fontSize: '12px' }}>×{drink.qty}</span>
                       )}
@@ -3260,7 +3294,7 @@ export default function FeedPage() {
 
                  {act.location && !act.cover_url && (
                    <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
-                     <span>📍 {t('session.at')} <strong>{act.location.name}</strong></span>
+                     <span>📍 {t('session.at')} <strong>{locationDisplayName(act.location, t)}</strong></span>
                      {act.location.unverified && (
                        <span title={t('feed.unverifiedTitle')} style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '1px 7px', fontWeight: 600 }}>
                          {t('session.unverified')}
@@ -3680,7 +3714,7 @@ export default function FeedPage() {
                 <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                     <div>
-                      <strong style={{ color: '#FFF', fontSize: '15px' }}>{selectedActivity.location.name}</strong>
+                      <strong style={{ color: '#FFF', fontSize: '15px' }}>{locationDisplayName(selectedActivity.location, t)}</strong>
                       <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{selectedActivity.location.address}</div>
                     </div>
                     {!selectedActivity.location.freeform && (selectedActivity.location.address || typeof selectedActivity.location.lat === 'number') && (
@@ -3752,7 +3786,7 @@ export default function FeedPage() {
                               ) : (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                   {s.drinks.map((d, k) => (
-                                    <span key={k} className="drink-tag"><Beer size={12} /> {d.qty}x {d.name}</span>
+                                    <span key={k} className="drink-tag"><Beer size={12} /> {d.qty}x {localizeDrink(d, locale).name}</span>
                                   ))}
                                 </div>
                               )}
@@ -3861,7 +3895,7 @@ export default function FeedPage() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <strong style={{ fontSize: '14px', color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{drink.name}</strong>
+                            <strong style={{ fontSize: '14px', color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{localizeDrink(drink, locale).name}</strong>
                             {drink.qty > 1 && <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', background: 'rgba(255,59,47,0.12)', borderRadius: '8px', padding: '1px 7px', flexShrink: 0 }}>×{drink.qty}</span>}
                           </div>
                           <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 6 }}>
@@ -3897,7 +3931,7 @@ export default function FeedPage() {
                       className="btn btn-secondary"
                       style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px' }}
                     >
-                      {preset.label}
+                      {localizeDrink(preset, locale).label}
                     </button>
                   ))}
                 </div>
@@ -3940,10 +3974,10 @@ export default function FeedPage() {
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ color: 'var(--text-dark-secondary)' }}>
-                  {t('session.effortLabel')} <strong style={{ color: 'var(--primary)' }}>{selectedActivity.feeling}</strong>
+                  {t('session.effortLabel')} <strong style={{ color: 'var(--primary)' }}>{localizeFeeling(selectedActivity.feeling, t)}</strong>
                 </span>
                 <Link href={`/share/${selectedActivity.id}`} className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => setSelectedActivity(null)}>
-                  <Share2 size={14} /> Esporta
+                  <Share2 size={14} /> {t('session.exportSocial')}
                 </Link>
               </div>
             </div>
@@ -3957,11 +3991,11 @@ export default function FeedPage() {
                   style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                   <Beer size={18} fill={selectedActivity.cheers?.includes(currentUser?.id) ? 'var(--primary)' : 'none'} />
-                  <span>Cheers ({selectedActivity.cheers?.length || 0})</span>
+                  <span>{t('session.cheers')} ({selectedActivity.cheers?.length || 0})</span>
                 </button>
                 <span className="action-btn" style={{ cursor: 'default' }}>
                   <MessageSquare size={18} />
-                  <span>Commenti ({selectedActivity.comment_count ?? selectedActivity.comments?.length ?? 0})</span>
+                  <span>{t('session.commentsTitle')} ({selectedActivity.comment_count ?? selectedActivity.comments?.length ?? 0})</span>
                 </span>
               </div>
 
@@ -4021,7 +4055,7 @@ export default function FeedPage() {
           <div className="card" style={{ width: '100%', maxWidth: '420px', maxHeight: '70vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-dark)', padding: '0', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--border-dark)' }}>
               <strong style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Beer size={18} color="var(--primary)" fill="var(--primary)" /> Cheers ({cheersListActivity.cheer_count ?? cheersListActivity.cheers?.length ?? cheersListPeople.length})
+                <Beer size={18} color="var(--primary)" fill="var(--primary)" /> {t('session.cheers')} ({cheersListActivity.cheer_count ?? cheersListActivity.cheers?.length ?? cheersListPeople.length})
               </strong>
               <button onClick={() => setShowCheersList(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }}>×</button>
             </div>
@@ -4106,17 +4140,17 @@ export default function FeedPage() {
                   <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('session.editFieldFeeling')}</label>
                   <select
                     className="form-control"
-                    value={editingActivity.feeling}
+                    value={feelingKey(editingActivity.feeling) || 'happy'}
                     onChange={(e) => handleUpdateEditField('feeling', e.target.value)}
                     style={{ height: '40px', padding: '0 10px', fontSize: '14px' }}
                   >
-                    <option value="Sobrio">{t('session.moodSobrio')}</option>
-                    <option value="Allegro">{t('session.moodAllegro')}</option>
-                    <option value="Brillo Felice">{t('session.moodBrillo')}</option>
-                    <option value="Intenditore">{t('session.moodIntenditore')}</option>
-                    <option value="Molto Caldo">{t('session.moodCaldo')}</option>
-                    <option value="Pieno Raso">{t('session.moodPieno')}</option>
-                    <option value="Postumi Assicurati">{t('session.moodPostumi')}</option>
+                    <option value="sober">{t('session.moodSobrio')}</option>
+                    <option value="happy">{t('session.moodAllegro')}</option>
+                    <option value="tipsy_happy">{t('session.moodBrillo')}</option>
+                    <option value="connoisseur">{t('session.moodIntenditore')}</option>
+                    <option value="very_hot">{t('session.moodCaldo')}</option>
+                    <option value="full">{t('session.moodPieno')}</option>
+                    <option value="hangover">{t('session.moodPostumi')}</option>
                   </select>
                 </div>
               </div>
@@ -4133,7 +4167,7 @@ export default function FeedPage() {
                     <div
                       key={k}
                       className={`seg-tab ${(editingActivity.location?.share || 'public') === k ? 'active' : ''}`}
-                      onClick={() => setEditingActivity((prev) => ({ ...prev, location: { ...(prev.location || { name: prev.location?.name || 'Sessione Libera' }), share: k } }))}
+                      onClick={() => setEditingActivity((prev) => ({ ...prev, location: { ...(prev.location || { freeform: true }), share: k } }))}
                     >
                       {l}
                     </div>
@@ -4153,9 +4187,9 @@ export default function FeedPage() {
                   editingActivity.drinks.map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-dark)' }}>
                       <div>
-                        <strong style={{ fontSize: '13px' }}>{d.name}</strong>
+                        <strong style={{ fontSize: '13px' }}>{localizeDrink(d, locale).name}</strong>
                         <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                          {t('session.gradazione')} {d.abv}% | ~{(d.units * d.qty).toFixed(1)} U.A.
+                          {t('session.gradazione')} {d.abv}% | ~{(d.units * d.qty).toFixed(1)} {t('session.uaShort')}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -4190,7 +4224,7 @@ export default function FeedPage() {
                     className="btn btn-secondary"
                     style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '15px' }}
                   >
-                    {preset.label}
+                    {localizeDrink(preset, locale).label}
                   </button>
                 ))}
               </div>
@@ -4214,7 +4248,7 @@ export default function FeedPage() {
                       className="btn btn-secondary"
                       style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '15px', border: '1px solid var(--border-dark)' }}
                     >
-                      {preset.label}
+                      {localizeDrink(preset, locale).label}
                     </button>
                   ))}
                 </div>
@@ -4525,7 +4559,7 @@ export default function FeedPage() {
               </div>
 
               <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)' }}>
-                Stato finale: <b style={{ color: '#FFF' }}>{completedSession.feeling}</b>
+                {t('logpage.finalMoodLabel')}: <b style={{ color: '#FFF' }}>{localizeFeeling(completedSession.feeling, t)}</b>
               </div>
 
               {/* Azioni */}

@@ -46,6 +46,10 @@ export default function SettingsPage() {
   const [notifPrefs, setNotifPrefs] = useState({ follow: true, cheers: true, comment: true, events: true, tagged: true, inactivity: true, driving: true });
   const [marketingConsent, setMarketingConsent] = useState(true);
 
+  // Notifica live "stile Sofascore" (solo Android): notifica fissa aggiornata durante la
+  // sessione live con U.A./BAC/minuti. Opt-in (default OFF) salvato su profiles.live_notif.
+  const [liveNotif, setLiveNotif] = useState(false);
+
   // Mostrare il proprio tasso alcolico attuale sul profilo pubblico (visibile agli altri)
   const [showBacPublic, setShowBacPublic] = useState(false);
 
@@ -89,6 +93,19 @@ export default function SettingsPage() {
     const next = !showBacPublic;
     setShowBacPublic(next);
     try { await db.updateProfile(currentUser.id, { show_bac_public: next }); } catch (err) { console.error(err); }
+  };
+
+  const toggleLiveNotif = async () => {
+    const next = !liveNotif;
+    setLiveNotif(next);
+    // Se si attiva, assicura che i push siano abilitati (serve la subscription).
+    try {
+      if (next && !pushOn && typeof db.registerPushSubscription === 'function') {
+        const ok = await db.registerPushSubscription();
+        if (ok) setPushOn(true);
+      }
+      await db.updateProfile(currentUser.id, { live_notif: next });
+    } catch (err) { console.error(err); }
   };
 
   const togglePublicLeaderboard = async () => {
@@ -196,6 +213,7 @@ export default function SettingsPage() {
         if (user.notif_prefs) setNotifPrefs((p) => ({ ...p, ...user.notif_prefs }));
         if (user.marketing_consent !== null && user.marketing_consent !== undefined) setMarketingConsent(!!user.marketing_consent);
         setShowBacPublic(!!user.show_bac_public);
+        setLiveNotif(!!user.live_notif);
         setNameMode(user.name_mode || (user.use_username ? 'username' : 'name'));
         setAlias(user.alias || '');
         setPublicLeaderboard(user.public_leaderboard !== false); // default: visibile
@@ -391,8 +409,35 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+
+          {/* Notifica live (solo Android): notifica fissa aggiornata durante la sessione. */}
+          <button
+            type="button"
+            onClick={toggleLiveNotif}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', width: '100%',
+              background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px',
+              padding: '10px 12px', cursor: 'pointer', color: 'var(--text-dark-primary)', fontSize: '13px', fontWeight: 600,
+              marginTop: '8px',
+            }}
+          >
+            <span>{t('settingspage.liveNotif')}</span>
+            <span style={{
+              width: 44, height: 24, borderRadius: 12, flexShrink: 0, position: 'relative',
+              background: liveNotif ? 'var(--primary)' : 'rgba(255,255,255,0.15)', transition: 'background .2s',
+            }}>
+              <span style={{
+                position: 'absolute', top: 2, left: liveNotif ? 22 : 2, width: 20, height: 20, borderRadius: '50%',
+                background: '#fff', transition: 'left .2s',
+              }} />
+            </span>
+          </button>
+
           <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '8px', marginBottom: 0 }}>
             {t('settingspage.notifPrefsNote')}
+          </p>
+          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '4px', marginBottom: 0 }}>
+            {t('settingspage.liveNotifNote')}
           </p>
         </div>
 

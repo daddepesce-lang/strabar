@@ -3,15 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
 import { Beer, MapPin, Play, Loader, Search, X, Clock, Plus, Minus, Trash2, Camera, Info } from 'lucide-react';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
+import { localizeDrink } from '@/lib/drinkLabel';
+import { locationDisplayName } from '@/lib/sessionLabels';
 import BeerPicker from '@/components/BeerPicker';
 import EventStartGuard from '@/components/EventStartGuard';
 
 export default function LogActivityPage() {
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   // Catalogo drink dinamico (gestito da admin), con fallback statico immediato.
   const { quick: QUICK_DRINKS, extra: EXTRA_DRINKS } = useDrinkCatalog();
   const [currentUser, setCurrentUser] = useState(null);
@@ -64,7 +67,7 @@ export default function LogActivityPage() {
     date: new Date().toISOString().slice(0, 16), // datetime-local format
     duration: 60,
     location: '',
-    feeling: 'Allegro',
+    feeling: 'happy',
     description: '',
     drinks: [],
     media: []
@@ -348,7 +351,7 @@ export default function LogActivityPage() {
       const elapsed = Math.max(1, Math.round(diffMs / (60 * 1000)));
       await db.closeSession(activeSession.id, {
         is_active: false,
-        feeling: activeSession.feeling || 'Sobrio',
+        feeling: activeSession.feeling || 'sober',
         description: t('logpage.closedForNewSession'),
         duration: elapsed
       });
@@ -403,7 +406,10 @@ export default function LogActivityPage() {
 
       // Visibilità: salviamo sempre lo stato; per Tutti/Amici proviamo a prendere il GPS per il radar
       // freeform: sessione senza locale reale → esclusa da locali/classifiche dei locali.
-      const location = { name: 'Sessione Libera', share: liveShare, freeform: true, ...(selectedLeagues.size ? { league_ids: [...selectedLeagues] } : {}) };
+      // name: null → NON persistiamo più l'etichetta italiana "Sessione Libera". Il flag
+      // `freeform` identifica la sessione libera; il nome mostrato si traduce in display
+      // (locationDisplayName → t('session.freeSession')), così è nella lingua di CHI guarda.
+      const location = { name: null, share: liveShare, freeform: true, ...(selectedLeagues.size ? { league_ids: [...selectedLeagues] } : {}) };
       // Niente GPS se la sessione è privata O se l'utente ha scelto di nascondere la posizione:
       // senza coordinate non compare sul radar/mappa.
       if (hideLocation) location.hidden = true;
@@ -873,7 +879,7 @@ export default function LogActivityPage() {
           <div className="card" style={{ maxWidth: '450px', width: '100%', border: '2px solid var(--primary)', boxShadow: '0 0 25px rgba(255, 59, 47, 0.25)', padding: '24px', position: 'relative' }}>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>{t('logpage.activeSessionTitle')}</h2>
             <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
-              {t('logpage.activeSessionWarnPre')} <strong>{activeSession.location ? activeSession.location.name : 'Sessione Libera'}</strong> {t('logpage.activeSessionWarnPost', { min: Math.max(1, Math.round((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000)) })}
+              {t('logpage.activeSessionWarnPre')} <strong>{locationDisplayName(activeSession.location, t)}</strong> {t('logpage.activeSessionWarnPost', { min: Math.max(1, Math.round((new Date().getTime() - new Date(activeSession.created_at).getTime()) / 60000)) })}
             </p>
 
             {!showCloseActiveForm ? (
@@ -916,12 +922,12 @@ export default function LogActivityPage() {
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>{t('logpage.finalMoodLabel')}</label>
                   <select name="feeling" className="form-control" style={{ height: '38px', fontSize: '13px' }}>
-                    <option value="Sobrio">{t('logpage.feelingSober')}</option>
-                    <option value="Allegro">{t('logpage.feelingHappy')}</option>
-                    <option value="Brillo Felice">{t('logpage.feelingTipsyHappy')}</option>
-                    <option value="Intenditore">{t('logpage.feelingConnoisseur')}</option>
-                    <option value="Molto Caldo">{t('logpage.feelingVeryHot')}</option>
-                    <option value="Pieno Raso">{t('logpage.feelingFull')}</option>
+                    <option value="sober">{t('logpage.feelingSober')}</option>
+                    <option value="happy">{t('logpage.feelingHappy')}</option>
+                    <option value="tipsy_happy">{t('logpage.feelingTipsyHappy')}</option>
+                    <option value="connoisseur">{t('logpage.feelingConnoisseur')}</option>
+                    <option value="very_hot">{t('logpage.feelingVeryHot')}</option>
+                    <option value="full">{t('logpage.feelingFull')}</option>
                   </select>
                 </div>
                 <div>
@@ -1260,13 +1266,13 @@ export default function LogActivityPage() {
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.howYouFeltLabel')}</label>
                   <select className="form-control" value={retroForm.feeling} onChange={e => setRetroForm(p => ({ ...p, feeling: e.target.value }))} style={{ height: '40px', padding: '0 10px', fontSize: '13px' }}>
-                    <option value="Sobrio">{t('logpage.feelingSober')}</option>
-                    <option value="Allegro">{t('logpage.feelingHappy')}</option>
-                    <option value="Brillo Felice">{t('logpage.feelingTipsyHappy')}</option>
-                    <option value="Intenditore">{t('logpage.feelingConnoisseur')}</option>
-                    <option value="Molto Caldo">{t('logpage.feelingVeryHot')}</option>
-                    <option value="Pieno Raso">{t('logpage.feelingFull')}</option>
-                    <option value="Postumi Assicurati">{t('logpage.feelingHangover')}</option>
+                    <option value="sober">{t('logpage.feelingSober')}</option>
+                    <option value="happy">{t('logpage.feelingHappy')}</option>
+                    <option value="tipsy_happy">{t('logpage.feelingTipsyHappy')}</option>
+                    <option value="connoisseur">{t('logpage.feelingConnoisseur')}</option>
+                    <option value="very_hot">{t('logpage.feelingVeryHot')}</option>
+                    <option value="full">{t('logpage.feelingFull')}</option>
+                    <option value="hangover">{t('logpage.feelingHangover')}</option>
                   </select>
                 </div>
                 <div>
@@ -1307,7 +1313,7 @@ export default function LogActivityPage() {
                       className="btn btn-secondary"
                       style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.15)' }}
                     >
-                      {preset.label}
+                      {localizeDrink(preset, locale).label}
                     </button>
                   ))}
                 </div>
@@ -1335,7 +1341,7 @@ export default function LogActivityPage() {
                         className="btn btn-secondary"
                         style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px', border: '1px solid var(--border-dark)' }}
                       >
-                        {preset.label}
+                        {localizeDrink(preset, locale).label}
                       </button>
                     ))}
                   </div>
@@ -1347,7 +1353,7 @@ export default function LogActivityPage() {
                     {retroForm.drinks.map((d, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', padding: '8px 12px', borderRadius: '8px' }}>
                         <div>
-                          <strong style={{ fontSize: '13px', color: '#FFF' }}>{d.name}</strong>
+                          <strong style={{ fontSize: '13px', color: '#FFF' }}>{localizeDrink(d, locale).name}</strong>
                           <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)' }}>{t('logpage.unitsAbv', { units: (d.units * d.qty).toFixed(1), abv: d.abv })}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

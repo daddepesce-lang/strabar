@@ -8,7 +8,9 @@ import { publicName, publicUsername } from '@/lib/names';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import FollowsModal from '@/components/FollowsModal';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
+import { localizeDrink } from '@/lib/drinkLabel';
+import { locationDisplayName } from '@/lib/sessionLabels';
 import {
   Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus, Users,
   ArrowLeft, CalendarPlus, MapPin, Sparkles,
@@ -17,6 +19,7 @@ import {
 export default function AthleteProfilePage({ params }) {
   const router = useRouter();
   const t = useT();
+  const { locale } = useI18n();
   const { id } = use(params);
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -138,11 +141,20 @@ export default function AthleteProfilePage({ params }) {
   const totalUnits = combinedActivities.reduce((acc, a) => acc + parseFloat(a.total_units || 0), 0);
   const totalMinutes = combinedActivities.reduce((acc, a) => acc + (a.duration || 0), 0);
 
+  // Conta per id/typeKey/nome e tiene un drink rappresentante, così il "preferito" si
+  // mostra localizzato (id di catalogo o categoria) invece del nome grezzo salvato.
   const drinkCounts = {};
-  combinedActivities.forEach((a) => (a.drinks || []).forEach((d) => { drinkCounts[d.name] = (drinkCounts[d.name] || 0) + (d.qty || 0); }));
+  const drinkRepr = {};
+  combinedActivities.forEach((a) => (a.drinks || []).forEach((d) => {
+    const key = d.id || d.typeKey || d.name;
+    drinkCounts[key] = (drinkCounts[key] || 0) + (d.qty || 0);
+    if (!drinkRepr[key]) drinkRepr[key] = d;
+  }));
   let favoriteDrink = t('userprofile.noneFavorite');
+  let favoriteDrinkObj = null;
   let maxQty = 0;
-  Object.entries(drinkCounts).forEach(([name, qty]) => { if (qty > maxQty) { maxQty = qty; favoriteDrink = name; } });
+  Object.entries(drinkCounts).forEach(([key, qty]) => { if (qty > maxQty) { maxQty = qty; favoriteDrinkObj = drinkRepr[key]; } });
+  if (favoriteDrinkObj) favoriteDrink = localizeDrink(favoriteDrinkObj, locale).name;
 
   // Tasso alcolico attuale dell'atleta (solo se ha scelto di renderlo pubblico).
   // Calcolato come sul proprio profilo: sessione live in corso + residuo recente.
@@ -315,7 +327,7 @@ export default function AthleteProfilePage({ params }) {
                 </div>
                 {act.location && (
                   <div style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <MapPin size={13} /> {act.location.name}
+                    <MapPin size={13} /> {locationDisplayName(act.location, t)}
                   </div>
                 )}
               </article>

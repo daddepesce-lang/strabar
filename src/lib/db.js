@@ -1,6 +1,6 @@
 import { createClient as createBrowserClient } from '@/utils/supabase/client';
 import { publicName, publicUsername } from '@/lib/names';
-import { QUICK_DRINKS, EXTRA_DRINKS, BEER_FAMILIES } from '@/lib/drinks';
+import { QUICK_DRINKS, EXTRA_DRINKS, BEER_FAMILIES, DRINK_TYPE_LABELS } from '@/lib/drinks';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -682,7 +682,7 @@ export const db = {
       total_units: parseFloat(activityData.total_units || 0),
       duration: parseInt(activityData.duration || 60),
       drank_with: activityData.drank_with || [],
-      feeling: activityData.feeling || 'Normale',
+      feeling: activityData.feeling || 'normal',
       location: activityData.location || null,
       bac_level: parseFloat(activityData.bac_level || 0),
       media: activityData.media || null,
@@ -1495,7 +1495,7 @@ export const db = {
       const idleHours = (Date.now() - lastDrinkMs) / (1000 * 60 * 60);
       if (idleHours >= this.SESSION_AUTOCLOSE_HOURS) {
         await this.closeSession(data.id, {
-          feeling: data.feeling || 'Sobrio',
+          feeling: data.feeling || 'sober',
           description: data.description || 'Chiusa automaticamente dopo 5 ore di inattività.',
           // Durata ONESTA = inizio→ultimo drink (l'inattività finale non conta come "tempo al tavolo").
           duration: Math.max(1, Math.round((lastDrinkMs - createdTime) / 60000)),
@@ -1531,7 +1531,7 @@ export const db = {
       const idleHours = (Date.now() - lastDrinkMs) / (1000 * 60 * 60);
       if (idleHours >= this.SESSION_AUTOCLOSE_HOURS) {
         await this.closeSession(found.id, {
-          feeling: found.feeling || 'Sobrio',
+          feeling: found.feeling || 'sober',
           description: found.description || 'Chiusa automaticamente dopo 5 ore di inattività.',
           duration: Math.max(1, Math.round((lastDrinkMs - createdTime) / 60000)),
           ended_at: new Date(lastDrinkMs).toISOString(),
@@ -3194,6 +3194,8 @@ export const db = {
       abv: Number(d.abv) || 0,
       units: Number(d.units) || 0,
       label: d.label || d.name,
+      // typeKey (categoria) → sul feed il drink del bar si mostra tradotto per chi guarda.
+      typeKey: d.type_key || null,
     }));
   },
 
@@ -3206,6 +3208,7 @@ export const db = {
       abv: Number(drink.abv) || 0,
       units: Number(drink.units) || 0,
       label: (drink.label || drink.name || '').trim().slice(0, 60) || null,
+      type_key: drink.typeKey || null,
     }).select().single();
     if (error) throw error;
     return data;
@@ -3214,6 +3217,77 @@ export const db = {
   // Rimuove un drink della carta del locale (RLS: solo il gestore).
   async deleteVenueDrink(id) {
     const { error } = await supabase.from('venue_drinks').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  },
+
+  // --- DRINK PERSONALIZZATI DELL'UTENTE (profiles.custom_drinks jsonb) -----------
+  // Definiti per CATEGORIA (typeKey) + volume + gradazione → localizzabili sul feed
+  // (un francese vede la categoria in francese). Il nome libero è solo una `note`.
+  // Salvati nel profilo, che l'app legge già con select('*') → in lettura egress zero
+  // (i componenti usano currentUser.custom_drinks; qui si rilegge solo prima di scrivere).
+  async getUserCustomDrinks() {
+    if (!isSupabaseConfigured) {
+      if (typeof window === 'undefined') return [];
+      try { return JSON.parse(localStorage.getItem('sb_my_drinks') || '[]'); } catch { return []; }
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data } = await supabase.from('profiles').select('custom_drinks').eq('id', user.id).maybeSingle();
+    return Array.isArray(data?.custom_drinks) ? data.custom_drinks : [];
+  },
+
+  // U.A. = litri × gradi% (stesso modello del catalogo). Ritorna il drink creato.
+  async addUserCustomDrink({ typeKey, volumeMl, abv, note }) {
+    const vol = Math.max(0, parseInt(volumeMl) || 0);
+    const a = Math.max(0, parseFloat(abv) || 0);
+    const units = Math.round((vol / 1000) * a * 10) / 10;
+    const tk = typeKey || 'cocktail';
+    const cleanNote = note ? String(note).trim().slice(0, 60) : '';
+    // `name` = identità stabile + fallback (in italiano, lingua sorgente). NON è ciò che
+    // si mostra sul feed (lì si usa typeKey → categoria tradotta): serve solo a
+    // raggruppare/rimuovere il drink in sessione (logica esistente basata sul nome).
+    const catIt = (DRINK_TYPE_LABELS.it && DRINK_TYPE_LABELS.it[tk]) || tk;
+    const name = `${catIt} ${vol}ml${cleanNote ? ` (${cleanNote})` : ''}`;
+    const drink = {
+      id: 'c_' + Math.random().toString(36).slice(2, 10),
+      custom: true,
+      typeKey: tk,
+      volumeMl: vol,
+      abv: a,
+      units,
+      name,
+      ...(cleanNote ? { note: cleanNote } : {}),
+    };
+    if (!isSupabaseConfigured) {
+      if (typeof window !== 'undefined') {
+        const list = await this.getUserCustomDrinks();
+        list.push(drink);
+        localStorage.setItem('sb_my_drinks', JSON.stringify(list));
+      }
+      return drink;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('not authenticated');
+    const list = await this.getUserCustomDrinks();
+    const next = [...list, drink].slice(-50); // cap prudente: max 50 custom per utente
+    const { error } = await supabase.from('profiles').update({ custom_drinks: next }).eq('id', user.id);
+    if (error) throw error;
+    return drink;
+  },
+
+  async removeUserCustomDrink(id) {
+    if (!isSupabaseConfigured) {
+      if (typeof window !== 'undefined') {
+        const list = (await this.getUserCustomDrinks()).filter((d) => d.id !== id);
+        localStorage.setItem('sb_my_drinks', JSON.stringify(list));
+      }
+      return true;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('not authenticated');
+    const list = (await this.getUserCustomDrinks()).filter((d) => d.id !== id);
+    const { error } = await supabase.from('profiles').update({ custom_drinks: list }).eq('id', user.id);
     if (error) throw error;
     return true;
   },
@@ -4225,8 +4299,12 @@ export const db = {
     if (!sub) {
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toUint8(vapid) });
     }
+    // platform: serve a targetizzare SOLO Android per la notifica live (le PWA iOS non
+    // supportano una live activity aggiornabile). Best-effort dallo user agent.
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    const platform = /android/i.test(ua) ? 'android' : (/iphone|ipad|ipod/i.test(ua) ? 'ios' : 'other');
     const { error } = await supabase.from('push_subscriptions').upsert(
-      { user_id: user.id, endpoint: sub.endpoint, subscription: sub.toJSON() },
+      { user_id: user.id, endpoint: sub.endpoint, subscription: sub.toJSON(), platform },
       { onConflict: 'endpoint' }
     );
     if (error) throw error;
