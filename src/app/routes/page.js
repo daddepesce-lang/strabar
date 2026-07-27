@@ -36,14 +36,11 @@ export default function RoutesPage() {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeSearchQuery, setRouteSearchQuery] = useState(''); // Filtro lista itinerari per titolo
-  // Filtro lista itinerari per LUOGO + raggio (km): cerca un luogo e mostra
-  // solo i percorsi con almeno una tappa entro il raggio scelto.
-  const [placeQuery, setPlaceQuery] = useState('');
-  const [placeResults, setPlaceResults] = useState([]);
-  const [placeSearching, setPlaceSearching] = useState(false);
-  const [placeFilter, setPlaceFilter] = useState(null); // { name, lat, lng }
-  const [radiusKm, setRadiusKm] = useState(5);
+  const [routeSearchQuery, setRouteSearchQuery] = useState(''); // Filtro lista itinerari per titolo/città
+  // Filtro rapido per CITTÀ: un chip cliccabile per ogni comune presente nei percorsi.
+  // È istantaneo e non fa alcuna chiamata di rete (le città derivano dagli indirizzi
+  // già salvati nelle tappe) — a differenza del vecchio filtro "luogo + raggio".
+  const [cityFilter, setCityFilter] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingBars, setIsLoadingBars] = useState(false);
@@ -129,35 +126,6 @@ export default function RoutesPage() {
     }
     return total.toFixed(2);
   };
-
-  // Distanza in km tra due punti (Haversine) — per il filtro "per luogo + raggio".
-  const distanceKm = (lat1, lng1, lat2, lng2) => {
-    const toRad = (x) => (x * Math.PI) / 180;
-    const R = 6371;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
-
-  // Ricerca luogo per il filtro a raggio (debounced). Non aggiungiamo tappe: serve
-  // solo a fissare un centro su cui filtrare la lista degli itinerari.
-  useEffect(() => {
-    const q = placeQuery.trim();
-    if (q.length < 2 || (placeFilter && placeFilter.name === q)) {
-      setPlaceResults([]); setPlaceSearching(false);
-      return;
-    }
-    setPlaceSearching(true);
-    const h = setTimeout(async () => {
-      try { setPlaceResults((await db.searchVenues(q) || []).slice(0, 6)); }
-      catch { setPlaceResults([]); }
-      finally { setPlaceSearching(false); }
-    }, 450);
-    return () => clearTimeout(h);
-  }, [placeQuery, placeFilter]);
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -782,16 +750,25 @@ export default function RoutesPage() {
   const travelTime = Math.max(1, Math.round((routeDistance / travelSpeedKmh) * 60));
   const routeTotalUnits = currentActiveWaypoints.reduce((s, wp) => s + (parseFloat(wp.units) || 0), 0);
 
+  // Città toccate da ciascun percorso, calcolate una sola volta per render (≤100 percorsi):
+  // servono sia ai chip-filtro sia ai chip mostrati sulle card, senza ricalcoli sparsi.
+  // NB: usiamo oggetti semplici (non `new Map()`) perché `Map` qui è l'icona di lucide-react.
+  const citiesByRoute = {};
+  const cityCounts = {}; // città → n. percorsi che la toccano
+  routes.forEach((r) => {
+    const cs = routeCities(r);
+    citiesByRoute[r.id] = cs;
+    cs.forEach((c) => { cityCounts[c] = (cityCounts[c] || 0) + 1; });
+  });
+  // Città disponibili per i chip: ordinate per frequenza (poi alfabetico).
+  const availableCities = Object.entries(cityCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name, count]) => ({ name, count }));
+
   const filteredRoutes = routes.filter(route => {
-    // Filtro per luogo + raggio: tieni i percorsi con almeno una tappa entro il raggio.
-    if (placeFilter) {
-      const near = (route.waypoints || []).some(wp => {
-        const lng = wp.lng ?? wp.lon;
-        if (wp.lat == null || lng == null) return false;
-        return distanceKm(placeFilter.lat, placeFilter.lng, wp.lat, lng) <= radiusKm;
-      });
-      if (!near) return false;
-    }
+    const cities = citiesByRoute[route.id] || [];
+    // Filtro rapido per città (chip): tieni solo i percorsi che toccano la città scelta.
+    if (cityFilter && !cities.some((c) => c.toLowerCase() === cityFilter.toLowerCase())) return false;
     // Filtro per titolo (o descrizione / nome tappa / CITTÀ toccata).
     const q = routeSearchQuery.toLowerCase().trim();
     if (!q) return true;
@@ -804,7 +781,7 @@ export default function RoutesPage() {
     );
     // Cerca anche per città: "venezia", "padova"… trovano i percorsi che le toccano
     // anche se non compaiono nel titolo.
-    const cityMatch = routeCities(route).some((c) => c.toLowerCase().includes(q));
+    const cityMatch = cities.some((c) => c.toLowerCase().includes(q));
     return nameMatch || descMatch || waypointMatch || cityMatch;
   });
 
@@ -1207,73 +1184,35 @@ export default function RoutesPage() {
                 )}
               </div>
 
-              {/* Ricerca per LUOGO + raggio */}
-              <div style={{ position: 'relative', marginBottom: '15px' }}>
-                {placeFilter ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,59,47,0.08)', border: '1px solid var(--primary)', borderRadius: '8px', padding: '7px 10px' }}>
-                    <MapPin size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1, minWidth: 0, fontSize: '12px', color: '#FFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {placeFilter.name}
-                    </span>
-                    <select
-                      value={radiusKm}
-                      onChange={(e) => setRadiusKm(Number(e.target.value))}
-                      style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '6px', color: '#FFF', fontSize: '11px', padding: '2px 4px', flexShrink: 0 }}
-                    >
-                      {[1, 2, 5, 10, 25, 50].map((r) => <option key={r} value={r}>{r} km</option>)}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => { setPlaceFilter(null); setPlaceQuery(''); setPlaceResults([]); }}
-                      style={{ background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', padding: 0, flexShrink: 0 }}
-                      title="Rimuovi filtro luogo"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <MapPin size={14} style={{ position: 'absolute', left: '10px', top: '17px', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder={t('routes.searchPlacePh')}
-                      value={placeQuery}
-                      onChange={(e) => setPlaceQuery(e.target.value)}
-                      style={{
-                        paddingLeft: '32px',
-                        height: '34px',
-                        fontSize: '12px',
-                        background: 'var(--bg-input-dark)',
-                        border: '1px solid var(--border-dark)',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    {(placeSearching || placeResults.length > 0) && (
-                      <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, marginTop: '4px', background: 'var(--bg-card-dark, #1a1d2e)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-                        {placeSearching && (
-                          <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('routes.searchingPlaces')}
-                          </div>
-                        )}
-                        {placeResults.map((v, i) => (
-                          <button key={i} type="button"
-                            onClick={() => { setPlaceFilter({ name: v.name, lat: v.lat, lng: v.lng }); setPlaceQuery(v.name); setPlaceResults([]); }}
-                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-dark)', cursor: 'pointer' }}>
-                            <span style={{ display: 'block', fontSize: '12px', color: '#FFF', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              <MapPin size={11} style={{ marginRight: '4px', color: 'var(--primary)' }} />{v.name}
-                            </span>
-                            {v.address && <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.address}</span>}
-                          </button>
-                        ))}
-                        {!placeSearching && placeResults.length === 0 && placeQuery.trim().length >= 2 && (
-                          <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('routes.noPlaces')}</div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+              {/* Filtro rapido per CITTÀ (chip): istantaneo, nessuna chiamata di rete.
+                  Le città derivano dagli indirizzi già salvati nelle tappe dei percorsi. */}
+              {availableCities.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '15px' }}>
+                  {availableCities.map(({ name, count }) => {
+                    const active = cityFilter && cityFilter.toLowerCase() === name.toLowerCase();
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => setCityFilter(active ? null : name)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                          color: active ? '#fff' : 'var(--primary)',
+                          background: active ? 'var(--primary)' : 'rgba(255,59,47,0.10)',
+                          border: `1px solid ${active ? 'var(--primary)' : 'rgba(255,59,47,0.30)'}`,
+                          borderRadius: '999px', padding: '5px 11px',
+                        }}
+                      >
+                        <MapPin size={12} style={{ flexShrink: 0 }} />
+                        {name}
+                        <span style={{ fontSize: '10px', fontWeight: 700, opacity: 0.75 }}>{count}</span>
+                        {active && <X size={12} style={{ marginLeft: '1px' }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '2px' }}>
                 {filteredRoutes.length === 0 ? (
@@ -1283,7 +1222,7 @@ export default function RoutesPage() {
                 ) : (
                   filteredRoutes.map((route) => {
                     const isSelected = selectedRoute?.id === route.id;
-                    const cities = routeCities(route);
+                    const cities = citiesByRoute[route.id] || [];
                     return (
                       <button
                         key={route.id}
@@ -1454,28 +1393,6 @@ export default function RoutesPage() {
               </div>
             </div>
 
-            {/* Navigazione reale: deleghiamo a Google Maps (indicazioni vere a piedi/auto) */}
-            {currentActiveWaypoints.length >= 2 && (
-              <button
-                type="button"
-                onClick={() => {
-                  const pts = currentActiveWaypoints.filter((w) => w.lat != null && (w.lng ?? w.lon) != null);
-                  if (pts.length < 2) return;
-                  const fmt = (w) => `${w.lat},${w.lng ?? w.lon}`;
-                  const origin = fmt(pts[0]);
-                  const destination = fmt(pts[pts.length - 1]);
-                  const mid = pts.slice(1, -1).map(fmt).join('|');
-                  const mode = travelMode === 'foot' ? 'walking' : 'driving';
-                  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${mid ? `&waypoints=${encodeURIComponent(mid)}` : ''}&travelmode=${mode}`;
-                  window.open(url, '_blank', 'noopener,noreferrer');
-                }}
-                className="btn btn-secondary"
-                style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '14px' }}
-              >
-                {t('routes.openMaps')}
-              </button>
-            )}
-
             {/* Azioni sul percorso selezionato */}
             {!isCreating && selectedRoute && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px', borderTop: '1px solid var(--border-dark)', paddingTop: '16px' }}>
@@ -1539,6 +1456,29 @@ export default function RoutesPage() {
                 )}
               </div>
             )}
+
+            {/* "Apri in Google Maps" in fondo a tutto: azione secondaria, delega la
+                navigazione reale a Google Maps (indicazioni a piedi/auto tra le tappe). */}
+            {currentActiveWaypoints.length >= 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const pts = currentActiveWaypoints.filter((w) => w.lat != null && (w.lng ?? w.lon) != null);
+                  if (pts.length < 2) return;
+                  const fmt = (w) => `${w.lat},${w.lng ?? w.lon}`;
+                  const origin = fmt(pts[0]);
+                  const destination = fmt(pts[pts.length - 1]);
+                  const mid = pts.slice(1, -1).map(fmt).join('|');
+                  const mode = travelMode === 'foot' ? 'walking' : 'driving';
+                  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${mid ? `&waypoints=${encodeURIComponent(mid)}` : ''}&travelmode=${mode}`;
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                }}
+                className="btn btn-secondary"
+                style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '12px', opacity: 0.75, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '16px' }}
+              >
+                {t('routes.openMaps')}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1597,19 +1537,6 @@ export default function RoutesPage() {
                   >›</button>
                 </div>
               </div>
-
-              {/* Naviga l'intero itinerario con Google Maps (indicazioni tra tutte le tappe) */}
-              {currentActiveWaypoints.length >= 2 && (
-                <a
-                  href={`https://www.google.com/maps/dir/${currentActiveWaypoints.map((w) => `${w.lat},${w.lng}`).join('/')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-primary"
-                  style={{ width: '100%', borderRadius: '20px', padding: '10px', fontSize: '13px', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <MapPin size={15} /> {t('routes.navigateRoute')}
-                </a>
-              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {currentActiveWaypoints.map((wp, idx) => {

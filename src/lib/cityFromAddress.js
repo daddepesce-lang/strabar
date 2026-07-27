@@ -1,13 +1,15 @@
-// Estrazione della CITTÀ da una stringa di indirizzo, tutto lato client.
+// Estrazione della CITTÀ (comune) da una stringa di indirizzo, tutto lato client.
 // Perché lato client e senza geocoding: le tappe dei percorsi salvano già l'indirizzo
 // (campo `note`/`address`) restituito dalla ricerca (Google Places o Nominatim/OSM).
 // Fare reverse-geocoding delle coordinate costerebbe chiamate/quota ed egress: qui invece
 // NON facciamo alcuna richiesta di rete — parsiamo il testo che abbiamo già in mano.
 //
 // Gestisce i due formati tipici:
-//   • Nominatim:  "Cantina Do Mori, Calle Do Mori, San Polo, Venezia, Veneto, 30125, Italia"
+//   • Nominatim:  "Cantina Do Mori, Calle Do Mori, San Polo, Venezia, Città Metropolitana di Venezia, Veneto, 30125, Italia"
 //   • Google:     "Calle Do Mori, 429, 30125 Venezia VE, Italia"
-// e ripiega su null quando non riesce a riconoscere una città (meglio niente che sbagliato).
+// Regola d'oro: vogliamo il COMUNE (Venezia, Padova…), MAI un quartiere/sestiere
+// (San Polo, Cannaregio…) né una provincia/regione. In caso di dubbio → null
+// (meglio nessun chip che un chip sbagliato).
 
 const COUNTRIES = new Set([
   'italia', 'italy', 'france', 'francia', 'spain', 'spagna', 'españa', 'espana',
@@ -26,6 +28,27 @@ const REGIONS = new Set([
   'molise', 'basilicata', "valle d'aosta", 'valle daosta', 'aosta valley',
 ]);
 
+// Quartieri / sestieri che NON sono comuni: vanno esclusi, altrimenti la lista mostra
+// "San Polo" al posto di "Venezia". Sono i casi che si vedono più spesso nei bacaro tour.
+const NEIGHBORHOODS = new Set([
+  // Sestieri di Venezia
+  'san marco', 'cannaregio', 'castello', 'dorsoduro', 'san polo', 'santa croce',
+  'giudecca', 'sacca fisola',
+  // Zone/quartieri comuni scambiati per comune dai geocoder
+  'trastevere', 'testaccio', 'centro storico', 'centro', 'lido',
+]);
+
+// Prefissi amministrativi da rimuovere per isolare il nome del comune:
+// "Città Metropolitana di Venezia" → "Venezia", "Provincia di Padova" → "Padova".
+const ADMIN_PREFIX = /^(citt[àa] metropolitana di|provincia di|comune di|city of|municipality of|province of)\s+/i;
+
+// Segmenti puramente amministrativi (senza nome) da scartare del tutto.
+const ADMIN_BARE = /^(citt[àa] metropolitana|provincia|comune|municipio|regione|county)$/i;
+
+// Note segnaposto salvate quando una tappa NON ha un vero indirizzo (es. bar aggiunti
+// da "esplora sulla mappa" nelle versioni precedenti): non sono indirizzi, niente città.
+const PLACEHOLDER_NOTE = /trovato tramite ricerca|found via search/i;
+
 // Capitalizza in modo leggibile una città tutta minuscola ("venezia" → "Venezia"),
 // preservando i nomi che hanno già maiuscole ("San Donà di Piave").
 const prettifyCity = (s) => {
@@ -34,14 +57,10 @@ const prettifyCity = (s) => {
 };
 
 /**
- * Ritorna la migliore stima della città da una stringa di indirizzo, oppure null.
+ * Ritorna la migliore stima del COMUNE da una stringa di indirizzo, oppure null.
  * @param {string} address
  * @returns {string|null}
  */
-// Note segnaposto salvate quando una tappa NON ha un vero indirizzo (es. bar aggiunti
-// da "esplora sulla mappa" nelle versioni precedenti): non sono indirizzi, niente città.
-const PLACEHOLDER_NOTE = /trovato tramite ricerca|found via search/i;
-
 export function cityFromAddress(address) {
   if (!address || typeof address !== 'string') return null;
   if (PLACEHOLDER_NOTE.test(address)) return null;
@@ -51,29 +70,35 @@ export function cityFromAddress(address) {
   while (parts.length && COUNTRIES.has(parts[parts.length - 1].toLowerCase())) parts.pop();
   if (!parts.length) return null;
 
-  // Pulisci ogni segmento: rimuovi CAP (4-6 cifre) e sigla provincia (2 maiuscole,
-  // es. "Venezia VE" → "Venezia", "MI Milano" → "Milano").
   const cleaned = parts
+    // Rimuovi CAP (4-6 cifre) ovunque nel segmento.
     .map((p) => p.replace(/\b\d{4,6}\b/g, ' ').replace(/\s+/g, ' ').trim())
+    // Rimuovi la sigla provincia (2 maiuscole) in testa o in coda: "Venezia VE" → "Venezia".
     .map((p) => p.replace(/\s+\b[A-Z]{2}\b$/, '').replace(/^\b[A-Z]{2}\b\s+/, '').trim())
+    // Isola il comune dai prefissi amministrativi: "Città Metropolitana di Venezia" → "Venezia".
+    .map((p) => p.replace(ADMIN_PREFIX, '').trim())
     .filter(Boolean);
 
-  // Scarta le regioni: non sono città.
-  const candidates = cleaned.filter((p) => !REGIONS.has(p.toLowerCase()));
+  // Tieni solo i segmenti che possono essere un comune: scarta regioni, quartieri/sestieri,
+  // segmenti amministrativi "nudi", numeri civici e token troppo corti.
+  const candidates = cleaned.filter((p) => {
+    const lc = p.toLowerCase();
+    if (REGIONS.has(lc)) return false;
+    if (NEIGHBORHOODS.has(lc)) return false;
+    if (ADMIN_BARE.test(p)) return false;
+    if (/^\d+$/.test(p)) return false;               // solo numero (civico)
+    if (!/[a-zA-ZÀ-ÿ]{2,}/.test(p)) return false;    // deve avere lettere
+    return true;
+  });
   if (!candidates.length) return null;
 
-  // La città è, negli indirizzi, l'ultimo segmento "nominale" prima di regione/CAP/paese
-  // (via → quartiere → città → provincia → regione → CAP → paese). Scorriamo dal fondo e
-  // prendiamo il primo segmento che sembra un nome di luogo (lettere, non solo numeri).
-  for (let i = candidates.length - 1; i >= 0; i--) {
-    const c = candidates[i];
-    if (/[a-zA-ZÀ-ÿ]{2,}/.test(c) && !/^\d+$/.test(c)) return prettifyCity(c);
-  }
-  return null;
+  // Ordine tipico: via → quartiere → COMUNE → provincia → regione → CAP → paese.
+  // Dopo aver tolto quartieri, province e regioni, il comune è l'ultimo candidato rimasto.
+  return prettifyCity(candidates[candidates.length - 1]);
 }
 
 /**
- * Estrae la lista ordinata e senza duplicati delle città toccate da un percorso,
+ * Estrae la lista ordinata e senza duplicati delle città (comuni) toccate da un percorso,
  * leggendo l'indirizzo di ogni tappa (`address` se presente, altrimenti `note`).
  * @param {{waypoints?: Array<{address?:string, note?:string}>}} route
  * @returns {string[]}
