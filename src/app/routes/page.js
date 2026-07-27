@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n';
 import EventStartGuard from '@/components/EventStartGuard';
 import { siteUrl } from '@/lib/site';
 import { publicName } from '@/lib/names';
+import { routeCities } from '@/lib/cityFromAddress';
 
 export default function RoutesPage() {
   const t = useT();
@@ -402,7 +403,7 @@ export default function RoutesPage() {
           if (alreadyExists) return prev;
           return [
             ...prev,
-            { name: barName, lat: bar.lat, lng: bar.lng, note: `${barType} trovato tramite ricerca` },
+            { name: barName, lat: bar.lat, lng: bar.lng, address: bar.address || '', note: bar.address || `${barType} trovato tramite ricerca` },
           ];
         });
         marker.closePopup();
@@ -791,16 +792,20 @@ export default function RoutesPage() {
       });
       if (!near) return false;
     }
-    // Filtro per titolo (o descrizione / nome tappa).
+    // Filtro per titolo (o descrizione / nome tappa / CITTÀ toccata).
     const q = routeSearchQuery.toLowerCase().trim();
     if (!q) return true;
     const nameMatch = route.name?.toLowerCase().includes(q);
     const descMatch = route.description?.toLowerCase().includes(q);
     const waypointMatch = route.waypoints?.some(wp =>
       wp.name?.toLowerCase().includes(q) ||
-      wp.address?.toLowerCase().includes(q)
+      wp.address?.toLowerCase().includes(q) ||
+      wp.note?.toLowerCase().includes(q)
     );
-    return nameMatch || descMatch || waypointMatch;
+    // Cerca anche per città: "venezia", "padova"… trovano i percorsi che le toccano
+    // anche se non compaiono nel titolo.
+    const cityMatch = routeCities(route).some((c) => c.toLowerCase().includes(q));
+    return nameMatch || descMatch || waypointMatch || cityMatch;
   });
 
   // --- LOADING STATE ---
@@ -885,6 +890,25 @@ export default function RoutesPage() {
               {selectedRoute?.description && (
                 <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>{selectedRoute.description}</p>
               )}
+              {/* Città toccate dal percorso */}
+              {(() => {
+                const cities = routeCities(selectedRoute);
+                if (cities.length === 0) return null;
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {cities.map((city, ci) => (
+                      <span key={ci} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '3px',
+                        fontSize: '11px', fontWeight: 700, color: 'var(--primary)',
+                        background: 'rgba(255,59,47,0.10)', border: '1px solid rgba(255,59,47,0.30)',
+                        borderRadius: '999px', padding: '3px 9px',
+                      }}>
+                        <MapPin size={11} /> {city}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
               {selectedRoute?.user_id !== currentUser?.id && (selectedRoute?.creator?.display_name || selectedRoute?.creator?.username) && (
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1259,6 +1283,7 @@ export default function RoutesPage() {
                 ) : (
                   filteredRoutes.map((route) => {
                     const isSelected = selectedRoute?.id === route.id;
+                    const cities = routeCities(route);
                     return (
                       <button
                         key={route.id}
@@ -1305,6 +1330,28 @@ export default function RoutesPage() {
                         }}>
                           {route.description}
                         </p>
+                        {/* Città toccate dal percorso: aiuta a capire "dove" è il giro
+                            senza aprirlo. Derivate dagli indirizzi delle tappe. */}
+                        {cities.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px', width: '100%' }}>
+                            {cities.slice(0, 3).map((city, ci) => (
+                              <span key={ci} style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                fontSize: '10px', fontWeight: 700, color: 'var(--primary)',
+                                background: 'rgba(255,59,47,0.10)', border: '1px solid rgba(255,59,47,0.30)',
+                                borderRadius: '999px', padding: '2px 8px', maxWidth: '100%',
+                              }}>
+                                <MapPin size={10} style={{ flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{city}</span>
+                              </span>
+                            ))}
+                            {cities.length > 3 && (
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>
+                                +{cities.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px', marginTop: '4px' }}>
                           <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
                             {t('routes.stopsCount', { n: route.waypoints?.length || 0 })}

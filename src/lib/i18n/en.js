@@ -770,7 +770,7 @@ export const en = {
     stopsCount: '{n} stops',
     stopsEmpty: 'Use the search above to find a venue and press + Stop to add it to the itinerary.',
     listTitle: 'Available Itineraries 🍺',
-    searchTitlePh: 'Search by title...',
+    searchTitlePh: 'Search by title or city...',
     searchPlacePh: 'Search by place (city, street, venue)...',
     noRoutes: 'No tours saved yet. Create your first itinerary!',
     noResults: 'No itinerary matches your search.',

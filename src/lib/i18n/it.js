@@ -771,7 +771,7 @@ export const it = {
     stopsCount: '{n} tappe',
     stopsEmpty: 'Usa la ricerca qui sopra per trovare un locale e premi + Tappa per aggiungerlo all\'itinerario.',
     listTitle: 'Itinerari Disponibili 🍺',
-    searchTitlePh: 'Cerca per titolo...',
+    searchTitlePh: 'Cerca per titolo o città...',
     searchPlacePh: 'Cerca per luogo (città, via, locale)...',
     noRoutes: 'Nessun tour salvato al momento. Crea il tuo primo itinerario!',
     noResults: 'Nessun itinerario corrisponde alla ricerca.',

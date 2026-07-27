@@ -770,7 +770,7 @@ export const es = {
     stopsCount: '{n} paradas',
     stopsEmpty: 'Usa la búsqueda de arriba para encontrar un local y pulsa + Parada para añadirlo al itinerario.',
     listTitle: 'Itinerarios disponibles 🍺',
-    searchTitlePh: 'Buscar por título...',
+    searchTitlePh: 'Buscar por título o ciudad...',
     searchPlacePh: 'Buscar por lugar (ciudad, calle, local)...',
     noRoutes: 'Aún no hay tours guardados. ¡Crea tu primer itinerario!',
     noResults: 'Ningún itinerario coincide con tu búsqueda.',

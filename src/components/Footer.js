@@ -1,10 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useT } from '@/lib/i18n';
+import { useT, useI18n } from '@/lib/i18n';
 
 export default function Footer() {
   const t = useT();
+  const { locale } = useI18n();
+  // Link alle landing SEO: versione EN se l'utente è in inglese, altrimenti IT.
+  const en = locale === 'en';
+  const bacaroHref = en ? '/en/bacaro-tour' : '/bacaro-tour';
+  const pubCrawlHref = en ? '/en/pub-crawl' : '/pub-crawl';
   return (
     <footer
       style={{
@@ -26,6 +31,8 @@ export default function Footer() {
         {t('footer.responsible')}
       </div>
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Link href={bacaroHref} style={{ color: 'var(--text-dark-secondary)' }}>Bacaro Tour</Link>
+        <Link href={pubCrawlHref} style={{ color: 'var(--text-dark-secondary)' }}>Pub Crawl</Link>
         <Link href="/terms" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.terms')}</Link>
         <Link href="/privacy" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.privacy')}</Link>
         <Link href="/install" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.install')}</Link>

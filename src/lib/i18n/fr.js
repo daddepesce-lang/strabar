@@ -770,7 +770,7 @@ export const fr = {
     stopsCount: '{n} étapes',
     stopsEmpty: 'Utilisez la recherche ci-dessus pour trouver un établissement et appuyez sur + Étape pour l\'ajouter à l\'itinéraire.',
     listTitle: 'Itinéraires disponibles 🍺',
-    searchTitlePh: 'Rechercher par titre...',
+    searchTitlePh: 'Rechercher par titre ou ville...',
     searchPlacePh: 'Rechercher par lieu (ville, rue, établissement)...',
     noRoutes: 'Aucune tournée enregistrée pour l\'instant. Créez votre premier itinéraire !',
     noResults: 'Aucun itinéraire ne correspond à votre recherche.',
