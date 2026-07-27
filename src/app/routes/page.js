@@ -37,10 +37,6 @@ export default function RoutesPage() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [routeSearchQuery, setRouteSearchQuery] = useState(''); // Filtro lista itinerari per titolo/città
-  // Filtro rapido per CITTÀ: un chip cliccabile per ogni comune presente nei percorsi.
-  // È istantaneo e non fa alcuna chiamata di rete (le città derivano dagli indirizzi
-  // già salvati nelle tappe) — a differenza del vecchio filtro "luogo + raggio".
-  const [cityFilter, setCityFilter] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingBars, setIsLoadingBars] = useState(false);
@@ -371,7 +367,7 @@ export default function RoutesPage() {
           if (alreadyExists) return prev;
           return [
             ...prev,
-            { name: barName, lat: bar.lat, lng: bar.lng, address: bar.address || '', note: bar.address || `${barType} trovato tramite ricerca` },
+            { name: barName, lat: bar.lat, lng: bar.lng, address: bar.address || '', city: bar.city || '', note: bar.address || `${barType} trovato tramite ricerca` },
           ];
         });
         marker.closePopup();
@@ -462,7 +458,7 @@ export default function RoutesPage() {
     const note = result.address || '';
     setNewRouteWaypoints((prev) => {
       if (prev.some((wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lng) < 0.00001)) return prev;
-      return [...prev, { name, lat, lng, note, units: 1.5 }];
+      return [...prev, { name, lat, lng, note, city: result.city || '', units: 1.5 }];
     });
     if (mapInstance.current) mapInstance.current.setView([lat, lng], 16);
     setJustAdded(name);
@@ -488,7 +484,7 @@ export default function RoutesPage() {
       const label = window.prompt('Nome della tappa (come vuoi che appaia nel tour):', r.name) || r.name;
       setNewRouteWaypoints((prev) => {
         if (prev.some((wp) => Math.abs(wp.lat - lat) < 0.00001 && Math.abs(wp.lng - lng) < 0.00001)) return prev;
-        return [...prev, { name: label.trim(), lat, lng, note: r.address || '', units: 1.5 }];
+        return [...prev, { name: label.trim(), lat, lng, note: r.address || '', city: r.city || '', units: 1.5 }];
       });
       if (mapInstance.current) mapInstance.current.setView([lat, lng], 17);
       setJustAdded(label.trim());
@@ -750,25 +746,14 @@ export default function RoutesPage() {
   const travelTime = Math.max(1, Math.round((routeDistance / travelSpeedKmh) * 60));
   const routeTotalUnits = currentActiveWaypoints.reduce((s, wp) => s + (parseFloat(wp.units) || 0), 0);
 
-  // Città toccate da ciascun percorso, calcolate una sola volta per render (≤100 percorsi):
-  // servono sia ai chip-filtro sia ai chip mostrati sulle card, senza ricalcoli sparsi.
-  // NB: usiamo oggetti semplici (non `new Map()`) perché `Map` qui è l'icona di lucide-react.
+  // Città (comuni) toccate da ciascun percorso, calcolate una sola volta per render
+  // (≤100 percorsi): servono per mostrarle sulle card e per la ricerca testuale.
+  // NB: usiamo un oggetto semplice (non `new Map()`) perché `Map` qui è l'icona lucide.
   const citiesByRoute = {};
-  const cityCounts = {}; // città → n. percorsi che la toccano
-  routes.forEach((r) => {
-    const cs = routeCities(r);
-    citiesByRoute[r.id] = cs;
-    cs.forEach((c) => { cityCounts[c] = (cityCounts[c] || 0) + 1; });
-  });
-  // Città disponibili per i chip: ordinate per frequenza (poi alfabetico).
-  const availableCities = Object.entries(cityCounts)
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([name, count]) => ({ name, count }));
+  routes.forEach((r) => { citiesByRoute[r.id] = routeCities(r); });
 
   const filteredRoutes = routes.filter(route => {
     const cities = citiesByRoute[route.id] || [];
-    // Filtro rapido per città (chip): tieni solo i percorsi che toccano la città scelta.
-    if (cityFilter && !cities.some((c) => c.toLowerCase() === cityFilter.toLowerCase())) return false;
     // Filtro per titolo (o descrizione / nome tappa / CITTÀ toccata).
     const q = routeSearchQuery.toLowerCase().trim();
     if (!q) return true;
@@ -867,13 +852,13 @@ export default function RoutesPage() {
               {selectedRoute?.description && (
                 <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>{selectedRoute.description}</p>
               )}
-              {/* Città toccate dal percorso */}
+              {/* Città (comuni) toccate dal percorso — max 3 per non fare "liste infinite" */}
               {(() => {
                 const cities = routeCities(selectedRoute);
                 if (cities.length === 0) return null;
                 return (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                    {cities.map((city, ci) => (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
+                    {cities.slice(0, 3).map((city, ci) => (
                       <span key={ci} style={{
                         display: 'inline-flex', alignItems: 'center', gap: '3px',
                         fontSize: '11px', fontWeight: 700, color: 'var(--primary)',
@@ -883,6 +868,9 @@ export default function RoutesPage() {
                         <MapPin size={11} /> {city}
                       </span>
                     ))}
+                    {cities.length > 3 && (
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dark-secondary)' }}>+{cities.length - 3}</span>
+                    )}
                   </div>
                 );
               })()}
@@ -1184,35 +1172,6 @@ export default function RoutesPage() {
                 )}
               </div>
 
-              {/* Filtro rapido per CITTÀ (chip): istantaneo, nessuna chiamata di rete.
-                  Le città derivano dagli indirizzi già salvati nelle tappe dei percorsi. */}
-              {availableCities.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '15px' }}>
-                  {availableCities.map(({ name, count }) => {
-                    const active = cityFilter && cityFilter.toLowerCase() === name.toLowerCase();
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => setCityFilter(active ? null : name)}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '5px',
-                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-                          color: active ? '#fff' : 'var(--primary)',
-                          background: active ? 'var(--primary)' : 'rgba(255,59,47,0.10)',
-                          border: `1px solid ${active ? 'var(--primary)' : 'rgba(255,59,47,0.30)'}`,
-                          borderRadius: '999px', padding: '5px 11px',
-                        }}
-                      >
-                        <MapPin size={12} style={{ flexShrink: 0 }} />
-                        {name}
-                        <span style={{ fontSize: '10px', fontWeight: 700, opacity: 0.75 }}>{count}</span>
-                        {active && <X size={12} style={{ marginLeft: '1px' }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '2px' }}>
                 {filteredRoutes.length === 0 ? (

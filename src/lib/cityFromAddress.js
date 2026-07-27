@@ -66,6 +66,14 @@ export function cityFromAddress(address) {
   if (PLACEHOLDER_NOTE.test(address)) return null;
 
   let parts = address.split(',').map((s) => s.trim()).filter(Boolean);
+
+  // Fidati SOLO di un vero indirizzo postale: deve avere un CAP oppure finire con una
+  // nazione nota. Senza questi marcatori la stringa è quasi sempre un nome di locale,
+  // una via o una nota — e restituire quello come "città" è ciò che sporcava la lista.
+  const hasPostcode = /\b\d{4,6}\b/.test(address);
+  const hasCountry = parts.length > 0 && COUNTRIES.has(parts[parts.length - 1].toLowerCase());
+  if (!hasPostcode && !hasCountry) return null;
+
   // Togli il paese in coda (può ripetersi: "…, Italia, Italia").
   while (parts.length && COUNTRIES.has(parts[parts.length - 1].toLowerCase())) parts.pop();
   if (!parts.length) return null;
@@ -86,6 +94,7 @@ export function cityFromAddress(address) {
     if (REGIONS.has(lc)) return false;
     if (NEIGHBORHOODS.has(lc)) return false;
     if (ADMIN_BARE.test(p)) return false;
+    if (/^[A-Z]{2}$/.test(p)) return false;          // sigla provincia isolata (VE, PD, MI)
     if (/^\d+$/.test(p)) return false;               // solo numero (civico)
     if (!/[a-zA-ZÀ-ÿ]{2,}/.test(p)) return false;    // deve avere lettere
     return true;
@@ -108,7 +117,9 @@ export function routeCities(route) {
   const seen = new Set();
   const cities = [];
   for (const wp of wps) {
-    const city = cityFromAddress(wp?.address || wp?.note || '');
+    // Preferisci la città STRUTTURATA salvata al momento dell'aggiunta (dal geocoder):
+    // è affidabile. Solo per le tappe vecchie (senza `city`) ripieghiamo sul parsing.
+    const city = (wp?.city && String(wp.city).trim()) || cityFromAddress(wp?.address || wp?.note || '');
     if (!city) continue;
     const key = city.toLowerCase();
     if (seen.has(key)) continue;

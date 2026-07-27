@@ -2703,10 +2703,18 @@ export const db = {
     const osmClass = raw.category || raw.class || (tags.amenity ? 'amenity' : tags.shop ? 'shop' : '');
     const osmType = raw.type || tags.amenity || tags.shop || '';
 
+    // Città STRUTTURATA (comune): da Nominatim (addressdetails=1) o dai tag OSM.
+    // È il dato affidabile per mostrare "dove" passa un percorso, senza parsing a indovinelli.
+    const addr = raw.address || {};
+    const city =
+      addr.city || addr.town || addr.village || addr.municipality ||
+      tags['addr:city'] || null;
+
     return {
       key: this.normalizePlaceKey(name) + '|' + lat.toFixed(4) + ',' + lng.toFixed(4),
       name,
       address,
+      city,
       lat,
       lng,
       amenity,
