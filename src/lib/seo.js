@@ -43,3 +43,48 @@ export function landingJsonLd({ path, name, description, lang, faq = [] }) {
   }
   return { '@context': 'https://schema.org', '@graph': graph };
 }
+
+/**
+ * Grafo JSON-LD di un PERCORSO pubblico (pagina /percorso/...).
+ * Usa TouristTrip + itinerario di BarOrPub: è il vocabolario che Google associa agli
+ * itinerari, quindi la pagina può comparire come "cosa fare a <città>" e non come
+ * generico documento. Le tappe hanno nome, indirizzo e coordinate: dati veri, non fuffa.
+ * @param {{ path:string, name:string, description:string, cities:string[], stops:Array<{name:string,address?:string,lat?:number,lng?:number}> }} opts
+ */
+export function routeJsonLd({ path, name, description, cities = [], stops = [] }) {
+  const url = `${SITE_URL}${path}`;
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      organizationLd,
+      {
+        '@type': 'TouristTrip',
+        '@id': `${url}#trip`,
+        url,
+        name,
+        description,
+        touristType: ['Pub crawl', 'Bacaro tour'],
+        ...(cities.length
+          ? { location: cities.map((c) => ({ '@type': 'City', name: c })) }
+          : {}),
+        itinerary: {
+          '@type': 'ItemList',
+          numberOfItems: stops.length,
+          itemListElement: stops.map((s, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            item: {
+              '@type': 'BarOrPub',
+              name: s.name,
+              ...(s.address ? { address: s.address } : {}),
+              ...(typeof s.lat === 'number' && typeof s.lng === 'number'
+                ? { geo: { '@type': 'GeoCoordinates', latitude: s.lat, longitude: s.lng } }
+                : {}),
+            },
+          })),
+        },
+        provider: { '@id': `${SITE_URL}/#organization` },
+      },
+    ],
+  };
+}

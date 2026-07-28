@@ -11,25 +11,8 @@ import EventStartGuard from '@/components/EventStartGuard';
 import { siteUrl } from '@/lib/site';
 import { publicName } from '@/lib/names';
 import { routeCities } from '@/lib/cityFromAddress';
-
-// Distanza in km tra due coordinate (formula dell'haversine, tutto in locale).
-const haversineKm = (lat1, lon1, lat2, lon2) => {
-  const toRad = (x) => (x * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
-// Coordinate della PARTENZA di un percorso (prima tappa con coordinate valide):
-// è il punto che conta per capire "quanto è lontano da me questo giro".
-const routeStart = (route) => {
-  const wp = (route?.waypoints || []).find((w) => w?.lat != null && (w.lng ?? w.lon) != null);
-  return wp ? { lat: Number(wp.lat), lng: Number(wp.lng ?? wp.lon) } : null;
-};
+import { haversineKm, routeStart, routeTotalKm } from '@/lib/geo';
+import { routePublicPath } from '@/lib/slug';
 
 // Punteggio "Migliori": non ci sono voti sui percorsi, ma c'è un segnale più onesto —
 // quante PERSONE diverse l'hanno fatto (starts_count) e quante l'hanno portato a termine
@@ -116,6 +99,19 @@ export default function RoutesPage() {
       try {
         const user = await db.getCurrentUser();
         setCurrentUser(user);
+
+        // LINK CONDIVISO APERTO DA CHI NON HA UN ACCOUNT: niente muro "registrati".
+        // Lo mandiamo sulla pagina pubblica del percorso, dove vede tappe, indirizzi e
+        // mappa senza iscriversi. Vale anche per i link vecchi (/routes?routeId=…) già
+        // girati su WhatsApp: continuano a funzionare, ma ora atterrano nel posto giusto.
+        if (!user && typeof window !== 'undefined') {
+          const sharedId = new URLSearchParams(window.location.search).get('routeId');
+          if (sharedId) {
+            window.location.replace(`/percorso/${encodeURIComponent(sharedId)}`);
+            return;
+          }
+        }
+
         const data = await db.getRoutes();
         setRoutes(data);
 
@@ -146,17 +142,8 @@ export default function RoutesPage() {
     loadData();
   }, []);
 
-  // Lunghezza del percorso: somma delle distanze in linea d'aria tra tappe consecutive.
-  const calculateTotalDistance = (waypoints) => {
-    if (!waypoints || waypoints.length < 2) return 0;
-    let total = 0;
-    for (let i = 0; i < waypoints.length - 1; i++) {
-      const a = waypoints[i];
-      const b = waypoints[i + 1];
-      total += haversineKm(a.lat, a.lng ?? a.lon, b.lat, b.lng ?? b.lon);
-    }
-    return total.toFixed(2);
-  };
+  // Lunghezza del percorso (in linea d'aria tra le tappe), formattata a 2 decimali.
+  const calculateTotalDistance = (waypoints) => routeTotalKm(waypoints || []).toFixed(2);
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -684,6 +671,37 @@ export default function RoutesPage() {
     } catch (err) {
       alert('Errore nell\'avvio del tour: ' + (err.message || err));
       setStartingTour(false);
+    }
+  };
+
+  // CONDIVISIONE DEL PERCORSO.
+  // Se il percorso è PUBBLICO condividiamo la pagina pubblica /percorso/<slug>-<id>:
+  // si apre senza account, mostra le tappe e ha un'anteprima decente su WhatsApp. È il
+  // punto in cui la condivisione dei nostri utenti può portare gente nuova.
+  // Se è 'friends' o 'private' la pagina pubblica non esiste (404 per rispetto della
+  // privacy), quindi restiamo sul link interno: lo aprirà solo chi ha i permessi.
+  const handleShareRoute = async () => {
+    if (!selectedRoute) return;
+    const isPublic = (selectedRoute.visibility || 'public') === 'public';
+    const shareUrl = isPublic
+      ? siteUrl(routePublicPath(selectedRoute, routeCities(selectedRoute)))
+      : siteUrl(`/routes?routeId=${selectedRoute.id}`);
+    const text = `${selectedRoute.name} — itinerario su Strabar 🍻`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Strabar 🍻', text, url: shareUrl });
+        return;
+      }
+    } catch {
+      return; // condivisione annullata dall'utente
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      alert(isPublic
+        ? 'Link copiato! Si apre anche senza account: chi lo riceve vede tutte le tappe.'
+        : 'Link copiato! Questo percorso non è pubblico: lo apriranno solo le persone autorizzate.');
+    } catch {
+      alert(`Condividi questo link: ${shareUrl}`);
     }
   };
 
@@ -1556,11 +1574,7 @@ export default function RoutesPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const shareUrl = siteUrl(`/routes?routeId=${selectedRoute.id}`);
-                    navigator.clipboard.writeText(shareUrl);
-                    alert("Link del percorso copiato negli appunti! Ora puoi condividerlo.");
-                  }}
+                  onClick={handleShareRoute}
                   className="btn btn-secondary"
                   style={{ width: '100%', borderRadius: '20px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                 >

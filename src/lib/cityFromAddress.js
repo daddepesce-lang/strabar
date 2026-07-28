@@ -38,6 +38,12 @@ const NEIGHBORHOODS = new Set([
   'trastevere', 'testaccio', 'centro storico', 'centro', 'lido',
 ]);
 
+// ODONIMI: parole con cui inizia un nome di STRADA o PIAZZA, mai di comune.
+// "Campo Santa Margherita", "Fondamenta dei Frari", "Calle Larga" sono luoghi dentro
+// una città, non la città — e senza questo filtro finivano nel titolo delle pagine
+// pubbliche ("...a Campo Santa Margherita" invece di "...a Venezia").
+const STREET_PREFIX = /^(via|viale|vicolo|piazza|piazzale|piazzetta|campo|campiello|calle|callesela|fondamenta|riva|salizada|salizzada|ruga|rio ter[àa]|sotoportego|sottoportico|corte|ramo|corso|largo|lungomare|strada|stradone|borgo|contrada|localit[àa]|frazione|molo|ponte|parco|giardin[oi])\b/i;
+
 // Prefissi amministrativi da rimuovere per isolare il nome del comune:
 // "Città Metropolitana di Venezia" → "Venezia", "Provincia di Padova" → "Padova".
 const ADMIN_PREFIX = /^(citt[àa] metropolitana di|provincia di|comune di|city of|municipality of|province of)\s+/i;
@@ -85,6 +91,9 @@ export function cityFromAddress(address) {
     .map((p) => p.replace(/\s+\b[A-Z]{2}\b$/, '').replace(/^\b[A-Z]{2}\b\s+/, '').trim())
     // Isola il comune dai prefissi amministrativi: "Città Metropolitana di Venezia" → "Venezia".
     .map((p) => p.replace(ADMIN_PREFIX, '').trim())
+    // Nominatim nomina alcuni comuni unendo le località con i trattini
+    // ("Venezia-Murano-Burano"): il comune è il primo pezzo.
+    .map((p) => (/^[A-Za-zÀ-ÿ]+(-[A-Za-zÀ-ÿ]+){1,}$/.test(p) && !REGIONS.has(p.toLowerCase()) ? p.split('-')[0].trim() : p))
     .filter(Boolean);
 
   // Tieni solo i segmenti che possono essere un comune: scarta regioni, quartieri/sestieri,
@@ -94,6 +103,7 @@ export function cityFromAddress(address) {
     if (REGIONS.has(lc)) return false;
     if (NEIGHBORHOODS.has(lc)) return false;
     if (ADMIN_BARE.test(p)) return false;
+    if (STREET_PREFIX.test(p)) return false;         // via/campo/fondamenta…: è un indirizzo, non un comune
     if (/^[A-Z]{2}$/.test(p)) return false;          // sigla provincia isolata (VE, PD, MI)
     if (/^\d+$/.test(p)) return false;               // solo numero (civico)
     if (!/[a-zA-ZÀ-ÿ]{2,}/.test(p)) return false;    // deve avere lettere
