@@ -12,6 +12,43 @@ import { siteUrl } from '@/lib/site';
 import { publicName } from '@/lib/names';
 import { routeCities } from '@/lib/cityFromAddress';
 
+// Distanza in km tra due coordinate (formula dell'haversine, tutto in locale).
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = (x) => (x * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+// Coordinate della PARTENZA di un percorso (prima tappa con coordinate valide):
+// è il punto che conta per capire "quanto è lontano da me questo giro".
+const routeStart = (route) => {
+  const wp = (route?.waypoints || []).find((w) => w?.lat != null && (w.lng ?? w.lon) != null);
+  return wp ? { lat: Number(wp.lat), lng: Number(wp.lng ?? wp.lon) } : null;
+};
+
+// Punteggio "Migliori": non ci sono voti sui percorsi, ma c'è un segnale più onesto —
+// quante PERSONE diverse l'hanno fatto (starts_count) e quante l'hanno portato a termine
+// (completions_count). Il tasso di completamento è la "qualità" del giro (un giro
+// abbandonato a metà è un giro sbagliato: troppo lungo, tappe chiuse, ecc.).
+//   • log1p sulla popolarità → 100 persone valgono più di 10, ma non 10 volte tanto;
+//   • smoothing bayesiano (+1/+2) → 1 completato su 1 non batte 40 su 50;
+//   • piccolo bonus di attualità → a parità, chi è vivo adesso sta davanti.
+const rankScore = (route) => {
+  const starts = route.starts_count || 0;
+  const done = route.completions_count || 0;
+  const quality = (done + 1) / (starts + 2); // 0.5 quando non ci sono ancora dati
+  const last = route.last_started_at ? Date.parse(route.last_started_at) : NaN;
+  const recency = Number.isNaN(last)
+    ? 0
+    : Math.max(0, 1 - (Date.now() - last) / (30 * 24 * 60 * 60 * 1000)); // decade in 30 giorni
+  return Math.log1p(starts) * (0.5 + quality) + 0.3 * recency;
+};
+
 export default function RoutesPage() {
   const t = useT();
   const router = useRouter();
@@ -24,6 +61,11 @@ export default function RoutesPage() {
   const [startingTour, setStartingTour] = useState(false);
   const [eventGuard, setEventGuard] = useState(null); // { events, kind, proceed }
   const [loading, setLoading] = useState(true);
+
+  // Ordinamento della lista: vicinanza (default) / popolarità / novità.
+  const [sortMode, setSortMode] = useState('near');
+  const [userPos, setUserPos] = useState(null); // { lat, lng } — posizione GPS dell'utente
+  const [geoDenied, setGeoDenied] = useState(false); // GPS negato/non disponibile
 
   // Creation state
   const [isCreating, setIsCreating] = useState(false);
@@ -59,6 +101,9 @@ export default function RoutesPage() {
 
   // Ref to avoid stale closure in map click handler
   const isCreatingRef = useRef(false);
+  // La posizione può arrivare prima o dopo la creazione della mappa: il ref permette
+  // a chi arriva secondo di applicarla comunque (niente race sul centraggio iniziale).
+  const userPosRef = useRef(null);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -101,24 +146,14 @@ export default function RoutesPage() {
     loadData();
   }, []);
 
-  // Haversine distance formula
+  // Lunghezza del percorso: somma delle distanze in linea d'aria tra tappe consecutive.
   const calculateTotalDistance = (waypoints) => {
     if (!waypoints || waypoints.length < 2) return 0;
-    const toRad = (x) => (x * Math.PI) / 180;
     let total = 0;
     for (let i = 0; i < waypoints.length - 1; i++) {
-      const lon1 = waypoints[i].lng;
-      const lat1 = waypoints[i].lat;
-      const lon2 = waypoints[i + 1].lng;
-      const lat2 = waypoints[i + 1].lat;
-      const R = 6371;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      total += R * c;
+      const a = waypoints[i];
+      const b = waypoints[i + 1];
+      total += haversineKm(a.lat, a.lng ?? a.lon, b.lat, b.lng ?? b.lon);
     }
     return total.toFixed(2);
   };
@@ -150,26 +185,47 @@ export default function RoutesPage() {
           maxZoom: 20,
         }).addTo(mapInstance.current);
 
-        // Try user geolocation
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const { latitude, longitude } = position.coords;
-              if (mapInstance.current) {
-                mapInstance.current.setView([latitude, longitude], 14);
-              }
-            },
-            () => {
-              // Geolocation denied or unavailable — keep world view
-            },
-            { timeout: 8000, enableHighAccuracy: false }
-          );
+        // Se la posizione è già arrivata, centriamo subito (altrimenti lo fa l'effetto sotto)
+        if (userPosRef.current) {
+          mapInstance.current.setView([userPosRef.current.lat, userPosRef.current.lng], 14);
         }
       }
     };
 
     initLeaflet();
   }, [loading]);
+
+  // --- POSIZIONE DELL'UTENTE ---
+  // Serve a centrare la mappa e soprattutto a ORDINARE gli itinerari per vicinanza:
+  // "quali giri partono vicino a dove sono ora". Nessuna chiamata di rete né geocoding,
+  // solo il GPS del device: costo zero (niente egress, niente quota API).
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoDenied(true);
+      setSortMode('popular');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+        userPosRef.current = pos;
+        setUserPos(pos);
+      },
+      () => {
+        // GPS negato: la vicinanza non è calcolabile, si ordina per popolarità.
+        setGeoDenied(true);
+        setSortMode('popular');
+      },
+      { timeout: 8000, enableHighAccuracy: false, maximumAge: 300000 }
+    );
+  }, []);
+
+  // Centra la mappa sulla posizione appena disponibile (solo in lista: in dettaglio /
+  // creazione l'inquadratura la decidono le tappe).
+  useEffect(() => {
+    if (!userPos || !mapInstance.current || selectedRoute || isCreating) return;
+    mapInstance.current.setView([userPos.lat, userPos.lng], 14);
+  }, [userPos, selectedRoute, isCreating, loading]);
 
   // Entrando nel dettaglio/creazione la mappa torna visibile (era nascosta in lista):
   // Leaflet va ridimensionato E reinquadrato sulle tappe, altrimenti la mappa resta
@@ -617,6 +673,10 @@ export default function RoutesPage() {
         total_units: 0,
         duration: 1,
       });
+      // Ranking: conta questa persona tra chi ha fatto il percorso (una volta sola,
+      // deduplica lato DB). Non blocca l'avvio se fallisce.
+      db.bumpRouteStart(selectedRoute.id).catch(() => {});
+
       // Il messaggio GPS ("sei arrivato"/"naviga fino a…") viene mostrato DENTRO il pannello
       // tour (più bello di un alert). Atterriamo direttamente sul TOUR, non sul feed.
       try { if (startMsg) sessionStorage.setItem('strabar_tour_msg', startMsg); } catch { /* noop */ }
@@ -768,6 +828,48 @@ export default function RoutesPage() {
     // anche se non compaiono nel titolo.
     const cityMatch = cities.some((c) => c.toLowerCase().includes(q));
     return nameMatch || descMatch || waypointMatch || cityMatch;
+  });
+
+  // Distanza (km, in linea d'aria) tra me e la PARTENZA di ogni percorso. Calcolata
+  // qui una volta per render: i waypoints sono già in memoria, quindi nessuna query.
+  const distByRoute = {};
+  if (userPos) {
+    routes.forEach((r) => {
+      const start = routeStart(r);
+      distByRoute[r.id] = start ? haversineKm(userPos.lat, userPos.lng, start.lat, start.lng) : null;
+    });
+  }
+
+  // Distanza dalla partenza del percorso APERTO: calcolata a parte perché un percorso
+  // arrivato da link condiviso (?routeId=) può non essere nella lista.
+  const selectedStart = selectedRoute ? routeStart(selectedRoute) : null;
+  const distFromMe = userPos && selectedStart
+    ? haversineKm(userPos.lat, userPos.lng, selectedStart.lat, selectedStart.lng)
+    : null;
+
+  // Ordinamento: vicinanza (i giri che partono più vicino a me), popolarità/qualità
+  // (quante persone li hanno fatti e completati), o novità.
+  const createdTs = (r) => {
+    const ts = r.created_at ? Date.parse(r.created_at) : 0;
+    return Number.isNaN(ts) ? 0 : ts;
+  };
+  const sortedRoutes = [...filteredRoutes].sort((a, b) => {
+    if (sortMode === 'near' && userPos) {
+      const da = distByRoute[a.id];
+      const dbb = distByRoute[b.id];
+      // I percorsi senza coordinate valide finiscono in fondo, non in cima.
+      if (da == null && dbb == null) return rankScore(b) - rankScore(a);
+      if (da == null) return 1;
+      if (dbb == null) return -1;
+      return da - dbb;
+    }
+    if (sortMode === 'popular') {
+      const diff = rankScore(b) - rankScore(a);
+      // A parità di punteggio (es. percorsi nuovi, tutti a 0) vince il più recente.
+      if (Math.abs(diff) > 1e-9) return diff;
+      return createdTs(b) - createdTs(a);
+    }
+    return createdTs(b) - createdTs(a);
   });
 
   // --- LOADING STATE ---
@@ -1172,16 +1274,43 @@ export default function RoutesPage() {
                 )}
               </div>
 
+              {/* ORDINAMENTO: vicinanza (default) / popolarità / novità */}
+              <div className="feed-filter-tabs" style={{ marginBottom: '6px' }}>
+                <div
+                  className={`seg-tab ${sortMode === 'near' ? 'active' : ''}`}
+                  onClick={() => setSortMode('near')}
+                  style={geoDenied ? { opacity: 0.5 } : undefined}
+                  title={geoDenied ? t('routes.sortGeoOff') : t('routes.sortNearNote')}
+                >
+                  {t('routes.sortNear')}
+                </div>
+                <div className={`seg-tab ${sortMode === 'popular' ? 'active' : ''}`} onClick={() => setSortMode('popular')} title={t('routes.sortPopularNote')}>
+                  {t('routes.sortPopular')}
+                </div>
+                <div className={`seg-tab ${sortMode === 'new' ? 'active' : ''}`} onClick={() => setSortMode('new')}>
+                  {t('routes.sortNew')}
+                </div>
+              </div>
+              <p style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', margin: '0 0 10px' }}>
+                {sortMode === 'near'
+                  ? (userPos ? t('routes.sortNearNote') : (geoDenied ? t('routes.sortGeoOff') : t('routes.sortGeoWait')))
+                  : sortMode === 'popular'
+                    ? t('routes.sortPopularNote')
+                    : t('routes.sortNewNote')}
+              </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '2px' }}>
-                {filteredRoutes.length === 0 ? (
+                {sortedRoutes.length === 0 ? (
                   <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
                     {routes.length === 0 ? t('routes.noRoutes') : t('routes.noResults')}
                   </p>
                 ) : (
-                  filteredRoutes.map((route) => {
+                  sortedRoutes.map((route) => {
                     const isSelected = selectedRoute?.id === route.id;
                     const cities = citiesByRoute[route.id] || [];
+                    const dist = distByRoute[route.id];
+                    const starts = route.starts_count || 0;
+                    const donePct = starts >= 3 ? Math.round(((route.completions_count || 0) / starts) * 100) : null;
                     return (
                       <button
                         key={route.id}
@@ -1251,8 +1380,27 @@ export default function RoutesPage() {
                           </div>
                         )}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px', marginTop: '4px' }}>
-                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                            {t('routes.stopsCount', { n: route.waypoints?.length || 0 })}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
+                              {t('routes.stopsCount', { n: route.waypoints?.length || 0 })}
+                            </span>
+                            {/* Quanto è lontana la PARTENZA da dove sono ora */}
+                            {dist != null && (
+                              <span title={t('routes.distFromYou')} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--secondary)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <MapPin size={10} /> {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`}
+                              </span>
+                            )}
+                            {/* Quante persone l'hanno fatto e quante lo portano a termine */}
+                            {starts > 0 && (
+                              <span title={t('routes.doneByTitle')} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dark-secondary)' }}>
+                                🔥 {starts}
+                              </span>
+                            )}
+                            {donePct != null && (
+                              <span title={t('routes.donePctTitle')} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--success)' }}>
+                                ✅ {donePct}%
+                              </span>
+                            )}
                           </span>
                           {route.user_id !== currentUser?.id && (route.creator?.display_name || route.creator?.username) && (
                             <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
@@ -1344,12 +1492,40 @@ export default function RoutesPage() {
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px' }}>{travelMode === 'foot' ? t('routes.estTimeWalk', { n: travelTime }) : t('routes.estTimeDrive', { n: travelTime })}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: detailMode ? '1px solid var(--border-dark)' : 'none', paddingBottom: detailMode ? '10px' : 0 }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Beer size={14} color="var(--secondary)" /> {t('routes.alcoholLoad')}
                 </span>
                 <strong className="stat-value" style={{ fontSize: '15px', color: 'var(--secondary)' }}>{routeTotalUnits.toFixed(1)} {t('places.rowMetricUnits')}</strong>
               </div>
+
+              {/* Riscontro del percorso: quante persone l'hanno fatto, quante l'hanno
+                  completato e quanto dista la partenza da dove sono ora. */}
+              {detailMode && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
+                    <span className="stat-label" title={t('routes.doneByTitle')}>🔥 {t('routes.doneByLabel')}</span>
+                    <strong className="stat-value" style={{ fontSize: '15px' }}>
+                      {selectedRoute?.starts_count || 0}
+                      {(selectedRoute?.starts_count || 0) >= 3 && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success)', marginLeft: '6px' }}>
+                          ✅ {Math.round(((selectedRoute.completions_count || 0) / selectedRoute.starts_count) * 100)}%
+                        </span>
+                      )}
+                    </strong>
+                  </div>
+                  {distFromMe != null && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <MapPin size={14} color="var(--secondary)" /> {t('routes.distFromYou')}
+                      </span>
+                      <strong className="stat-value" style={{ fontSize: '15px', color: 'var(--secondary)' }}>
+                        {distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`}
+                      </strong>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Azioni sul percorso selezionato */}

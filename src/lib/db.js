@@ -1059,6 +1059,10 @@ export const db = {
     if (isSupabaseConfigured) {
       // Cap di sicurezza: i 100 percorsi più recenti. Evita di scansionare l'intera tabella
       // man mano che si scala (egress limitato). Più che sufficienti per la lista pubblica.
+      // NB: l'ordinamento della lista (vicinanza / popolarità / novità) è tutto lato client
+      // su questi 100, così cambiare tab NON rifà la query (zero egress aggiuntivo). Quando
+      // i percorsi supereranno le 100 unità servirà un ordinamento server-side per la
+      // popolarità (indice routes_starts_idx già pronto).
       const { data, error } = await supabase
         .from('routes')
         .select('*')
@@ -4633,6 +4637,41 @@ export const db = {
         found = INITIAL_ROUTES.find(r => r.id === routeId);
       }
       return found || null;
+    }
+  },
+
+  // --- RANKING PERCORSI ---
+  // Contatori "quante persone l'hanno fatto / completato" sulla riga del percorso:
+  // la lista li legge con la SELECT che già fa, quindi il ranking non aggiunge egress.
+  // Le funzioni contano una persona una volta sola (deduplica lato DB in route_runs).
+  // Sono FIRE-AND-FORGET: un errore qui non deve mai bloccare l'avvio/la chiusura di un tour.
+  async bumpRouteStart(routeId) {
+    if (!routeId) return;
+    if (isSupabaseConfigured) {
+      try { await supabase.rpc('bump_route_start', { p_route: routeId }); } catch { /* noop */ }
+    } else {
+      const routes = getStored('sb_routes');
+      const idx = routes.findIndex((r) => r.id === routeId);
+      if (idx === -1) return;
+      routes[idx] = {
+        ...routes[idx],
+        starts_count: (routes[idx].starts_count || 0) + 1,
+        last_started_at: new Date().toISOString(),
+      };
+      setStored('sb_routes', routes);
+    }
+  },
+
+  async bumpRouteCompletion(routeId) {
+    if (!routeId) return;
+    if (isSupabaseConfigured) {
+      try { await supabase.rpc('bump_route_completion', { p_route: routeId }); } catch { /* noop */ }
+    } else {
+      const routes = getStored('sb_routes');
+      const idx = routes.findIndex((r) => r.id === routeId);
+      if (idx === -1) return;
+      routes[idx] = { ...routes[idx], completions_count: (routes[idx].completions_count || 0) + 1 };
+      setStored('sb_routes', routes);
     }
   }
 };

@@ -1657,6 +1657,13 @@ export default function FeedPage() {
     const sess = activeSession; // cattura prima di azzerare lo stato (serve per il resoconto)
     try {
       await db.closeSession(sess.id, finalData);
+
+      // Ranking percorsi: se il tour è arrivato a TUTTE le tappe conta come completato
+      // (una volta per persona, deduplica lato DB). È il segnale di "qualità" del giro
+      // nella lista percorsi. Fire-and-forget: non deve intralciare la chiusura.
+      if (tour?.route_id && (tour.visited || []).length >= (tour.stops || []).length) {
+        db.bumpRouteCompletion(tour.route_id).catch(() => {});
+      }
       // Niente notifica all'utente per la propria chiusura sessione (azione volontaria).
 
       // Resoconto per il modale di congratulazioni (picco BAC deterministico a sessione chiusa).

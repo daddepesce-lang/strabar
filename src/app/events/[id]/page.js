@@ -363,6 +363,8 @@ export default function EventDetailPage({ params }) {
         total_units: 0,
         duration: 1,
       });
+      // Ranking percorsi: anche i tour partiti da un evento contano tra chi l'ha fatto.
+      db.bumpRouteStart(route.id).catch(() => {});
       try { if (startMsg) sessionStorage.setItem('strabar_tour_msg', startMsg); } catch { /* noop */ }
       window.location.href = '/?live=1';
     } catch (err) {
