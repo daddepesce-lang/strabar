@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Colori del brand Strabar usati dal tema Android (styles.xml) e come tinta dell'icona
+  delle notifiche (vedi il meta-data default_notification_color in AndroidManifest.xml).
+  Sono gli stessi token del design system web: --primary / --primary-hover / --bg-dark.
+-->
+<resources>
+    <color name="colorPrimary">#FF3B2F</color>
+    <color name="colorPrimaryDark">#D81A00</color>
+    <color name="colorAccent">#FF3B2F</color>
+    <color name="voidBlack">#0A0A0D</color>
+</resources>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CAPACITOR_DEBUG</key>
+	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+        <string>Strabar</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+    <false/>
+    <key>UISceneConfigurations</key>
+    <dict>
+      <key>UIWindowSceneSessionRoleApplication</key>
+      <array>
+        <dict>
+            <key>UISceneConfigurationName</key>
+            <string>Default Configuration</string>
+            <key>UISceneDelegateClassName</key>
+            <string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+            <key>UISceneStoryboardFile</key>
+            <string>Main</string>
+        </dict>
+      </array>
+    </dict>
+	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<!-- Solo verticale, come il manifest della PWA (`orientation: 'portrait'`). -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+
+	<!--
+	  Motivazioni dei permessi mostrate da iOS nei dialog di sistema. Sono OBBLIGATORIE:
+	  senza la stringa corrispondente l'app viene respinta in review (o crasha alla
+	  richiesta del permesso). Il testo è quello che legge l'utente: va detto a cosa serve.
+	-->
+	<key>NSCameraUsageDescription</key>
+	<string>Per scattare le foto delle tue serate e allegarle alle sessioni.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Per scegliere dalla galleria le foto da allegare alle tue sessioni.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Per trovare i locali vicini a te e verificare i check-in nei posti dove bevi.</string>
+
+	<!--
+	  Google Sign-In nativo: iOS torna nell'app tramite questo URL scheme, che è l'iOS
+	  client ID scritto al contrario (Google Cloud Console → credenziali OAuth iOS).
+	  DA SOSTITUIRE prima della prima build: finché resta il placeholder, il login con
+	  Google sull'app iOS non completa (email e password funzionano comunque).
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.SOSTITUIRE-CON-IOS-CLIENT-ID</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

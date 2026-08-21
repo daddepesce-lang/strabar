@@ -942,16 +942,21 @@ export default function FeedPage() {
   };
 
   // Cambia stomaco pieno/vuoto durante la live e ricalcola subito il BAC.
-  // NON è retroattivo — e lo garantiamo anche sui drink VECCHI (loggati prima che esistesse
-  // added_stomach): prima di cambiare, "CONGELIAMO" ogni drink già registrato con lo stato
-  // stomaco ATTUALE. Da quel momento il nuovo valore vale solo per i drink SUCCESSIVI, quindi
-  // il picco già raggiunto non si abbassa mai (fisiologicamente corretto: l'alcol già in
-  // circolo non si può "dis-assorbire"; il cibo rallenta solo l'assorbimento di ciò che
-  // entra DOPO). Gestisce anche pieno→vuoto (es. tocco per errore): ogni drink resta con lo
-  // stato del suo momento.
+  // NON riscrive il passato, ma NON è nemmeno inerte: mangiare rallenta l'alcol ANCORA NELLO
+  // STOMACO, non quello già in circolo. Quindi facciamo due cose:
+  //  1. CONGELIAMO lo stato al momento dell'aggiunta su ogni drink già registrato (`full` +
+  //     `added_stomach`), anche sui drink vecchi loggati prima che esistesse il timbro;
+  //  2. REGISTRIAMO il cambio con il suo orario in `stomach_log`: dal quel momento la quota
+  //     non ancora assorbita di quei drink passa alla nuova velocità (modello a segmenti,
+  //     vedi db._absorbedFractionAt). Il tratto di curva già passato resta identico — il
+  //     picco raggiunto non si abbassa mai — ma la curva DA ORA IN POI cambia davvero.
+  // I drink già assorbiti (ultima aggiunta oltre 2h) non ricevono il timbro: sarebbe un
+  // no-op numerico e gonfierebbe il JSON della sessione (egress).
   const handleToggleFullStomach = async (value) => {
     if (!activeSession || !!activeSession.full_stomach === !!value) return;
     const cur = !!activeSession.full_stomach; // stato sotto cui sono stati bevuti i drink finora
+    const nowIso = new Date().toISOString();
+    const ABSORBED_MS = 2 * 60 * 60 * 1000;
     const frozen = (activeSession.drinks || []).map((d) => {
       const times = Array.isArray(d.added_times) && d.added_times.length
         ? d.added_times
@@ -959,10 +964,17 @@ export default function FeedPage() {
       const added_stomach = (Array.isArray(d.added_stomach) && d.added_stomach.length === times.length)
         ? d.added_stomach
         : times.map(() => cur);
+      // Ultima aggiunta di questa riga: se è troppo vecchia, l'alcol è tutto in circolo.
+      const lastMs = times.length
+        ? Math.max(...times.map((t) => new Date(t).getTime()))
+        : new Date(d.added_at || activeSession.created_at).getTime();
+      const stillAbsorbing = Number.isFinite(lastMs) && (Date.now() - lastMs) < ABSORBED_MS;
+      const prevLog = Array.isArray(d.stomach_log) ? d.stomach_log : [];
       return {
         ...d,
         full: (d.full === true || d.full === false) ? d.full : cur,
         ...(times.length ? { added_stomach } : {}),
+        ...(stillAbsorbing ? { stomach_log: [...prevLog, [nowIso, value ? 1 : 0]] } : {}),
       };
     });
     const duration = activeSession.duration || 1;
@@ -1107,10 +1119,13 @@ export default function FeedPage() {
           ? ex.added_places
           : exTimes.map(() => (ex.place_name ? { key: ex.place_key || null, name: ex.place_name } : null));
         // Stato stomaco parallelo agli orari: le aggiunte storiche senza flag ricadono su
-        // ex.full (o false). La NUOVA aggiunta porta lo stato stomaco di adesso.
+        // ex.full e, se manca anche quello (dati vecchi), sul default della SESSIONE — NON su
+        // "vuoto": assumere vuoto riscriveva il passato verso l'alto (aggiungere un drink
+        // alzava il picco già raggiunto). La NUOVA aggiunta porta lo stato stomaco di adesso.
+        const exStomachFallback = (ex.full === true || ex.full === false) ? ex.full : stomachNow;
         const exStomach = Array.isArray(ex.added_stomach) && ex.added_stomach.length === exTimes.length
           ? ex.added_stomach
-          : exTimes.map(() => (ex.full === true));
+          : exTimes.map(() => exStomachFallback);
         updatedDrinks[dupIdx] = {
           ...ex,
           qty: (ex.qty || 1) + 1,
@@ -1231,9 +1246,14 @@ export default function FeedPage() {
       const row = { ...drinks[idx] };
       if ((row.qty || 1) > 1) {
         row.qty = row.qty - 1;
-        // Tieni allineati gli orari delle singole aggiunte (rimuovi l'ultimo).
+        // Tieni allineati gli orari delle singole aggiunte (rimuovi l'ultimo) E gli array
+        // paralleli: added_stomach/added_places valgono solo se hanno la STESSA lunghezza di
+        // added_times, altrimenti i timbri (stomaco, locale) vengono scartati dal calcolo.
         if (Array.isArray(row.added_times) && row.added_times.length > 0) {
-          row.added_times = row.added_times.slice(0, -1);
+          const keep = row.added_times.length - 1;
+          row.added_times = row.added_times.slice(0, keep);
+          if (Array.isArray(row.added_stomach)) row.added_stomach = row.added_stomach.slice(0, keep);
+          if (Array.isArray(row.added_places)) row.added_places = row.added_places.slice(0, keep);
         }
         drinks[idx] = row;
       } else {
@@ -1359,6 +1379,28 @@ export default function FeedPage() {
   const handleAddSessionPhoto = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
+    await addSessionPhotoFile(file);
+  };
+
+  // Nell'app nativa apriamo il picker di sistema (fotocamera o galleria) invece dell'input
+  // file: la foto arriva già ridimensionata e compressa dal dispositivo. Su web si continua
+  // a passare dall'<input type="file">, esattamente come prima.
+  const pickSessionPhoto = async () => {
+    if (typeof window === 'undefined' || !window.Capacitor?.isNativePlatform?.()) {
+      photoPromptInputRef.current?.click();
+      return;
+    }
+    try {
+      const { nativeTakePhoto } = await import('@/lib/native');
+      const file = await nativeTakePhoto();
+      if (file) await addSessionPhotoFile(file);
+    } catch (err) {
+      console.error('Foto non acquisita:', err);
+      alert("Errore nell'apertura della fotocamera: " + (err.message || err));
+    }
+  };
+
+  const addSessionPhotoFile = async (file) => {
     if (!file || !activeSession) return;
     if (!file.type.startsWith('image/')) {
       alert("Seleziona un file immagine valido.");
@@ -2539,7 +2581,16 @@ export default function FeedPage() {
               >×</button>
             </div>
           ))}
-          <label style={{ width: '66px', height: '66px', flexShrink: 0, borderRadius: '14px', border: '1.5px dashed rgba(255,255,255,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', color: 'var(--text-dark-secondary)', cursor: photoUploading ? 'wait' : 'pointer' }}>
+          <label
+            // Nell'app nativa scavalchiamo l'input file e usiamo il picker di sistema.
+            onClick={(e) => {
+              if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+                e.preventDefault();
+                if (!photoUploading) pickSessionPhoto();
+              }
+            }}
+            style={{ width: '66px', height: '66px', flexShrink: 0, borderRadius: '14px', border: '1.5px dashed rgba(255,255,255,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '3px', color: 'var(--text-dark-secondary)', cursor: photoUploading ? 'wait' : 'pointer' }}
+          >
             {photoUploading ? <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={20} />}
             <span style={{ fontSize: '9px', fontWeight: 600 }}>{photoUploading ? t('session.photoUploading') : t('session.photoAdd')}</span>
             <input type="file" accept="image/*" capture="environment" onChange={handleAddSessionPhoto} disabled={photoUploading} style={{ display: 'none' }} />
@@ -3460,7 +3511,7 @@ export default function FeedPage() {
               Una foto rende la tua serata molto più bella nel feed (e fa venire sete agli amici 😏).
             </p>
             <button
-              onClick={() => { setShowPhotoPrompt(false); photoPromptInputRef.current?.click(); }}
+              onClick={() => { setShowPhotoPrompt(false); pickSessionPhoto(); }}
               className="btn btn-primary"
               style={{ width: '100%', borderRadius: '16px', padding: '12px', fontSize: '15px', fontWeight: 800, marginBottom: '10px' }}
             >

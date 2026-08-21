@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Notifiche push (APNs). "development" usa i server sandbox: è il valore giusto per le
+	  build da Xcode. Per TestFlight e App Store Xcode lo sostituisce automaticamente con
+	  "production" in fase di archive, quindi non va cambiato a mano.
+	  Attenzione a tenerlo allineato al secret APNS_HOST della Edge Function send-push:
+	  api.sandbox.push.apple.com per le build di sviluppo, api.push.apple.com per lo store.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+
+	<!--
+	  Universal Links: i link https://strabar.app aprono l'app. Apple verifica il file
+	  /.well-known/apple-app-site-association sul dominio (serve APPLE_TEAM_ID su Vercel).
+	  webcredentials abilita l'autofill delle password dal Portachiavi iCloud nel login.
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:strabar.app</string>
+		<string>applinks:www.strabar.app</string>
+		<string>webcredentials:strabar.app</string>
+	</array>
+</dict>
+</plist>

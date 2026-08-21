@@ -11,6 +11,21 @@ export const supabase = isSupabaseConfigured
   ? createBrowserClient()
   : null;
 
+// Siamo dentro l'app nativa (guscio Capacitor, Android/iOS)? Il controllo è inline e senza
+// import: `src/lib/native.js` viene caricato con import dinamico solo nei rami nativi, così
+// il bundle servito ai browser resta identico a prima.
+const isNativeApp = () => typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
+
+// Lingua scelta dall'utente. Stessa chiave di localStorage usata da src/lib/i18n: la
+// leggiamo qui a mano per non importare un modulo client React dentro il data layer.
+const currentLang = () => {
+  try {
+    return localStorage.getItem('strabar_lang') || 'it';
+  } catch {
+    return 'it';
+  }
+};
+
 // --- MOCK DATABASE (localStorage based) ---
 const INITIAL_PROFILES = [];
 const INITIAL_ACTIVITIES = [];
@@ -238,6 +253,36 @@ export const db = {
 
   async loginWithGoogle(next = '/') {
     if (isSupabaseConfigured) {
+      // App nativa: Google RIFIUTA il proprio OAuth dentro le WebView embedded
+      // (`disallowed_useragent`), quindi il flusso web non è utilizzabile. Usiamo il
+      // Sign-In nativo (Credential Manager su Android, GoogleSignIn su iOS) e scambiamo
+      // l'id_token con Supabase: la sessione risultante è la stessa del flusso web, con i
+      // cookie che @supabase/ssr scrive sul dominio → i server component la vedono.
+      if (isNativeApp()) {
+        const { nativeGoogleIdToken } = await import('./native');
+        const idToken = await nativeGoogleIdToken();
+        const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken });
+        if (error) throw error;
+        // La welcome dei signup Google la manda /auth/callback, che qui non passa mai:
+        // riconosciamo il primo accesso e la spediamo noi (best-effort, mai bloccante).
+        try {
+          const u = data?.user;
+          const createdMs = u?.created_at ? new Date(u.created_at).getTime() : 0;
+          if (createdMs && Date.now() - createdMs < 2 * 60 * 1000 && u?.email) {
+            await fetch('/api/welcome', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: u.email,
+                name: u.user_metadata?.full_name || u.user_metadata?.name || '',
+                lang: currentLang(),
+              }),
+            });
+          }
+        } catch { /* email di benvenuto non critica */ }
+        return data;
+      }
+
       // Propaga la destinazione (next) al callback OAuth, così dopo il login con Google
       // si torna alla pagina richiesta (es. un itinerario condiviso) e non al feed.
       const safeNext = (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) ? next : '/';
@@ -1653,6 +1698,9 @@ export const db = {
     const withTs = [];
     drinks.forEach(d => {
       if (!d.added_at) return;
+      // `stomach_log`: cambi stomaco avvenuti DOPO questo drink (normalizzato una volta sola
+      // e passato al modello come `_slog`, vedi _absorbedFractionAt).
+      const slog = this._stomachLog(d);
       const times = Array.isArray(d.added_times) && d.added_times.length > 0 ? d.added_times : null;
       if (times) {
         // `added_stomach` è parallelo ad `added_times` (come `added_places`): registra lo
@@ -1665,9 +1713,10 @@ export const db = {
           ...d, qty: 1, added_at: t,
           full: stomachs ? stomachs[i] : d.full,
           added_times: undefined, added_stomach: undefined,
+          ...(slog ? { _slog: slog } : {}),
         }));
       } else {
-        withTs.push(d);
+        withTs.push(slog ? { ...d, _slog: slog } : d);
       }
     });
 
@@ -1676,8 +1725,9 @@ export const db = {
     const units = [];
     drinks.forEach(d => {
       if (d.added_at) return;
+      const slog = this._stomachLog(d);
       const qty = d.qty || 1;
-      for (let i = 0; i < qty; i++) units.push({ ...d, qty: 1 });
+      for (let i = 0; i < qty; i++) units.push({ ...d, qty: 1, ...(slog ? { _slog: slog } : {}) });
     });
 
     const n = units.length;
@@ -1819,9 +1869,56 @@ export const db = {
   // meglio allineati/leggermente cauti. Donna: assorbimento un filo più rapido (meno ADH gastrico).
   _absorbedFraction(dt_h, fullStomach, sex) {
     if (dt_h <= 0) return 0;
+    return 1 - Math.exp(-dt_h / this._tau(fullStomach, sex));
+  },
+
+  // Costante di tempo dell'assorbimento (ore). Vedi calibrazione sopra.
+  _tau(fullStomach, sex) {
     const female = this._isFemale(sex);
-    const tau = fullStomach ? (female ? 0.26 : 0.30) : (female ? 0.10 : 0.12);
-    return 1 - Math.exp(-dt_h / tau);
+    return fullStomach ? (female ? 0.26 : 0.30) : (female ? 0.10 : 0.12);
+  },
+
+  // Storico dei cambi stomaco di un drink, normalizzato: [{t: ms, full: bool}] ordinato.
+  // Salvato compatto sul drink come `stomach_log: [[iso, 1|0], ...]` (pochi byte: i cambi
+  // per serata sono 0-2) → nessuna colonna nuova, nessun egress aggiuntivo apprezzabile.
+  _stomachLog(d) {
+    const raw = d && Array.isArray(d.stomach_log) ? d.stomach_log : null;
+    if (!raw || raw.length === 0) return null;
+    const out = [];
+    raw.forEach((e) => {
+      const t = new Date(Array.isArray(e) ? e[0] : e?.t).getTime();
+      const full = Array.isArray(e) ? !!e[1] : !!e?.full;
+      if (Number.isFinite(t)) out.push({ t, full });
+    });
+    return out.length ? out.sort((a, b) => a.t - b.t) : null;
+  },
+
+  // Frazione assorbita a `refMs` di un drink bevuto a `addedMs`, tenendo conto dei CAMBI
+  // di stomaco avvenuti DOPO il drink (es. ceni mentre la birra è ancora nello stomaco).
+  // Modello a segmenti: la quota non assorbita decade con dU/dt = −U/τ(t), quindi
+  //   assorbito(t) = 1 − exp(−Σ Δt_segmento / τ_segmento)
+  // Conseguenze (entrambe fisiologicamente giuste):
+  //  • il cibo rallenta SOLO l'alcol ancora nello stomaco → il tratto di curva già passato
+  //    non si muove mai (il picco raggiunto non si abbassa a posteriori);
+  //  • se premi "stomaco pieno" quando il drink è già assorbito (>~30 min a stomaco vuoto),
+  //    non cambia nulla: non c'è più niente da rallentare.
+  _absorbedFractionAt(addedMs, refMs, initialFull, changes, sex) {
+    if (!(refMs > addedMs)) return 0;
+    if (!changes || changes.length === 0) {
+      return this._absorbedFraction((refMs - addedMs) / 3600000, initialFull, sex);
+    }
+    let exponent = 0;
+    let cur = !!initialFull;
+    let tPrev = addedMs;
+    changes.forEach((c) => {
+      if (c.t <= addedMs || c.t >= refMs) return;   // cambi prima del drink / dopo `ref`: ignorati
+      if (!!c.full === cur) return;                 // nessun cambio effettivo di stato
+      exponent += ((c.t - tPrev) / 3600000) / this._tau(cur, sex);
+      cur = !!c.full;
+      tPrev = c.t;
+    });
+    exponent += ((refMs - tPrev) / 3600000) / this._tau(cur, sex);
+    return 1 - Math.exp(-exponent);
   },
 
   // Grammi di alcol puro stimati per un drink (quantità inclusa).
@@ -1856,7 +1953,11 @@ export const db = {
       // resta "vuoto" anche se più tardi mangi. `fullStomach` (sessione) è solo il fallback
       // per i dati vecchi che non hanno il flag → comportamento invariato su quelli.
       const drinkFull = (d.full === true || d.full === false) ? d.full : fullStomach;
-      absorbed += this._drinkGrams(d) * this._absorbedFraction(dt_h, drinkFull, sex);
+      // `_slog` = cambi di stomaco successivi al drink (vedi _absorbedFractionAt): se cambi
+      // stomaco a metà assorbimento, rallenta solo la quota ancora da assorbire.
+      absorbed += this._drinkGrams(d) * (d._slog
+        ? this._absorbedFractionAt(new Date(d.added_at).getTime(), refMs, drinkFull, d._slog, sex)
+        : this._absorbedFraction(dt_h, drinkFull, sex));
     });
     const eliminated = eliminationPerHour * Math.max(0, (refMs - startTime) / 3600000);
     return Math.max(0, prior + absorbed - eliminated);
@@ -4264,11 +4365,52 @@ export const db = {
     return reg;
   },
 
+  // --- Push nell'app nativa ------------------------------------------------
+  // Nella WebView (Android e iOS) la Push API non esiste: al posto di Web Push si usa il
+  // canale nativo, FCM su Android e APNs su iOS. Il token finisce nella stessa tabella
+  // `push_subscriptions` con `kind` = 'fcm' | 'apns' ed `endpoint` = "<kind>:<token>", così
+  // il vincolo di unicità su endpoint e la pulizia dei token morti continuano a funzionare
+  // senza toccare la logica esistente.
+
+  // Salva/aggiorna il token del dispositivo. Deduplicato in locale: in regime normale il
+  // token non cambia mai, quindi gli avvii successivi NON fanno scritture su Supabase.
+  async registerNativePushToken(token) {
+    if (!token || !isSupabaseConfigured) return false;
+    const user = await this.getCurrentUser();
+    if (!user) return false;
+
+    const platform = window.Capacitor?.getPlatform?.() === 'ios' ? 'ios' : 'android';
+    const kind = platform === 'ios' ? 'apns' : 'fcm';
+    const endpoint = `${kind}:${token}`;
+
+    const memo = `native_push:${user.id}`;
+    try {
+      if (localStorage.getItem(memo) === endpoint) return true;
+    } catch { /* localStorage inaccessibile: si scrive e basta */ }
+
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      { user_id: user.id, endpoint, kind, token, platform, subscription: null },
+      { onConflict: 'endpoint' }
+    );
+    if (error) throw error;
+    try { localStorage.setItem(memo, endpoint); } catch { /* noop */ }
+    return true;
+  },
+
+  // Registra il dispositivo nativo: chiede il permesso se serve, ottiene il token e lo salva.
+  async _registerNativePush() {
+    const { nativePushToken } = await import('./native');
+    const token = await nativePushToken();
+    if (!token) return false;
+    return this.registerNativePushToken(token);
+  },
+
   // Registra la PUSH subscription del dispositivo corrente, così l'utente riceve
   // le notifiche anche ad app chiusa (Web Push). Da chiamare dopo aver concesso il permesso.
   // Ritorna true se l'iscrizione è andata a buon fine.
   async registerPushSubscription() {
     if (typeof window === 'undefined' || !isSupabaseConfigured) return false;
+    if (isNativeApp()) return this._registerNativePush();
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
     if (!('Notification' in window) || Notification.permission !== 'granted') return false;
     const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -4326,6 +4468,12 @@ export const db = {
   // Stato attuale: il dispositivo è iscritto alle push? (usa getRegistration: non si blocca)
   async isPushSubscribed() {
     try {
+      // Nell'app nativa l'iscrizione coincide col permesso di sistema concesso: il token
+      // viene (ri)registrato dal guscio a ogni avvio a freddo.
+      if (isNativeApp()) {
+        const { nativePushPermission } = await import('./native');
+        return (await nativePushPermission()) === 'granted';
+      }
       if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
       const reg = await navigator.serviceWorker.getRegistration();
       if (!reg) return false;
@@ -4337,6 +4485,25 @@ export const db = {
   // Disattiva le push su questo dispositivo (annulla la subscription + rimuove dal DB).
   async unregisterPushSubscription() {
     try {
+      // App nativa: il permesso di sistema non si revoca da codice (solo dalle impostazioni
+      // del telefono), ma togliendo la riga dal DB il dispositivo smette di ricevere push.
+      if (isNativeApp()) {
+        const user = await this.getCurrentUser();
+        if (!user || !isSupabaseConfigured) return;
+        const memo = `native_push:${user.id}`;
+        let endpoint = null;
+        try { endpoint = localStorage.getItem(memo); } catch { /* noop */ }
+        if (endpoint) {
+          // Solo QUESTO dispositivo: gli altri telefoni dell'utente restano iscritti.
+          await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+        } else {
+          await supabase.from('push_subscriptions').delete().eq('user_id', user.id).in('kind', ['fcm', 'apns']);
+        }
+        try { localStorage.removeItem(memo); } catch { /* noop */ }
+        const { nativePlugin } = await import('./native');
+        await nativePlugin('PushNotifications')?.unregister?.()?.catch?.(() => {});
+        return;
+      }
       if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
       const reg = await navigator.serviceWorker.getRegistration();
       if (!reg) return;

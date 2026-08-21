@@ -30,6 +30,9 @@ export default function PwaInstallBanner() {
 
   useEffect(() => {
     if (isStandalone()) return; // già installata
+    // Nell'app dagli store l'installazione è già fatta: niente inviti a "installare la PWA"
+    // (su iOS mostrerebbe pure le istruzioni "Aggiungi a Home", che qui non hanno senso).
+    if (window.Capacitor?.isNativePlatform?.()) return;
 
     // Rispetta una chiusura recente
     try {

@@ -1,0 +1,46 @@
+{
+  "appId": "app.strabar",
+  "appName": "Strabar",
+  "webDir": "native/www",
+  "server": {
+    "url": "https://strabar.app",
+    "androidScheme": "https",
+    "errorPath": "error.html",
+    "allowNavigation": [
+      "strabar.app",
+      "*.strabar.app",
+      "checkout.stripe.com",
+      "*.stripe.com",
+      "accounts.google.com",
+      "*.supabase.co"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false,
+    "scrollEnabled": true
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "insetsHandling": "css"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#0A0A0DFF",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": false
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

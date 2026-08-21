@@ -17,6 +17,7 @@ const dmSans = DM_Sans({
 });
 import { I18nProvider } from "@/lib/i18n";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import NativeShell from "@/components/NativeShell";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 import LegacyMigrationBanner from "@/components/LegacyMigrationBanner";
 import PushReminderGate from "@/components/PushReminderGate";
@@ -89,6 +90,7 @@ export default function RootLayout({ children }) {
       <body>
         <I18nProvider>
           <ServiceWorkerRegister />
+          <NativeShell />
           <AgeGate />
           <OnboardingGate />
           <WelcomeGuide />

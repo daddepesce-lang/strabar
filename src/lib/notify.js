@@ -4,7 +4,17 @@
 // e ricadiamo sul costruttore solo su desktop.
 
 export async function ensureNotificationPermission() {
-  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  if (typeof window === 'undefined') return 'unsupported';
+  // App nativa: il permesso è quello di sistema (Android 13+ / iOS) e passa dal plugin push,
+  // non da `Notification.requestPermission()` — che nella WebView non è affidabile.
+  if (window.Capacitor?.isNativePlatform?.()) {
+    const { nativePushPermission, nativeRequestPushPermission } = await import('./native');
+    const current = await nativePushPermission();
+    if (current === 'granted' || current === 'denied') return current;
+    const asked = await nativeRequestPushPermission();
+    return asked === 'granted' ? 'granted' : 'denied';
+  }
+  if (!('Notification' in window)) return 'unsupported';
   if (Notification.permission === 'default') {
     try {
       return await Notification.requestPermission();
@@ -16,7 +26,14 @@ export async function ensureNotificationPermission() {
 }
 
 export async function notify(title, body, options = {}) {
-  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (typeof window === 'undefined') return;
+  // App nativa: niente service worker, la notifica locale la programma il sistema.
+  if (window.Capacitor?.isNativePlatform?.()) {
+    const { nativeLocalNotify } = await import('./native');
+    await nativeLocalNotify(title, body);
+    return;
+  }
+  if (!('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
   const payload = {

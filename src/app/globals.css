@@ -1,6 +1,15 @@
 /* I font sono self-hosted via next/font (vedi src/app/layout.js): le variabili
    --font-bebas e --font-dm sono iniettate sull'elemento <html>. */
 :root {
+  /* Safe area (notch, barre di sistema). Passiamo da variabili invece di usare env()
+     direttamente perché nella WebView Android dell'app nativa env() non riporta gli inset
+     delle barre di sistema: lì il guscio nativo (src/lib/native-shell.js) riscrive queste
+     quattro variabili con i valori misurati da Capacitor. Su web e su iOS restano env(). */
+  --sa-top: env(safe-area-inset-top, 0px);
+  --sa-right: env(safe-area-inset-right, 0px);
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+  --sa-left: env(safe-area-inset-left, 0px);
+
   /* Strabar Design System Tokens — "Electric & Void, evoluto" */
   --primary: #FF3B2F;         /* Ember Red */
   --primary-hover: #D81A00;
@@ -179,7 +188,7 @@ button, input, select, textarea {
   flex: 1;
   /* Tiene conto del notch in alto (viewport-fit: cover). +spazio sotto la navbar (70px)
      così il titolo della pagina non risulta attaccato alla barra del logo. */
-  padding: calc(92px + env(safe-area-inset-top, 0px)) 20px 40px 20px;
+  padding: calc(92px + var(--sa-top)) 20px 40px 20px;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
@@ -216,8 +225,8 @@ button, input, select, textarea {
   top: 0;
   left: 0;
   right: 0;
-  height: calc(70px + env(safe-area-inset-top, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
+  height: calc(70px + var(--sa-top));
+  padding-top: var(--sa-top);
   /* Sfondo opaco + niente backdrop-filter: evita lo stesso bug iOS PWA della
      barra in basso (layer fixed+blur che si stacca durante lo scroll inerziale). */
   background: #111116;
@@ -227,8 +236,8 @@ button, input, select, textarea {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-left: max(40px, env(safe-area-inset-left, 0px));
-  padding-right: max(40px, env(safe-area-inset-right, 0px));
+  padding-left: max(40px, var(--sa-left));
+  padding-right: max(40px, var(--sa-right));
   z-index: 1000;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
@@ -1519,10 +1528,10 @@ select.form-control {
   }
 
   .navbar {
-    height: calc(60px + env(safe-area-inset-top, 0px));
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    height: calc(60px + var(--sa-top));
+    padding-top: var(--sa-top);
+    padding-left: max(16px, var(--sa-left));
+    padding-right: max(16px, var(--sa-right));
   }
   .nav-brand { font-size: 26px; gap: 8px; }
   .nav-brand .nav-logo-mark { width: 28px; height: 28px; border-radius: 7px; }
@@ -1544,9 +1553,9 @@ select.form-control {
   .main-content {
     /* notch in alto; lo spazio per la bottom-nav è gestito dal Footer.
        Navbar mobile alta 60px → 78px lascia ~18px di respiro sotto la barra del logo. */
-    padding-top: calc(78px + env(safe-area-inset-top, 0px));
-    padding-left: max(14px, env(safe-area-inset-left, 0px));
-    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    padding-top: calc(78px + var(--sa-top));
+    padding-left: max(14px, var(--sa-left));
+    padding-right: max(14px, var(--sa-right));
     padding-bottom: 24px;
   }
 
@@ -1572,8 +1581,8 @@ select.form-control {
     bottom: 0;
     left: 0;
     right: 0;
-    height: calc(66px + env(safe-area-inset-bottom, 0px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(66px + var(--sa-bottom));
+    padding-bottom: var(--sa-bottom);
     /* Sfondo OPACO (niente backdrop-filter): su iOS standalone (PWA) un elemento
        position:fixed con backdrop-filter crea un layer di compositing che durante
        lo scroll inerziale non viene riposizionato → la barra "si stacca" e galleggia
@@ -1774,7 +1783,7 @@ select.form-control {
     backdrop-filter: blur(18px);
     border-top: 1px solid rgba(255,255,255,0.08);
     border-radius: 22px 22px 0 0;
-    padding: 6px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 16px calc(20px + var(--sa-bottom));
     box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
     animation: sheet-up 0.34s var(--ease-out);
   }

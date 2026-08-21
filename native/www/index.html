@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Strabar</title>
+    <!--
+      Questo bundle locale NON è l'app: l'app è quella servita da https://strabar.app e
+      caricata dalla WebView (vedi `server.url` in capacitor.config.json). Serve solo perché
+      Capacitor pretende una `webDir`, e come rete di sicurezza: se un domani si togliesse
+      `server.url`, questa pagina porta comunque l'utente sull'app invece di mostrare il vuoto.
+    -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #0a0a0d; color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+      main { height: 100%; display: grid; place-content: center; text-align: center; gap: 12px; }
+      strong { font-size: 22px; letter-spacing: .04em; }
+      span { color: #9a9aa5; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <strong>STRABAR 🍻</strong>
+      <span>Apertura in corso…</span>
+    </main>
+    <script>
+      location.replace('https://strabar.app/');
+    </script>
+  </body>
+</html>

@@ -45,9 +45,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico / sw.js / manifest (asset PWA serviti statici)
+     * - .well-known (assetlinks.json e apple-app-site-association: file statici che Google
+     *   e Apple scaricano per verificare i deep link delle app native — niente sessione)
      * Escludendo /api evitiamo di invocare il proxy (e Supabase) due volte per ogni
      * chiamata API.
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

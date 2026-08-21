@@ -8,6 +8,9 @@ export default function ServiceWorkerRegister() {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
     // Registra solo in produzione: in dev il service worker interferisce con l'HMR di Next.
     if (process.env.NODE_ENV !== 'production') return;
+    // Dentro l'app nativa (Capacitor) il service worker non serve: le notifiche passano da
+    // FCM/APNs e la cache la gestisce la WebView. Su iOS non sarebbe nemmeno registrabile.
+    if (window.Capacitor?.isNativePlatform?.()) return;
 
     // Se all'avvio c'è già un controller, questo NON è il primo install: un successivo
     // controllerchange = è arrivata una versione nuova → ricarichiamo per eseguirla.

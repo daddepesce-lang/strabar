@@ -1,0 +1,6 @@
+# I progetti nativi (guscio Capacitor per Play Store e App Store) non servono al deploy web:
+# li teniamo fuori dall'upload su Vercel, così le build restano leggere.
+# L'app nativa NON contiene il bundle Next: carica https://strabar.app dalla WebView.
+android
+ios
+native
