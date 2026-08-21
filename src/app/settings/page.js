@@ -8,6 +8,7 @@ import { User, AtSign, Camera, Lock, Loader, Check, Bell, Megaphone } from 'luci
 import RequireAuth from '@/components/RequireAuth';
 import { ensureNotificationPermission } from '@/lib/notify';
 import { useT } from '@/lib/i18n';
+import { showToast, showError } from '@/lib/toast';
 
 export default function SettingsPage() {
   const t = useT();
@@ -229,13 +230,13 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert(t('settingspage.invalidImage')); return; }
+    if (!file.type.startsWith('image/')) { showToast(t('settingspage.invalidImage'), { variant: 'warning' }); return; }
     setUploadingPhoto(true);
     try {
       const url = await db.uploadFileToStorage(file);
       setAvatarUrl(url);
     } catch (err) {
-      alert(t('settingspage.photoUploadError') + (err.message || err));
+      showError(t('settingspage.photoUploadError') + (err.message || err), err);
     } finally {
       setUploadingPhoto(false);
     }
@@ -250,8 +251,8 @@ export default function SettingsPage() {
     if (uname.length < 3) { setProfileErr(t('settingspage.usernameMin')); return; }
     setSavingProfile(true);
     try {
-      const all = typeof db.getAllProfiles === 'function' ? await db.getAllProfiles() : [];
-      if (all.some((p) => p.username === uname && p.id !== currentUser.id)) {
+      // Controllo mirato (una riga): prima si scaricava l'intera tabella profili.
+      if (await db.isUsernameTaken(uname, currentUser.id)) {
         throw new Error(t('settingspage.usernameTaken'));
       }
       await db.updateProfile(currentUser.id, { display_name: name, username: uname, avatar_url: avatarUrl || null });

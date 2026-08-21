@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { siteUrl, SITE_HOST } from '@/lib/site';
 import { publicName } from '@/lib/names';
 import { useI18n } from '@/lib/i18n';
+import { showToast, showError } from '@/lib/toast';
 
 export default function ShareActivityPage({ params }) {
   const router = useRouter();
@@ -493,7 +494,7 @@ export default function ShareActivityPage({ params }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      alert(t('share.copyFail'));
+      showError(t('share.copyFail'));
     }
   };
 

@@ -128,8 +128,8 @@ export default function GroupsPage() {
               <div>
                 <label className="form-label">{t('groups.visibility')}</label>
                 <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
-                  <div className={`seg-tab ${visibility === 'private' ? 'active' : ''}`} onClick={() => setVisibility('private')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>{t('groups.private')}</div>
-                  <div className={`seg-tab ${visibility === 'public' ? 'active' : ''}`} onClick={() => setVisibility('public')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>{t('groups.public')}</div>
+                  <button type="button" aria-pressed={!!(visibility === 'private')} className={`seg-tab ${visibility === 'private' ? 'active' : ''}`} onClick={() => setVisibility('private')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>{t('groups.private')}</button>
+                  <button type="button" aria-pressed={!!(visibility === 'public')} className={`seg-tab ${visibility === 'public' ? 'active' : ''}`} onClick={() => setVisibility('public')} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }}>{t('groups.public')}</button>
                 </div>
                 <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '8px', lineHeight: 1.5 }}>
                   {visibility === 'private' ? t('groups.privateHint') : t('groups.publicHint')}

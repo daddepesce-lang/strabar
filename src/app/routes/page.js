@@ -13,6 +13,7 @@ import { publicName } from '@/lib/names';
 import { routeCities } from '@/lib/cityFromAddress';
 import { haversineKm, routeStart, routeTotalKm } from '@/lib/geo';
 import { routePublicPath } from '@/lib/slug';
+import { showToast, showError } from '@/lib/toast';
 
 // Punteggio "Migliori": non ci sono voti sui percorsi, ma c'è un segnale più onesto —
 // quante PERSONE diverse l'hanno fatto (starts_count) e quante l'hanno portato a termine
@@ -518,7 +519,7 @@ export default function RoutesPage() {
     try {
       const data = await db.searchVenues(query.trim());
       if (!data || data.length === 0) {
-        alert('Indirizzo non trovato. Prova ad aggiungere la città o il civico (es. "Via Roma 10, Padova").');
+        showToast(t('feedback.addressNotFound'), { variant: 'warning', duration: 5000 });
         return;
       }
       const r = data[0];
@@ -534,7 +535,7 @@ export default function RoutesPage() {
       setTimeout(() => setJustAdded(null), 2000);
     } catch (err) {
       console.error('Errore geocoding tappa manuale:', err);
-      alert('Errore nella ricerca dell\'indirizzo. Riprova.');
+      showError(t('feedback.addressSearchError'));
     } finally {
       setIsSearching(false);
     }
@@ -583,9 +584,9 @@ export default function RoutesPage() {
 
   // Avvia un Tour guidato: crea una sessione live "modalità percorso" sulla prima tappa
   const handleStartTour = async (skipGuard = false) => {
-    if (!currentUser) { alert('Accedi per avviare un tour.'); return; }
+    if (!currentUser) { showToast(t('feedback.loginForTour'), { variant: 'warning' }); return; }
     const stopsRaw = selectedRoute?.waypoints || [];
-    if (stopsRaw.length === 0) { alert('Questo percorso non ha tappe.'); return; }
+    if (stopsRaw.length === 0) { showToast(t('feedback.tourNoStops'), { variant: 'warning' }); return; }
     // "Intendevi l'evento?" — se partecipi a un evento in corso, chiedi conferma:
     // avviare il tour dall'evento lo fa contare nella classifica dell'evento.
     if (!skipGuard) {
@@ -599,7 +600,7 @@ export default function RoutesPage() {
     try {
       const active = await db.getActiveSession(currentUser.id);
       if (active) {
-        alert('Hai già una sessione live attiva. Chiudila prima di avviare un tour.');
+        showToast(t('feedback.tourAlreadyLive'), { variant: 'warning', duration: 4500 });
         setStartingTour(false);
         return;
       }
@@ -669,7 +670,7 @@ export default function RoutesPage() {
       try { if (startMsg) sessionStorage.setItem('strabar_tour_msg', startMsg); } catch { /* noop */ }
       window.location.href = '/?live=1';
     } catch (err) {
-      alert('Errore nell\'avvio del tour: ' + (err.message || err));
+      showError(t('feedback.tourStartError'), err);
       setStartingTour(false);
     }
   };
@@ -697,11 +698,9 @@ export default function RoutesPage() {
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
-      alert(isPublic
-        ? 'Link copiato! Si apre anche senza account: chi lo riceve vede tutte le tappe.'
-        : 'Link copiato! Questo percorso non è pubblico: lo apriranno solo le persone autorizzate.');
+      showToast(isPublic ? t('feedback.linkCopiedPublic') : t('feedback.linkCopiedPrivate'), { duration: 4500 });
     } catch {
-      alert(`Condividi questo link: ${shareUrl}`);
+      showToast(t('feedback.shareThisLink', { url: shareUrl }), { variant: 'info', duration: 6000 });
     }
   };
 
@@ -749,7 +748,7 @@ export default function RoutesPage() {
       if (editingRouteId === route.id) handleCancelCreation();
     } catch (err) {
       console.error(err);
-      alert('Impossibile eliminare il percorso: ' + (err.message || err));
+      showError(t('feedback.routeDeleteError'), err);
     } finally {
       setDeletingRoute(false);
     }
@@ -771,11 +770,11 @@ export default function RoutesPage() {
 
   const handleSaveRoute = async () => {
     if (newRouteWaypoints.length < 2) {
-      alert('Add at least 2 stops to your tour!');
+      showToast(t('feedback.routeMinStops'), { variant: 'warning' });
       return;
     }
     if (!newRouteName.trim()) {
-      alert('Please enter a name for this tour!');
+      showToast(t('feedback.routeNeedName'), { variant: 'warning' });
       return;
     }
 
@@ -791,17 +790,17 @@ export default function RoutesPage() {
         setSelectedRoute(updated);
         setIsCreating(false);
         setEditingRouteId(null);
-        alert('Itinerario aggiornato!');
+        showToast(t('feedback.routeUpdated'));
       } else {
         const saved = await db.saveRoute(newRouteName, newRouteDesc, newRouteWaypoints, false, newRouteVisibility);
         setRoutes(prev => [saved, ...prev]);
         setSelectedRoute(saved);
         setIsCreating(false);
-        alert('Itinerario salvato con successo!');
+        showToast(t('feedback.routeSaved'));
       }
     } catch (err) {
       console.error(err);
-      alert('Impossibile salvare l\'itinerario.');
+      showError(t('feedback.saveError'));
     }
   };
 
@@ -1037,9 +1036,9 @@ export default function RoutesPage() {
               <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '10px' }}>{t('routes.visLabel')}</label>
                 <div className="feed-filter-tabs">
-                  <div className={`seg-tab ${newRouteVisibility === 'public' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('public')}>{t('routes.visAll')}</div>
-                  <div className={`seg-tab ${newRouteVisibility === 'friends' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('friends')}>{t('routes.visFriends')}</div>
-                  <div className={`seg-tab ${newRouteVisibility === 'private' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('private')}>{t('routes.visPrivate')}</div>
+                  <button type="button" aria-pressed={!!(newRouteVisibility === 'public')} className={`seg-tab ${newRouteVisibility === 'public' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('public')}>{t('routes.visAll')}</button>
+                  <button type="button" aria-pressed={!!(newRouteVisibility === 'friends')} className={`seg-tab ${newRouteVisibility === 'friends' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('friends')}>{t('routes.visFriends')}</button>
+                  <button type="button" aria-pressed={!!(newRouteVisibility === 'private')} className={`seg-tab ${newRouteVisibility === 'private' ? 'active' : ''}`} onClick={() => setNewRouteVisibility('private')}>{t('routes.visPrivate')}</button>
                 </div>
               </div>
             </div>
@@ -1302,12 +1301,12 @@ export default function RoutesPage() {
                 >
                   {t('routes.sortNear')}
                 </div>
-                <div className={`seg-tab ${sortMode === 'popular' ? 'active' : ''}`} onClick={() => setSortMode('popular')} title={t('routes.sortPopularNote')}>
+                <button type="button" aria-pressed={sortMode === 'popular'} className={`seg-tab ${sortMode === 'popular' ? 'active' : ''}`} onClick={() => setSortMode('popular')} title={t('routes.sortPopularNote')}>
                   {t('routes.sortPopular')}
-                </div>
-                <div className={`seg-tab ${sortMode === 'new' ? 'active' : ''}`} onClick={() => setSortMode('new')}>
+                </button>
+                <button type="button" aria-pressed={sortMode === 'new'} className={`seg-tab ${sortMode === 'new' ? 'active' : ''}`} onClick={() => setSortMode('new')}>
                   {t('routes.sortNew')}
-                </div>
+                </button>
               </div>
               <p style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', margin: '0 0 10px' }}>
                 {sortMode === 'near'
@@ -1559,9 +1558,9 @@ export default function RoutesPage() {
                   </div>
                 </div>
                 <div className="feed-filter-tabs">
-                  <div className={`seg-tab ${tourVisibility === 'public' ? 'active' : ''}`} onClick={() => setTourVisibility('public')}>{t('routes.visAll')}</div>
-                  <div className={`seg-tab ${tourVisibility === 'friends' ? 'active' : ''}`} onClick={() => setTourVisibility('friends')}>{t('routes.visFriends')}</div>
-                  <div className={`seg-tab ${tourVisibility === 'private' ? 'active' : ''}`} onClick={() => setTourVisibility('private')}>{t('routes.visPrivate')}</div>
+                  <button type="button" aria-pressed={!!(tourVisibility === 'public')} className={`seg-tab ${tourVisibility === 'public' ? 'active' : ''}`} onClick={() => setTourVisibility('public')}>{t('routes.visAll')}</button>
+                  <button type="button" aria-pressed={!!(tourVisibility === 'friends')} className={`seg-tab ${tourVisibility === 'friends' ? 'active' : ''}`} onClick={() => setTourVisibility('friends')}>{t('routes.visFriends')}</button>
+                  <button type="button" aria-pressed={!!(tourVisibility === 'private')} className={`seg-tab ${tourVisibility === 'private' ? 'active' : ''}`} onClick={() => setTourVisibility('private')}>{t('routes.visPrivate')}</button>
                 </div>
                 <button
                   type="button"

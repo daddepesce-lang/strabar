@@ -6,8 +6,11 @@ import { db } from '@/lib/db';
 import { Search, UserPlus, UserMinus, Loader, Users } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 import { publicName } from '@/lib/names';
+import { showToast, showError } from '@/lib/toast';
+import { useT } from '@/lib/i18n';
 
 export default function SearchPage() {
+  const t = useT();
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -80,7 +83,7 @@ export default function SearchPage() {
       else await db.followUser(user.id);
     } catch (err) {
       setFollowingIds((prev) => (isFollowing ? [...prev, user.id] : prev.filter((id) => id !== user.id)));
-      alert(err.message || 'Operazione non riuscita');
+      showError(err.message || t('feedback.genericError'), err);
     } finally {
       setBusy((b) => ({ ...b, [user.id]: false }));
     }

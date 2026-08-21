@@ -9,6 +9,7 @@ import {
 import RequireAuth from '@/components/RequireAuth';
 import { useT } from '@/lib/i18n';
 import { locationDisplayName } from '@/lib/sessionLabels';
+import { showToast, showError } from '@/lib/toast';
 
 const PLACE_SORTS = [
   { key: 'sessions', label: 'Più registrazioni', icon: Beer },
@@ -86,7 +87,7 @@ export default function ClassifichePage() {
 
   const handleStartBrindisi = async () => {
     if (!currentUser) {
-      alert("Devi effettuare l'accesso per iniziare un brindisi!");
+      showToast(t('feedback.loginRequired'), { variant: 'warning' });
       return;
     }
 
@@ -117,7 +118,7 @@ export default function ClassifichePage() {
         
         window.location.href = '/';
       } catch (err) {
-        alert("Errore nell'avvio della sessione: " + err.message);
+        showError(t('feedback.startSessionError'), err);
       }
     };
 
@@ -190,7 +191,7 @@ export default function ClassifichePage() {
           
           window.location.href = '/';
         } catch (err) {
-          alert("Errore nell'avvio della sessione: " + err.message);
+          showError(t('feedback.startSessionError'), err);
         }
       };
 
@@ -225,7 +226,7 @@ export default function ClassifichePage() {
         { enableHighAccuracy: true, timeout: 8000 }
       );
     } catch (err) {
-      alert("Errore nel completamento dell'operazione: " + err.message);
+      showError(t('feedback.genericError'), err);
     }
   };
 
@@ -262,7 +263,7 @@ export default function ClassifichePage() {
       
       window.location.href = '/';
     } catch (err) {
-      alert("Errore nell'avvio della sessione demo: " + err.message);
+      showError(t('feedback.startSessionError'), err);
     }
   };
 
@@ -333,7 +334,7 @@ export default function ClassifichePage() {
       const refreshed = (await db.getPlaces()).find((p) => p.key === selected.key);
       if (refreshed) setSelected(refreshed);
     } catch (err) {
-      alert(err.message || 'Errore');
+      showError(err.message || t('feedback.genericError'), err);
     } finally {
       setSubmitting(false);
     }
@@ -389,12 +390,12 @@ export default function ClassifichePage() {
       {tab === 'atleti' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px', alignItems: 'center' }}>
           <div className="seg-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
-            <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>{t('places.periodWeek')}</div>
-            <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>{t('places.periodAll')}</div>
+            <button type="button" aria-pressed={!!(period === 'week')} className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>{t('places.periodWeek')}</button>
+            <button type="button" aria-pressed={!!(period === 'all')} className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>{t('places.periodAll')}</button>
           </div>
           <div className="seg-tabs" style={{ flex: '1 1 150px', margin: 0 }}>
-            <div className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>{t('places.boardVerified')}</div>
-            <div className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>{t('places.boardAll')}</div>
+            <button type="button" aria-pressed={!!(boardMode === 'verified')} className={`seg-tab ${boardMode === 'verified' ? 'active' : ''}`} onClick={() => setBoardMode('verified')}>{t('places.boardVerified')}</button>
+            <button type="button" aria-pressed={!!(boardMode === 'all')} className={`seg-tab ${boardMode === 'all' ? 'active' : ''}`} onClick={() => setBoardMode('all')}>{t('places.boardAll')}</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: 'auto' }}>
             <select
@@ -712,7 +713,7 @@ export default function ClassifichePage() {
             </h3>
             <div className="feed-filter-tabs" style={{ maxWidth: '380px', marginBottom: '12px' }}>
               {[{ k: 'week', l: t('places.periodWeek') }, { k: 'all', l: t('places.periodAll') }].map((p) => (
-                <div key={p.k} className={`seg-tab ${placePeriod === p.k ? 'active' : ''}`} onClick={() => setPlacePeriod(p.k)}>{p.l}</div>
+                <button type="button" aria-pressed={!!(placePeriod === p.k)} key={p.k} className={`seg-tab ${placePeriod === p.k ? 'active' : ''}`} onClick={() => setPlacePeriod(p.k)}>{p.l}</button>
               ))}
             </div>
             {leaderboard.length === 0 ? (

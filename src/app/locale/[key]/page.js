@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
 import QRCode from 'qrcode';
 import { Trophy, Beer, Share2, Download, MapPin, Loader, ArrowLeft, Star, BadgeCheck, BarChart3 } from 'lucide-react';
+import { showToast, showError } from '@/lib/toast';
 
 // Stelle recensione (lettura o selezione).
 function Stars({ value, size = 15, onPick }) {
@@ -106,7 +107,7 @@ export default function VenuePublicPage({ params }) {
       setNewReview('');
       loadReviews();
     } catch (err) {
-      alert(err?.message || 'Errore');
+      showError(err?.message || t('feedback.genericError'), err);
     } finally { setSubmitting(false); }
   };
 
@@ -118,7 +119,7 @@ export default function VenuePublicPage({ params }) {
     try {
       if (navigator.share) { await navigator.share({ title: t('venuepublic.shareTitle'), text, url: pageUrl }); return; }
     } catch { return; }
-    try { await navigator.clipboard.writeText(`${text} ${pageUrl}`); alert(t('venuepublic.shareCopied')); } catch { /* noop */ }
+    try { await navigator.clipboard.writeText(`${text} ${pageUrl}`); showToast(t('venuepublic.shareCopied')); } catch { /* noop */ }
   };
 
   const downloadQr = () => {
@@ -175,8 +176,8 @@ export default function VenuePublicPage({ params }) {
 
       {/* Filtro periodo */}
       <div className="seg-tabs" style={{ maxWidth: '320px', margin: '0 auto', width: '100%' }}>
-        <div className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>{t('venuepublic.thisWeek')}</div>
-        <div className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>{t('venuepublic.allTime')}</div>
+        <button type="button" aria-pressed={!!(period === 'week')} className={`seg-tab ${period === 'week' ? 'active' : ''}`} onClick={() => setPeriod('week')}>{t('venuepublic.thisWeek')}</button>
+        <button type="button" aria-pressed={!!(period === 'all')} className={`seg-tab ${period === 'all' ? 'active' : ''}`} onClick={() => setPeriod('all')}>{t('venuepublic.allTime')}</button>
       </div>
 
       {/* Classifica */}

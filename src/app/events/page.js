@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 import { publicName } from '@/lib/names';
+import { showToast, showError } from '@/lib/toast';
 
 function formatEventDate(ds) {
   if (!ds) return 'Data da definire';
@@ -151,8 +152,8 @@ export default function EventsPage() {
   };
 
   const handleCreate = async () => {
-    if (!title.trim()) { alert(t('events.needTitle')); return; }
-    if (!date) { alert(t('events.needDate')); return; }
+    if (!title.trim()) { showToast(t('events.needTitle'), { variant: 'warning' }); return; }
+    if (!date) { showToast(t('events.needDate'), { variant: 'warning' }); return; }
     setSaving(true);
     try {
       const selectedRoute = routes.find((r) => r.id === routeId);
@@ -172,7 +173,7 @@ export default function EventsPage() {
       setLocQuery(''); setLocResults([]); setSelectedLoc(null);
       router.push(`/events/${ev.id}`);
     } catch (err) {
-      alert(err.message || t('events.genericError'));
+      showError(err.message || t('events.genericError'), err);
     } finally {
       setSaving(false);
     }
@@ -476,11 +477,13 @@ export default function EventsPage() {
                   { v: 'friends', t: t('events.visFriends') },
                   { v: 'private', t: t('events.visNobody') },
                 ].map((o) => (
-                  <div
+                  <button
+                    type="button"
                     key={o.v}
+                    aria-pressed={visibility === o.v}
                     onClick={() => setVisibility(o.v)}
                     style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '9px 4px', borderRadius: '10px', fontWeight: 700, fontSize: '13px', border: visibility === o.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: visibility === o.v ? 'var(--primary)' : 'var(--text-dark-primary)', background: 'var(--bg-input-dark)' }}
-                  >{o.t}</div>
+                  >{o.t}</button>
                 ))}
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>

@@ -12,6 +12,7 @@ import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import FollowsModal from '@/components/FollowsModal';
+import { showToast, showError } from '@/lib/toast';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
 
@@ -70,7 +71,7 @@ export default function ProfilePage() {
   const handleSaveWeight = async () => {
     const w = parseInt(weightInput, 10);
     if (!w || w < 30 || w > 250) {
-      alert(t('profile.weightInvalid'));
+      showToast(t('profile.weightInvalid'), { variant: 'warning' });
       return;
     }
     setSavingWeight(true);
@@ -80,7 +81,7 @@ export default function ProfilePage() {
       setWeightSaved(true);
       setTimeout(() => setWeightSaved(false), 2000);
     } catch (err) {
-      alert('Errore nel salvataggio del peso: ' + (err.message || err));
+      showError(t('feedback.weightSaveError'), err);
     } finally {
       setSavingWeight(false);
     }
@@ -156,7 +157,7 @@ export default function ProfilePage() {
         await loadSocialData(currentUser.id);
       }
     } catch (err) {
-      alert(err.message || "Errore");
+      showError(err.message || t('feedback.genericError'), err);
     }
   };
 
@@ -1221,8 +1222,8 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="seg-tabs" style={{ flexShrink: 0, width: 'auto', opacity: savingSex ? 0.6 : 1 }}>
-              <div className={`seg-tab ${currentUser?.sex === 'm' ? 'active' : ''}`} onClick={() => handleSaveSex('m')}>{t('profile.male')}</div>
-              <div className={`seg-tab ${currentUser?.sex === 'f' ? 'active' : ''}`} onClick={() => handleSaveSex('f')}>{t('profile.female')}</div>
+              <button type="button" aria-pressed={!!(currentUser?.sex === 'm')} className={`seg-tab ${currentUser?.sex === 'm' ? 'active' : ''}`} onClick={() => handleSaveSex('m')}>{t('profile.male')}</button>
+              <button type="button" aria-pressed={!!(currentUser?.sex === 'f')} className={`seg-tab ${currentUser?.sex === 'f' ? 'active' : ''}`} onClick={() => handleSaveSex('f')}>{t('profile.female')}</button>
             </div>
           </div>
 

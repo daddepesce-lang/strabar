@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 // toccare per chiudere subito. Nessuna libreria/egress (solo CSS, keyframe in globals.css).
 // Usato per il feedback "ti riconosco: sei qui" al check-in GPS, ma è generico.
 //
-// Props: { message, variant: 'success'|'warning'|'info', title?, duration?, onClose }
+// Props: { message, variant: 'success'|'warning'|'info'|'error', title?, duration?, onClose }
 export default function Toast({ message, variant = 'success', title, duration = 2800, onClose }) {
   const [leaving, setLeaving] = useState(false);
 
@@ -19,10 +19,12 @@ export default function Toast({ message, variant = 'success', title, duration = 
 
   if (!message) return null;
 
-  const accent = variant === 'warning' ? '#FF9F1C' : variant === 'info' ? 'var(--primary)' : 'var(--success, #10B981)';
-  const glow = variant === 'warning' ? 'rgba(255,159,28,0.28)' : variant === 'info' ? 'rgba(255,59,47,0.28)' : 'rgba(16,185,129,0.28)';
-  const tint = variant === 'warning' ? 'rgba(255,159,28,0.12)' : variant === 'info' ? 'rgba(255,59,47,0.12)' : 'rgba(16,185,129,0.14)';
-  const icon = variant === 'warning' ? '📍' : variant === 'info' ? 'ℹ️' : '✅';
+  // 'error' ha il rosso di allarme (non quello del brand) e la ⚠️: deve distinguersi a
+  // colpo d'occhio da un 'info', che usa il rosso Strabar.
+  const accent = variant === 'error' ? '#EF4444' : variant === 'warning' ? '#FF9F1C' : variant === 'info' ? 'var(--primary)' : 'var(--success, #10B981)';
+  const glow = variant === 'error' ? 'rgba(239,68,68,0.30)' : variant === 'warning' ? 'rgba(255,159,28,0.28)' : variant === 'info' ? 'rgba(255,59,47,0.28)' : 'rgba(16,185,129,0.28)';
+  const tint = variant === 'error' ? 'rgba(239,68,68,0.13)' : variant === 'warning' ? 'rgba(255,159,28,0.12)' : variant === 'info' ? 'rgba(255,59,47,0.12)' : 'rgba(16,185,129,0.14)';
+  const icon = variant === 'error' ? '⚠️' : variant === 'warning' ? '📍' : variant === 'info' ? 'ℹ️' : '✅';
 
   const dismiss = () => { setLeaving(true); setTimeout(() => onClose?.(), 220); };
 
@@ -35,8 +37,8 @@ export default function Toast({ message, variant = 'success', title, duration = 
         display: 'flex', justifyContent: 'center',
         padding: '0 14px', pointerEvents: 'none',
       }}
-      role="status"
-      aria-live="polite"
+      role={variant === 'error' ? 'alert' : 'status'}
+      aria-live={variant === 'error' ? 'assertive' : 'polite'}
     >
       <div
         onClick={dismiss}

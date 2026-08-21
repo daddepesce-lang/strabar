@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
 import { Store, Search, Loader, Star, Megaphone, Bell, ArrowRight, MapPin, Navigation } from 'lucide-react';
+import { showToast, showError } from '@/lib/toast';
 
 const distKm = (aLat, aLng, bLat, bLng) => {
   const R = 6371, toRad = (d) => (d * Math.PI) / 180;
@@ -30,11 +31,11 @@ export default function BusinessPage() {
   }, []);
 
   const findNearby = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) { alert(t('businesspage.gpsUnavailable')); return; }
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { showToast(t('businesspage.gpsUnavailable'), { variant: 'warning' }); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocating(false); },
-      () => { setLocating(false); alert(t('businesspage.positionUnavailable')); },
+      () => { setLocating(false); showToast(t('businesspage.positionUnavailable'), { variant: 'warning' }); },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
     );
   };

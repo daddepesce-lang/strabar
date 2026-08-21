@@ -11,24 +11,28 @@ import { localizeFeeling, isNeutralFeeling, locationDisplayName, feelingKey } fr
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
-import Toast from '@/components/Toast';
 import BacInfo from '@/components/BacInfo';
 import BacCurve from '@/components/BacCurve';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import { publicName, publicUsername } from '@/lib/names';
 import { siteUrl } from '@/lib/site';
-import MediaLightbox from '@/components/MediaLightbox';
-import BeerPicker from '@/components/BeerPicker';
-import DrinkSearch from '@/components/DrinkSearch';
-import CommentsSection from '@/components/CommentsSection';
-import BadgeUnlock from '@/components/BadgeUnlock';
 import { earnedBadgeIds } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
-import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Minus, Award, BadgeCheck, AlertTriangle, Navigation, Calendar, Camera, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronLeft, ChevronRight, ArrowRight, Sparkles } from 'lucide-react';
+import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Minus, Award, BadgeCheck, AlertTriangle, Navigation, Calendar, Camera, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronLeft, ChevronRight, ArrowRight, Sparkles, TrendingUp } from 'lucide-react';
+import { showToast, showError } from '@/lib/toast';
 
 // Mappa Leaflet reale (caricata solo lato client)
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
+
+// Caricati SOLO quando servono davvero (pannello live, lightbox foto, commenti, badge):
+// stanno tutti dietro a una condizione, quindi tenerli nel bundle della home significa far
+// scaricare anche a chi apre solo il feed del codice che non vedrà mai.
+const MediaLightbox = dynamic(() => import('@/components/MediaLightbox'), { ssr: false });
+const BeerPicker = dynamic(() => import('@/components/BeerPicker'), { ssr: false });
+const DrinkSearch = dynamic(() => import('@/components/DrinkSearch'), { ssr: false });
+const CommentsSection = dynamic(() => import('@/components/CommentsSection'), { ssr: false });
+const BadgeUnlock = dynamic(() => import('@/components/BadgeUnlock'), { ssr: false });
 
 // Emoji rappresentativa del drink dal nome (per una lista più ordinata e leggibile).
 const drinkEmoji = (name = '') => {
@@ -190,7 +194,6 @@ export default function FeedPage() {
   const addingDrinkRef = useRef(false);
   const [elapsedMinutes, setElapsedMinutes] = useState(0);
   const [checkingStop, setCheckingStop] = useState(false); // verifica GPS "sono alla tappa"
-  const [toast, setToast] = useState(null); // feedback a schermo (es. "ti riconosco: sei qui")
   // Selettore locale per la TAPPA EXTRA del tour: ricerca locali reali (con coordinate),
   // così la tappa può essere geo-verificata e contare per le classifiche.
   const [stopPicker, setStopPicker] = useState(false);
@@ -206,7 +209,12 @@ export default function FeedPage() {
   const pullRef = useRef({ startY: null, dist: 0, active: false });
   const refreshingRef = useRef(false);
   const cheersInFlight = useRef(new Set()); // anti doppio-tap: cheers in corso per attività
+  // Cache INCREMENTALE dei profili pubblici che servono a schermo (autori dei cheers,
+  // compagni taggati). Prima qui si scaricava `profiles.select('*')` INTERA ad ogni
+  // apertura della home: egress lineare sugli iscritti e nome reale/peso/sesso di tutti
+  // spediti a ogni client. Ora si chiede solo chi serve, una volta (vedi ensureProfiles).
   const [profilesList, setProfilesList] = useState([]);
+  const profilesAskedRef = useRef({ ids: new Set(), usernames: new Set(), names: new Set() });
   const [showCloseForm, setShowCloseForm] = useState(false);
   const [completedSession, setCompletedSession] = useState(null); // resoconto post-chiusura (modale congratulazioni)
   const [shareSheet, setShareSheet] = useState(null); // { id, caption } → selettore "link o scheda social"
@@ -259,6 +267,12 @@ export default function FeedPage() {
       if (typeof db.getActivity === 'function') {
         const full = await db.getActivity(act.id);
         if (full) setSelectedActivity((prev) => (prev && prev.id === act.id ? { ...prev, ...full } : prev));
+        // Nomi di chi ha messo cheers (anteprima dei primi 3) e dei compagni taggati:
+        // risolti QUI, solo per la sessione aperta, invece di precaricare tutti i profili.
+        if (full) {
+          ensureProfiles({ ids: Array.isArray(full.cheers) ? full.cheers : [] });
+          ensureCompanionProfiles([full]);
+        }
       }
     } catch { /* noop */ }
   };
@@ -293,6 +307,45 @@ export default function FeedPage() {
     } catch { /* noop */ }
   };
 
+  // Chiede al DB SOLO i profili non ancora in cache, in un'unica query per lotto.
+  // Le chiavi richieste vengono segnate PRIMA dell'await: se non esistono (tag a testo
+  // libero, utente cancellato) non si richiedono più a ogni render.
+  const ensureProfiles = async ({ ids = [], usernames = [], names = [] }) => {
+    if (typeof db.getPublicProfiles !== 'function') return;
+    const asked = profilesAskedRef.current;
+    const fresh = (list, set) => {
+      const out = list.filter((v) => v && !set.has(v));
+      out.forEach((v) => set.add(v));
+      return out;
+    };
+    const needIds = fresh(ids, asked.ids);
+    const needUsernames = fresh(usernames.map((u) => u.toLowerCase()), asked.usernames);
+    const needNames = fresh(names.map((n) => n.toLowerCase()), asked.names);
+    if (!needIds.length && !needUsernames.length && !needNames.length) return;
+    try {
+      const rows = await db.getPublicProfiles({ ids: needIds, usernames: needUsernames, names: needNames });
+      if (!rows || !rows.length) return;
+      setProfilesList((prev) => {
+        const known = new Set(prev.map((p) => p.id));
+        const added = rows.filter((p) => !known.has(p.id));
+        return added.length ? [...prev, ...added] : prev;
+      });
+    } catch { /* nomi pubblici: se la query fallisce resta il fallback "Atleta" */ }
+  };
+
+  // Compagni taggati: dai testi di `drank_with` estrae gli @username (tag moderni) e i nomi
+  // liberi (tag storici) e risolve solo quelli. Era il vero motivo per cui prima serviva
+  // avere in memoria la rubrica intera.
+  const ensureCompanionProfiles = (acts) => {
+    const tags = (acts || []).flatMap((a) => (a.drank_with || []).filter((s) => typeof s === 'string'));
+    const usernames = tags.map((s) => s.match(/@([\w.-]+)/)).filter(Boolean).map((m) => m[1]);
+    const names = tags
+      .filter((s) => !/@[\w.-]+/.test(s))
+      .map((s) => s.replace(/\s*\(@?[\w.-]+\)/g, '').trim())
+      .filter(Boolean);
+    if (usernames.length || names.length) ensureProfiles({ usernames, names });
+  };
+
   const loadFeed = async () => {
     try {
       if (!db || typeof db.getCurrentUser !== 'function') return;
@@ -311,6 +364,7 @@ export default function FeedPage() {
       setActivities(acts);
       setFeedHasMore(acts.length >= FEED_PAGE_SIZE);
       if (user) hydrateMyCheers(acts);
+      ensureCompanionProfiles(acts);
 
       // Banner pubblicitari (best effort, non blocca il feed)
       if (typeof db.getActiveBanners === 'function') {
@@ -334,9 +388,8 @@ export default function FeedPage() {
           setCustomUsername(user.username && user.username !== 'google_user' ? user.username : '');
         }
 
-        // SECONDARIO (non blocca il feed né la chiusura live): profili per i tag,
-        // statistiche personali e classifica. Caricati dopo, in modo indipendente.
-        if (typeof db.getAllProfiles === 'function') db.getAllProfiles().then(setProfilesList).catch(() => {});
+        // SECONDARIO (non blocca il feed né la chiusura live): statistiche personali.
+        // I profili NON si precaricano più in blocco: li risolve ensureProfiles a richiesta.
         if (typeof db.getUserActivities === 'function') db.getUserActivities(user.id).then((a) => { setMyActivities(a || []); setMyActivitiesLoaded(true); }).catch(() => setMyActivitiesLoaded(true));
         // (La classifica nel feed è stata rimossa: vive in /places. Niente query qui → meno egress.)
 
@@ -753,18 +806,10 @@ export default function FeedPage() {
   const openCheersList = async (act) => {
     setCheersListActivity(act);
     setShowCheersList(true);
-    // Usa l'elenco già in memoria SOLO se è COMPLETO (nel dettaglio: cheers.length combacia
-    // col conteggio). Nel feed l'array è parziale (al più il mio) → carica da DB.
-    const arr = Array.isArray(act.cheers) ? act.cheers : [];
-    const complete = arr.length > 0 && (act.cheer_count == null || arr.length === act.cheer_count);
-    if (complete) {
-      setCheersListPeople(arr.map((uid) => {
-        const p = profilesList.find((pr) => pr.id === uid);
-        return { id: uid, name: uid === currentUser?.id ? 'Tu' : publicName(p, 'Atleta Strabar'), username: publicUsername(p) };
-      }));
-      setCheersListLoading(false);
-      return;
-    }
+    // L'elenco arriva SEMPRE da getCheerers: una query mirata sulla singola sessione, che
+    // risolve i nomi pubblici lato DB (join su `cheers`). È un'azione esplicita
+    // dell'utente, quindi una query è il prezzo giusto — e non serve avere in memoria
+    // la rubrica intera per tradurre gli id in nomi.
     setCheersListPeople([]);
     setCheersListLoading(true);
     try {
@@ -799,7 +844,7 @@ export default function FeedPage() {
       setFollowingIds((prev) =>
         isFollowing ? [...prev, userId] : prev.filter((id) => id !== userId)
       );
-      alert('Operazione non riuscita: ' + (err.message || err));
+      showError(t('feedback.genericError'), err);
     } finally {
       setFollowBusy((prev) => ({ ...prev, [userId]: false }));
     }
@@ -817,11 +862,9 @@ export default function FeedPage() {
       if (!name) throw new Error("Inserisci il tuo nome reale!");
       if (username.length < 3) throw new Error("Lo username deve contenere almeno 3 caratteri!");
 
-      // Controlla se lo username è già occupato
-      if (typeof db.getAllProfiles === 'function') {
-        const all = await db.getAllProfiles();
-        const existing = all.find(p => p.username === username && p.id !== currentUser.id);
-        if (existing) throw new Error("Questo username è già registrato da un altro atleta!");
+      // Controlla se lo username è già occupato (query mirata: una riga, non la tabella).
+      if (await db.isUsernameTaken(username, currentUser.id)) {
+        throw new Error(t('settingspage.usernameTaken'));
       }
 
       // Aggiorna
@@ -937,7 +980,7 @@ export default function FeedPage() {
       // Niente notifica per ogni singolo drink (troppo rumorosa).
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione:", err);
-      alert("Impossibile aggiungere il drink: " + (err.message || err));
+      showError(t('feedback.cannotAddDrink'), err);
     }
   };
 
@@ -1225,7 +1268,7 @@ export default function FeedPage() {
       }
     } catch (err) {
       console.error("Errore nell'aggiunta del drink alla sessione attiva:", err);
-      alert(`${t('session.cannotAddDrinkAlert')} ${err.message}`);
+      showError(t('session.cannotAddDrinkAlert'), err);
     } finally {
       addingDrinkRef.current = false;
       setAddingDrink(false);
@@ -1279,7 +1322,7 @@ export default function FeedPage() {
       patchActivity(activeSession.id, (a) => ({ ...a, ...updatedFields }));
     } catch (err) {
       console.error('Errore rimozione drink:', err);
-      alert('Impossibile rimuovere il drink: ' + (err.message || err));
+      showError(t('feedback.cannotRemoveDrink'), err);
     }
   };
 
@@ -1330,7 +1373,7 @@ export default function FeedPage() {
       }
     } catch (err) {
       console.error('Errore nel taggare il compagno:', err);
-      alert('Impossibile aggiungere il compagno: ' + (err.message || err));
+      showError(t('feedback.cannotAddCompanion'), err);
     }
   };
 
@@ -1396,14 +1439,14 @@ export default function FeedPage() {
       if (file) await addSessionPhotoFile(file);
     } catch (err) {
       console.error('Foto non acquisita:', err);
-      alert("Errore nell'apertura della fotocamera: " + (err.message || err));
+      showError(t('feedback.cameraError'), err);
     }
   };
 
   const addSessionPhotoFile = async (file) => {
     if (!file || !activeSession) return;
     if (!file.type.startsWith('image/')) {
-      alert("Seleziona un file immagine valido.");
+      showToast(t('feedback.invalidImage'), { variant: 'warning' });
       return;
     }
     setPhotoUploading(true);
@@ -1419,7 +1462,7 @@ export default function FeedPage() {
       await db.updateActivity(activeSession.id, { media: newMedia });
     } catch (err) {
       console.error("Errore upload foto:", err);
-      alert("Errore nel caricamento della foto: " + (err.message || err));
+      showError(t('feedback.uploadError'), err);
     } finally {
       setPhotoUploading(false);
     }
@@ -1449,7 +1492,7 @@ export default function FeedPage() {
         if (distance <= 300) {
           verified = true;
           msg = t('session.alreadyAtStopMsg', { name: stop.name });
-          setToast({ variant: 'success', title: t('session.recognizedToastTitle'), message: t('session.stopVerifiedToastMsg', { name: stop.name }) });
+          showToast(t('session.stopVerifiedToastMsg', { name: stop.name }), { variant: 'success', title: t('session.recognizedToastTitle') });
         } else {
           const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
           msg = t('session.stopFarNavigateMsg', { name: stop.name, dist: d });
@@ -1480,7 +1523,7 @@ export default function FeedPage() {
       await db.updateActivity(activeSession.id, { location: newLocation });
     } catch (err) {
       console.error('Errore cambio tappa:', err);
-      alert(`${t('session.cannotAdvanceStopAlert')} ${err.message || err}`);
+      showError(t('session.cannotAdvanceStopAlert'), err);
     }
   };
 
@@ -1505,11 +1548,11 @@ export default function FeedPage() {
         setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
         try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
         setTourMsg(t('session.stopVerifiedMsg', { name: curStop.name }));
-        setToast({ variant: 'success', title: t('session.recognizedToastTitle'), message: t('session.stopVerifiedToastMsg', { name: curStop.name }) });
+        showToast(t('session.stopVerifiedToastMsg', { name: curStop.name }), { variant: 'success', title: t('session.recognizedToastTitle') });
       } else {
         const dist = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
         setTourMsg(t('session.stopTooFarRetryMsg', { dist, name: curStop.name }));
-        setToast({ variant: 'warning', title: t('session.notThereYetToastTitle'), message: t('session.notThereYetToastMsg', { dist, name: curStop.name }) });
+        showToast(t('session.notThereYetToastMsg', { dist, name: curStop.name }), { variant: 'warning', title: t('session.notThereYetToastTitle') });
       }
     } finally {
       setCheckingStop(false);
@@ -1524,16 +1567,16 @@ export default function FeedPage() {
     setCheckingStop(true);
     try {
       const pos = await getCurrentPosition();
-      if (!pos) { setToast({ variant: 'warning', title: t('session.gpsUnavailableToastTitle'), message: t('session.gpsUnavailableToastMsg') }); return; }
+      if (!pos) { showToast(t('session.gpsUnavailableToastMsg'), { variant: 'warning', title: t('session.gpsUnavailableToastTitle') }); return; }
       const { distance } = db.checkGeofencing(loc.lat, loc.lng, pos.lat, pos.lng, Infinity);
       if (distance <= 300) {
         const locationUpdate = { ...loc, unverified: false };
         setActiveSession((prev) => (prev ? { ...prev, location: locationUpdate } : prev));
         try { await db.updateActivity(activeSession.id, { location: locationUpdate }); } catch (e) { console.error(e); }
-        setToast({ variant: 'success', title: t('session.recognizedToastTitle'), message: t('session.venueConfirmedToastMsg', { name: loc.name || t('session.genericVenueFallback') }) });
+        showToast(t('session.venueConfirmedToastMsg', { name: loc.name || t('session.genericVenueFallback') }), { variant: 'success', title: t('session.recognizedToastTitle') });
       } else {
         const d = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance} m`;
-        setToast({ variant: 'warning', title: t('session.notThereYetToastTitle'), message: t('session.venueTooFarToastMsg', { dist: d }) });
+        showToast(t('session.venueTooFarToastMsg', { dist: d }), { variant: 'warning', title: t('session.notThereYetToastTitle') });
       }
     } finally {
       setCheckingStop(false);
@@ -1571,7 +1614,7 @@ export default function FeedPage() {
       await db.updateActivity(activeSession.id, { location: newLocation });
     } catch (err) {
       console.error('Errore ritorno tappa:', err);
-      alert(`${t('session.cannotGoBackStopAlert')} ${err.message || err}`);
+      showError(t('session.cannotGoBackStopAlert'), err);
     }
   };
 
@@ -1651,7 +1694,7 @@ export default function FeedPage() {
       await loadFeed();
     } catch (err) {
       console.error('Errore annullamento sessione:', err);
-      alert('Impossibile annullare la sessione: ' + (err.message || err));
+      showError(t('feedback.cannotCancelSession'), err);
     }
   };
 
@@ -1668,9 +1711,9 @@ export default function FeedPage() {
     } catch { return; /* condivisione annullata */ }
     try {
       await navigator.clipboard.writeText(`${text} ${url}`);
-      alert('Link copiato negli appunti!');
+      showToast(t('feedback.linkCopied'));
     } catch {
-      alert(`Condividi questo link: ${url}`);
+      showToast(t('feedback.shareThisLink', { url }), { variant: 'info', duration: 6000 });
     }
   };
 
@@ -1737,7 +1780,7 @@ export default function FeedPage() {
       await loadFeed();
     } catch (err) {
       console.error("Errore nella chiusura della sessione:", err);
-      alert("Errore durante la chiusura: " + err.message);
+      showError(t('feedback.closeSessionError'), err);
     }
   };
 
@@ -1832,7 +1875,7 @@ export default function FeedPage() {
       await loadFeed();
     } catch (err) {
       console.error("Errore salvataggio modifica:", err);
-      alert("Errore nel salvataggio: " + err.message);
+      showError(t('feedback.saveError'), err);
     }
   };
 
@@ -1845,7 +1888,7 @@ export default function FeedPage() {
       await loadFeed();
     } catch (err) {
       console.error("Errore eliminazione:", err);
-      alert("Errore durante l'eliminazione: " + err.message);
+      showError(t('feedback.deleteError'), err);
     }
   };
 
@@ -2482,6 +2525,33 @@ export default function FeedPage() {
     bacCurve = db.calculateBACCurve(selectedActivity.drinks || [], selectedActivity.created_at, selectedActivity.duration || 120, ownerWeight, selectedActivity.full_stomach, ownerSex, selResidual);
   }
 
+  // --- SESSIONE LIVE: curva e orari-chiave calcolati UNA VOLTA sola ---------------
+  // Prima la curva veniva ricalcolata dentro il JSX del grafico (600 campionamenti a ogni
+  // render) e i due avvisi sulla guida non esistevano. Ora un solo calcolo alimenta anello,
+  // avvisi e grafico.
+  // `elapsedMinutes` avanza col timer della live (ogni 15s) ed entra VOLUTAMENTE nel
+  // calcolo: così curva e avvisi si aggiornano da soli mentre la serata va avanti, invece
+  // di restare fermi all'ultimo cambiamento della sessione. Math.max (e non `||`) perché la
+  // durata non può essere inferiore al tempo davvero trascorso.
+  const liveDuration = activeSession ? Math.max(activeSession.duration || 0, elapsedMinutes, 1) : 0;
+  const liveCurve = activeSession
+    ? db.calculateBACCurve(activeSession.drinks || [], activeSession.created_at, liveDuration,
+        currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams)
+    : null;
+  // Orario stimato in cui si torna sotto 0,5 g/l: è il dato più azionabile di tutta l'app
+  // ("quando posso guidare"), ma finora era solo una scritta piccola dentro il grafico.
+  // Vale solo se cade nel FUTURO: su una curva già rientrata non serve.
+  const liveUnderLimitAt = (liveCurve?.belowLimit && liveCurve.belowLimit.t > Date.now())
+    ? liveCurve.belowLimit
+    : null;
+  // Il contrario: sei ancora sotto, ma stai assorbendo e supererai la soglia. Stesso
+  // calcolo che programma il push in background → schermo e notifica non si contraddicono.
+  const liveWillCrossAt = (activeSession && !liveUnderLimitAt)
+    ? db.projectDrivingCrossingISO(activeSession.drinks || [], activeSession.created_at, liveDuration,
+        currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams)
+    : null;
+  const fmtClock = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   // Visibilità live: una sessione PRIVATA non appare a nessuno finché è attiva
   // (riappare nel feed solo a chiusura); 'friends' solo ai follower. Le mie le vedo sempre.
   const isVisibleToMe = (a) => {
@@ -2696,12 +2766,30 @@ export default function FeedPage() {
                         </div>
                       </div>
                     </div>
-                    {/* Warning guida: banner a tutta larghezza SOTTO l'anello, solo se BAC ≥ 0,5 */}
+                    {/* Warning guida: banner a tutta larghezza SOTTO l'anello, solo se BAC ≥ 0,5.
+                        Include la STIMA DELL'ORA in cui si torna sotto soglia: "non guidare" da solo
+                        non dice quanto aspettare, ed è proprio quello che serve sapere. */}
                     {liveBac >= 0.5 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255, 59, 47, 0.1)', border: '1px solid rgba(255, 59, 47, 0.35)', borderRadius: '14px', padding: '11px 13px', marginBottom: '14px' }}>
-                        <AlertTriangle size={20} style={{ color: '#FF6B5E', flexShrink: 0 }} />
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: 'rgba(255, 59, 47, 0.1)', border: '1px solid rgba(255, 59, 47, 0.35)', borderRadius: '14px', padding: '11px 13px', marginBottom: '14px' }}>
+                        <AlertTriangle size={20} style={{ color: '#FF6B5E', flexShrink: 0, marginTop: '1px' }} />
                         <span style={{ fontSize: '12.5px', color: '#FFB0A8', fontWeight: 600, lineHeight: 1.35 }}>
                           {t('session.drivingWarnPrefix')} <strong style={{ color: '#FFF' }}>{t('session.drivingWarnValue')}</strong> — {t('session.drivingWarnSuffix')}
+                          {liveUnderLimitAt && (
+                            <span style={{ display: 'block', marginTop: '5px', color: '#FFF' }}>
+                              🕒 {t('session.drivingUnderLimitAt', { time: fmtClock(liveUnderLimitAt.t) })}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    {/* Sotto soglia ma in SALITA: l'alcol continua ad assorbirsi dopo l'ultimo
+                        drink, quindi si può superare 0,5 stando fermi. Stesso istante che
+                        programma il push in background. */}
+                    {liveBac < 0.5 && liveWillCrossAt && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,159,28,0.10)', border: '1px solid rgba(255,159,28,0.35)', borderRadius: '14px', padding: '11px 13px', marginBottom: '14px' }}>
+                        <TrendingUp size={18} style={{ color: '#FF9F1C', flexShrink: 0 }} />
+                        <span style={{ fontSize: '12.5px', color: '#FFD9A0', fontWeight: 600, lineHeight: 1.35 }}>
+                          {t('session.drivingWillCrossAt', { time: fmtClock(new Date(liveWillCrossAt).getTime()) })}
                         </span>
                       </div>
                     )}
@@ -2938,26 +3026,28 @@ export default function FeedPage() {
                 </div>
               )}
 
-              {/* Stomaco pieno/vuoto (compatto): incide sulla stima del BAC */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              {/* Stomaco pieno/vuoto (compatto): incide sulla stima del BAC.
+                  L'hint sotto spiega PERCHÉ a volte la curva non si muove: il cibo rallenta
+                  solo l'alcol ancora nello stomaco, quindi su un drink di mezz'ora fa non
+                  cambia più niente. Senza questa riga il tasto sembra rotto. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('session.stomachLabel')}</span>
                 <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '3px' }}>
-                  <button type="button" onClick={() => handleToggleFullStomach(false)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: !activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: !activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>{t('session.stomachEmpty')}</button>
-                  <button type="button" onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>{t('session.stomachFull')}</button>
+                  <button type="button" aria-pressed={!activeSession.full_stomach} onClick={() => handleToggleFullStomach(false)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: !activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: !activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>{t('session.stomachEmpty')}</button>
+                  <button type="button" aria-pressed={!!activeSession.full_stomach} onClick={() => handleToggleFullStomach(true)} style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, background: activeSession.full_stomach ? 'var(--primary)' : 'transparent', color: activeSession.full_stomach ? '#fff' : 'var(--text-dark-secondary)' }}>{t('session.stomachFull')}</button>
                 </div>
               </div>
+              <p style={{ fontSize: '10.5px', color: 'var(--text-dark-tertiary)', lineHeight: 1.35, margin: '0 0 16px' }}>
+                {t('session.stomachHint')}
+              </p>
 
               {/* Curva BAC per orario (in tempo reale), tiene conto degli orari dei drink */}
-              {(() => {
-                const curve = db.calculateBACCurve(activeSession.drinks || [], activeSession.created_at, activeSession.duration || elapsedMinutes || 1, currentUser?.weight, activeSession.full_stomach, currentUser?.sex, liveResidualGrams);
-                if (!curve) return null;
-                return (
-                  <div style={{ marginBottom: '16px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '14px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>{t('session.bacCurveLabel')}</span>
-                    <BacCurve curve={curve} height={140} />
-                  </div>
-                );
-              })()}
+              {liveCurve && (
+                <div style={{ marginBottom: '16px', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '16px', padding: '14px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', fontWeight: '600', display: 'block', marginBottom: '6px' }}>{t('session.bacCurveLabel')}</span>
+                  <BacCurve curve={liveCurve} height={140} />
+                </div>
+              )}
 
               {/* Cosa stai bevendo — lista unica con stepper (solo live SEMPLICE:
                   nel tour i drink sono dentro la tappa corrente) */}
@@ -3541,7 +3631,6 @@ export default function FeedPage() {
       )}
 
       {/* Feedback a schermo del check-in GPS ("ti riconosco: sei qui") e altri esiti */}
-      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
       {/* Celebrazione badge sbloccato in sessione (mostra la coda uno alla volta, con skip) */}
       {badgeCelebration && (
@@ -3576,7 +3665,7 @@ export default function FeedPage() {
                   <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{formatDate(selectedActivity.created_at)}</span>
                 </div>
               </div>
-              <button className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setSelectedActivity(null)}>×</button>
+              <button aria-label={t('common.close')} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setSelectedActivity(null)}>×</button>
             </div>
 
             {/* Slideshow Copertina Attività (se ci sono immagini) */}
@@ -4115,7 +4204,7 @@ export default function FeedPage() {
               <strong style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Beer size={18} color="var(--primary)" fill="var(--primary)" /> {t('session.cheers')} ({cheersListActivity.cheer_count ?? cheersListActivity.cheers?.length ?? cheersListPeople.length})
               </strong>
-              <button onClick={() => setShowCheersList(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }}>×</button>
+              <button aria-label={t('common.close')} onClick={() => setShowCheersList(false)} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }}>×</button>
             </div>
             <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               {cheersListLoading ? (
@@ -4155,7 +4244,7 @@ export default function FeedPage() {
                 <Edit size={18} color="var(--primary)" />
                 {t('session.editModalTitle')}
               </h3>
-              <button className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setEditingActivity(null)}>×</button>
+              <button aria-label={t('common.close')} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setEditingActivity(null)}>×</button>
             </div>
 
             {/* Form Fields */}
@@ -4222,13 +4311,15 @@ export default function FeedPage() {
                     { k: 'friends', l: t('session.editVisFriends') },
                     { k: 'private', l: t('session.editVisPrivate') },
                   ].map(({ k, l }) => (
-                    <div
+                    <button
+                      type="button"
                       key={k}
+                      aria-pressed={(editingActivity.location?.share || 'public') === k}
                       className={`seg-tab ${(editingActivity.location?.share || 'public') === k ? 'active' : ''}`}
                       onClick={() => setEditingActivity((prev) => ({ ...prev, location: { ...(prev.location || { freeform: true }), share: k } }))}
                     >
                       {l}
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -4372,7 +4463,7 @@ export default function FeedPage() {
                 {(editingActivity.drank_with || []).map((friend, idx) => (
                   <span key={idx} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', padding: '3px 8px', borderRadius: '15px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     {friend}
-                    <button type="button" onClick={() => removeEditCompanion(idx)} style={{ color: 'var(--error)', cursor: 'pointer', border: 'none', background: 'none', fontWeight: 'bold' }}>×</button>
+                    <button aria-label={t('common.close')} type="button" onClick={() => removeEditCompanion(idx)} style={{ color: 'var(--error)', cursor: 'pointer', border: 'none', background: 'none', fontWeight: 'bold' }}>×</button>
                   </span>
                 ))}
               </div>

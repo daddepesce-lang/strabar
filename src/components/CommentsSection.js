@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
 import Avatar from '@/components/Avatar';
 import { Beer, Reply, Pencil, Trash2, X, Send } from 'lucide-react';
+import { showToast, showError } from '@/lib/toast';
 
 // Sezione commenti condivisa (feed + modale dettaglio). Gestisce:
 //  • cheers su ogni commento (mirror dei cheers-sessione, ottimistico, batch "cheerati da me");
@@ -96,7 +97,7 @@ export default function CommentsSection({ activityId, currentUser, formatDate, o
     } catch (err) {
       // rollback
       setComments((prev) => { const next = prev.filter((c) => c.id !== temp.id); notifyCount(next); return next; });
-      alert(err?.message || 'Errore invio commento');
+      showError(t('feedback.commentSendError'), err);
     } finally { setBusy(false); }
   };
 

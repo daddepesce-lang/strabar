@@ -15,6 +15,7 @@ import {
   Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus, Users,
   ArrowLeft, CalendarPlus, MapPin, Sparkles,
 } from 'lucide-react';
+import { showToast, showError } from '@/lib/toast';
 
 export default function AthleteProfilePage({ params }) {
   const router = useRouter();
@@ -94,7 +95,7 @@ export default function AthleteProfilePage({ params }) {
       }
       await load();
     } catch (err) {
-      alert(err.message || t('userprofile.errorGeneric'));
+      showError(err.message || t('userprofile.errorGeneric'), err);
     } finally {
       setBusy(false);
     }

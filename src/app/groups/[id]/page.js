@@ -12,6 +12,7 @@ import {
 
 import { publicName } from '@/lib/names';
 import { useT } from '@/lib/i18n';
+import { showToast, showError } from '@/lib/toast';
 
 export default function GroupDetailPage({ params }) {
   const t = useT();
@@ -91,7 +92,7 @@ export default function GroupDetailPage({ params }) {
       await db.addGroupMember(id, uid);
       setAddQ(''); setAddResults([]);
       setMembers(await db.getGroupMembers(id));
-    } catch (e) { alert(e.message || t('groupdetail.error')); }
+    } catch (e) { showError(e.message || t('groupdetail.error'), e); }
   };
 
   const handleJoin = async () => {
@@ -99,20 +100,20 @@ export default function GroupDetailPage({ params }) {
     try {
       await db.joinGroup(id, token);
       await loadAll();
-    } catch (e) { alert(e.message || t('groupdetail.error')); }
+    } catch (e) { showError(e.message || t('groupdetail.error'), e); }
     finally { setBusy(false); }
   };
 
   const handleLeave = async () => {
     if (!confirm(t('groupdetail.confirmLeave'))) return;
     try { await db.leaveGroup(id); router.push('/groups'); }
-    catch (e) { alert(e.message || t('groupdetail.error')); }
+    catch (e) { showError(e.message || t('groupdetail.error'), e); }
   };
 
   const handleDelete = async () => {
     if (!confirm(t('groupdetail.confirmDelete'))) return;
     try { await db.deleteGroup(id); router.push('/groups'); }
-    catch (e) { alert(e.message || t('groupdetail.error')); }
+    catch (e) { showError(e.message || t('groupdetail.error'), e); }
   };
 
   const inviteUrl = () => siteUrl(`/groups/${id}${group?.share_token ? `?t=${group.share_token}` : ''}`);
@@ -123,22 +124,22 @@ export default function GroupDetailPage({ params }) {
 
   const changeRole = async (uid, role) => {
     try { await db.setGroupRole(id, uid, role); setMembers(await db.getGroupMembers(id)); }
-    catch (e) { alert(e.message || t('groupdetail.error')); }
+    catch (e) { showError(e.message || t('groupdetail.error'), e); }
   };
   const removeMember = async (uid) => {
     if (!confirm(t('groupdetail.confirmRemoveMember'))) return;
     try { await db.removeGroupMember(id, uid); setMembers(await db.getGroupMembers(id)); }
-    catch (e) { alert(e.message || t('groupdetail.error')); }
+    catch (e) { showError(e.message || t('groupdetail.error'), e); }
   };
 
   const createGroupEvent = async () => {
-    if (!evTitle.trim() || !evDate) { alert(t('groupdetail.titleDateRequired')); return; }
+    if (!evTitle.trim() || !evDate) { showToast(t('groupdetail.titleDateRequired'), { variant: 'warning' }); return; }
     setBusy(true);
     try {
       await db.createEvent({ title: evTitle, date: evDate, description: evDesc, group_id: id, visibility: 'private', link_sharing: false });
       setShowEvent(false); setEvTitle(''); setEvDate(''); setEvDesc('');
       setEvents(await db.getGroupEvents(id));
-    } catch (e) { alert(e.message || t('groupdetail.error')); }
+    } catch (e) { showError(e.message || t('groupdetail.error'), e); }
     finally { setBusy(false); }
   };
 
@@ -219,7 +220,7 @@ export default function GroupDetailPage({ params }) {
         <>
           <div className="feed-filter-tabs" style={{ maxWidth: '420px' }}>
             {PERIODS.map((p) => (
-              <div key={p.k} className={`seg-tab ${period === p.k ? 'active' : ''}`} onClick={() => setPeriod(p.k)}>{p.l}</div>
+              <button type="button" aria-pressed={!!(period === p.k)} key={p.k} className={`seg-tab ${period === p.k ? 'active' : ''}`} onClick={() => setPeriod(p.k)}>{p.l}</button>
             ))}
           </div>
           {board.length === 0 ? (

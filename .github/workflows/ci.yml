@@ -1,0 +1,33 @@
+# CI minima: gira su ogni push e PR. Tre passaggi, in ordine di velocità — così un errore
+# banale non ti fa aspettare la build intera.
+#   1. test  → modello alcolemico (npm test, nessuna dipendenza esterna né segreti)
+#   2. lint  → eslint
+#   3. build → next build, con le env pubbliche finte: verifica che compili, non deploya
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Test modello BAC
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        # Valori finti: senza URL/chiave il client Supabase non viene creato (vedi
+        # isSupabaseConfigured) e la build resta comunque rappresentativa.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-fake-anon-key
+        run: npm run build

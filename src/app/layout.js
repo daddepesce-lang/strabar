@@ -23,6 +23,7 @@ import LegacyMigrationBanner from "@/components/LegacyMigrationBanner";
 import PushReminderGate from "@/components/PushReminderGate";
 import Footer from "@/components/Footer";
 import AgeGate from "@/components/AgeGate";
+import ToastHost from "@/components/ToastHost";
 import OnboardingGate from "@/components/OnboardingGate";
 import WelcomeGuide from "@/components/WelcomeGuide";
 import { Analytics } from "@vercel/analytics/next";
@@ -90,6 +91,7 @@ export default function RootLayout({ children }) {
       <body>
         <I18nProvider>
           <ServiceWorkerRegister />
+          <ToastHost />
           <NativeShell />
           <AgeGate />
           <OnboardingGate />

@@ -7,6 +7,7 @@ import { Loader, ArrowLeft, Trophy, Megaphone, Star, Bell, Clock, ShieldCheck, S
 import { OPTION_SCHEMA, defaultOptions, computePrice, euro } from '@/lib/venuePricing';
 import { useT, useI18n } from '@/lib/i18n';
 import { drinkTypeOptions } from '@/lib/drinkLabel';
+import { showToast, showError } from '@/lib/toast';
 
 const SERVICE_ICON = { sponsored_event: Star, promo: Megaphone, notify: Bell };
 
@@ -85,7 +86,7 @@ export default function VenueManagePage({ params }) {
   // ---- Drink del locale ----
   const addVenueDrink = async () => {
     const name = drinkForm.name.trim();
-    if (!name) { alert(t('gestione.drinkNeedName')); return; }
+    if (!name) { showToast(t('gestione.drinkNeedName'), { variant: 'warning' }); return; }
     setAddingDrink(true);
     try {
       const abv = parseFloat(String(drinkForm.abv).replace(',', '.')) || 0;
@@ -95,13 +96,13 @@ export default function VenueManagePage({ params }) {
       await db.addVenueDrink(placeKey, { name, abv, units, typeKey: drinkForm.typeKey, label: `${emoji} ${name}` });
       setDrinkForm({ name: '', abv: '', units: '', typeKey: drinkForm.typeKey });
       setVenueDrinks(await db.getVenueDrinks(placeKey).catch(() => venueDrinks));
-    } catch (e) { alert('Errore: ' + (e.message || e)); }
+    } catch (e) { showError(t('feedback.genericError'), e); }
     finally { setAddingDrink(false); }
   };
   const removeVenueDrink = async (id) => {
     if (!confirm('Rimuovere questo drink?')) return;
     try { await db.deleteVenueDrink(id); setVenueDrinks((prev) => prev.filter((d) => d.id !== id)); }
-    catch (e) { alert('Errore: ' + (e.message || e)); }
+    catch (e) { showError(t('feedback.genericError'), e); }
   };
 
   useEffect(() => {
@@ -133,25 +134,25 @@ export default function VenueManagePage({ params }) {
 
   const submitClaim = async () => {
     if (!form.contact_name.trim() || !(form.phone.trim() || form.email.trim())) {
-      alert('Inserisci almeno nome del referente e un contatto (telefono o email).');
+      showToast(t('feedback.venueNeedContact'), { variant: 'warning', duration: 5000 });
       return;
     }
     setSubmitting(true);
     try {
       await db.requestVenueClaim(placeKey, venueName, form);
       setClaim({ status: 'pending', venue_key: placeKey });
-    } catch (e) { alert('Errore: ' + (e.message || e)); }
+    } catch (e) { showError(t('feedback.genericError'), e); }
     finally { setSubmitting(false); }
   };
 
   // ---- Immagine banner (servizio promo) ----
   const uploadPromoImage = async (serviceId, file) => {
-    if (!file || !file.type.startsWith('image/')) { alert('Seleziona un’immagine valida.'); return; }
+    if (!file || !file.type.startsWith('image/')) { showToast(t('feedback.invalidImage'), { variant: 'warning' }); return; }
     setUploadingFor(serviceId);
     try {
       const { url } = await db.uploadImage(file);
       setInput(serviceId, { image: url });
-    } catch (e) { alert('Upload non riuscito: ' + (e.message || e)); }
+    } catch (e) { showError(t('feedback.uploadError'), e); }
     finally { setUploadingFor(null); }
   };
 
@@ -162,12 +163,12 @@ export default function VenueManagePage({ params }) {
     const meta = {};
     if (svc.code === 'sponsored_event') {
       eventId = eventChoice[svc.id];
-      if (!eventId) { alert('Scegli quale tuo evento sponsorizzare.'); return null; }
+      if (!eventId) { showToast(t('feedback.promoNeedEvent'), { variant: 'warning' }); return null; }
     } else if (svc.code === 'promo') {
-      if (!inp.title?.trim()) { alert('Scrivi almeno il titolo della promo.'); return null; }
+      if (!inp.title?.trim()) { showToast(t('feedback.promoNeedTitle'), { variant: 'warning' }); return null; }
       meta.title = inp.title; meta.body = inp.body; meta.link = inp.link; if (inp.image) meta.image = inp.image;
     } else if (svc.code === 'notify') {
-      if (!inp.message?.trim()) { alert('Scrivi il messaggio da inviare ai clienti.'); return null; }
+      if (!inp.message?.trim()) { showToast(t('feedback.promoNeedMessage'), { variant: 'warning' }); return null; }
       meta.message = inp.message; meta.link = inp.link;
     }
     const options = { ...defaultOptions(svc.code), ...(svcOpt[svc.id] || {}) };
@@ -197,12 +198,12 @@ export default function VenueManagePage({ params }) {
         body: JSON.stringify({ venueKey: placeKey, items: cart.map((x) => ({ serviceId: x.serviceId, eventId: x.eventId, meta: x.meta, options: x.options })) }),
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || t('gestione.orderSendError')); return; }
+      if (!res.ok) { showError(data.error || t('gestione.orderSendError')); return; }
       setCart([]);
       await loadManagerData();
       setTab('ordini');
-      alert(t('gestione.orderSent'));
-    } catch (e) { alert('Errore: ' + (e.message || e)); }
+      showToast(t('gestione.orderSent'));
+    } catch (e) { showError(t('feedback.genericError'), e); }
     finally { setPaying(false); }
   };
 
@@ -211,7 +212,7 @@ export default function VenueManagePage({ params }) {
     if (!confirm('Annullare questo ordine non pagato?')) return;
     setCanceling(o.id);
     try { await db.cancelVenueOrder(o.id); setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, status: 'canceled' } : x))); }
-    catch (e) { alert('Errore: ' + (e.message || e)); }
+    catch (e) { showError(t('feedback.genericError'), e); }
     finally { setCanceling(null); }
   };
 
@@ -226,7 +227,7 @@ export default function VenueManagePage({ params }) {
       await db.updateMyBanner(editBanner.id, bnForm);
       setBanners((prev) => prev.map((x) => (x.id === editBanner.id ? { ...x, ...bnForm } : x)));
       setEditBanner(null);
-    } catch (e) { alert('Errore: ' + (e.message || e)); }
+    } catch (e) { showError(t('feedback.genericError'), e); }
     finally { setSavingBanner(false); }
   };
   const deleteBanner = async (b) => {
@@ -240,19 +241,19 @@ export default function VenueManagePage({ params }) {
       setBanners((prev) => prev.filter((x) => x.id !== b.id));
       // Riflette subito lo stato dell'ordine collegato (terminato, senza rimborso).
       if (b.order_id) setOrders((prev) => prev.map((o) => (o.id === b.order_id ? { ...o, status: 'ended' } : o)));
-    } catch (e) { alert('Errore: ' + (e.message || e)); }
+    } catch (e) { showError(t('feedback.genericError'), e); }
   };
   const uploadBannerImage = async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
     setSavingBanner(true);
     try { const { url } = await db.uploadImage(file); setBnForm((p) => ({ ...p, image_url: url })); }
-    catch (e) { alert('Upload non riuscito: ' + (e.message || e)); }
+    catch (e) { showError(t('feedback.uploadError'), e); }
     finally { setSavingBanner(false); }
   };
   // Proroga: aggiunge al carrello una promo con extend_banner_id (paghi e si estende).
   const extendBanner = (b) => {
     const promo = services.find((s) => s.code === 'promo');
-    if (!promo) { alert('Servizio promo non disponibile per la proroga.'); return; }
+    if (!promo) { showToast(t('feedback.promoUnavailable'), { variant: 'warning' }); return; }
     const days = Number(extendDays[b.id]) || 7;
     const options = { ...defaultOptions('promo'), days };
     const price = computePrice(promo, options);

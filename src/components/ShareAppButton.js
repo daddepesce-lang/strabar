@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Share2, Check, Copy } from 'lucide-react';
 import { siteUrl } from '@/lib/site';
 import { useT } from '@/lib/i18n';
+import { showToast, showError } from '@/lib/toast';
 
 // Pulsante riutilizzabile per invitare amici su Strabar.
 // Usa il foglio di condivisione nativo del telefono (WhatsApp, Instagram, SMS…)
@@ -34,7 +35,7 @@ export default function ShareAppButton({ style, className, label, compact = fals
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      alert(t('shareapp.shareLink', { url }));
+      showToast(t('shareapp.shareLink', { url }));
     }
   };
 

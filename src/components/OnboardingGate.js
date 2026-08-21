@@ -195,8 +195,8 @@ export default function OnboardingGate() {
             <div style={{ marginBottom: '16px', textAlign: 'left' }}>
               <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>{t('onboarding.sexLabel')}</label>
               <div className="seg-tabs" style={{ display: 'flex', gap: '8px' }}>
-                <div className={`seg-tab ${sex === 'm' ? 'active' : ''}`} onClick={() => setSex('m')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>{t('onboarding.sexMale')}</div>
-                <div className={`seg-tab ${sex === 'f' ? 'active' : ''}`} onClick={() => setSex('f')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>{t('onboarding.sexFemale')}</div>
+                <button type="button" aria-pressed={!!(sex === 'm')} className={`seg-tab ${sex === 'm' ? 'active' : ''}`} onClick={() => setSex('m')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>{t('onboarding.sexMale')}</button>
+                <button type="button" aria-pressed={!!(sex === 'f')} className={`seg-tab ${sex === 'f' ? 'active' : ''}`} onClick={() => setSex('f')} style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-dark)', fontWeight: 700 }}>{t('onboarding.sexFemale')}</button>
               </div>
             </div>
 

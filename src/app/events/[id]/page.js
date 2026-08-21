@@ -12,6 +12,7 @@ import {
   Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
   Edit3, Loader, Beer, Search,
 } from 'lucide-react';
+import { showToast, showError } from '@/lib/toast';
 
 function formatEventDate(ds, locale = 'it', tbdLabel = 'Data da definire') {
   if (!ds) return tbdLabel;
@@ -177,8 +178,8 @@ export default function EventDetailPage({ params }) {
   };
 
   const handleSaveEdit = async () => {
-    if (!edit.title.trim()) { alert(t('events.evAlertNoTitle')); return; }
-    if (!edit.date) { alert(t('events.evAlertNoDate')); return; }
+    if (!edit.title.trim()) { showToast(t('events.evAlertNoTitle'), { variant: 'warning' }); return; }
+    if (!edit.date) { showToast(t('events.evAlertNoDate'), { variant: 'warning' }); return; }
     setSavingEdit(true);
     try {
       const selectedRoute = routes.find((r) => r.id === edit.routeId);
@@ -197,7 +198,7 @@ export default function EventDetailPage({ params }) {
       setShowEdit(false);
       await load();
     } catch (err) {
-      alert(err.message || t('events.evAlertSaveError'));
+      showError(err.message || t('events.evAlertSaveError'), err);
     } finally {
       setSavingEdit(false);
     }
@@ -209,7 +210,7 @@ export default function EventDetailPage({ params }) {
     const ms = event?.date ? new Date(event.date).getTime() : null;
     if (ms == null || isNaN(ms)) return false;
     if (Date.now() < ms - 2 * 60 * 60 * 1000) {
-      alert(t('events.evAlertWindow'));
+      showToast(t('events.evAlertWindow'), { variant: 'warning' });
       return true;
     }
     return false;
@@ -222,7 +223,7 @@ export default function EventDetailPage({ params }) {
     try {
       const active = await db.getActiveSession(currentUser.id);
       if (active) {
-        alert(t('events.evAlertActiveSession'));
+        showToast(t('events.evAlertActiveSession'), { variant: 'warning' });
         setStartingSession(false);
         return;
       }
@@ -275,7 +276,7 @@ export default function EventDetailPage({ params }) {
       });
       router.push('/');
     } catch (err) {
-      alert(t('events.evAlertStartError') + (err.message || err));
+      showError(t('events.evAlertStartError') + (err.message || err), err);
       setStartingSession(false);
     }
   };
@@ -290,14 +291,14 @@ export default function EventDetailPage({ params }) {
     try {
       const active = await db.getActiveSession(currentUser.id);
       if (active) {
-        alert(t('events.evAlertActiveSession'));
+        showToast(t('events.evAlertActiveSession'), { variant: 'warning' });
         setStartingSession(false);
         return;
       }
       const route = await db.getRoute(event.route_id);
       const stopsRaw = route?.waypoints || [];
       if (stopsRaw.length === 0) {
-        alert(t('events.evAlertTourNoStops'));
+        showToast(t('events.evAlertTourNoStops'), { variant: 'warning' });
         setStartingSession(false);
         return;
       }
@@ -368,7 +369,7 @@ export default function EventDetailPage({ params }) {
       try { if (startMsg) sessionStorage.setItem('strabar_tour_msg', startMsg); } catch { /* noop */ }
       window.location.href = '/?live=1';
     } catch (err) {
-      alert(t('events.evAlertTourError') + (err.message || err));
+      showError(t('events.evAlertTourError') + (err.message || err), err);
       setStartingSession(false);
     }
   };
@@ -382,7 +383,7 @@ export default function EventDetailPage({ params }) {
       await db.respondToEvent(id, status, shareToken);
       await load();
     } catch (err) {
-      alert(err.message || t('events.genericError'));
+      showError(err.message || t('events.genericError'), err);
     } finally {
       setResponding(false);
     }
@@ -658,9 +659,9 @@ export default function EventDetailPage({ params }) {
             <div style={{ marginTop: '14px', marginBottom: '8px' }}>
               <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>{t('events.evWhoSeesSession')}</span>
               <div className="seg-tabs">
-                <div className={`seg-tab ${eventShare === 'public' ? 'active' : ''}`} onClick={() => setEventShare('public')}>{t('events.visAll')}</div>
-                <div className={`seg-tab ${eventShare === 'friends' ? 'active' : ''}`} onClick={() => setEventShare('friends')}>{t('events.visFriends')}</div>
-                <div className={`seg-tab ${eventShare === 'private' ? 'active' : ''}`} onClick={() => setEventShare('private')}>{t('events.visNobody')}</div>
+                <button type="button" aria-pressed={!!(eventShare === 'public')} className={`seg-tab ${eventShare === 'public' ? 'active' : ''}`} onClick={() => setEventShare('public')}>{t('events.visAll')}</button>
+                <button type="button" aria-pressed={!!(eventShare === 'friends')} className={`seg-tab ${eventShare === 'friends' ? 'active' : ''}`} onClick={() => setEventShare('friends')}>{t('events.visFriends')}</button>
+                <button type="button" aria-pressed={!!(eventShare === 'private')} className={`seg-tab ${eventShare === 'private' ? 'active' : ''}`} onClick={() => setEventShare('private')}>{t('events.visNobody')}</button>
               </div>
             </div>
             <button
@@ -991,11 +992,13 @@ export default function EventDetailPage({ params }) {
                   { v: 'friends', t: t('events.visFriends') },
                   { v: 'private', t: t('events.visNobody') },
                 ].map((o) => (
-                  <div
+                  <button
+                    type="button"
                     key={o.v}
+                    aria-pressed={edit.visibility === o.v}
                     onClick={() => setEdit((p) => ({ ...p, visibility: o.v }))}
                     style={{ flex: 1, cursor: 'pointer', textAlign: 'center', padding: '9px 4px', borderRadius: '10px', fontWeight: 700, fontSize: '13px', border: edit.visibility === o.v ? '1px solid var(--primary)' : '1px solid var(--border-dark)', color: edit.visibility === o.v ? 'var(--primary)' : 'var(--text-dark-primary)', background: 'var(--bg-input-dark)' }}
-                  >{o.t}</div>
+                  >{o.t}</button>
                 ))}
               </div>
               <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>

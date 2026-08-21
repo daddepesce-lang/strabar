@@ -10,6 +10,7 @@ import { localizeDrink } from '@/lib/drinkLabel';
 import { locationDisplayName } from '@/lib/sessionLabels';
 import BeerPicker from '@/components/BeerPicker';
 import EventStartGuard from '@/components/EventStartGuard';
+import { showToast, showError } from '@/lib/toast';
 
 export default function LogActivityPage() {
   const router = useRouter();
@@ -78,7 +79,7 @@ export default function LogActivityPage() {
     e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert(t('logpage.invalidImageFile'));
+      showToast(t('logpage.invalidImageFile'), { variant: 'warning' });
       return;
     }
     setRetroPhotoUploading(true);
@@ -87,7 +88,7 @@ export default function LogActivityPage() {
       setRetroForm((p) => ({ ...p, media: [...p.media, { type: 'image', name: file.name, url, thumb }] }));
     } catch (err) {
       console.error('Errore upload foto:', err);
-      alert(t('logpage.photoUploadError', { err: err.message || err }));
+      showError(t('logpage.photoUploadError', { err: err.message || err }), err);
     } finally {
       setRetroPhotoUploading(false);
     }
@@ -120,7 +121,7 @@ export default function LogActivityPage() {
   const handleRetroSubmit = async (e) => {
     e.preventDefault();
     if (retroForm.drinks.length === 0) {
-      alert(t('logpage.addAtLeastOneDrink'));
+      showToast(t('logpage.addAtLeastOneDrink'), { variant: 'warning' });
       return;
     }
     setRetroSaving(true);
@@ -153,10 +154,10 @@ export default function LogActivityPage() {
       });
       // Aggiorna il created_at della sessione appena creata se supportato
       // Nota: Supabase permette di passare created_at nell'insert
-      alert(t('logpage.sessionSavedSuccess'));
+      showToast(t('logpage.sessionSavedSuccess'));
       router.push('/');
     } catch (err) {
-      alert(t('logpage.saveError', { err: err.message }));
+      showError(t('logpage.saveError', { err: err.message }), err);
     } finally {
       setRetroSaving(false);
     }
@@ -359,7 +360,7 @@ export default function LogActivityPage() {
       setShowActiveSessionWarning(false);
       setShowCloseActiveForm(false);
     } catch (err) {
-      alert(t('logpage.closePrevSessionError', { err: err.message }));
+      showError(t('logpage.closePrevSessionError', { err: err.message }), err);
     }
   };
 
@@ -384,7 +385,7 @@ export default function LogActivityPage() {
       setShowActiveSessionWarning(false);
       setShowCloseActiveForm(false);
     } catch (err) {
-      alert(t('logpage.closeSessionError', { err: err.message }));
+      showError(t('logpage.closeSessionError', { err: err.message }), err);
     }
   };
 
@@ -437,7 +438,7 @@ export default function LogActivityPage() {
       // Apre direttamente il pannello live per iniziare a registrare i drink.
       router.push('/?live=1');
     } catch (err) {
-      alert(t('logpage.startFreeError', { err: err.message }));
+      showError(t('logpage.startFreeError', { err: err.message }), err);
     } finally {
       setStartingSession(false);
     }
@@ -571,7 +572,7 @@ export default function LogActivityPage() {
       // Apre direttamente il pannello live per iniziare a registrare i drink.
       router.push('/?live=1');
     } catch (err) {
-      alert(t('logpage.startSessionError', { err: err.message || err }));
+      showError(t('logpage.startSessionError', { err: err.message || err }), err);
       setCheckingGps(false);
     }
   };
@@ -588,7 +589,7 @@ export default function LogActivityPage() {
       if (!u) { router.push(`/auth?next=${encodeURIComponent('/log?src=qr&venue=' + venue.name + (venue.lat != null ? `&lat=${venue.lat}&lng=${venue.lng}` : ''))}`); return; }
       const active = typeof db.getActiveSession === 'function' ? await db.getActiveSession(u.id) : null;
       if (active || activeSession) {
-        alert(t('logpage.alreadyLiveContinue'));
+        showToast(t('logpage.alreadyLiveContinue'), { variant: 'warning' });
         router.push('/?live=1');
         return;
       }
@@ -617,7 +618,7 @@ export default function LogActivityPage() {
       router.push('/?live=1');
     } catch (err) {
       setCheckingGps(false);
-      alert(t('logpage.startSessionError', { err: err.message || err }));
+      showError(t('logpage.startSessionError', { err: err.message || err }), err);
     }
   };
 
@@ -629,13 +630,13 @@ export default function LogActivityPage() {
       const u = await db.getCurrentUser();
       const active = u && typeof db.getActiveSession === 'function' ? await db.getActiveSession(u.id) : null;
       if (active || activeSession) {
-        alert(t('logpage.alreadyLiveTagged'));
+        showToast(t('logpage.alreadyLiveTagged'), { variant: 'warning' });
         router.push('/?live=1');
         return;
       }
     } catch { /* in dubbio, prosegui col controllo locale sotto */ }
     if (activeSession) {
-      alert(t('logpage.alreadyLiveCloseFirst'));
+      showToast(t('logpage.alreadyLiveCloseFirst'), { variant: 'warning' });
       return;
     }
     const loc = await requestUserLocation();
@@ -653,7 +654,7 @@ export default function LogActivityPage() {
     const name = manualPlace.name.trim();
     const address = manualPlace.address.trim();
     if (!name) {
-      alert(t('logpage.enterVenueName'));
+      showToast(t('logpage.enterVenueName'), { variant: 'warning' });
       return;
     }
 
@@ -665,7 +666,7 @@ export default function LogActivityPage() {
 
     if (lat == null || lng == null) {
       if (!address) {
-        alert(t('logpage.manualNeedsLocation'));
+        showToast(t('logpage.manualNeedsLocation'), { variant: 'warning' });
         return;
       }
       setManualGeocoding(true);
@@ -680,7 +681,7 @@ export default function LogActivityPage() {
         setManualGeocoding(false);
       }
       if (lat == null || lng == null) {
-        alert(t('logpage.addressNotFound'));
+        showToast(t('logpage.addressNotFound'), { variant: 'warning' });
         return;
       }
     }
@@ -841,9 +842,9 @@ export default function LogActivityPage() {
         <div style={{ marginTop: '14px' }}>
           <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>{t('logpage.whoSeesLive')}</span>
           <div className="seg-tabs">
-            <div className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>{t('logpage.segShareAll')}</div>
-            <div className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>{t('logpage.segShareFriends')}</div>
-            <div className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>{t('logpage.segSharePrivate')}</div>
+            <button type="button" aria-pressed={!!(liveShare === 'public')} className={`seg-tab ${liveShare === 'public' ? 'active' : ''}`} onClick={() => setLiveShare('public')}>{t('logpage.segShareAll')}</button>
+            <button type="button" aria-pressed={!!(liveShare === 'friends')} className={`seg-tab ${liveShare === 'friends' ? 'active' : ''}`} onClick={() => setLiveShare('friends')}>{t('logpage.segShareFriends')}</button>
+            <button type="button" aria-pressed={!!(liveShare === 'private')} className={`seg-tab ${liveShare === 'private' ? 'active' : ''}`} onClick={() => setLiveShare('private')}>{t('logpage.segSharePrivate')}</button>
           </div>
 
           {/* Sessione libera: nascondi posizione (no GPS → niente radar/mappa) */}
@@ -866,8 +867,8 @@ export default function LogActivityPage() {
           <div style={{ marginTop: '12px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'block', marginBottom: '6px' }}>{t('logpage.eatenQuestion')}</span>
             <div className="seg-tabs">
-              <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>{t('logpage.emptyStomach')}</div>
-              <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>{t('logpage.fullStomachLabel')}</div>
+              <button type="button" aria-pressed={!!(!fullStomach)} className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>{t('logpage.emptyStomach')}</button>
+              <button type="button" aria-pressed={!!(fullStomach)} className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>{t('logpage.fullStomachLabel')}</button>
             </div>
           </div>
         </div>
@@ -1187,7 +1188,7 @@ export default function LogActivityPage() {
       {showRetroForm && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1100, padding: '20px', overflowY: 'auto' }}>
           <div className="card" style={{ maxWidth: '520px', width: '100%', border: '1px solid rgba(16,185,129,0.4)', boxShadow: '0 0 30px rgba(16,185,129,0.1)', padding: '28px', position: 'relative', marginTop: '20px', marginBottom: '20px' }}>
-            <button onClick={() => setShowRetroForm(false)} style={{ position: 'absolute', top: '18px', right: '18px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', fontSize: '22px' }}>×</button>
+            <button aria-label={t('common.close')} onClick={() => setShowRetroForm(false)} style={{ position: 'absolute', top: '18px', right: '18px', background: 'none', border: 'none', color: 'var(--text-dark-secondary)', cursor: 'pointer', fontSize: '22px' }}>×</button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '16px' }}>
               <Clock size={20} color="#10B981" />
@@ -1292,8 +1293,8 @@ export default function LogActivityPage() {
               <div>
                 <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px', fontWeight: '600' }}>{t('logpage.stomachLabel')}</label>
                 <div className="seg-tabs">
-                  <div className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>{t('logpage.emptyShort')}</div>
-                  <div className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>{t('logpage.fullShort')}</div>
+                  <button type="button" aria-pressed={!!(!fullStomach)} className={`seg-tab ${!fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(false)}>{t('logpage.emptyShort')}</button>
+                  <button type="button" aria-pressed={!!(fullStomach)} className={`seg-tab ${fullStomach ? 'active' : ''}`} onClick={() => setFullStomach(true)}>{t('logpage.fullShort')}</button>
                 </div>
               </div>
 
