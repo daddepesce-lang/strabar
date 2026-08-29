@@ -20,8 +20,9 @@ function hostAllowed(host) {
     const configured = process.env.R2_PUBLIC_URL ? new URL(process.env.R2_PUBLIC_URL).host : null;
     if (configured && host === configured) return true;
   } catch { /* env malformata: ignora */ }
-  // Tile mappa CARTO (dark) per lo sfondo-mappa della card: gratis, senza chiave,
-  // immutabili → cache lunga. Egress contenuto (pochi tile per card, riusati dalla cache).
+  // Tile mappa CARTO (dark) per lo sfondo-mappa della card. L'URL può portarsi dietro la
+  // chiave basemap (?key=…, vedi src/lib/mapTiles): è una NEXT_PUBLIC_*, quindi già pubblica.
+  // Tile immutabili → cache lunga. Egress contenuto (pochi tile per card, riusati dalla cache).
   if (host.endsWith('.basemaps.cartocdn.com') || host === 'basemaps.cartocdn.com') return true;
   // Solo R2: i media stanno tutti su Cloudflare R2. Niente Supabase Storage (egress).
   return (

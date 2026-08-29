@@ -9,6 +9,7 @@ import { siteUrl, SITE_HOST } from '@/lib/site';
 import { publicName } from '@/lib/names';
 import { useI18n } from '@/lib/i18n';
 import { showToast, showError } from '@/lib/toast';
+import { mapTileUrl } from '@/lib/mapTiles';
 
 export default function ShareActivityPage({ params }) {
   const router = useRouter();
@@ -377,7 +378,7 @@ export default function ShareActivityPage({ params }) {
       tiles.forEach(({ tx, ty }) => {
         const im = new Image(); im.crossOrigin = 'anonymous';
         const xn = ((tx % n) + n) % n;
-        const url = `https://basemaps.cartocdn.com/dark_all/${Z}/${xn}/${ty}@2x.png`;
+        const url = mapTileUrl(Z, xn, ty);
         im.onload = () => { store[`${tx}_${ty}`] = im; if (++done === tiles.length) finish(); };
         im.onerror = () => { if (++done === tiles.length) finish(); };
         im.src = `/api/img?url=${encodeURIComponent(url)}`;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { MAP_TILE_URL, MAP_TILE_OPTIONS } from '@/lib/mapTiles';
 
 /**
  * Mappa Leaflet reale e interattiva (non disegnata).
@@ -49,11 +50,7 @@ export default function RouteMap({ waypoints = [], height = '420px', interactive
         attributionControl: true,
       }).setView([45.4382, 12.3353], 15);
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20,
-      }).addTo(map);
+      L.tileLayer(MAP_TILE_URL, MAP_TILE_OPTIONS).addTo(map);
 
       mapRef.current = map;
       drawWaypoints();

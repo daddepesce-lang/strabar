@@ -14,6 +14,7 @@ import { routeCities } from '@/lib/cityFromAddress';
 import { haversineKm, routeStart, routeTotalKm } from '@/lib/geo';
 import { routePublicPath } from '@/lib/slug';
 import { showToast, showError } from '@/lib/toast';
+import { MAP_TILE_URL, MAP_TILE_OPTIONS } from '@/lib/mapTiles';
 
 // Punteggio "Migliori": non ci sono voti sui percorsi, ma c'è un segnale più onesto —
 // quante PERSONE diverse l'hanno fatto (starts_count) e quante l'hanno portato a termine
@@ -166,12 +167,8 @@ export default function RoutesPage() {
         // Start with a world view, then try geolocation
         mapInstance.current = L.map('map-container').setView([20, 0], 3);
 
-        // CartoDB Dark Matter tiles
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: 'abcd',
-          maxZoom: 20,
-        }).addTo(mapInstance.current);
+        // Basemap condiviso con tutte le altre mappe (vedi src/lib/mapTiles)
+        L.tileLayer(MAP_TILE_URL, MAP_TILE_OPTIONS).addTo(mapInstance.current);
 
         // Se la posizione è già arrivata, centriamo subito (altrimenti lo fa l'effetto sotto)
         if (userPosRef.current) {
