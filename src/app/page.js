@@ -59,6 +59,33 @@ const groupDrinks = (drinks) => {
   return Object.values(map);
 };
 
+// Link "Apri in Google Maps" per il locale/itinerario di una sessione.
+// TOUR con almeno 2 tappe geolocalizzate → indicazioni a piedi con TUTTE le tappe (origine,
+// waypoint intermedi, destinazione), come già fa la pagina pubblica /percorso/[id]. Prima si
+// generava sempre una RICERCA del solo `location.name`, che per un tour è la tappa CORRENTE:
+// chi apriva un tour dal feed si ritrovava in Maps un singolo locale invece del giro.
+// Il Maps URL API accetta al massimo 9 waypoint intermedi: oltre, teniamo prima tappa,
+// ultima e i primi 9 in mezzo (meglio un percorso troncato di un link che Maps rifiuta).
+// A piedi: tra un bar e l'altro non si guida, ed è la modalità giusta per un bacaro tour.
+const mapsHrefForLocation = (loc) => {
+  if (!loc) return null;
+  const lngOf = (s) => s.lng ?? s.lon;
+  const pts = (Array.isArray(loc.tour?.stops) ? loc.tour.stops : [])
+    .filter((s) => typeof s?.lat === 'number' && typeof lngOf(s) === 'number');
+  if (pts.length >= 2) {
+    const fmt = (s) => `${s.lat},${lngOf(s)}`;
+    const mid = [...pts.slice(1, -1)].slice(0, 9).map(fmt).join('|');
+    return `https://www.google.com/maps/dir/?api=1&origin=${fmt(pts[0])}&destination=${fmt(pts[pts.length - 1])}${mid ? `&waypoints=${encodeURIComponent(mid)}` : ''}&travelmode=walking`;
+  }
+  // Locale singolo. Senza indirizzo la ricerca per nome è ambigua (di "Biobaren" ce n'è più
+  // d'uno al mondo): con le coordinate della sessione si punta al posto esatto.
+  if (!loc.address && typeof loc.lat === 'number' && typeof lngOf(loc) === 'number') {
+    return `https://www.google.com/maps/search/?api=1&query=${loc.lat},${lngOf(loc)}`;
+  }
+  const q = `${loc.name || ''} ${loc.address || ''}`.trim();
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null;
+};
+
 // Richiede la posizione GPS corrente (alta precisione, con fallback a bassa precisione).
 // Risolve null se il GPS non è disponibile o l'utente nega il permesso.
 const getCurrentPosition = () =>
@@ -2021,21 +2048,36 @@ export default function FeedPage() {
     return db.calculatePeakBAC(a.drinks || [], a.created_at, a.duration || effortMinutes(a) || 120, ownerWeight, a.full_stomach, ownerSex, residual);
   };
 
-  // Per i Tour: raggruppa i drink per tappa, in base alle finestre temporali di arrivo
-  // ad ogni tappa (visited[i].arrived_at → visited[i+1].arrived_at). Ritorna null se non è un tour.
+  // Per i Tour: drink e foto raggruppati per TAPPA, in base alle finestre temporali di
+  // arrivo (visited[i].arrived_at → visited[i+1].arrived_at) o allo stopIdx esplicito.
+  //
+  // Si mappa sull'ITINERARIO COMPLETO (`tour.stops`) e NON su `tour.visited`: le tappe non
+  // ancora raggiunte devono comparire comunque. Prima si mappava `visited` e il dettaglio
+  // sessione mostrava solo le tappe già fatte (2 su 3) mentre il feed e la mappa ne
+  // dichiaravano 3 (`feed.tourStopN` usa stops.length) → chi guardava da fuori vedeva due
+  // conteggi diversi per lo stesso tour. `visited[i]` (arrivo, verifica) esiste solo per le
+  // tappe raggiunte: le altre escono con reached:false.
+  // Ritorna null se non è un tour.
   const tourDrinksByStop = (act) => {
     const tour = act?.location?.tour;
     if (!tour || !Array.isArray(tour.visited) || tour.visited.length === 0) return null;
     const visited = tour.visited;
+    // Le tappe extra fuori programma vengono inserite in `stops` quando ci si arriva,
+    // quindi stops.length >= visited.length. Se un dato vecchio non lo rispetta si ricade
+    // su `visited` (comportamento precedente: nessuna tappa inventata).
+    const stops = Array.isArray(tour.stops) && tour.stops.length >= visited.length ? tour.stops : visited;
     const drinks = (act.drinks || []).filter((d) => d.added_at);
     const photos = (act.media || []).filter((m) => m.type === 'image' && m.url);
-    return visited.map((v, i) => {
-      const start = new Date(v.arrived_at || act.created_at).getTime();
+    return stops.map((st, i) => {
+      const v = visited[i] || null;
+      const start = new Date(v?.arrived_at || act.created_at).getTime();
       const end = i + 1 < visited.length ? new Date(visited[i + 1].arrived_at).getTime() : Infinity;
       const stopDrinks = drinks.filter((d) => {
         // Drink NUOVI: attribuzione esplicita per indice tappa (deterministica).
         if (typeof d.stopIdx === 'number') return d.stopIdx === i;
-        // Drink VECCHI (senza stopIdx): fallback alla finestra temporale di arrivo.
+        // Drink VECCHI (senza stopIdx): fallback alla finestra temporale di arrivo. Una
+        // tappa mai raggiunta non ha finestra → non può attrarre drink legacy.
+        if (!v) return false;
         const t = new Date(d.added_at).getTime();
         return t >= start && t < end;
       });
@@ -2043,10 +2085,10 @@ export default function FeedPage() {
       // finestra temporale (foto vecchie senza tag).
       const stopPhotos = photos.filter((m) => {
         if (typeof m.stopIdx === 'number') return m.stopIdx === i;
-        if (m.at) { const t = new Date(m.at).getTime(); return t >= start && t < end; }
+        if (v && m.at) { const t = new Date(m.at).getTime(); return t >= start && t < end; }
         return false;
       });
-      return { name: v.name, verified: !!v.verified, drinks: groupDrinks(stopDrinks), photos: stopPhotos };
+      return { name: v?.name || st.name, verified: !!v?.verified, reached: !!v, drinks: groupDrinks(stopDrinks), photos: stopPhotos };
     });
   };
 
@@ -3864,17 +3906,22 @@ export default function FeedPage() {
                       <strong style={{ color: '#FFF', fontSize: '15px' }}>{locationDisplayName(selectedActivity.location, t)}</strong>
                       <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{selectedActivity.location.address}</div>
                     </div>
-                    {!selectedActivity.location.freeform && (selectedActivity.location.address || typeof selectedActivity.location.lat === 'number') && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((selectedActivity.location.name || '') + ' ' + (selectedActivity.location.address || ''))}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px' }}
-                      >
-                        {t('session.openMaps')}
-                      </a>
-                    )}
+                    {!selectedActivity.location.freeform && (() => {
+                      const href = mapsHrefForLocation(selectedActivity.location);
+                      if (!href) return null;
+                      const isRoute = href.includes('/maps/dir/');
+                      return (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px', flexShrink: 0 }}
+                        >
+                          {isRoute ? t('session.openMapsRoute') : t('session.openMaps')}
+                        </a>
+                      );
+                    })()}
                   </div>
 
                   {/* Mappa: SOLO con coordinate reali. Le sessioni libere (o i locali senza
@@ -3913,6 +3960,10 @@ export default function FeedPage() {
                   {(() => {
                     const perStop = tourDrinksByStop(selectedActivity);
                     if (!perStop) return null;
+                    // Tappa non ancora raggiunta: "in programma" se il tour è ancora in corso,
+                    // "non raggiunta" se la sessione è chiusa (o scaduta da oltre 5h).
+                    const stillRunning = selectedActivity.is_active
+                      && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000;
                     return (
                       <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '15px' }}>
                         <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -3922,13 +3973,17 @@ export default function FeedPage() {
                           {perStop.map((s, i) => {
                             const allImgs = selectedActivity.media?.filter((m) => m.type === 'image') || [];
                             return (
-                            <div key={i} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px 12px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                <span style={{ background: '#EF4444', color: '#fff', width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
+                            <div key={i} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '10px 12px', opacity: s.reached ? 1 : 0.55 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: s.reached ? '6px' : 0 }}>
+                                <span style={{ background: s.reached ? '#EF4444' : 'transparent', border: s.reached ? 'none' : '1px solid var(--border-solid)', color: s.reached ? '#fff' : 'var(--text-dark-secondary)', width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
                                 <strong style={{ fontSize: '13px', color: '#FFF' }}>{s.name}</strong>
-                                {!s.verified && <span style={{ fontSize: '9px', color: 'var(--text-dark-secondary)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '1px 6px' }}>{t('session.unverified')}</span>}
+                                {!s.reached ? (
+                                  <span style={{ fontSize: '9px', color: 'var(--text-dark-secondary)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '1px 6px' }}>{stillRunning ? t('session.stopUpcoming') : t('session.stopNotReached')}</span>
+                                ) : !s.verified && (
+                                  <span style={{ fontSize: '9px', color: 'var(--text-dark-secondary)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '1px 6px' }}>{t('session.unverified')}</span>
+                                )}
                               </div>
-                              {s.drinks.length === 0 ? (
+                              {!s.reached ? null : s.drinks.length === 0 ? (
                                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('session.noDrinksHere')}</span>
                               ) : (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
