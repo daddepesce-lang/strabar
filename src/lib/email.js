@@ -125,6 +125,51 @@ const VENUE = {
   es: { subject: 'Tu solicitud para {venue} está aprobada 🎉', h: 'Bienvenido a Strabar para locales 🍻', p1: 'La solicitud de gestión de <strong style="color:#fff">{venue}</strong> ha sido <strong style="color:#fff">aprobada</strong>. Crea (o inicia sesión en) tu cuenta para gestionar el local: clasificación, eventos patrocinados, promos y notificaciones a los clientes.', cta: 'Activar la cuenta del local', p2: 'Usa este mismo correo para registrarte: vincularemos la cuenta a tu local.', foot: '18+ · Bebe con responsabilidad.' },
 };
 
+// PRESENTAZIONE AI LOCALI (outreach) — la mail che apre la porta.
+//
+// Regole che la rendono una mail e non uno spam: dice subito CHE COSA c'è già (la loro
+// pagina esiste, con i numeri veri di chi ha bevuto lì), non chiede soldi, e la sola cosa
+// che propone è gratis. I numeri li passiamo veri, non tondi: sono la prova che non è
+// una mail generica spedita a mille indirizzi.
+//
+// Si manda una alla volta dal CRM (/admin → Contatti locali), mai in blocco: oltre a essere
+// più onesto, è ciò che tiene in vita la reputazione del dominio.
+export async function sendVenuePitchEmail({ to, venueName, venueUrl, sessions = 0, athletes = 0 }) {
+  const subject = sessions > 0
+    ? `${venueName}: ${sessions} brindisi registrati da voi su Strabar`
+    : `${venueName} su Strabar: la classifica dei vostri clienti`;
+
+  const proof = sessions > 0
+    ? `Nel vostro locale <strong style="color:#fff">${sessions} brindisi</strong> sono già stati registrati da <strong style="color:#fff">${athletes} persone</strong> — senza che voi abbiate fatto nulla.`
+    : `Il vostro locale ha già una pagina su Strabar, pronta per i vostri clienti.`;
+
+  const html = shell(`
+        <h1 style="color:#FF3B2F;margin:0 0 12px">Negli altri sport sono scarsi.</h1>
+        <p style="line-height:1.6;color:#9CA3AF">Strabar è il social degli "atleti da bar": si registra quello che si beve, si sfidano gli amici e si scala la classifica del locale. ${proof}</p>
+        <p style="line-height:1.6;color:#9CA3AF">Questa è la vostra pagina, pubblica e gratuita:</p>
+        ${btn(venueUrl, 'Vedi la pagina di ' + venueName)}
+        <p style="line-height:1.6;color:#9CA3AF">Cosa vi diamo, <strong style="color:#fff">gratis e per sempre</strong>:</p>
+        <ul style="line-height:1.7;color:#9CA3AF;padding-left:18px">
+          <li>La classifica dei vostri clienti, che riparte ogni lunedì.</li>
+          <li>Un cartello A4 da stampare con il QR: chi lo inquadra registra la bevuta da voi in due tap.</li>
+          <li>Le statistiche del locale: quante persone, cosa bevono, quando vengono.</li>
+        </ul>
+        <p style="line-height:1.6;color:#9CA3AF;font-size:13px">Non c'è nulla da pagare e nulla da installare. Se volete il cartello, rispondete a questa mail: ve lo mandiamo già pronto con il nome del locale.</p>
+        <p style="font-size:12px;color:#6b7280;margin-top:20px">18+ · Beviamo responsabilmente, e lo ricordiamo in ogni sessione: Strabar stima il tasso alcolemico e avvisa chi è sopra il limite per guidare.</p>`);
+
+  const text = [
+    subject, '',
+    'Strabar è il social degli "atleti da bar": si registra quello che si beve, si sfidano gli amici e si scala la classifica del locale.',
+    sessions > 0 ? `Nel vostro locale ${sessions} brindisi sono già stati registrati da ${athletes} persone.` : '',
+    '', `La vostra pagina: ${venueUrl}`, '',
+    'Gratis e per sempre: la classifica dei clienti (riparte ogni lunedì), un cartello A4 con il QR per registrare la bevuta in due tap, e le statistiche del locale.',
+    '', 'Se volete il cartello, rispondete a questa mail.',
+    '', '18+ · Bevi responsabilmente.',
+  ].filter(Boolean).join('\n');
+
+  return send({ to, subject, html, text, unsubscribe: true });
+}
+
 // `link` porta alla registrazione (o all'area gestione). `lang` = lingua del destinatario.
 export async function sendVenueApprovalEmail(to, venueName, link, lang) {
   const L = VENUE[emailLang(lang)];

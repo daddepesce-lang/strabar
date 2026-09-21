@@ -133,14 +133,17 @@ export default function VenuePosterPage({ params }) {
 
         {/* CORPO */}
         <div style={{ flex: 1, padding: '12mm 16mm 14mm', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          {/* Il claim fa il lavoro del cartello: in un bar nessuno legge una spiegazione,
+              ma una battuta che ti chiama in causa la leggono tutti. */}
           <div style={{ display: 'inline-block', background: 'rgba(255,59,47,0.10)', color: '#FF3B2F', border: '1.5px solid #FF3B2F', borderRadius: '999px', padding: '6px 18px', fontSize: '14px', fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-            🍻 Sei da noi? Registralo!
+            Negli altri sport sei scarso
           </div>
 
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '58px', lineHeight: 1.02, margin: '5mm 0 3mm', letterSpacing: '.5px' }}>{name}</h1>
           <p style={{ fontSize: '17px', color: '#333', maxWidth: '150mm', margin: '0 0 8mm', lineHeight: 1.55 }}>
             Inquadra il QR: parte in un attimo una sessione <strong>in questo locale</strong> e
-            <strong> scali subito la sua classifica</strong>. Niente attese.
+            <strong> entri nella sua classifica</strong>. Che riparte da zero ogni lunedì — il
+            trono è di chi se lo prende questa settimana. 👑
           </p>
 
           {/* QR */}
@@ -163,7 +166,7 @@ export default function VenuePosterPage({ params }) {
             {[
               { n: '1', t: 'Inquadra il QR', d: 'Con la fotocamera' },
               { n: '2', t: 'Parte la sessione', d: 'In questo locale' },
-              { n: '3', t: 'Aggiungi i drink', d: 'E sali in classifica 🏆' },
+              { n: '3', t: 'Aggiungi i drink', d: 'E vai per il trono 👑' },
             ].map((s) => (
               <div key={s.n} style={{ flex: 1, maxWidth: '52mm', background: '#F6F6F7', borderRadius: '14px', padding: '14px 10px' }}>
                 <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#FF3B2F', color: '#fff', fontFamily: 'var(--font-display)', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>{s.n}</div>
@@ -173,7 +176,14 @@ export default function VenuePosterPage({ params }) {
             ))}
           </div>
 
-          <div style={{ marginTop: 'auto', paddingTop: '10mm', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          {/* La classifica si guarda anche senza scaricare nulla: l'indirizzo stampato serve
+              a chi il QR non lo inquadra (e a chi vuole rivedere la classifica da casa). */}
+          <div style={{ marginTop: 'auto', paddingTop: '8mm', width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: '13px', color: '#666' }}>
+              La classifica di questo locale: <strong style={{ color: '#0A0A0D' }}>strabar.app/locale/{placeKey}</strong>
+            </div>
+          </div>
+          <div style={{ paddingTop: '6mm', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <span style={{ fontSize: '12px', color: '#999' }}>Bevi responsabilmente · 18+</span>
             <strong style={{ fontFamily: 'var(--font-display)', fontSize: '24px', color: '#0A0A0D', letterSpacing: '.5px' }}>strabar.app</strong>
           </div>

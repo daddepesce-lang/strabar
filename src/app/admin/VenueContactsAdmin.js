@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader, Mail, Download, RefreshCw, Trash2, Search, Sparkles, Check, BadgeCheck } from 'lucide-react';
+import { Loader, Mail, Download, RefreshCw, Trash2, Search, Sparkles, Check, BadgeCheck, Send } from 'lucide-react';
 
 // CRM contatti locali per l'outreach (tester, locandine, passaparola).
 // Tutto passa dall'API admin (/api/admin/venue-contacts) via service role.
@@ -62,6 +62,22 @@ export default function VenueContactsAdmin() {
       await post({ action: 'update', key: c.key, name: c.name, ...patch });
       setEdits((p) => { const n = { ...p }; delete n[c.key]; return n; });
       load();
+    } catch (e) { alert(e.message); } finally { setRowBusy(null); }
+  };
+
+  // Presentazione via email a UN locale. Con conferma esplicita e senza invio in blocco:
+  // duecento mail in un colpo bruciano il dominio e finiscono in spam.
+  const pitch = async (c) => {
+    if (!c.email) { alert('Manca l\'email di questo locale.'); return; }
+    const again = c.last_contacted_at
+      ? `\n\nATTENZIONE: gia' contattato il ${new Date(c.last_contacted_at).toLocaleDateString('it-IT')}.`
+      : '';
+    if (!window.confirm(`Invio la presentazione di Strabar a ${c.name} (${c.email})?${again}`)) return;
+    setRowBusy(c.key);
+    try {
+      const j = await post({ action: 'pitch', key: c.key });
+      load();
+      alert(`Presentazione inviata a ${j.sentTo}.`);
     } catch (e) { alert(e.message); } finally { setRowBusy(null); }
   };
 
@@ -180,6 +196,15 @@ export default function VenueContactsAdmin() {
                 <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                   <button onClick={() => saveRow(c)} disabled={!dirty || rb} className="btn btn-primary" style={{ fontSize: 11, padding: '6px 12px' }}>
                     {rb ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />} Salva
+                  </button>
+                  <button
+                    onClick={() => pitch(c)}
+                    disabled={rb || !field(c.key, 'email', c.email)}
+                    className="btn btn-secondary"
+                    title={c.last_contacted_at ? `Ultimo contatto: ${new Date(c.last_contacted_at).toLocaleDateString('it-IT')}` : 'Manda la presentazione di Strabar'}
+                    style={{ fontSize: 11, padding: '6px 12px', ...(c.last_contacted_at ? { opacity: 0.65 } : {}) }}
+                  >
+                    <Send size={12} /> {c.last_contacted_at ? 'Presentazione inviata' : 'Invia presentazione'}
                   </button>
                   {data.googleEnabled && (
                     <button onClick={() => enrich(c)} disabled={rb} className="btn btn-secondary" style={{ fontSize: 11, padding: '6px 12px' }}>

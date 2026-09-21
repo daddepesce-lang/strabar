@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
-import { Store, Search, Loader, Star, Megaphone, Bell, ArrowRight, MapPin, Navigation } from 'lucide-react';
+import { Store, Search, Loader, Star, Megaphone, Bell, ArrowRight, MapPin, Navigation, Trophy, Printer, BarChart3 } from 'lucide-react';
 import { showToast, showError } from '@/lib/toast';
 
 const distKm = (aLat, aLng, bLat, bLng) => {
@@ -79,6 +79,16 @@ export default function BusinessPage() {
     return () => clearTimeout(h);
   }, [q, community]);
 
+  // Numeri della rete Strabar, calcolati sulla lista già in memoria (nessun fetch extra).
+  const stats = (() => {
+    const list = community || [];
+    return {
+      venues: list.length,
+      sessions: list.reduce((n, c) => n + (c.sessionsCount || 0), 0),
+      athletes: list.reduce((n, c) => n + (c.uniqueDrinkers || 0), 0),
+    };
+  })();
+
   const SERVICES = [
     { icon: Star, t: t('businesspage.svcSponsoredTitle'), d: t('businesspage.svcSponsoredDesc') },
     { icon: Megaphone, t: t('businesspage.svcPromoTitle'), d: t('businesspage.svcPromoDesc') },
@@ -93,6 +103,45 @@ export default function BusinessPage() {
         <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', lineHeight: 1.5 }}>
           {t('businesspage.heroSubtitle')}
         </p>
+      </div>
+
+      {/* PROVA SOCIALE: i numeri veri della rete, non promesse. Arrivano dalla stessa
+          lista già caricata per il finder — nessuna richiesta in più. */}
+      {stats.venues > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          {[
+            { v: stats.venues, l: t('businesspage.statVenues') },
+            { v: stats.sessions, l: t('businesspage.statSessions') },
+            { v: stats.athletes, l: t('businesspage.statAthletes') },
+          ].map((x) => (
+            <div key={x.l} className="card" style={{ textAlign: 'center', padding: '14px 8px' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', color: 'var(--secondary)', lineHeight: 1 }}>{x.v}</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', marginTop: '4px' }}>{x.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* GRATIS PER SEMPRE: è ciò che si offre alla prima visita. I servizi a pagamento
+          vengono dopo, e solo a chi ha già visto funzionare la cosa. */}
+      <div className="card" style={{ padding: '18px', border: '1px solid var(--secondary)' }}>
+        <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>{t('businesspage.freeTitle')}</h2>
+        <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>{t('businesspage.freeSubtitle')}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[
+            { icon: Trophy, t: t('businesspage.freeBoardTitle'), d: t('businesspage.freeBoardDesc') },
+            { icon: Printer, t: t('businesspage.freePosterTitle'), d: t('businesspage.freePosterDesc') },
+            { icon: BarChart3, t: t('businesspage.freeStatsTitle'), d: t('businesspage.freeStatsDesc') },
+          ].map((x) => (
+            <div key={x.t} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              <x.icon size={18} color="var(--secondary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFF' }}>{x.t}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.45 }}>{x.d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '10px' }}>

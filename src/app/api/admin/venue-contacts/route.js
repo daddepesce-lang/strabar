@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/utils/supabase/admin';
 import { googleVenueContact, GOOGLE_VENUES_ENABLED } from '@/lib/venues-google';
 import { reserveGoogleCall } from '@/lib/api-quota';
+import { sendVenuePitchEmail } from '@/lib/email';
 
 // CRM contatti locali per l'outreach (tester, locandine, passaparola). Solo admin.
 // GET  → elenco contatti + quali locali della directory NON sono ancora nel CRM.
-// POST → { action:'seed' | 'update' | 'enrich' | 'delete' }
+// POST → { action:'seed' | 'update' | 'enrich' | 'pitch' | 'delete' }
 
 const EDITABLE = ['email', 'phone', 'instagram', 'website', 'address', 'status', 'notes', 'last_contacted_at', 'name', 'lat', 'lng'];
 
@@ -103,6 +104,52 @@ export async function POST(req) {
     } catch (err) {
       return NextResponse.json({ error: String(err.message || err) }, { status: 502 });
     }
+  }
+
+  // Manda la mail di presentazione a UN locale e segna il contatto come "contattato".
+  // Uno alla volta di proposito: un invio in blocco a duecento indirizzi brucia la
+  // reputazione del dominio e finisce in spam — cioè l'esatto contrario dell'obiettivo.
+  if (action === 'pitch') {
+    const key = (body.key || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!key) return NextResponse.json({ error: 'key mancante' }, { status: 400 });
+
+    const { data: contact, error: cErr } = await gate.admin
+      .from('venue_contacts').select('*').eq('key', key).maybeSingle();
+    if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 });
+    if (!contact) return NextResponse.json({ error: 'Contatto non trovato' }, { status: 404 });
+    if (!contact.email) return NextResponse.json({ error: 'Questo contatto non ha email' }, { status: 400 });
+
+    // I numeri veri del locale: sono la differenza tra una presentazione e una circolare.
+    const directory = await loadDirectory(gate.admin);
+    const dir = (directory || []).find((v) => v.key === key);
+    const base = (process.env.NEXT_PUBLIC_SITE_URL || 'https://strabar.app').replace(/\/+$/, '');
+
+    try {
+      const res = await sendVenuePitchEmail({
+        to: contact.email,
+        venueName: contact.name || dir?.name || 'il vostro locale',
+        venueUrl: `${base}/locale/${encodeURIComponent(key)}`,
+        sessions: dir?.sessionsCount || 0,
+        athletes: dir?.uniqueDrinkers || 0,
+      });
+      if (res?.skipped) {
+        return NextResponse.json({ error: 'RESEND_API_KEY non configurata: email non inviata' }, { status: 503 });
+      }
+    } catch (err) {
+      return NextResponse.json({ error: String(err.message || err) }, { status: 502 });
+    }
+
+    // Traccia il contatto: lo stato avanza solo se era ancora "da contattare", così una
+    // seconda mail non riporta indietro un locale già interessato o già tester.
+    const patch = {
+      key,
+      last_contacted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...(contact.status === 'da_contattare' ? { status: 'contattato' } : {}),
+    };
+    const { error: uErr } = await gate.admin.from('venue_contacts').upsert(patch, { onConflict: 'key' });
+    if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true, sentTo: contact.email });
   }
 
   if (action === 'delete') {
