@@ -33,7 +33,12 @@ export default async function Image({ params }) {
       stats: [
         { value: board?.sessionsCount || 0, label: 'brindisi' },
         { value: board?.totalDrinks || 0, label: 'drink' },
-        ...(board?.reviewsCount > 0 ? [{ value: board.avgRating, label: 'voto medio' }] : []),
+        // Il tasso medio è il numero più riconoscibile dell'app: quando c'è, vince sul voto.
+        ...(board?.avgBac != null
+          ? [{ value: `${String(board.avgBac).replace('.', ',')} g/l`, label: 'tasso medio' }]
+          : board?.reviewsCount > 0
+          ? [{ value: board.avgRating, label: 'voto medio' }]
+          : []),
       ],
       footer: city || undefined,
     }),
