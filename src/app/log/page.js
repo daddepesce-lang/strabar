@@ -73,6 +73,14 @@ export default function LogActivityPage() {
     drinks: [],
     media: []
   });
+  // Locale della sessione a posteriori: suggerimenti di locali REALI mentre scrivi.
+  // Un nome scritto a mano non ha coordinate, e senza coordinate il dettaglio sessione non
+  // puo' disegnare la mappa (mostrava solo "nessuna posizione" con accanto il pulsante Maps).
+  // Scegliendo un suggerimento salviamo anche indirizzo e lat/lng.
+  const [retroVenue, setRetroVenue] = useState(null); // locale scelto dai suggerimenti
+  const [retroVenueResults, setRetroVenueResults] = useState([]);
+  const [retroVenueSearching, setRetroVenueSearching] = useState(false);
+  const [retroVenueOpen, setRetroVenueOpen] = useState(false); // dropdown visibile
 
   const handleRetroAddPhoto = async (e) => {
     const file = e.target.files?.[0];
@@ -118,6 +126,48 @@ export default function LogActivityPage() {
   const handleRetroRemoveDrink = (idx) => {
     setRetroForm(prev => ({ ...prev, drinks: prev.drinks.filter((_, i) => i !== idx) }));
   };
+  // Cerca locali reali mentre scrivi nel form a posteriori (stesso debounce del selettore live).
+  // Teniamo solo i risultati CON coordinate: sono gli unici che aggiungono qualcosa al nome
+  // gia' digitato (mappa nel dettaglio, link Maps preciso, locale riconosciuto).
+  useEffect(() => {
+    if (!retroVenueOpen) return;
+    const q = retroForm.location.trim();
+    if (q.length < 2 || (retroVenue && retroVenue.name === q)) {
+      setRetroVenueResults([]);
+      setRetroVenueSearching(false);
+      return;
+    }
+    setRetroVenueSearching(true);
+    const handle = setTimeout(async () => {
+      const res = await db.searchVenues(q, userCoords).catch(() => []);
+      setRetroVenueResults(
+        res.filter((v) => v.isVenue && typeof v.lat === 'number' && typeof v.lng === 'number').slice(0, 6)
+      );
+      setRetroVenueSearching(false);
+    }, 450);
+    return () => clearTimeout(handle);
+  }, [retroForm.location, retroVenue, retroVenueOpen, userCoords]);
+
+  // Location da salvare per la sessione a posteriori.
+  // Locale scelto dai suggerimenti -> con indirizzo e coordinate (la mappa compare).
+  // Nome libero -> solo il nome. In entrambi i casi `unverified`: e' un ricordo, non c'e'
+  // nessuna prova GPS di essere stati li', quindi non deve valere per le classifiche locali.
+  const buildRetroLocation = () => {
+    const typed = retroForm.location.trim();
+    if (!typed) return null;
+    if (retroVenue && retroVenue.name === typed
+      && typeof retroVenue.lat === 'number' && typeof retroVenue.lng === 'number') {
+      return {
+        name: retroVenue.name,
+        address: retroVenue.address || '',
+        lat: retroVenue.lat,
+        lng: retroVenue.lng,
+        unverified: true,
+      };
+    }
+    return { name: typed, unverified: true };
+  };
+
   const handleRetroSubmit = async (e) => {
     e.preventDefault();
     if (retroForm.drinks.length === 0) {
@@ -145,7 +195,7 @@ export default function LogActivityPage() {
         total_units: parseFloat(totalUnits.toFixed(1)),
         duration: duration,
         feeling: retroForm.feeling,
-        location: retroForm.location ? { name: retroForm.location } : null,
+        location: buildRetroLocation(),
         bac_level: parseFloat(bac.toFixed(2)),
         media: retroForm.media && retroForm.media.length > 0 ? retroForm.media : null,
         full_stomach: fullStomach,
@@ -1252,14 +1302,52 @@ export default function LogActivityPage() {
               {/* Locale */}
               <div>
                 <label style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: '4px', fontWeight: '600' }}>{t('logpage.venuePlaceLabel')}</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder={t('logpage.venuePlacePlaceholder')}
-                  value={retroForm.location}
-                  onChange={e => setRetroForm(p => ({ ...p, location: e.target.value }))}
-                  style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder={t('logpage.venuePlacePlaceholder')}
+                    value={retroForm.location}
+                    onChange={e => {
+                      setRetroVenue(null);
+                      setRetroVenueOpen(true);
+                      setRetroForm(p => ({ ...p, location: e.target.value }));
+                    }}
+                    onFocus={() => setRetroVenueOpen(true)}
+                    // blur ritardato: un click su un suggerimento deve poter arrivare prima
+                    onBlur={() => setTimeout(() => setRetroVenueOpen(false), 180)}
+                    autoComplete="off"
+                    style={{ height: '40px', padding: '0 12px', fontSize: '14px' }}
+                  />
+                  {retroVenueSearching && (
+                    <Loader size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+                  )}
+                  {retroVenueOpen && !retroVenueSearching && retroVenueResults.length > 0 && (
+                    <div style={{ position: 'absolute', top: '44px', left: 0, right: 0, zIndex: 30, background: 'var(--bg-card-dark, #14161a)', border: '1px solid var(--border-dark)', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.45)' }}>
+                      {retroVenueResults.map((v) => (
+                        <div
+                          key={v.key || `${v.name}-${v.lat}-${v.lng}`}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setRetroVenue(v);
+                            setRetroForm(p => ({ ...p, location: v.name }));
+                            setRetroVenueResults([]);
+                            setRetroVenueOpen(false);
+                          }}
+                          style={{ padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-dark)' }}
+                        >
+                          <div style={{ fontSize: '13px', color: '#FFF', fontWeight: 600 }}>{v.name}</div>
+                          {v.address && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '1px' }}>{v.address}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: '11px', color: retroVenue ? 'var(--secondary)' : 'var(--text-dark-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
+                  {retroVenue ? t('logpage.retroVenuePicked') : t('logpage.retroVenueHint')}
+                </div>
               </div>
 
               {/* Stato */}

@@ -9,8 +9,9 @@
 // Se Supabase non risponde, `getPublicRoutes` ritorna [] e la sitemap resta valida con
 // le sole pagine statiche: meglio una sitemap ridotta che una rotta.
 import { getPublicRoutes } from '@/lib/publicRoutes';
+import { getPublicVenues, getVenuesByCity } from '@/lib/publicVenues';
 import { routeCities } from '@/lib/cityFromAddress';
-import { routePublicPath } from '@/lib/slug';
+import { routePublicPath, slugify } from '@/lib/slug';
 
 const BASE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://strabar.app').replace(/\/+$/, '');
 
@@ -24,6 +25,7 @@ const STATIC_PAGES = [
   { path: '/pub-crawl', priority: 0.9, changeFrequency: 'monthly', languages: { 'it-IT': '/pub-crawl', en: '/en/pub-crawl' } },
   { path: '/en/bacaro-tour', priority: 0.8, changeFrequency: 'monthly', languages: { 'it-IT': '/bacaro-tour', en: '/en/bacaro-tour' } },
   { path: '/en/pub-crawl', priority: 0.8, changeFrequency: 'monthly', languages: { 'it-IT': '/pub-crawl', en: '/en/pub-crawl' } },
+  { path: '/locali', priority: 0.8, changeFrequency: 'daily' },
   { path: '/premium', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/business', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/install', priority: 0.6, changeFrequency: 'monthly' },
@@ -61,5 +63,28 @@ export default async function sitemap() {
     priority: (r.starts_count || 0) > 0 ? 0.8 : 0.6,
   }));
 
-  return [...staticEntries, ...routeEntries];
+  // LOCALI: ogni bar con almeno un brindisi registrato è una scheda pubblica con
+  // classifica e recensioni. È l'inventario che cresce con l'operazione partner (un
+  // cartello in più = una pagina indicizzabile in più), senza scrivere niente a mano.
+  // Sotto i 3 brindisi la scheda è troppo povera per la SERP: la teniamo fuori, come fa
+  // `robots: noindex` sulla pagina stessa.
+  const venues = (await getPublicVenues()).filter((v) => (v.sessionsCount || 0) >= 3);
+  const venueEntries = venues.map((v) => ({
+    url: `${BASE}/locale/${encodeURIComponent(v.key)}`,
+    lastModified: v.lastSeen ? new Date(v.lastSeen) : now,
+    changeFrequency: 'weekly',
+    priority: (v.sessionsCount || 0) >= 20 ? 0.8 : 0.6,
+  }));
+
+  // CITTÀ: la pagina che raccoglie i locali di una zona (e li collega tra loro).
+  const cityEntries = (await getVenuesByCity())
+    .filter((g) => g.venues.length >= 2)
+    .map((g) => ({
+      url: `${BASE}/locali/${slugify(g.city)}`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    }));
+
+  return [...staticEntries, ...routeEntries, ...cityEntries, ...venueEntries];
 }

@@ -84,21 +84,34 @@ export function cityFromAddress(address) {
   while (parts.length && COUNTRIES.has(parts[parts.length - 1].toLowerCase())) parts.pop();
   if (!parts.length) return null;
 
+  // Ogni segmento si porta dietro se proveniva da un'area AMMINISTRATIVA ("Città
+  // Metropolitana di Venezia", "Provincia di Padova"): il nome che contiene è quello del
+  // capoluogo, non del comune del locale. Nell'ordine Nominatim viene dopo il comune,
+  // quindi senza questa distinzione un bar a Olmo di Mirano finiva sotto "Venezia".
+  // La marcatura è per POSIZIONE, non per testo: "Venezia" può comparire due volte (una
+  // come comune e una come città metropolitana) e sono due cose diverse.
   const cleaned = parts
+    .map((p, i) => ({ text: p, idx: i, admin: ADMIN_PREFIX.test(p) }))
     // Rimuovi CAP (4-6 cifre) ovunque nel segmento.
-    .map((p) => p.replace(/\b\d{4,6}\b/g, ' ').replace(/\s+/g, ' ').trim())
+    .map((e) => ({ ...e, text: e.text.replace(/\b\d{4,6}\b/g, ' ').replace(/\s+/g, ' ').trim() }))
     // Rimuovi la sigla provincia (2 maiuscole) in testa o in coda: "Venezia VE" → "Venezia".
-    .map((p) => p.replace(/\s+\b[A-Z]{2}\b$/, '').replace(/^\b[A-Z]{2}\b\s+/, '').trim())
+    .map((e) => ({ ...e, text: e.text.replace(/\s+\b[A-Z]{2}\b$/, '').replace(/^\b[A-Z]{2}\b\s+/, '').trim() }))
     // Isola il comune dai prefissi amministrativi: "Città Metropolitana di Venezia" → "Venezia".
-    .map((p) => p.replace(ADMIN_PREFIX, '').trim())
+    .map((e) => ({ ...e, text: e.text.replace(ADMIN_PREFIX, '').trim() }))
     // Nominatim nomina alcuni comuni unendo le località con i trattini
     // ("Venezia-Murano-Burano"): il comune è il primo pezzo.
-    .map((p) => (/^[A-Za-zÀ-ÿ]+(-[A-Za-zÀ-ÿ]+){1,}$/.test(p) && !REGIONS.has(p.toLowerCase()) ? p.split('-')[0].trim() : p))
-    .filter(Boolean);
+    .map((e) => ({
+      ...e,
+      text:
+        /^[A-Za-zÀ-ÿ]+(-[A-Za-zÀ-ÿ]+){1,}$/.test(e.text) && !REGIONS.has(e.text.toLowerCase())
+          ? e.text.split('-')[0].trim()
+          : e.text,
+    }))
+    .filter((e) => e.text);
 
   // Tieni solo i segmenti che possono essere un comune: scarta regioni, quartieri/sestieri,
   // segmenti amministrativi "nudi", numeri civici e token troppo corti.
-  const candidates = cleaned.filter((p) => {
+  const candidates = cleaned.filter(({ text: p }) => {
     const lc = p.toLowerCase();
     if (REGIONS.has(lc)) return false;
     if (NEIGHBORHOODS.has(lc)) return false;
@@ -111,8 +124,74 @@ export function cityFromAddress(address) {
   });
   if (!candidates.length) return null;
 
-  // Ordine tipico: via → quartiere → COMUNE → provincia → regione → CAP → paese.
-  // Dopo aver tolto quartieri, province e regioni, il comune è l'ultimo candidato rimasto.
+  // Ordine italiano tipico: locale → via → frazione → COMUNE → provincia → REGIONE →
+  // CAP → paese. La provincia spesso non si annuncia ("…, Mira, Venezia, Veneto, …":
+  // quel "Venezia" è la provincia, il comune è Mira), quindi non basta guardare i
+  // prefissi amministrativi: usiamo la REGIONE come pietra miliare e scartiamo il
+  // segmento che la precede, che è la provincia.
+  const regionIdx = cleaned.findIndex((e) => REGIONS.has(e.text.toLowerCase()));
+  const pool = regionIdx >= 0 ? candidates.filter((e) => e.idx < regionIdx) : candidates;
+  if (!pool.length) return prettifyCity(candidates[candidates.length - 1].text);
+
+  if (regionIdx >= 0 && pool.length >= 2) {
+    const comune = pool[pool.length - 2];
+    // GUARDIA: se scartando la "provincia" finiremmo sul primo segmento (che è il nome
+    // del locale, non un comune), allora quell'indirizzo la provincia non ce l'aveva:
+    // meglio tenere l'ultimo segmento così com'è.
+    if (comune.idx > 0) return prettifyCity(comune.text);
+    return prettifyCity(pool[pool.length - 1].text);
+  }
+
+  // Nessuna regione in coda (formato Google, o indirizzo corto): vale l'ultimo candidato,
+  // preferendo quelli che non vengono da un'area amministrativa.
+  const plain = pool.filter((e) => !e.admin);
+  const pick = plain.length ? plain : pool;
+  return prettifyCity(pick[pick.length - 1].text);
+}
+
+/**
+ * Variante per gli INDIRIZZI DEI LOCALI (`venues.address`, directory dei bar).
+ *
+ * `cityFromAddress` pretende un CAP o una nazione prima di fidarsi: giusto per le tappe
+ * dei percorsi, dove un falso positivo sporca il titolo di una pagina pubblica. Ma gli
+ * indirizzi dei locali sono spesso scritti a mano dal gestore ("Via Belvedere 3, Mirano")
+ * e con quella regola nessuno di loro finirebbe nella pagina della propria città.
+ *
+ * Qui accettiamo anche l'ultimo segmento nudo, applicando però gli STESSI filtri di
+ * sicurezza: niente vie, quartieri, regioni, nazioni o sigle di provincia. In caso di
+ * dubbio torniamo null: meglio un locale senza città che nella città sbagliata.
+ */
+export function cityFromVenueAddress(address) {
+  const strict = cityFromAddress(address);
+  if (strict) return strict;
+  if (!address || typeof address !== 'string') return null;
+  if (PLACEHOLDER_NOTE.test(address)) return null;
+
+  const parts = address.split(',').map((s) => s.trim()).filter(Boolean);
+  // Un solo segmento è quasi sempre il nome del locale, non un indirizzo.
+  if (parts.length < 2) return null;
+
+  const cleaned = parts
+    .map((p) => p.replace(/\(([A-Za-z]{2})\)\s*$/, ''))       // "Dolo (VE)" → "Dolo"
+    .map((p) => p.replace(/\b\d{4,6}\b/g, ' ').replace(/\s+/g, ' ').trim())
+    .map((p) => p.replace(/\s+\b[A-Z]{2}\b$/, '').replace(/^\b[A-Z]{2}\b\s+/, '').trim())
+    .map((p) => p.replace(ADMIN_PREFIX, '').trim())
+    .filter(Boolean);
+
+  const candidates = cleaned.filter((p, i) => {
+    const lc = p.toLowerCase();
+    if (i === 0) return false;              // il primo segmento è il nome del locale o la via
+    if (COUNTRIES.has(lc)) return false;
+    if (REGIONS.has(lc)) return false;
+    if (NEIGHBORHOODS.has(lc)) return false;
+    if (ADMIN_BARE.test(p)) return false;
+    if (STREET_PREFIX.test(p)) return false;
+    if (/^[A-Z]{2}$/.test(p)) return false;
+    if (/\d/.test(p)) return false;         // civici e numeri: mai un comune
+    if (!/[a-zA-ZÀ-ÿ]{3,}/.test(p)) return false;
+    return true;
+  });
+  if (!candidates.length) return null;
   return prettifyCity(candidates[candidates.length - 1]);
 }
 

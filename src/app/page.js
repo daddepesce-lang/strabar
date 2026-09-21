@@ -3910,6 +3910,10 @@ export default function FeedPage() {
                       const href = mapsHrefForLocation(selectedActivity.location);
                       if (!href) return null;
                       const isRoute = href.includes('/maps/dir/');
+                      // Senza coordinate il link è solo una RICERCA per nome: Maps può aprire
+                      // un omonimo a 500 km. Diciamolo nell'etichetta invece di promettere
+                      // "apri il locale" (è anche il caso in cui qui sotto non c'è mappa).
+                      const isNameSearch = !isRoute && !/[?&]query=-?\d+(\.\d+)?,/.test(href);
                       return (
                         <a
                           href={href}
@@ -3918,7 +3922,7 @@ export default function FeedPage() {
                           className="btn btn-secondary"
                           style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '6px', flexShrink: 0 }}
                         >
-                          {isRoute ? t('session.openMapsRoute') : t('session.openMaps')}
+                          {isRoute ? t('session.openMapsRoute') : isNameSearch ? t('session.searchMaps') : t('session.openMaps')}
                         </a>
                       );
                     })()}
