@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
 import {
   Calendar, Plus, MapPin, Users, Clock, X, Check,
-  CalendarPlus, Route as RouteIcon, Crown, Loader,
+  CalendarPlus, Route as RouteIcon, Crown, Loader, Swords,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
 import { publicName } from '@/lib/names';
@@ -47,6 +47,9 @@ export default function EventsPage() {
   const [inviteResults, setInviteResults] = useState([]);
   const [inviteSearching, setInviteSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  // SFIDA: l'evento diventa una gara con classifica viva tra i partecipanti
+  // (vedi get_challenge_board). L'aperitivo è il caso tipico, quindi ha un avvio rapido.
+  const [challenge, setChallenge] = useState(false);
 
   // Selettore luogo: cerca locali/indirizzi reali (OSM) oppure usa testo libero.
   const [locQuery, setLocQuery] = useState('');
@@ -162,6 +165,12 @@ export default function EventsPage() {
         title, description: desc, date,
         location_name: finalLocName,
         location: selectedLoc && selectedLoc.lat != null ? selectedLoc : null,
+        challenge,
+        // La chiave del locale ancora la sfida a un posto vero: senza, la classifica
+        // conterebbe anche chi beve sul divano di casa.
+        venue_key: challenge && selectedLoc?.name
+          ? selectedLoc.name.trim().toLowerCase().replace(/\s+/g, ' ')
+          : null,
         route_id: routeId || null,
         route_name: selectedRoute?.name || null,
         visibility,
@@ -169,6 +178,7 @@ export default function EventsPage() {
         invited,
       });
       setShowForm(false);
+      setChallenge(false);
       setTitle(''); setDesc(''); setDate(''); setLocationName(''); setRouteId(''); setVisibility('public'); setLinkSharing(true); setInvited([]); setInvitedPeople([]); setInviteQuery('');
       setLocQuery(''); setLocResults([]); setSelectedLoc(null);
       router.push(`/events/${ev.id}`);
@@ -190,6 +200,22 @@ export default function EventsPage() {
 
   const openCreate = () => {
     if (!currentUser) { router.push('/auth'); return; }
+    setChallenge(false);
+    setShowForm(true);
+  };
+
+  // SFIDA ALL'APERITIVO in un tap: titolo e ora già pronti (stasera alle 18:30, o domani
+  // se le 18:30 sono passate). Restano da scegliere solo il locale e gli amici — che è
+  // esattamente la decisione che uno sta prendendo quando apre l'app a quell'ora.
+  const openAperitivoChallenge = () => {
+    if (!currentUser) { router.push('/auth'); return; }
+    const when = new Date();
+    if (when.getHours() >= 18 && when.getMinutes() > 30) when.setDate(when.getDate() + 1);
+    when.setHours(18, 30, 0, 0);
+    const pad = (n) => String(n).padStart(2, '0');
+    setTitle(t('events.aperitivoTitle'));
+    setDate(`${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`);
+    setChallenge(true);
     setShowForm(true);
   };
 
@@ -209,9 +235,14 @@ export default function EventsPage() {
             {t('events.subtitle')}
           </p>
         </div>
-        <button onClick={openCreate} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-          <Plus size={16} /> {t('events.create')}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button onClick={openAperitivoChallenge} className="btn btn-secondary" style={{ borderRadius: '20px' }}>
+            <Swords size={16} /> {t('events.aperitivoChallenge')}
+          </button>
+          <button onClick={openCreate} className="btn btn-primary" style={{ borderRadius: '20px' }}>
+            <Plus size={16} /> {t('events.create')}
+          </button>
+        </div>
       </div>
 
       {/* Tab */}
@@ -470,6 +501,25 @@ export default function EventsPage() {
 
             {/* ACCESSO — due concetti distinti e indipendenti */}
             <div className="form-group" style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '14px' }}>
+              {/* SFIDA: la differenza tra "ci vediamo per un aperitivo" e "ci vediamo per
+                  un aperitivo, e vediamo chi vince". Con un locale scelto dalla lista la
+                  classifica conta solo le sessioni fatte lì. */}
+              <div
+                onClick={() => setChallenge((v) => !v)}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px', marginBottom: '16px', border: `1px solid ${challenge ? 'var(--secondary)' : 'var(--border-dark)'}`, background: challenge ? 'rgba(223,255,0,0.06)' : 'transparent' }}
+              >
+                <Swords size={20} color={challenge ? 'var(--secondary)' : 'var(--text-dark-secondary)'} style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFF' }}>{t('events.challengeLabel')}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', lineHeight: 1.4 }}>
+                    {challenge && !selectedLoc ? t('events.challengeNeedsVenue') : t('events.challengeHint')}
+                  </div>
+                </div>
+                <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, border: `2px solid ${challenge ? 'var(--secondary)' : 'var(--text-dark-secondary)'}`, background: challenge ? 'var(--secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {challenge && <Check size={12} color="#0A0A0D" />}
+                </div>
+              </div>
+
               <label className="form-label">{t('events.visibleTo')}</label>
               <div className="seg-tabs" style={{ display: 'flex', gap: '6px' }}>
                 {[

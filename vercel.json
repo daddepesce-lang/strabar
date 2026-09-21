@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/close-stale-sessions",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/venue-week-king",
+      "schedule": "0 9 * * 1"
     }
   ]
 }

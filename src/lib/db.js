@@ -3535,6 +3535,47 @@ export const db = {
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   },
 
+  // --- COMUNITÀ DEL LOCALE ---------------------------------------------------------
+  // Seguire un locale è gratis e serve a due cose: ricevere il "re della settimana" ogni
+  // lunedì (il gancio che riporta la gente nello stesso bar) e dare al gestore un
+  // pubblico vero — le notifiche che vende nell'area gestione arrivano a chi lo segue.
+
+  /** Segui / smetti di seguire un locale. Ritorna { following, followers }. */
+  async toggleVenueFollow(placeKey, placeName) {
+    if (!isSupabaseConfigured) return { following: false, followers: 0 };
+    const { data, error } = await supabase.rpc('toggle_venue_follow', {
+      p_key: placeKey,
+      p_name: placeName || null,
+    });
+    if (error) throw error;
+    return data || { following: false, followers: 0 };
+  },
+
+  /** Stato del follow per l'utente corrente: { following, followers }. */
+  async getVenueFollow(placeKey) {
+    if (!isSupabaseConfigured) return { following: false, followers: 0 };
+    try {
+      const { data, error } = await supabase.rpc('get_venue_follow', { p_key: placeKey });
+      if (error) return { following: false, followers: 0 };
+      return data || { following: false, followers: 0 };
+    } catch { return { following: false, followers: 0 }; }
+  },
+
+  /**
+   * Classifica viva di una SFIDA (evento con `challenge`). L'aggregazione la fa il DB:
+   * a differenza di getEventBoard, che passa dal feed completo, qui scende un payload
+   * minuscolo con i soli partecipanti — meno egress, e conta anche chi ha avviato la
+   * sessione dal locale invece che dall'evento.
+   */
+  async getChallengeBoard(eventId) {
+    if (!isSupabaseConfigured || !eventId) return null;
+    try {
+      const { data, error } = await supabase.rpc('get_challenge_board', { p_event_id: eventId });
+      if (error) return null;
+      return data || null;
+    } catch { return null; }
+  },
+
   // L'utente corrente può recensire questo locale? Vero solo se ha un check-in VERIFICATO
   // in quel locale (stesso gate della RLS). Usato per mostrare/nascondere il form.
   async canReviewVenue(placeKey) {
@@ -3824,6 +3865,10 @@ export const db = {
           visibility: data.visibility || 'public', // chi lo vede nella LISTA: public | friends | private
           link_sharing: data.link_sharing !== false, // se il LINK di invito funziona (default ON)
           group_id: data.group_id || null, // evento legato a un gruppo (visibile ai membri)
+          // SFIDA: evento con classifica viva tra i partecipanti (vedi get_challenge_board).
+          // `venue_key` la ancora a un locale: senza, si vincerebbe bevendo sul divano.
+          challenge: !!data.challenge,
+          venue_key: data.venue_key || null,
           invited,
         })
         .select()

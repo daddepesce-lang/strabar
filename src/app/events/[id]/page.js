@@ -10,7 +10,7 @@ import { useI18n } from '@/lib/i18n';
 import {
   ArrowLeft, Calendar, MapPin, Users, Crown, Check, HelpCircle, X,
   Route as RouteIcon, Trash2, UserPlus, ExternalLink, Share2, MessageCircle,
-  Edit3, Loader, Beer, Search,
+  Edit3, Loader, Beer, Search, Swords,
 } from 'lucide-react';
 import { showToast, showError } from '@/lib/toast';
 
@@ -77,6 +77,9 @@ export default function EventDetailPage({ params }) {
   const [selectedLoc, setSelectedLoc] = useState(null); // { name, lat, lng } se reale; null = testo libero
   const [editLocName, setEditLocName] = useState('');
   const [board, setBoard] = useState(null); // classifica + statistiche dell'evento
+  // SFIDA: classifica viva, aggregata dal DB sulla finestra della serata. Vale solo per
+  // gli eventi creati come sfida; per gli altri resta null e non si vede nulla.
+  const [challengeBoard, setChallengeBoard] = useState(null);
   const [now, setNow] = useState(0); // orologio (per la finestra di avvio "2 ore prima")
 
   // Aggiorna l'orologio: così il pulsante si abilita da solo quando si apre la finestra.
@@ -104,6 +107,9 @@ export default function EventDetailPage({ params }) {
       }
       // Classifica/statistiche dell'evento (nomi coperti per i non-amici, privacy globale)
       try { setBoard(await db.getEventBoard(id, user?.id)); } catch { setBoard(null); }
+      if (ev?.challenge) {
+        try { setChallengeBoard(await db.getChallengeBoard(id)); } catch { setChallengeBoard(null); }
+      }
     } catch (err) {
       console.error('Errore caricamento evento:', err);
     } finally {
@@ -688,6 +694,46 @@ export default function EventDetailPage({ params }) {
           </p>
         )}
       </div>
+
+      {/* SFIDA: chi è avanti, adesso. Conta solo quello che si beve nella finestra della
+          serata e (se la sfida ha un locale) solo quello che si beve LÌ. */}
+      {event?.challenge && challengeBoard && (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--secondary)' }}>
+          <h3 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+            <Swords size={18} color="var(--secondary)" /> {t('events.challengeBoard')}
+            {challengeBoard.live && (
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--secondary)', border: '1px solid var(--secondary)', borderRadius: '10px', padding: '2px 8px' }}>
+                {t('events.challengeLive')}
+              </span>
+            )}
+          </h3>
+
+          {challengeBoard.board.length === 0 ? (
+            <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>
+              {challengeBoard.live ? t('events.challengeEmptyLive') : t('events.challengeEmpty')}
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {challengeBoard.board.slice(0, 10).map((u, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '12px', background: i === 0 ? 'rgba(223,255,0,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${i === 0 ? 'rgba(223,255,0,0.3)' : 'var(--border-dark)'}` }}>
+                  <span style={{ width: '24px', textAlign: 'center', fontWeight: 800, color: i === 0 ? 'var(--secondary)' : 'var(--text-dark-secondary)' }}>
+                    {i === 0 ? '👑' : i + 1}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0, color: '#FFF', fontWeight: 700, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
+                  <span style={{ textAlign: 'right' }}>
+                    <span style={{ display: 'block', color: 'var(--secondary)', fontWeight: 800, fontSize: '14px' }}>{u.units}</span>
+                    <span style={{ display: 'block', color: 'var(--text-dark-secondary)', fontSize: '11px' }}>{t('events.challengeDrinks', { n: u.drinks })}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.45 }}>
+            {event.venue_key ? t('events.challengeRulesVenue') : t('events.challengeRules')}
+          </p>
+        </div>
+      )}
 
       {/* Classifica + statistiche dell'evento */}
       {board && board.participants > 0 && (

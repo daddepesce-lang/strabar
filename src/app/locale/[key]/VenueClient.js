@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
 import QRCode from 'qrcode';
-import { Trophy, Beer, Share2, Download, MapPin, Loader, ArrowLeft, Star, BadgeCheck, BarChart3 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Trophy, Beer, Share2, Download, MapPin, Loader, ArrowLeft, Star, BadgeCheck, BarChart3, Heart, Crown, Camera, Swords } from 'lucide-react';
 import { showToast, showError } from '@/lib/toast';
+
+const MediaLightbox = dynamic(() => import('@/components/MediaLightbox'), { ssr: false });
 
 // Stelle recensione (lettura o selezione).
 function Stars({ value, size = 15, onPick }) {
@@ -51,6 +54,14 @@ export default function VenueClient({ placeKey, initial = null, address = '', ci
   const [newRating, setNewRating] = useState(5);
   const [newReview, setNewReview] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Comunità del locale: follow, re della settimana, muro delle foto.
+  // Il conteggio follower arriva dentro `data` (payload già in cache): per chi non è
+  // loggato non facciamo NESSUNA chiamata in più. Solo a chi ha un account chiediamo al
+  // DB se segue già questo locale.
+  const [follow, setFollow] = useState({ following: false, followers: null });
+  const [followBusy, setFollowBusy] = useState(false);
+  const [photoIdx, setPhotoIdx] = useState(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -100,6 +111,33 @@ export default function VenueClient({ placeKey, initial = null, address = '', ci
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [placeKey]);
+
+  // Seguo già questo locale? Domanda che ha senso solo da loggati.
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    db.getVenueFollow(placeKey)
+      .then((f) => { if (!cancelled && f) setFollow((prev) => ({ ...prev, ...f })); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [currentUser, placeKey]);
+
+  const toggleFollow = async () => {
+    if (!currentUser) { window.location.href = `/auth?next=${encodeURIComponent(`/locale/${placeKey}`)}`; return; }
+    if (followBusy) return;
+    setFollowBusy(true);
+    try {
+      const res = await db.toggleVenueFollow(placeKey, venueName);
+      setFollow(res);
+      showToast(res.following ? t('venuepublic.followedToast', { venue: venueName }) : t('venuepublic.unfollowedToast'), {
+        variant: res.following ? 'success' : undefined,
+      });
+    } catch (err) {
+      showError(err?.message || t('feedback.genericError'), err);
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   const submitReview = async () => {
     if (!currentUser || submitting) return;
@@ -168,6 +206,52 @@ export default function VenueClient({ placeKey, initial = null, address = '', ci
         )}
       </div>
 
+      {/* SEGUI IL LOCALE — gratis. Compare solo dopo la migrazione della comunità:
+          finché `followersCount` non esiste nel payload, la funzione non c'è ancora. */}
+      {data && typeof data.followersCount === 'number' && (
+        <div className="card" style={{ padding: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={toggleFollow}
+            disabled={followBusy}
+            className={follow.following ? 'btn btn-secondary' : 'btn btn-primary'}
+            style={{ borderRadius: '20px', padding: '10px 16px', fontSize: '14px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}
+          >
+            <Heart size={16} fill={follow.following ? 'currentColor' : 'none'} />
+            {follow.following ? t('venuepublic.following') : t('venuepublic.follow')}
+          </button>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '13px', color: '#FFF', fontWeight: 700 }}>
+              {t('venuepublic.followersCount', { n: follow.followers ?? data.followersCount })}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', lineHeight: 1.4 }}>
+              {t('venuepublic.followDesc')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RE DELLA SETTIMANA: il motivo per tornarci martedì invece che tra un mese. */}
+      {data?.weekKing?.name && (
+        <div className="card" style={{ padding: '16px', border: '1px solid var(--secondary)', background: 'linear-gradient(135deg, rgba(20,20,25,1) 0%, rgba(223,255,0,0.07) 100%)', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <Crown size={26} color="var(--secondary)" style={{ flexShrink: 0 }} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: '11px', color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '.5px', fontWeight: 700 }}>
+              {t('venuepublic.weekKingTitle')}
+            </div>
+            <div style={{ fontSize: '16px', color: '#FFF', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {data.weekKing.name}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>
+              {t('venuepublic.weekKingUnits', { n: data.weekKing.units })}
+            </div>
+          </div>
+          <Link href="/log" className="btn btn-secondary" style={{ borderRadius: '16px', padding: '8px 12px', fontSize: '12px', fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Swords size={14} /> {t('venuepublic.dethrone')}
+          </Link>
+        </div>
+      )}
+
       {/* Statistiche del locale */}
       {data && (data.totalDrinks > 0 || (data.board && data.board.length > 0)) && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
@@ -183,6 +267,28 @@ export default function VenueClient({ placeKey, initial = null, address = '', ci
             <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.topDrink || '—'}</div>
             <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', marginTop: '4px' }}>{t('venuepublic.statTopDrink')}</div>
           </div>
+          {/* TASSO STIMATO: media dei picchi di fine serata di chi ha bevuto qui.
+              Non è "quanto sei ubriaco adesso": è quanto si arriva a bere in questo
+              locale. Con il colore giusto è anche un avviso, non solo un vanto. */}
+          {data.avgBac != null && (
+            <div className="card" style={{ textAlign: 'center', padding: '14px 8px', gridColumn: 'span 3' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '8px' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '26px', lineHeight: 1, color: data.avgBac >= 0.5 ? 'var(--primary)' : 'var(--secondary)' }}>
+                  {String(data.avgBac).replace('.', ',')}
+                </span>
+                <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>g/l</span>
+                {data.peakBac != null && (
+                  <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)' }}>
+                    {t('venuepublic.peakBac', { n: String(data.peakBac).replace('.', ',') })}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', textTransform: 'uppercase', marginTop: '4px' }}>{t('venuepublic.statAvgBac')}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginTop: '6px', lineHeight: 1.4 }}>
+                {data.avgBac >= 0.5 ? t('venuepublic.bacWarn') : t('venuepublic.bacNote')}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -218,6 +324,44 @@ export default function VenueClient({ placeKey, initial = null, address = '', ci
           </div>
         )}
       </div>
+
+      {/* MURO DELLE FOTO — le foto delle sessioni pubbliche fatte qui.
+          Stanno su R2: mostrarle non consuma egress Supabase né transfer Vercel,
+          quindi è la feature "social" che costa zero e fa sembrare vivo il locale. */}
+      {Array.isArray(data?.photos) && data.photos.length > 0 && (
+        <div className="card" style={{ padding: '14px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#FFF', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Camera size={18} style={{ color: 'var(--secondary)' }} /> {t('venuepublic.photoWall')}
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+            {data.photos.map((ph, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setPhotoIdx(i)}
+                style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', aspectRatio: '1 / 1', borderRadius: '8px', overflow: 'hidden' }}
+                aria-label={t('venuepublic.photoAlt', { n: i + 1 })}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ph.thumb || ph.url}
+                  alt={t('venuepublic.photoAlt', { n: i + 1 })}
+                  loading="lazy"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {photoIdx != null && Array.isArray(data?.photos) && (
+        <MediaLightbox
+          images={data.photos.map((ph) => ph.url)}
+          startIndex={photoIdx}
+          onClose={() => setPhotoIdx(null)}
+        />
+      )}
 
       {/* Recensioni */}
       <div className="card" style={{ padding: '14px' }}>
