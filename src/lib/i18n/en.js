@@ -69,6 +69,11 @@ export const en = {
     liveNow: "You're live",
   },
   feed: {
+    homeTitle: 'Your circle',
+    homeSubtitle: 'Your friends’ nights out, venues and moments worth keeping.',
+    newSession: 'New session',
+    composePrompt: 'Where are we toasting today?',
+    filterLabel: 'Filter activity',
     tabFriends: 'Friends',
     tabAll: 'All',
     tabLive: 'Live',

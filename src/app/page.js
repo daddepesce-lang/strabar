@@ -2729,6 +2729,27 @@ export default function FeedPage() {
     <div className="dashboard-grid">
       {/* Colonna Sinistra: Feed delle Attività */}
       <div className="feed-list">
+        <header className="feed-home-hero">
+          <div className="feed-home-intro">
+            <span className="feed-home-eyebrow"><span /> STRABAR SOCIAL</span>
+            <h1>{t('feed.homeTitle')}<em>.</em></h1>
+            <p>{t('feed.homeSubtitle')}</p>
+          </div>
+          {activeSession ? (
+            <button type="button" className="feed-home-cta" onClick={() => setShowLivePanel(true)}><span className="feed-home-live-dot" /> {t('nav.manageLive')}</button>
+          ) : (
+            <Link href="/log" className="feed-home-cta"><Plus size={18} /> {t('feed.newSession')}</Link>
+          )}
+        </header>
+
+        {!activeSession && (
+          <div className="feed-compose">
+            <Link href="/profile" aria-label={t('nav.profile')}><Avatar src={currentUser.avatar_url} name={currentUser.display_name || currentUser.username} size={40} /></Link>
+            <Link href="/log" className="feed-compose-prompt">{t('feed.composePrompt')}</Link>
+            <Link href="/log" className="feed-compose-photo" aria-label={t('session.photoAdd')}><Camera size={18} /></Link>
+          </div>
+        )}
+
         {/* Banner sponsor (gestito da /admin) */}
         {currentUser ? (
           activeSession ? (
@@ -3316,7 +3337,7 @@ export default function FeedPage() {
 
         {/* Filtro feed: Amici / Tutti / Live */}
         {currentUser && activities.length > 0 && (
-          <div className="feed-filter-tabs" style={{ marginTop: '4px', marginBottom: '16px' }}>
+          <div className="feed-filter-tabs feed-home-filters" aria-label={t('feed.filterLabel')}>
             <button type="button" aria-pressed={feedFilter === 'friends'}
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
@@ -3388,37 +3409,6 @@ export default function FeedPage() {
                   }
                 }}
               >
-                {/* Cover IN CIMA (card image-forward): pill LIVE, locale e badge foto in overlay */}
-                {act.cover_url && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
-                    aria-label={t('feed.photoOpenAria')}
-                    className="activity-cover"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={act.cover_url}
-                      alt={t('feed.photoAlt')}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    {isReallyActive && (
-                      <span className="cover-overlay pulse" style={{ top: 14, left: 14, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,59,47,0.92)', color: '#FFF', fontSize: 11, fontWeight: 800, letterSpacing: '0.5px', padding: '5px 11px', borderRadius: 20 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFF', display: 'inline-block' }} /> LIVE
-                      </span>
-                    )}
-                    {act.location && (
-                      <span className="cover-overlay" style={{ bottom: 14, left: 16, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#FFF', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        📍 {locationDisplayName(act.location, t)}
-                      </span>
-                    )}
-                    <span className="cover-overlay" style={{ bottom: 12, right: 14, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Camera size={12} /> {t('feed.photoBadge')}
-                    </span>
-                  </button>
-                )}
-
                 <div className="activity-header" style={{ gap: '11px' }}>
                   <Link href={`/u/${act.user_id}`} prefetch={false} className="avatar-ring" style={{ flexShrink: 0 }}>
                     <Avatar src={act.profiles?.avatar_url} name={publicName(act.profiles, 'Atleta')} size={40} />
@@ -3458,6 +3448,37 @@ export default function FeedPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Copertina della sessione: pill LIVE, locale e badge foto in overlay */}
+                {act.cover_url && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
+                    aria-label={t('feed.photoOpenAria')}
+                    className="activity-cover"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={act.cover_url}
+                      alt={t('feed.photoAlt')}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    {isReallyActive && (
+                      <span className="cover-overlay pulse" style={{ top: 14, left: 14, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,59,47,0.92)', color: '#FFF', fontSize: 11, fontWeight: 800, letterSpacing: '0.5px', padding: '5px 11px', borderRadius: 20 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFF', display: 'inline-block' }} /> LIVE
+                      </span>
+                    )}
+                    {act.location && (
+                      <span className="cover-overlay" style={{ bottom: 14, left: 16, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#FFF', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📍 {locationDisplayName(act.location, t)}
+                      </span>
+                    )}
+                    <span className="cover-overlay" style={{ bottom: 12, right: 14, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Camera size={12} /> {t('feed.photoBadge')}
+                    </span>
+                  </button>
+                )}
 
                 <h2 className="activity-title" style={{ cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>{act.title}</h2>
                 {/* La descrizione auto-generata alla chiusura ("Chiusa automaticamente…")

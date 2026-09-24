@@ -14,7 +14,7 @@ export default function manifest() {
     launch_handler: { client_mode: ['focus-existing', 'navigate-existing', 'auto'] },
     orientation: 'portrait',
     background_color: '#0A0A0D',
-    theme_color: '#FF3B2F',
+    theme_color: '#111116',
     lang: 'it',
     categories: ['social', 'lifestyle', 'food'],
     icons: [

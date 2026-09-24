@@ -50,7 +50,7 @@ export const metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
     title: "Strabar",
   },
   formatDetection: { telephone: false },
@@ -73,7 +73,7 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false, // niente pinch-zoom: si comporta come un'app nativa
   viewportFit: "cover",
-  themeColor: "#0A0A0D",
+  themeColor: "#111116",
 };
 
 export default function RootLayout({ children }) {

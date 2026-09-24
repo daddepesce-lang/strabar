@@ -69,6 +69,11 @@ export const es = {
     liveNow: 'Estás en directo',
   },
   feed: {
+    homeTitle: 'Tu círculo',
+    homeSubtitle: 'Las noches de tus amigos, los locales y los momentos para recordar.',
+    newSession: 'Nueva sesión',
+    composePrompt: '¿Dónde brindamos hoy?',
+    filterLabel: 'Filtrar actividad',
     tabFriends: 'Amigos',
     tabAll: 'Todos',
     tabLive: 'En directo',

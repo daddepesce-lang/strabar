@@ -366,11 +366,12 @@ export default function ClassifichePage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="places-page" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header */}
-      <div>
+      <div className="places-hero">
+        <span className="places-hero-icon"><Trophy size={30} /></span>
         <h1 style={{ fontSize: '30px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Trophy size={26} color="var(--secondary)" /> {t('places.title')}
+          {t('places.title')}
         </h1>
         <p style={{ color: 'var(--text-dark-secondary)', fontSize: '13px', marginTop: '4px' }}>
           {t('places.subtitle')}

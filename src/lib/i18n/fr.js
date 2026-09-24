@@ -69,6 +69,11 @@ export const fr = {
     liveNow: 'Vous êtes en direct',
   },
   feed: {
+    homeTitle: 'Votre cercle',
+    homeSubtitle: 'Les soirées de vos amis, les lieux et les moments à garder.',
+    newSession: 'Nouvelle session',
+    composePrompt: 'Où trinque-t-on aujourd’hui ?',
+    filterLabel: 'Filtrer les activités',
     tabFriends: 'Amis',
     tabAll: 'Tous',
     tabLive: 'En direct',

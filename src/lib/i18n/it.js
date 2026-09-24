@@ -70,6 +70,11 @@ export const it = {
     liveNow: 'Sei in diretta',
   },
   feed: {
+    homeTitle: 'Il tuo giro',
+    homeSubtitle: 'Le serate dei tuoi amici, i locali e i momenti da ricordare.',
+    newSession: 'Nuova sessione',
+    composePrompt: 'Dove si brinda oggi?',
+    filterLabel: 'Filtra le attività',
     tabFriends: 'Amici',
     tabAll: 'Tutti',
     tabLive: 'Live',

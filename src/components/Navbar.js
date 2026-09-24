@@ -7,8 +7,9 @@ import { db } from '@/lib/db';
 import { useT } from '@/lib/i18n';
 import NavSearch from '@/components/NavSearch';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import Avatar from '@/components/Avatar';
 import {
-  Beer, Map, Trophy, Calendar, PlusCircle, Plus, User, Award, LogOut, LogIn, Bell, Share2, Radar, Menu, X, ShieldCheck, Bug, Users, HelpCircle, Store,
+  Beer, Map, Trophy, Calendar, PlusCircle, Plus, User, Award, LogOut, LogIn, Bell, Share2, Radar, X, ShieldCheck, Bug, Users, HelpCircle, Store, Settings2,
 } from 'lucide-react';
 
 // Email per le segnalazioni bug (stessa del contatto privacy).
@@ -276,13 +277,13 @@ export default function Navbar() {
           {user && <NavSearch />}
 
           {/* Invita amici: sempre raggiungibile dalla barra in alto */}
-          <Link href="/install" prefetch={false} className={`action-btn ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
+          <Link href="/install" prefetch={false} className={`action-btn nav-desktop-only ${isActive('/install') ? 'active' : ''}`} title="Invita amici / Installa app">
             <Share2 size={20} />
           </Link>
 
           {/* Admin: visibile solo agli amministratori */}
           {user?.is_admin && (
-            <Link href="/admin" prefetch={false} className={`action-btn ${isActive('/admin') ? 'active' : ''}`} title="Dashboard amministratore">
+            <Link href="/admin" prefetch={false} className={`action-btn nav-desktop-only ${isActive('/admin') ? 'active' : ''}`} title="Dashboard amministratore">
               <ShieldCheck size={20} />
             </Link>
           )}
@@ -333,23 +334,30 @@ export default function Navbar() {
             </div>
           )}
 
+          {user && (
+            <button type="button" className="nav-mobile-menu" onClick={() => setMoreOpen(true)} aria-label={t('nav.menu')} aria-expanded={moreOpen}>
+              <Avatar src={user.avatar_url} name={user.display_name || user.username} size={30} />
+              <span className="nav-mobile-menu-dot" />
+            </button>
+          )}
+
           {/* Bandierine solo su DESKTOP: su mobile il selettore lingua sta nel menu "Altro" */}
           <span className="lang-desktop-only"><LanguageSwitcher compact /></span>
 
           {user ? (
             <>
               {user.is_premium ? (
-                <span className="badge-premium">
+                <span className="badge-premium nav-desktop-only">
                   <Award size={12} />
                   <span className="badge-premium-label">{t('nav.premiumBadge')}</span>
                 </span>
               ) : (
-                <Link href="/premium" className="btn btn-premium btn-sm" style={{ padding: '6px 14px', fontSize: '12px' }}>
+                <Link href="/premium" className="btn btn-premium btn-sm nav-desktop-only" style={{ padding: '6px 14px', fontSize: '12px' }}>
                   {t('nav.goPremium')}
                 </Link>
               )}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="nav-desktop-only nav-account-actions" style={{ alignItems: 'center', gap: '10px' }}>
                 <span className="nav-user-name" style={{ fontSize: '14px', fontWeight: '500', color: '#FFF' }}>
                   {user.display_name}
                 </span>
@@ -420,14 +428,10 @@ export default function Navbar() {
           <Map size={20} />
           {t('nav.routes')}
         </Link>
-        <button
-          type="button"
-          onClick={() => setMoreOpen(true)}
-          className={['/events', '/live', '/premium', '/profile', '/groups'].some((p) => pathname.startsWith(p)) ? 'active' : ''}
-        >
-          <Menu size={20} />
-          {t('nav.more')}
-        </button>
+        <Link href="/profile" className={isActive('/profile') || pathname.startsWith('/u/') ? 'active' : ''}>
+          <User size={20} />
+          {t('nav.profile')}
+        </Link>
       </nav>
 
       {/* Foglio "Altro": destinazioni secondarie + azioni account */}
@@ -439,8 +443,13 @@ export default function Navbar() {
               <strong>{t('nav.menu')}</strong>
               <button type="button" onClick={() => setMoreOpen(false)} aria-label="Chiudi"><X size={20} /></button>
             </div>
+            <Link href="/profile" className="more-sheet-account" onClick={() => setMoreOpen(false)}>
+              <Avatar src={user.avatar_url} name={user.display_name || user.username} size={48} />
+              <span><strong>{user.display_name || user.username}</strong><small>@{user.username}</small></span>
+              <User size={19} />
+            </Link>
             <div className="more-sheet-grid">
-              <Link href="/profile" className={isActive('/profile') ? 'active' : ''}><User size={22} /><span>{t('nav.profile')}</span></Link>
+              <Link href="/settings" className={isActive('/settings') ? 'active' : ''}><Settings2 size={22} /><span>{t('profile.settingsTitle')}</span></Link>
               <Link href="/groups" className={isActive('/groups') ? 'active' : ''}><Users size={22} /><span>{t('nav.leagues')}</span></Link>
               <Link href="/live" className={isActive('/live') ? 'active' : ''}><Radar size={22} /><span>{t('nav.radar')}</span></Link>
               <Link href="/events" className={isActive('/events') ? 'active' : ''}><Calendar size={22} /><span>{t('nav.events')}</span></Link>
