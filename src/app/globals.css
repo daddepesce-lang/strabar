@@ -243,6 +243,7 @@ button, input, select, textarea {
 }
 
 .nav-brand {
+  flex-shrink: 0;
   font-family: var(--font-display);
   font-size: 32px;
   font-weight: 400;
@@ -275,7 +276,7 @@ button, input, select, textarea {
 /* Schermi PC piccoli/laptop: il menu completo (8+ voci con testo) si schiacciava.
    In questa fascia le voci diventano SOLO icone (etichetta nel tooltip `title`),
    la "Registra" resta con testo come CTA, e le azioni a destra si compattano. */
-@media (max-width: 1240px) and (min-width: 769px) {
+@media (max-width: 1440px) and (min-width: 769px) {
   .navbar { padding-left: 22px; padding-right: 22px; }
   .nav-links { gap: 4px; }
   .nav-link { font-size: 14px; padding: 8px 9px; border-radius: 11px; }
