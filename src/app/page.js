@@ -107,6 +107,9 @@ const VENICE_TOUR = [
   { name: 'Cantina Aziende Agricole', lat: 45.4430, lng: 12.3300, note: 'Ottimo vino della casa e polpettine.' },
 ];
 
+// Priorità da cui un banner è FISSATO in cima al feed invece di ruotare tra le sessioni.
+const PINNED_PRIORITY = 100;
+
 // Banner promo COMPATTO nel feed: più basso di una sessione (una riga). Traccia
 // l'impression quando entra nel viewport e il click quando lo si apre.
 function FeedBanner({ b, onSeen, onClick }) {
@@ -130,7 +133,7 @@ function FeedBanner({ b, onSeen, onClick }) {
       )}
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-dark-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Sponsor{b.partner ? ` · ${b.partner}` : ''}
+          {b.partner === 'Strabar' ? 'Strabar' : `Sponsor${b.partner ? ` · ${b.partner}` : ''}`}
         </div>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#FFF', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
         {b.body && <div style={{ fontSize: 12, color: 'var(--text-dark-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.body}</div>}
@@ -495,17 +498,24 @@ export default function FeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedFilter]);
 
+  // Banner FISSATI in cima al feed (priorità ≥ PINNED_PRIORITY, es. annunci Strabar):
+  // escono dalla rotazione e compaiono sopra la prima sessione. Al massimo uno.
+  const pinnedBanner = useMemo(
+    () => [...(banners || [])].filter((b) => (b.priority || 0) >= PINNED_PRIORITY).sort((a, b) => b.priority - a.priority)[0] || null,
+    [banners]
+  );
+
   // Banner promo mescolati: ordine casuale stabile finché non cambia l'insieme attivo,
   // così i locali paganti RUOTANO e non resta sempre lo stesso identico in cima.
   const shuffledBanners = useMemo(() => {
-    const arr = [...(banners || [])];
+    const arr = (banners || []).filter((b) => b.id !== pinnedBanner?.id);
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [banners.map((b) => b.id).join(',')]);
+  }, [banners.map((b) => b.id).join(','), pinnedBanner?.id]);
 
   // Conteggio impression: una sola volta per banner per sessione di pagina (best-effort).
   const seenBannersRef = useRef(new Set());
@@ -3350,6 +3360,9 @@ export default function FeedPage() {
             if (feedFilter !== 'live' && shuffledBanners.length > 0 && idx >= 1 && (idx - 1) % 3 === 0) {
               const b = shuffledBanners[((idx - 1) / 3) % shuffledBanners.length];
               if (b) bannerSlot = <FeedBanner key={`banner-${b.id}-${idx}`} b={b} onSeen={trackBannerImpression} onClick={trackBannerClick} />;
+            }
+            if (idx === 0 && feedFilter !== 'live' && pinnedBanner) {
+              bannerSlot = <FeedBanner key={`banner-pin-${pinnedBanner.id}`} b={pinnedBanner} onSeen={trackBannerImpression} onClick={trackBannerClick} />;
             }
             return (
               <Fragment key={act.id}>

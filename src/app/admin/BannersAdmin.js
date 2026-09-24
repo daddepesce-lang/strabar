@@ -157,7 +157,7 @@ export default function BannersAdmin() {
           <select className="form-control" style={{ ...inputStyle, flex: '1 1 120px' }} value={form.category} onChange={(e) => set('category', e.target.value)}>
             {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
-          <input type="number" className="form-control" style={{ ...inputStyle, flex: '0 0 90px' }} placeholder="Priorità" value={form.priority} onChange={(e) => set('priority', e.target.value)} title="Priorità (più alto = mostrato prima)" />
+          <input type="number" className="form-control" style={{ ...inputStyle, flex: '0 0 90px' }} placeholder="Priorità" value={form.priority} onChange={(e) => set('priority', e.target.value)} title="Priorità (più alto = mostrato prima; da 100 in su resta fisso in cima al feed)" />
         </div>
         {/* Durata: da quando a quando mostrarlo (vuoto = sempre / nessuna scadenza) */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
