@@ -2771,7 +2771,7 @@ export default function FeedPage() {
               </button>
 
               {showLivePanel && (
-              <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 'calc(12px + env(safe-area-inset-top, 0px)) 16px 24px', overflowY: 'auto' }}>
+              <div onClick={() => setShowLivePanel(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1300, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 'calc(12px + var(--app-top-inset)) 16px 24px', overflowY: 'auto' }}>
               <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', marginBottom: '40px' }}>
             <div className="card" style={{ border: '1px solid rgba(255, 59, 47, 0.35)', background: activeSession.location?.tour ? 'radial-gradient(120% 50% at 50% 0%, rgba(223,255,0,0.07), transparent 60%), var(--bg-card-dark)' : 'radial-gradient(120% 60% at 50% 0%, rgba(255, 59, 47, 0.10), transparent 60%), var(--bg-card-dark)', marginBottom: '25px', position: 'relative', boxShadow: 'var(--shadow-lg)', borderRadius: '22px' }}>
               <button onClick={() => setShowLivePanel(false)} aria-label={t('common.close')} className="btn btn-secondary" style={{ position: 'absolute', top: '10px', right: '10px', borderRadius: '50%', width: 34, height: 34, padding: 0, fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>×</button>
@@ -3333,7 +3333,7 @@ export default function FeedPage() {
 
         {/* Indicatore pull-to-refresh: appare in cima mentre trascini o ricarichi. */}
         {(pullPx > 0 || refreshing) && (
-          <div style={{ position: 'fixed', top: 'calc(60px + env(safe-area-inset-top, 0px))', left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 400 }}>
+          <div style={{ position: 'fixed', top: 'calc(60px + var(--app-top-inset))', left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 400 }}>
             <div style={{ transform: `translateY(${Math.max(0, pullPx - 20)}px)`, background: 'var(--bg-card-dark, #141419)', border: '1px solid var(--border-dark)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.4)' }}>
               <Loader size={18} style={{ color: 'var(--primary)', animation: refreshing ? 'spin 1s linear infinite' : 'none', transform: refreshing ? 'none' : `rotate(${pullPx * 4}deg)` }} />
             </div>

@@ -32,7 +32,7 @@ export default function Toast({ message, variant = 'success', title, duration = 
     <div
       style={{
         position: 'fixed',
-        top: 'calc(12px + env(safe-area-inset-top, 0px))',
+        top: 'calc(12px + var(--app-top-inset))',
         left: 0, right: 0, zIndex: 2200,
         display: 'flex', justifyContent: 'center',
         padding: '0 14px', pointerEvents: 'none',

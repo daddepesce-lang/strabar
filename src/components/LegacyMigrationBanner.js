@@ -41,7 +41,7 @@ export default function LegacyMigrationBanner() {
         position: 'fixed',
         left: '12px',
         right: '12px',
-        top: 'calc(12px + env(safe-area-inset-top, 0px))',
+        top: 'calc(12px + var(--app-top-inset))',
         zIndex: 1300,
         background: 'rgba(22,24,34,0.98)',
         border: '1px solid var(--primary)',

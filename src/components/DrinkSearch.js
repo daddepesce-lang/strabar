@@ -208,7 +208,7 @@ export default function DrinkSearch({ onPick, onRemove, onClose, venueDrinks = [
         style={{ width: '100%', maxWidth: '560px', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--surface-dark, #0B0A09)' }}
       >
         {/* Header con ricerca */}
-        <div style={{ padding: 'calc(14px + env(safe-area-inset-top, 0px)) 16px 12px', borderBottom: '1px solid var(--border-dark)', flexShrink: 0 }}>
+        <div style={{ padding: 'calc(14px + var(--app-top-inset)) 16px 12px', borderBottom: '1px solid var(--border-dark)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFF', flex: 1 }}>{t('drink.title')}</h2>
             <button onClick={onClose} aria-label={t('drink.done')} className="btn btn-secondary" style={{ borderRadius: '50%', width: 36, height: 36, padding: 0, fontSize: 20, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>

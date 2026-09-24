@@ -8,7 +8,7 @@
 //     controllerchange) garantisce che i client passino al codice nuovo.
 // IMPORTANTE: bumpare BUILD a ogni deploy che deve raggiungere i client "caldi" — è ciò che
 // cambia i byte di sw.js e fa scattare l'update lato browser.
-const BUILD = '2026-09-24-session-detail-3';
+const BUILD = '2026-09-24-pwa-routes-4';
 const CACHE = 'strabar-v4-' + BUILD;
 const OFFLINE_ASSETS = ['/', '/icon-192.png', '/manifest.webmanifest'];
 

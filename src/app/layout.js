@@ -1,6 +1,8 @@
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Script from "next/script";
+import { applyPwaChrome } from "@/lib/pwaChrome";
 
 // Self-hosting dei font (niente richieste a Google a runtime, zero layout shift).
 // Bebas Neue = font "display" del brand; DM Sans = corpo del testo.
@@ -74,12 +76,14 @@ export const viewport = {
   userScalable: false, // niente pinch-zoom: si comporta come un'app nativa
   viewportFit: "cover",
   themeColor: "#111116",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="it" className={`${bebasNeue.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <head>
+        <Script id="pwa-chrome" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `(${applyPwaChrome.toString()})(window);` }} />
         {/* Leaflet CSS per le mappe interattive */}
         <link 
           rel="stylesheet" 
@@ -89,6 +93,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
+        <div className="pwa-status-surface" aria-hidden="true" />
         <I18nProvider>
           <ServiceWorkerRegister />
           <ToastHost />

@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
-import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3, ArrowLeft } from 'lucide-react';
+import { Map, Plus, Save, MapPin, Footprints, Search, X, Loader, Beer, Trash2, Edit3, ArrowLeft, ArrowUpRight, ChevronRight, Users, SlidersHorizontal, Lock, Globe } from 'lucide-react';
 import Link from 'next/link';
+import Avatar from '@/components/Avatar';
 import RequireAuth from '@/components/RequireAuth';
 import { useT } from '@/lib/i18n';
 import EventStartGuard from '@/components/EventStartGuard';
@@ -49,6 +50,7 @@ export default function RoutesPage() {
 
   // Ordinamento della lista: vicinanza (default) / popolarità / novità.
   const [sortMode, setSortMode] = useState('near');
+  const [routeScope, setRouteScope] = useState('all');
   const [userPos, setUserPos] = useState(null); // { lat, lng } — posizione GPS dell'utente
   const [geoDenied, setGeoDenied] = useState(false); // GPS negato/non disponibile
 
@@ -577,6 +579,7 @@ export default function RoutesPage() {
     setSelectedRoute(route);
     setActiveWaypointIndex(null);
     setDiscoveredBars([]);
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   // Avvia un Tour guidato: crea una sessione live "modalità percorso" sulla prima tappa
@@ -827,6 +830,7 @@ export default function RoutesPage() {
   routes.forEach((r) => { citiesByRoute[r.id] = routeCities(r); });
 
   const filteredRoutes = routes.filter(route => {
+    if (routeScope === 'mine' && route.user_id !== currentUser?.id) return false;
     const cities = citiesByRoute[route.id] || [];
     // Filtro per titolo (o descrizione / nome tappa / CITTÀ toccata).
     const q = routeSearchQuery.toLowerCase().trim();
@@ -904,67 +908,38 @@ export default function RoutesPage() {
 
   // --- RENDER ---
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className={`routes-page ${listMode ? 'routes-list-mode' : detailMode ? 'routes-detail-mode' : 'routes-create-mode'}`}>
       <EventStartGuard
         events={eventGuard?.events}
         kind={eventGuard?.kind}
         onContinue={() => { const p = eventGuard?.proceed; setEventGuard(null); if (p) p(); }}
         onCancel={() => setEventGuard(null)}
       />
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+      {!detailMode && <header className="routes-page-header">
         <div>
-          <h1 style={{ fontSize: '32px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Map size={32} color="var(--primary)" />
-            {t('routes.title')}
-          </h1>
-          <p style={{ color: 'var(--text-dark-secondary)', fontSize: '15px', marginTop: '4px' }}>
-            {t('routes.subtitle')}
-          </p>
+          <h1>{isCreating ? (editingRouteId ? t('routes.editHeading') : t('routes.createHeading')) : t('routes.heading')}</h1>
+          {listMode && <p>{t('routes.intro')}</p>}
         </div>
-
-        <div>
-          {isCreating && currentUser?.is_premium ? (
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={handleCancelCreation} className="btn btn-secondary" style={{ borderRadius: '20px' }}>
-                <X size={16} /> {t('common.cancel')}
-              </button>
-              <button onClick={handleSaveRoute} className="btn btn-primary" style={{ borderRadius: '20px' }}>
-                <Save size={16} /> {editingRouteId ? t('routes.update') : t('routes.saveTour')}
-              </button>
-            </div>
-          ) : (
-            !isCreating && (
-              <button
-                onClick={handleStartCreation}
-                className={`btn ${currentUser?.is_premium ? 'btn-primary' : 'btn-premium'}`}
-                style={{ borderRadius: '20px' }}
-              >
-                <Plus size={16} /> {t('routes.create')}
-              </button>
-            )
-          )}
-        </div>
-      </div>
-
-      {/* In LISTA il grid diventa a piena larghezza (block) e la colonna mappa è nascosta;
-          in DETTAGLIO/CREAZIONE torna a due colonne (sidebar + mappa). */}
-      <div className="r-grid-sidebar" style={listMode ? { display: 'block' } : undefined}>
-        {/* LEFT SIDEBAR */}
-        <div className="routes-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0, maxHeight: listMode ? 'none' : 'calc(100vh - 200px)', overflowY: listMode ? 'visible' : 'auto', overflowX: 'hidden' }}>
+        {isCreating && currentUser?.is_premium ? (
+          <div className="routes-editor-actions">
+            <button onClick={handleCancelCreation} className="btn btn-secondary">{t('common.cancel')}</button>
+            <button onClick={handleSaveRoute} className="btn btn-primary"><Save size={16} />{editingRouteId ? t('routes.update') : t('routes.saveTour')}</button>
+          </div>
+        ) : !isCreating && <button onClick={handleStartCreation} className="btn btn-primary routes-create-button"><Plus size={18} />{t('routes.createShort')}{!currentUser?.is_premium && <span className="routes-pro">PRO</span>}</button>}
+      </header>}
 
           {/* Intestazione dettaglio: torna alla lista + nome/descrizione/autore */}
           {detailMode && (
-            <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <section className="route-detail-heading">
               <button onClick={() => { setSelectedRoute(null); setActiveWaypointIndex(null); setDiscoveredBars([]); }} className="action-btn" style={{ fontSize: '13px', width: 'fit-content' }}>
                 <ArrowLeft size={15} /> {t('routes.back')}
               </button>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 {selectedRoute?.name}
                 {selectedRoute?.user_id === currentUser?.id && (
                   <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 5px' }}>{t('routes.myBadge')}</span>
                 )}
-              </h2>
+              </h1>
               {selectedRoute?.description && (
                 <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.5 }}>{selectedRoute.description}</p>
               )}
@@ -992,14 +967,18 @@ export default function RoutesPage() {
               })()}
               {selectedRoute?.user_id !== currentUser?.id && (selectedRoute?.creator?.display_name || selectedRoute?.creator?.username) && (
                 <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {publicName(selectedRoute.creator, selectedRoute.creator.username).charAt(0).toUpperCase()}
-                  </span>
+                  <Avatar src={selectedRoute.creator.avatar_url} name={publicName(selectedRoute.creator)} size={24} />
                   {t('routes.createdBy', { name: publicName(selectedRoute.creator, `@${selectedRoute.creator.username}`) })}
                 </span>
               )}
-            </div>
+            </section>
           )}
+
+      {/* In LISTA il grid diventa a piena larghezza (block) e la colonna mappa è nascosta;
+          in DETTAGLIO/CREAZIONE torna a due colonne (sidebar + mappa). */}
+      <div className="routes-workspace">
+        {/* LEFT SIDEBAR */}
+        <div className="routes-sidebar">
 
           {/* Tour Details Form (during creation) */}
           {isCreating && currentUser?.is_premium && (
@@ -1241,202 +1220,49 @@ export default function RoutesPage() {
             </div>
           )}
 
-          {/* Saved Routes List (vista LISTA: solo elenco a piena larghezza) */}
-          {listMode && (
-            <div className="card" style={{ padding: '16px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px' }}>
-                {t('routes.listTitle')}
-              </h3>
-
-              {/* Ricerca per TITOLO */}
-              <div style={{ position: 'relative', marginBottom: '10px' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dark-secondary)' }} />
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder={t('routes.searchTitlePh')}
-                  value={routeSearchQuery}
-                  onChange={(e) => setRouteSearchQuery(e.target.value)}
-                  style={{
-                    paddingLeft: '32px',
-                    height: '34px',
-                    fontSize: '12px',
-                    background: 'var(--bg-input-dark)',
-                    border: '1px solid var(--border-dark)',
-                    borderRadius: '8px'
-                  }}
-                />
-                {routeSearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setRouteSearchQuery('')}
-                    style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-dark-secondary)',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      padding: 0
-                    }}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {/* ORDINAMENTO: vicinanza (default) / popolarità / novità */}
-              <div className="feed-filter-tabs" style={{ marginBottom: '6px' }}>
-                <div
-                  className={`seg-tab ${sortMode === 'near' ? 'active' : ''}`}
-                  onClick={() => setSortMode('near')}
-                  style={geoDenied ? { opacity: 0.5 } : undefined}
-                  title={geoDenied ? t('routes.sortGeoOff') : t('routes.sortNearNote')}
-                >
-                  {t('routes.sortNear')}
-                </div>
-                <button type="button" aria-pressed={sortMode === 'popular'} className={`seg-tab ${sortMode === 'popular' ? 'active' : ''}`} onClick={() => setSortMode('popular')} title={t('routes.sortPopularNote')}>
-                  {t('routes.sortPopular')}
-                </button>
-                <button type="button" aria-pressed={sortMode === 'new'} className={`seg-tab ${sortMode === 'new' ? 'active' : ''}`} onClick={() => setSortMode('new')}>
-                  {t('routes.sortNew')}
-                </button>
-              </div>
-              <p style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', margin: '0 0 10px' }}>
-                {sortMode === 'near'
-                  ? (userPos ? t('routes.sortNearNote') : (geoDenied ? t('routes.sortGeoOff') : t('routes.sortGeoWait')))
-                  : sortMode === 'popular'
-                    ? t('routes.sortPopularNote')
-                    : t('routes.sortNewNote')}
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '70vh', overflowY: 'auto', paddingRight: '2px' }}>
-                {sortedRoutes.length === 0 ? (
-                  <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', textAlign: 'center', padding: '20px 0' }}>
-                    {routes.length === 0 ? t('routes.noRoutes') : t('routes.noResults')}
-                  </p>
-                ) : (
-                  sortedRoutes.map((route) => {
-                    const isSelected = selectedRoute?.id === route.id;
-                    const cities = citiesByRoute[route.id] || [];
-                    const dist = distByRoute[route.id];
-                    const starts = route.starts_count || 0;
-                    const donePct = starts >= 3 ? Math.round(((route.completions_count || 0) / starts) * 100) : null;
-                    return (
-                      <button
-                        key={route.id}
-                        onClick={() => handleSelectRoute(route)}
-                        className="btn btn-secondary"
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          justifyContent: 'flex-start',
-                          flexDirection: 'column',
-                          alignItems: 'flex-start',
-                          padding: '12px 14px',
-                          background: isSelected ? 'rgba(255, 59, 47, 0.08)' : 'var(--bg-input-dark)',
-                          borderColor: isSelected ? 'var(--primary)' : 'var(--border-dark)',
-                          borderRadius: '10px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '4px', gap: '6px' }}>
-                          <strong style={{ fontSize: '13px', color: '#FFF', display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{route.name}</span>
-                            {route.user_id === currentUser?.id && (
-                              <span style={{ fontSize: '8px', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: '6px', padding: '1px 4px', flexShrink: 0 }}>{t('routes.myBadge')}</span>
-                            )}
-                          </strong>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                            {route.user_id === currentUser?.id && (
-                              <span title={`Visibilità: ${route.visibility || 'public'}`} style={{ fontSize: '11px' }}>
-                                {route.visibility === 'private' ? '🔒' : route.visibility === 'friends' ? '👥' : '🌍'}
-                              </span>
-                            )}
-                            {route.is_premium && (
-                              <span className="badge-premium" style={{ fontSize: '8px' }}>PRO</span>
-                            )}
-                          </span>
-                        </div>
-                        <p style={{
-                          fontSize: '11px',
-                          color: 'var(--text-dark-secondary)',
-                          display: '-webkit-box',
-                          WebkitLineClamp: '2',
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          margin: 0,
-                        }}>
-                          {route.description}
-                        </p>
-                        {/* Città toccate dal percorso: aiuta a capire "dove" è il giro
-                            senza aprirlo. Derivate dagli indirizzi delle tappe. */}
-                        {cities.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px', width: '100%' }}>
-                            {cities.slice(0, 3).map((city, ci) => (
-                              <span key={ci} style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                fontSize: '10px', fontWeight: 700, color: 'var(--primary)',
-                                background: 'rgba(255,59,47,0.10)', border: '1px solid rgba(255,59,47,0.30)',
-                                borderRadius: '999px', padding: '2px 8px', maxWidth: '100%',
-                              }}>
-                                <MapPin size={10} style={{ flexShrink: 0 }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{city}</span>
-                              </span>
-                            ))}
-                            {cities.length > 3 && (
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dark-secondary)', alignSelf: 'center' }}>
-                                +{cities.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px', marginTop: '4px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
-                            <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)' }}>
-                              {t('routes.stopsCount', { n: route.waypoints?.length || 0 })}
-                            </span>
-                            {/* Quanto è lontana la PARTENZA da dove sono ora */}
-                            {dist != null && (
-                              <span title={t('routes.distFromYou')} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--secondary)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                <MapPin size={10} /> {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`}
-                              </span>
-                            )}
-                            {/* Quante persone l'hanno fatto e quante lo portano a termine */}
-                            {starts > 0 && (
-                              <span title={t('routes.doneByTitle')} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dark-secondary)' }}>
-                                🔥 {starts}
-                              </span>
-                            )}
-                            {donePct != null && (
-                              <span title={t('routes.donePctTitle')} style={{ fontSize: '10px', fontWeight: 700, color: 'var(--success)' }}>
-                                ✅ {donePct}%
-                              </span>
-                            )}
-                          </span>
-                          {route.user_id !== currentUser?.id && (route.creator?.display_name || route.creator?.username) && (
-                            <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
-                              <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '8px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {publicName(route.creator, route.creator.username).charAt(0).toUpperCase()}
-                              </span>
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {publicName(route.creator, `@${route.creator.username}`)}
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+          {listMode && <section className="routes-discovery">
+            <div className="routes-browse-tabs" role="group" aria-label={t('routes.heading')}>
+              <button type="button" aria-pressed={routeScope === 'all'} className={routeScope === 'all' ? 'is-active' : ''} onClick={() => setRouteScope('all')}>{t('routes.explore')}</button>
+              <button type="button" aria-pressed={routeScope === 'mine'} className={routeScope === 'mine' ? 'is-active' : ''} onClick={() => setRouteScope('mine')}>{t('routes.mine')}</button>
             </div>
-          )}
+            <div className="routes-search">
+              <Search size={19} />
+              <input type="search" aria-label={t('routes.searchTitlePh')} placeholder={t('routes.searchTitlePh')} value={routeSearchQuery} onChange={(e) => setRouteSearchQuery(e.target.value)} />
+              {routeSearchQuery && <button type="button" aria-label={t('routes.clearSearch')} onClick={() => setRouteSearchQuery('')}><X size={18} /></button>}
+            </div>
+            <div className="routes-sort-row">
+              <div className="routes-sort" role="group" aria-label={t('routes.sortLabel')}>
+                <button type="button" disabled={geoDenied} aria-pressed={sortMode === 'near'} className={sortMode === 'near' ? 'is-active' : ''} onClick={() => setSortMode('near')} title={geoDenied ? t('routes.sortGeoOff') : t('routes.sortNearNote')}><MapPin size={14} />{t('routes.nearLabel')}</button>
+                <button type="button" aria-pressed={sortMode === 'popular'} className={sortMode === 'popular' ? 'is-active' : ''} onClick={() => setSortMode('popular')}><Users size={14} />{t('routes.popularLabel')}</button>
+                <button type="button" aria-pressed={sortMode === 'new'} className={sortMode === 'new' ? 'is-active' : ''} onClick={() => setSortMode('new')}>{t('routes.newLabel')}</button>
+              </div>
+              <span className="routes-result-count" aria-live="polite">{t('routes.results', { n: sortedRoutes.length })}</span>
+            </div>
+            {!userPos && <p className="routes-location-note">{geoDenied ? t('routes.sortGeoOff') : t('routes.sortGeoWait')}</p>}
+            <div className="routes-card-grid">
+              {sortedRoutes.map((route) => {
+                const cities = citiesByRoute[route.id] || [];
+                const stops = route.waypoints || [];
+                const dist = distByRoute[route.id];
+                const own = route.user_id === currentUser?.id;
+                return <button key={route.id} type="button" className="route-card" onClick={() => handleSelectRoute(route)}>
+                  <span className="route-card-eyebrow"><span><MapPin size={13} />{cities.slice(0, 2).join(' · ') || t('routes.heading')}</span>{own && <span className="route-card-mine">{t('routes.myBadge')}</span>}{route.is_premium && <span className="routes-pro">PRO</span>}</span>
+                  <strong className="route-card-title">{route.name}</strong>
+                  {route.description && <span className="route-card-description">{route.description}</span>}
+                  <span className="route-card-itinerary">
+                    {stops.slice(0, 3).map((stop, index) => <span key={index}><i>{index + 1}</i><span>{stop.name}</span></span>)}
+                    {stops.length > 3 && <span className="route-card-more">{stops.length === 4 ? t('routes.moreStop') : t('routes.moreStops', { n: stops.length - 3 })}</span>}
+                  </span>
+                  <span className="route-card-metrics"><span><Map size={14} />{t('routes.stopsCount', { n: stops.length })}</span>{dist != null && <span title={t('routes.distFromYou')}><Footprints size={14} />{t('routes.fromYou', { distance: dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km` })}</span>}{route.starts_count > 0 && <span title={t('routes.doneByTitle')}><Users size={14} />{route.starts_count}</span>}</span>
+                  <span className="route-card-footer"><span><Avatar src={(own ? currentUser : route.creator)?.avatar_url} name={publicName(own ? currentUser : route.creator)} size={24} /><span>{publicName(own ? currentUser : route.creator)}</span>{own && (route.visibility === 'private' ? <Lock size={12} /> : route.visibility === 'friends' ? <Users size={12} /> : <Globe size={12} />)}</span><span className="route-card-open">{t('routes.viewRoute')}<ArrowUpRight size={17} /></span></span>
+                </button>;
+              })}
+            </div>
+            {sortedRoutes.length === 0 && <div className="routes-empty"><Map size={30} /><h2>{routeScope === 'mine' && !routeSearchQuery ? t('routes.noMine') : routes.length === 0 ? t('routes.noRoutes') : t('routes.noResults')}</h2>{routeSearchQuery ? <button className="btn btn-secondary" onClick={() => setRouteSearchQuery('')}>{t('routes.clearSearch')}</button> : <button className="btn btn-primary" onClick={handleStartCreation}><Plus size={16} />{t('routes.createShort')}</button>}</div>}
+          </section>}
 
           {/* Route Statistics (solo in dettaglio/creazione, non nella lista) */}
-          <div className="card" style={{ padding: '16px', display: listMode ? 'none' : undefined }}>
+          <div className="card route-summary-panel" style={{ padding: '20px', display: listMode ? 'none' : undefined }}>
             <h3 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               {t('routes.statsTitle')}
             </h3>
@@ -1445,6 +1271,7 @@ export default function RoutesPage() {
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
               <button
                 type="button"
+                aria-pressed={travelMode === 'foot'}
                 onClick={() => setTravelMode('foot')}
                 style={{
                   flex: 1,
@@ -1466,6 +1293,7 @@ export default function RoutesPage() {
               </button>
               <button
                 type="button"
+                aria-pressed={travelMode === 'driving'}
                 onClick={() => setTravelMode('driving')}
                 style={{
                   flex: 1,
@@ -1487,7 +1315,7 @@ export default function RoutesPage() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="route-summary-metrics">
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-dark)', paddingBottom: '10px' }}>
                 <span className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <MapPin size={14} color="var(--primary)" /> {t('routes.stopsTotal')}
@@ -1545,13 +1373,15 @@ export default function RoutesPage() {
             {/* Azioni sul percorso selezionato */}
             {!isCreating && selectedRoute && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px', borderTop: '1px solid var(--border-dark)', paddingTop: '16px' }}>
+                <details className="route-tour-options">
+                  <summary><SlidersHorizontal size={16} />{t('routes.tourOptions')}<ChevronRight size={16} /></summary>
                 {/* Impostazioni Tour: target drink/tappa + privacy */}
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{t('routes.tourTarget')}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button type="button" onClick={() => setTourTarget((t) => Math.max(1, t - 1))} className="btn btn-secondary" style={{ width: 28, height: 28, borderRadius: '50%', padding: 0 }}>−</button>
+                    <button type="button" aria-label={t('routes.decreaseTarget')} onClick={() => setTourTarget((t) => Math.max(1, t - 1))} className="btn btn-secondary" style={{ width: 40, height: 40, borderRadius: '50%', padding: 0 }}>−</button>
                     <strong style={{ minWidth: 16, textAlign: 'center' }}>{tourTarget}</strong>
-                    <button type="button" onClick={() => setTourTarget((t) => Math.min(10, t + 1))} className="btn btn-secondary" style={{ width: 28, height: 28, borderRadius: '50%', padding: 0 }}>+</button>
+                    <button type="button" aria-label={t('routes.increaseTarget')} onClick={() => setTourTarget((t) => Math.min(10, t + 1))} className="btn btn-secondary" style={{ width: 40, height: 40, borderRadius: '50%', padding: 0 }}>+</button>
                   </div>
                 </div>
                 <div className="feed-filter-tabs">
@@ -1559,6 +1389,8 @@ export default function RoutesPage() {
                   <button type="button" aria-pressed={!!(tourVisibility === 'friends')} className={`seg-tab ${tourVisibility === 'friends' ? 'active' : ''}`} onClick={() => setTourVisibility('friends')}>{t('routes.visFriends')}</button>
                   <button type="button" aria-pressed={!!(tourVisibility === 'private')} className={`seg-tab ${tourVisibility === 'private' ? 'active' : ''}`} onClick={() => setTourVisibility('private')}>{t('routes.visPrivate')}</button>
                 </div>
+                </details>
+                <p className="route-visibility-note">{t('routes.liveVisibility')} {tourVisibility === 'private' ? t('routes.visPrivate') : tourVisibility === 'friends' ? t('routes.visFriends') : t('routes.visAll')}</p>
                 <button
                   type="button"
                   onClick={handleStartTour}
@@ -1656,9 +1488,10 @@ export default function RoutesPage() {
             </div>
           )}
 
+        </div>
           {/* Selected Route Waypoints (when not creating) */}
           {!isCreating && currentActiveWaypoints.length > 0 && (
-            <div className="card" style={{ marginTop: '16px', padding: '16px' }}>
+            <section className="route-stops-panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700' }}>
                   {selectedRoute?.name || 'Tour'} — {t('routes.waypointsTitle', { n: currentActiveWaypoints.length })}
@@ -1687,70 +1520,18 @@ export default function RoutesPage() {
                 {currentActiveWaypoints.map((wp, idx) => {
                   const active = idx === activeWaypointIndex;
                   return (
-                    <div
-                      key={idx}
-                      onClick={() => setActiveWaypointIndex(idx)}
-                      style={{
-                        background: active ? 'rgba(223, 255, 0,0.1)' : 'var(--bg-input-dark)',
-                        border: active ? '1px solid var(--secondary)' : '1px solid var(--border-dark)',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        gap: '10px',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        transition: 'var(--transition)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', minWidth: 0, flex: 1 }}>
-                        <div style={{
-                          background: active ? '#DFFF00' : '#EF4444',
-                          color: 'white',
-                          width: active ? '26px' : '22px',
-                          height: active ? '26px' : '22px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: '800',
-                          fontSize: '11px',
-                          flexShrink: 0,
-                          transition: 'var(--transition)',
-                        }}>
-                          {idx + 1}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong style={{ display: 'block', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {wp.name}
-                          </strong>
-                          <span style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {wp.note}
-                          </span>
-                          {wp.units != null && (
-                            <span style={{ fontSize: '10px', color: 'var(--secondary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
-                              <Beer size={10} /> {parseFloat(wp.units).toFixed(1)} U.A.
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${wp.lat},${wp.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        title="Naviga a questa tappa"
-                        style={{ fontSize: '16px', flexShrink: 0, textDecoration: 'none' }}
-                      >
-                        🧭
-                      </a>
+                    <div key={idx} className={`route-stop-row ${active ? 'is-active' : ''}`}>
+                      <button type="button" className="route-stop-select" aria-pressed={active} onClick={() => setActiveWaypointIndex(idx)}>
+                        <span className="route-stop-number">{idx + 1}</span>
+                        <span><strong>{wp.name}</strong>{(wp.note || wp.address) && <small>{wp.note || wp.address}</small>}{wp.units != null && <small>{parseFloat(wp.units).toFixed(1)} U.A.</small>}</span>
+                      </button>
+                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${wp.lat},${wp.lng ?? wp.lon}`} target="_blank" rel="noopener noreferrer" aria-label={t('routes.navigateStop', { name: wp.name })}><ArrowUpRight size={19} /></a>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </section>
           )}
-        </div>
       </div>
 
       {/* CSS for spinner animation */}

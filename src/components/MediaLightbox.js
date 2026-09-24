@@ -54,7 +54,7 @@ export default function MediaLightbox({ images = [], startIndex = 0, onClose, fo
       }}
     >
       <button onClick={(e) => { e.stopPropagation(); onClose?.(); }} aria-label={t('common.close')}
-        style={{ position: 'absolute', top: 'calc(12px + var(--sa-top))', right: 'max(16px, var(--sa-right))', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', cursor: 'pointer' }}>
+        style={{ position: 'absolute', top: 'calc(12px + var(--app-top-inset))', right: 'max(16px, var(--sa-right))', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', cursor: 'pointer' }}>
         <X size={22} />
       </button>
 
