@@ -9,6 +9,7 @@ const FAQ = [
   { q: 'Dopo quante Maß posso guidare?', a: 'Dipende da peso, sesso, stomaco pieno o vuoto e ritmo. Per un uomo di 70-80 kg anche una sola Maß può portare il tasso sopra 0,5 g/L; con due Maß servono in genere 6-8 ore dopo l’ultimo sorso per tornare sotto il limite, con tre si va oltre le 10 ore, cioè la mattina dopo. Per una donna di 60 kg una sola Maß richiede circa 6 ore. Strabar calcola sul tuo profilo l’ora stimata in cui torni sotto 0,5, ma è solo una stima: se devi guidare, non bere.' },
   { q: 'Qual è il limite di alcol alla guida in Germania?', a: 'In Germania il limite generale è 0,5 g/L (0,5 per mille), come in Italia e in Austria. Per i neopatentati in periodo di prova e per chi ha meno di 21 anni il limite è zero. Già da 0,3 g/L, se ci sono segni di guida alterata, scattano sanzioni penali. Le regole possono cambiare: verifica sempre le norme in vigore.' },
   { q: 'Cos’è la Radler Maß?', a: 'È una Maß “tagliata”: metà birra e metà limonata, per circa il 2,5% di alcol. È il trucco più usato dai locali per restare nel tendone fino a sera senza esagerare. Su Strabar la trovi nel selettore Festbier / Maß.' },
+  { q: 'Come si ottiene il badge Wiesn 2026?', a: 'Basta registrare una sessione su Strabar tra il 19 settembre e il 4 ottobre 2026, ovunque tu sia e con qualsiasi drink. Il badge 🥨 Wiesn 2026 compare nel tuo Profilo, nella sezione Badge. Dopo il 4 ottobre non è più ottenibile.' },
   { q: 'Strabar è gratis?', a: 'Sì: registrare le Maß, vedere il tasso stimato in tempo reale e l’ora in cui torni sotto 0,5, ricevere l’avviso quando superi il limite e condividere la storia della serata è gratuito.' },
 ];
 
@@ -36,10 +37,22 @@ export default function OktoberfestPage() {
       h1="Bevi la Maß. Strabar ti dice quando puoi ripartire."
       lead="Dal 19 settembre al 4 ottobre Monaco è la capitale della birra. Una Maß vale quattro birre: registra quelle che bevi, guarda il tuo tasso stimato in tempo reale e sappi a che ora torni sotto 0,5 prima di rimetterti in macchina, in camper o sul pullman di ritorno dal Brennero."
       ctas={[
-        { label: '🍺 Traccia le tue Maß', href: '/', primary: true },
+        { label: '🥨 Prendi il badge Wiesn', href: '/log', primary: true },
         { label: 'Scarica l’app', href: '/install' },
       ]}
       sections={[
+        {
+          id: 'badge',
+          h2: '🥨 Come prendere il badge Wiesn 2026',
+          paragraphs: [
+            'Il badge stagionale Wiesn 2026 si sblocca con una sola sessione registrata su Strabar entro domenica 4 ottobre. Non serve essere a Monaco e non serve bere birra: vale qualsiasi sessione, ovunque tu sia.',
+          ],
+          list: [
+            { t: '1. Tocca “Registra”', d: 'il bottone rosso in alto (su telefono, al centro della barra in basso).' },
+            { t: '2. Avvia la sessione', d: 'scegli il locale o registra senza posizione, poi aggiungi quello che bevi: dal selettore “Festbier / Maß” trovi anche la Maß da 1 litro.' },
+            { t: '3. Trovi il badge nel Profilo', d: 'nella sezione Badge compare 🥨 Wiesn 2026. Dopo il 4 ottobre non si può più ottenere.' },
+          ],
+        },
         {
           id: 'date',
           h2: 'Oktoberfest 2026: date e weekend degli italiani',
