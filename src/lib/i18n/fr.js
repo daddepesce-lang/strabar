@@ -69,10 +69,7 @@ export const fr = {
     liveNow: 'Vous êtes en direct',
   },
   feed: {
-    homeTitle: 'Votre cercle',
-    homeSubtitle: 'Les soirées de vos amis, les lieux et les moments à garder.',
-    newSession: 'Nouvelle session',
-    composePrompt: 'Où trinque-t-on aujourd’hui ?',
+    openSession: 'Détails',
     filterLabel: 'Filtrer les activités',
     tabFriends: 'Amis',
     tabAll: 'Tous',
@@ -1075,6 +1072,9 @@ export const fr = {
     badgesLocked: '🔒 Pour débloquer :',
     badgeUnlockWith: 'Débloquez avec : {th}',
     badgesShowAll: 'Afficher tous les badges ({n} à débloquer)',
+    badgeEarnedOn: 'Obtenu le {date}',
+    badgeEarnedIn: 'avec la session « {title} »',
+    badgeHow: 'Comment : {th}',
     badgeEarned: 'Obtenu !',
     badgeProgress: 'Progression : {cur} / {target}',
     bdg: {

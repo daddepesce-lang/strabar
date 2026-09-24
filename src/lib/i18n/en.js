@@ -69,10 +69,7 @@ export const en = {
     liveNow: "You're live",
   },
   feed: {
-    homeTitle: 'Your circle',
-    homeSubtitle: 'Your friends’ nights out, venues and moments worth keeping.',
-    newSession: 'New session',
-    composePrompt: 'Where are we toasting today?',
+    openSession: 'Details',
     filterLabel: 'Filter activity',
     tabFriends: 'Friends',
     tabAll: 'All',
@@ -1075,6 +1072,9 @@ export const en = {
     badgesLocked: '🔒 To unlock:',
     badgeUnlockWith: 'Unlock with: {th}',
     badgesShowAll: 'Show all badges ({n} to unlock)',
+    badgeEarnedOn: 'Earned on {date}',
+    badgeEarnedIn: 'with the session “{title}”',
+    badgeHow: 'How: {th}',
     badgeEarned: 'Earned!',
     badgeProgress: 'Progress: {cur} / {target}',
     bdg: {

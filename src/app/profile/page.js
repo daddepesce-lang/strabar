@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { useI18n } from '@/lib/i18n';
-import { badgeProgress, seasonalBadges } from '@/lib/badges';
+import { badgeProgress, seasonalBadges, badgeEarnedDates } from '@/lib/badges';
 import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin, BadgeCheck, ChevronLeft, ChevronRight, Camera, Settings2 } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
@@ -40,6 +40,8 @@ export default function ProfilePage() {
   const [followsModal, setFollowsModal] = useState(null); // 'followers' | 'following' | null
   const [showPastSessions, setShowPastSessions] = useState(false); // mostra solo l'ultima + pulsante
   const [selectedBadge, setSelectedBadge] = useState(null); // badge aperto nel dettaglio (tap)
+  // Quando/con quale sessione è stato ottenuto ogni badge (dalle sessioni già caricate).
+  const badgeDates = useMemo(() => badgeEarnedDates(activities), [activities]);
   const [showAllBadges, setShowAllBadges] = useState(false); // mostra tutti i badge (anche i bloccati)
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
 
@@ -879,8 +881,22 @@ export default function ProfilePage() {
                 <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px' }}>{selectedBadge.title}</h3>
                 <p style={{ fontSize: '14px', color: 'var(--text-dark-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>{selectedBadge.desc}</p>
                 {selectedBadge.earned ? (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: 700, fontSize: '14px' }}>
-                    <Award size={16} /> {t('profile.badgeEarned')}
+                  <div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--secondary)', fontWeight: 700, fontSize: '14px' }}>
+                      <Award size={16} /> {badgeDates[selectedBadge.id]
+                        ? t('profile.badgeEarnedOn', { date: new Date(badgeDates[selectedBadge.id].at).toLocaleDateString(locale === 'en' ? 'en-GB' : locale, { day: 'numeric', month: 'long', year: 'numeric' }) })
+                        : t('profile.badgeEarned')}
+                    </div>
+                    {badgeDates[selectedBadge.id]?.title && (
+                      <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '6px' }}>
+                        {t('profile.badgeEarnedIn', { title: badgeDates[selectedBadge.id].title })}
+                      </div>
+                    )}
+                    {selectedBadge.threshold && (
+                      <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-dark)' }}>
+                        {t('profile.badgeHow', { th: selectedBadge.threshold })}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div>

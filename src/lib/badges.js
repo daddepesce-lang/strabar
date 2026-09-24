@@ -37,7 +37,8 @@ export const BADGE_DEFS = [
 
 // Retro-compatibilità: alcune parti importano ancora BADGE_LIST.
 export const BADGE_LIST = BADGE_DEFS;
-export const BADGE_ICON = Object.fromEntries(BADGE_DEFS.map((b) => [b.id, b.icon]));
+// Nota: SEASONAL_DEFS è definito sotto; l'indice icone li include (serve a <BadgeUnlock/>).
+export const BADGE_ICON = {};
 
 // Badge STAGIONALI / a tempo: attivi solo in una finestra di date; si ottengono con una
 // sessione dentro la finestra. Se ne aggiungono/attivano a mano qui, quando serve.
@@ -47,6 +48,8 @@ export const SEASONAL_DEFS = [
   // Oktoberfest 2026 (19/9 → 4/10 compreso). `to` è mezzanotte UTC del 5/10.
   { id: 'wiesn_2026', icon: '🥨', from: '2026-09-19', to: '2026-10-05' },
 ];
+
+for (const b of [...BADGE_DEFS, ...SEASONAL_DEFS]) BADGE_ICON[b.id] = b.icon;
 
 // true se l'istante `ms` cade nella finestra del badge stagionale `id`.
 export function inSeason(id, ms) {
@@ -92,9 +95,33 @@ export function badgeChecks(s) {
 }
 
 // Lista degli id badge OTTENUTI, nell'ordine canonico (usata dalla Home per gli sblocchi).
-export function earnedBadgeIds(activities = []) {
+// Include gli stagionali ATTIVI ORA (quelli scaduti no: chi li aveva già ottenuti non deve
+// vedere una festa retroattiva, perché non sono mai stati nella baseline `seen_badges`).
+export function earnedBadgeIds(activities = [], nowMs = Date.now()) {
   const checks = badgeChecks(computeBadgeStats(activities));
-  return BADGE_DEFS.map((b) => b.id).filter((id) => checks[id]);
+  const seasonal = seasonalBadges(activities, nowMs).filter((b) => b.active && b.earned).map((b) => b.id);
+  return [...BADGE_DEFS.map((b) => b.id).filter((id) => checks[id]), ...seasonal];
+}
+
+// QUANDO è stato ottenuto ogni badge: { [id]: { at, title } } con la sessione che ha fatto
+// superare la soglia. Ricostruito dalle sessioni già caricate (nessuna query in più):
+// si ripercorrono in ordine cronologico e si ricalcolano le statistiche sul prefisso.
+export function badgeEarnedDates(activities = []) {
+  const sorted = [...activities].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const out = {};
+  const pending = new Set(BADGE_DEFS.map((d) => d.id));
+  for (let i = 0; i < sorted.length && pending.size; i++) {
+    const checks = badgeChecks(computeBadgeStats(sorted.slice(0, i + 1)));
+    for (const id of [...pending]) {
+      if (checks[id]) { out[id] = { at: sorted[i].created_at, title: sorted[i].title || null }; pending.delete(id); }
+    }
+  }
+  for (const d of SEASONAL_DEFS) {
+    const fromMs = new Date(d.from).getTime(), toMs = new Date(d.to).getTime();
+    const first = sorted.find((a) => { const t = new Date(a.created_at).getTime(); return t >= fromMs && t <= toMs; });
+    if (first) out[d.id] = { at: first.created_at, title: first.title || null };
+  }
+  return out;
 }
 
 // Progresso per OGNI badge: { id, icon, cur, target, earned, pct }. Usata dal Profilo per

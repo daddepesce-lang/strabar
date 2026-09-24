@@ -70,10 +70,7 @@ export const it = {
     liveNow: 'Sei in diretta',
   },
   feed: {
-    homeTitle: 'Il tuo giro',
-    homeSubtitle: 'Le serate dei tuoi amici, i locali e i momenti da ricordare.',
-    newSession: 'Nuova sessione',
-    composePrompt: 'Dove si brinda oggi?',
+    openSession: 'Dettagli',
     filterLabel: 'Filtra le attività',
     tabFriends: 'Amici',
     tabAll: 'Tutti',
@@ -1076,6 +1073,9 @@ export const it = {
     badgesLocked: '🔒 Da sbloccare:',
     badgeUnlockWith: 'Sblocca con: {th}',
     badgesShowAll: 'Mostra tutti i badge ({n} da sbloccare)',
+    badgeEarnedOn: 'Conquistato il {date}',
+    badgeEarnedIn: 'con la sessione «{title}»',
+    badgeHow: 'Come: {th}',
     badgeEarned: 'Conquistato!',
     badgeProgress: 'Progresso: {cur} / {target}',
     bdg: {

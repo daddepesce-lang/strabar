@@ -16,7 +16,7 @@ import BacCurve from '@/components/BacCurve';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import { publicName, publicUsername } from '@/lib/names';
 import { siteUrl } from '@/lib/site';
-import { earnedBadgeIds } from '@/lib/badges';
+import { earnedBadgeIds, inSeason } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Minus, Award, BadgeCheck, AlertTriangle, Navigation, Calendar, Camera, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronLeft, ChevronRight, ArrowRight, Sparkles, TrendingUp } from 'lucide-react';
@@ -2726,27 +2726,30 @@ export default function FeedPage() {
   };
 
   return (
-    <div className="dashboard-grid">
+    <div className="dashboard-grid social-feed">
       {/* Colonna Sinistra: Feed delle Attività */}
       <div className="feed-list">
-        <header className="feed-home-hero">
-          <div className="feed-home-intro">
-            <span className="feed-home-eyebrow"><span /> STRABAR SOCIAL</span>
-            <h1>{t('feed.homeTitle')}<em>.</em></h1>
-            <p>{t('feed.homeSubtitle')}</p>
-          </div>
-          {activeSession ? (
-            <button type="button" className="feed-home-cta" onClick={() => setShowLivePanel(true)}><span className="feed-home-live-dot" /> {t('nav.manageLive')}</button>
-          ) : (
-            <Link href="/log" className="feed-home-cta"><Plus size={18} /> {t('feed.newSession')}</Link>
-          )}
-        </header>
-
-        {!activeSession && (
-          <div className="feed-compose">
-            <Link href="/profile" aria-label={t('nav.profile')}><Avatar src={currentUser.avatar_url} name={currentUser.display_name || currentUser.username} size={40} /></Link>
-            <Link href="/log" className="feed-compose-prompt">{t('feed.composePrompt')}</Link>
-            <Link href="/log" className="feed-compose-photo" aria-label={t('session.photoAdd')}><Camera size={18} /></Link>
+        {/* Filtro feed: Amici / Tutti / Live */}
+        {currentUser && (
+          <div className="feed-filter-tabs feed-home-filters" aria-label={t('feed.filterLabel')}>
+            <button type="button" aria-pressed={feedFilter === 'all'}
+              className={`seg-tab ${feedFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setFeedFilter('all')}
+            >
+              <Globe size={15} /> {t('feed.tabAll')}
+            </button>
+            <button type="button" aria-pressed={feedFilter === 'friends'}
+              className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
+              onClick={() => setFeedFilter('friends')}
+            >
+              <Users size={15} /> {t('feed.tabFriends')}
+            </button>
+            <button type="button" aria-pressed={feedFilter === 'live'}
+              className={`seg-tab ${feedFilter === 'live' ? 'active' : ''}`}
+              onClick={() => setFeedFilter('live')}
+            >
+              <span className="filter-live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block', flexShrink: 0 }} /> {t('feed.tabLive')}
+            </button>
           </div>
         )}
 
@@ -2755,7 +2758,7 @@ export default function FeedPage() {
           activeSession ? (
             <>
               {/* Banner compatto: la diretta non occupa più il feed. Tocca per gestirla. */}
-              <button type="button" onClick={() => setShowLivePanel(true)} style={{ width: '100%', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--primary)', background: 'linear-gradient(135deg, #141419 0%, #1c130c 100%)', borderRadius: '14px', padding: '12px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 16px rgba(255,59,47,0.2)' }}>
+              <button type="button" onClick={() => setShowLivePanel(true)} className="feed-live-status">
                 <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> {t('session.liveBadge')}
                 </span>
@@ -3335,30 +3338,6 @@ export default function FeedPage() {
           </div>
         )}
 
-        {/* Filtro feed: Amici / Tutti / Live */}
-        {currentUser && activities.length > 0 && (
-          <div className="feed-filter-tabs feed-home-filters" aria-label={t('feed.filterLabel')}>
-            <button type="button" aria-pressed={feedFilter === 'friends'}
-              className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
-              onClick={() => setFeedFilter('friends')}
-            >
-              <Users size={15} /> {t('feed.tabFriends')}
-            </button>
-            <button type="button" aria-pressed={feedFilter === 'all'}
-              className={`seg-tab ${feedFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setFeedFilter('all')}
-            >
-              <Globe size={15} /> {t('feed.tabAll')}
-            </button>
-            <button type="button" aria-pressed={feedFilter === 'live'}
-              className={`seg-tab ${feedFilter === 'live' ? 'active' : ''}`}
-              onClick={() => setFeedFilter('live')}
-            >
-              <span className="filter-live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block', flexShrink: 0 }} /> {t('feed.tabLive')}
-            </button>
-          </div>
-        )}
-
         {visibleActivities.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
             {feedFilter === 'friends' ? (
@@ -3379,6 +3358,9 @@ export default function FeedPage() {
           visibleActivities.map((act, idx) => {
             const hasCheered = act.cheered_by_me || act.cheers?.includes(currentUser?.id);
             const isReallyActive = act.is_active && (new Date().getTime() - new Date(act.created_at).getTime() < 5 * 60 * 60 * 1000);
+            const postDrinks = groupDrinks(act.drinks);
+            const postBac = displayBac(act);
+            const postProfileHref = act.user_id === currentUser.id ? '/profile' : `/u/${act.user_id}`;
             // Banner interlacciato: primo DOPO 2 sessioni (dopo idx 1), poi ogni 3 sessioni.
             // Ruota tra i banner attivi mescolati, così i paganti non finiscono mai sepolti.
             let bannerSlot = null;
@@ -3393,246 +3375,117 @@ export default function FeedPage() {
               <Fragment key={act.id}>
               {bannerSlot}
               <article
-                className="card activity-card"
-                style={{ cursor: 'pointer' }}
+                className="feed-post"
                 onClick={(e) => {
-                  // Non aprire il dettaglio se si interagisce con controlli (bottoni, link, form, sezione commenti)
-                  if (
-                    !['BUTTON', 'A', 'INPUT', 'TEXTAREA', 'SELECT', 'LABEL', 'FORM'].includes(e.target.tagName) &&
-                    !e.target.closest('button') &&
-                    !e.target.closest('a') &&
-                    !e.target.closest('input') &&
-                    !e.target.closest('form') &&
-                    !e.target.closest('[data-no-open]')
-                  ) {
+                  if (!e.target.closest('button, a, input, textarea, select, label, form, [data-no-open]')) {
                     handleOpenActivity(act);
                   }
                 }}
               >
-                <div className="activity-header" style={{ gap: '11px' }}>
-                  <Link href={`/u/${act.user_id}`} prefetch={false} className="avatar-ring" style={{ flexShrink: 0 }}>
-                    <Avatar src={act.profiles?.avatar_url} name={publicName(act.profiles, 'Atleta')} size={40} />
+                <header className="feed-post-header">
+                  <Link href={postProfileHref} prefetch={false} className="feed-post-avatar" aria-label={publicName(act.profiles, t('feed.userFallback'))}>
+                    <Avatar src={act.profiles?.avatar_url} name={publicName(act.profiles, t('feed.userFallback'))} size={42} />
                   </Link>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="activity-author">
-                      <Link href={`/u/${act.user_id}`} prefetch={false} style={{ color: 'inherit' }}>
-                        {publicName(act.profiles, t('feed.userFallback'))}
-                      </Link>
-                      {act.profiles?.is_premium && (
-                        <BadgeCheck size={15} style={{ color: 'var(--secondary)', flexShrink: 0, verticalAlign: 'text-bottom', marginLeft: 6 }} aria-label="Premium" />
-                      )}
+                  <div className="feed-post-identity">
+                    <div className="feed-post-author">
+                      <Link href={postProfileHref} prefetch={false}>{publicName(act.profiles, t('feed.userFallback'))}</Link>
+                      {act.profiles?.is_premium && <BadgeCheck size={15} className="feed-post-premium" aria-label="Premium" />}
+                      {isReallyActive && <span className="feed-post-live"><span /> LIVE</span>}
                     </div>
-                    <div className="activity-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {formatDate(act.created_at)}
-                      {!isNeutralFeeling(act.feeling) && (
-                        <> · <strong style={{ color: 'var(--primary)' }}>{localizeFeeling(act.feeling, t)}</strong></>
+                    <div className="feed-post-meta">
+                      <time dateTime={act.created_at}>{formatDate(act.created_at)}</time>
+                      {act.location?.name && (
+                        <><span aria-hidden="true">·</span><button type="button" onClick={() => handleOpenActivity(act)} title={locationDisplayName(act.location, t)}>{locationDisplayName(act.location, t)}</button></>
                       )}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
-                    {isReallyActive && !act.cover_url && (
-                      <span className="pulse" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(255,59,47,0.92)', color: '#FFF', fontSize: '10px', fontWeight: 800, letterSpacing: '0.5px', padding: '3px 9px', borderRadius: '20px' }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#FFF', display: 'inline-block' }} />
-                        LIVE
-                      </span>
-                    )}
-                    {currentUser && act.user_id !== currentUser.id && (
-                      <button
-                        onClick={() => handleToggleFollow(act.user_id)}
-                        disabled={followBusy[act.user_id]}
-                        className="btn"
-                        style={{ padding: '6px 15px', fontSize: '13px', borderRadius: '18px', fontWeight: 600, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.14)', background: 'none', color: followingIds.includes(act.user_id) ? 'var(--text-dark-tertiary)' : '#C4C4CC' }}
-                      >
-                        {followingIds.includes(act.user_id) ? t('feed.following') : t('feed.follow')}
-                      </button>
-                    )}
-                  </div>
+                  {act.user_id !== currentUser.id && (
+                    <button type="button" onClick={() => handleToggleFollow(act.user_id)} disabled={followBusy[act.user_id]} className={`feed-post-follow ${followingIds.includes(act.user_id) ? 'is-following' : ''}`} aria-pressed={followingIds.includes(act.user_id)}>
+                      {followingIds.includes(act.user_id) ? t('feed.following') : t('feed.follow')}
+                    </button>
+                  )}
+                </header>
+
+                <div className="feed-post-caption">
+                  <h2><button type="button" onClick={() => handleOpenActivity(act)}>{act.title}</button></h2>
+                  {/* Sessione nella finestra Oktoberfest = vale il badge stagionale: pillola che
+                      porta alla landing (chi la vede sull'amico scopre come prenderlo). Zero dati extra. */}
+                  {inSeason('wiesn_2026', new Date(act.created_at).getTime()) && (
+                    <Link href="/oktoberfest" prefetch={false} className="feed-wiesn-chip">🥨 Wiesn 2026</Link>
+                  )}
+                  {act.description && !act.description.startsWith('Chiusa automaticamente') && <p>{act.description}</p>}
+                  {!isNeutralFeeling(act.feeling) && <span className="feed-post-feeling">{localizeFeeling(act.feeling, t)}</span>}
                 </div>
 
-                {/* Copertina della sessione: pill LIVE, locale e badge foto in overlay */}
-                {act.cover_url && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); openSessionPhotos(act); }}
-                    aria-label={t('feed.photoOpenAria')}
-                    className="activity-cover"
-                  >
+                {act.cover_url ? (
+                  <button type="button" onClick={() => openSessionPhotos(act)} aria-label={t('feed.photoOpenAria')} className="feed-post-media">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={act.cover_url}
-                      alt={t('feed.photoAlt')}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    {isReallyActive && (
-                      <span className="cover-overlay pulse" style={{ top: 14, left: 14, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,59,47,0.92)', color: '#FFF', fontSize: 11, fontWeight: 800, letterSpacing: '0.5px', padding: '5px 11px', borderRadius: 20 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFF', display: 'inline-block' }} /> LIVE
-                      </span>
-                    )}
-                    {act.location && (
-                      <span className="cover-overlay" style={{ bottom: 14, left: 16, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#FFF', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        📍 {locationDisplayName(act.location, t)}
-                      </span>
-                    )}
-                    <span className="cover-overlay" style={{ bottom: 12, right: 14, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', color: '#FFF', fontSize: 11, fontWeight: 600, padding: '4px 9px', borderRadius: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Camera size={12} /> {t('feed.photoBadge')}
-                    </span>
+                    <img src={act.cover_url} alt={t('feed.photoAlt')} loading="lazy" decoding="async" />
+                    <span className="feed-post-photo-label"><Camera size={14} /> {t('feed.photoBadge')}</span>
                   </button>
-                )}
+                ) : (() => {
+                  const loc = act.location;
+                  const lng = loc?.lng ?? loc?.lon;
+                  if (typeof loc?.lat !== 'number' || typeof lng !== 'number') return null;
+                  return (
+                    <div className="feed-post-map">
+                      <LazyMap waypoints={[{ name: loc.name || t('feed.hereFallback'), lat: loc.lat, lng }]} height="100%" connectLine={false} interactive={false} />
+                      <button type="button" className="feed-post-map-open" onClick={() => handleOpenActivity(act)} aria-label={t('feed.openSession')} />
+                    </div>
+                  );
+                })()}
 
-                <h2 className="activity-title" style={{ cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>{act.title}</h2>
-                {/* La descrizione auto-generata alla chiusura ("Chiusa automaticamente…")
-                    è rumore nel feed: la nascondiamo qui (resta nel dettaglio sessione). */}
-                {act.description && !act.description.startsWith('Chiusa automaticamente') && (
-                  <p style={{ color: 'var(--text-dark-primary)', fontSize: '15px', marginBottom: '16px', lineHeight: '1.5', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
-                    {act.description}
-                  </p>
-                )}
-
-                <div className="activity-stats">
-                  <div className="stat-box">
-                    <span className="stat-label">{t('session.drinksTotal')}</span>
-                    <span className="stat-value">
-                      {act.drinks.reduce((acc, d) => acc + d.qty, 0)}
+                <div className="feed-post-body">
+                  <div className="feed-post-summary">
+                    <span className="feed-post-drink-count"><Beer size={15} /><strong>{(act.drinks || []).reduce((total, drink) => total + (Number(drink.qty) || 0), 0)}</strong> {t('profile.sDrink')}</span>
+                    <span className="feed-post-bac" title={postDrinks.length ? t('session.bacEst') : t('session.bacResidual')}>
+                      <span>{postDrinks.length ? 'BAC' : t('session.bacResidual')}</span>
+                      <strong className={postBac >= 0.5 ? 'high' : postBac >= 0.2 ? 'mid' : 'low'}>{postBac.toFixed(2)} <small>g/l</small></strong>
+                      <BacInfo size={12} />
                     </span>
+                    <button type="button" className="feed-post-open" onClick={() => handleOpenActivity(act)}>{t('feed.openSession')}<ChevronRight size={14} /></button>
                   </div>
-                  {/* Durata NON mostrata nel feed (resta nel dettaglio sessione). U.A. resta in DB. */}
-                  <div className="stat-box">
-                    {/* Se la sessione non ha drink propri, il valore è il RESIDUO da sessioni
-                        precedenti: lo etichettiamo come tale (non è il tasso "di qui"). */}
-                    <span className="stat-label" style={{ gap: '4px' }}>{(act.drinks && act.drinks.length) ? t('session.bacEst') : t('session.bacResidual')} <BacInfo size={12} /></span>
-                    <span className={`bac-pill ${displayBac(act) >= 0.5 ? 'high' : displayBac(act) >= 0.2 ? 'mid' : 'low'}`}>
-                      {displayBac(act).toFixed(2)} <span style={{ fontSize: '13px', fontFamily: 'var(--font-sans)', fontWeight: 700, opacity: 0.6 }}>g/l</span>
-                    </span>
-                  </div>
-                </div>
 
-                {/* Lista Drink (raggruppati): chip con emoji per tipo + badge quantità */}
-                <div className="activity-drinks-detail">
-                  {groupDrinks(act.drinks).map((drink, idx) => (
-                    <span key={idx} className="drink-tag">
-                      <span style={{ fontSize: '14px', lineHeight: 1 }}>{drinkEmoji(drink.name)}</span>
-                      {localizeDrink(drink, locale).name}
-                      {drink.qty > 1 && (
-                        <span style={{ color: 'var(--text-dark-tertiary)', fontWeight: 600, fontSize: '12px' }}>×{drink.qty}</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
+                  {postDrinks.length > 0 && (
+                    <div className="feed-post-drinks">
+                      {postDrinks.slice(0, 3).map((drink, index) => (
+                        <span key={index}><span aria-hidden="true">{drinkEmoji(drink.name)}</span>{localizeDrink(drink, locale).name}{drink.qty > 1 && <small>×{drink.qty}</small>}</span>
+                      ))}
+                      {postDrinks.length > 3 && <button type="button" onClick={() => handleOpenActivity(act)} aria-label={t('feed.openSession')}>+{postDrinks.length - 3}</button>}
+                    </div>
+                  )}
 
-                 {act.location && !act.cover_url && (
-                   <div style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
-                     <span>📍 {t('session.at')} <strong>{locationDisplayName(act.location, t)}</strong></span>
-                     {act.location.unverified && (
-                       <span title={t('feed.unverifiedTitle')} style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dark)', borderRadius: '10px', padding: '1px 7px', fontWeight: 600 }}>
-                         {t('session.unverified')}
-                       </span>
-                     )}
-                   </div>
-                 )}
+                  {act.location?.unverified && <span className="feed-post-unverified" title={t('feed.unverifiedTitle')}>{t('session.unverified')}</span>}
 
-                 {/* Avanzamento del Tour visibile ai follower */}
-                 {act.location?.tour && (() => {
-                   const tour = act.location.tour;
-                   const stops = tour.stops || [];
-                   const cur = tour.current || 0;
-                   const total = stops.length || 1;
-                   const pct = Math.min(100, ((cur + 1) / total) * 100);
-                   const path = (tour.visited || []).map((s) => s.name);
-                   return (
-                     <div data-no-open style={{ marginBottom: '12px', background: 'rgba(223, 255, 0,0.05)', border: '1px solid rgba(223, 255, 0,0.2)', borderRadius: '10px', padding: '10px 12px', cursor: 'pointer' }} onClick={() => handleOpenActivity(act)}>
-                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', gap: '6px', flexWrap: 'wrap' }}>
-                         <strong style={{ fontSize: '12px', color: 'var(--secondary)' }}>{t('feed.tourLabel')} {tour.route_name}</strong>
-                         <span style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: 700 }}>
-                           {isReallyActive ? t('feed.tourStopN', { cur: cur + 1, total }) : t('feed.tourStopsDone', { done: path.length, total })}
-                         </span>
-                       </div>
-                       <div style={{ height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: path.length ? '6px' : 0 }}>
-                         <div style={{ width: `${pct}%`, height: '100%', background: 'var(--secondary)', transition: 'width 0.3s' }} />
-                       </div>
-                       {path.length > 0 && (
-                         <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', lineHeight: 1.4 }}>
-                           {path.map((name, i) => (
-                             <span key={i} style={i === cur && isReallyActive ? { color: 'var(--secondary)', fontWeight: 700 } : undefined}>
-                               {name}{i < path.length - 1 ? ' ➔ ' : ''}
-                             </span>
-                           ))}
-                         </div>
-                       )}
-                     </div>
-                   );
-                 })()}
-
-                 {/* Niente foto ma sessione geolocalizzata (anche "libera"): mostra la mappa
-                     del punto. Mappa NON interattiva: lo scroll del feed scorre sopra e il
-                     tap sulla mappa apre il dettaglio della sessione (dove c'è la mappa piena). */}
-                 {!act.cover_url && (() => {
-                   const loc = act.location;
-                   const lat = loc?.lat;
-                   const lng = loc?.lng ?? loc?.lon;
-                   if (typeof lat !== 'number' || typeof lng !== 'number') return null;
-                   const wp = [{ name: loc.name || t('feed.hereFallback'), lat, lng, note: loc.name || '' }];
-                   return (
-                     <div className="feed-map-wrap" style={{ height: '170px', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-dark)', marginBottom: '15px', position: 'relative' }}>
-                       <LazyMap waypoints={wp} height="100%" connectLine={false} interactive={false} />
-                     </div>
-                   );
-                 })()}
-
-                {renderCompanionsList(act)}
-
-                {/* Chi ha messo Cheers — mostriamo il CONTEGGIO cliccabile: toccandolo si
-                    apre l'elenco, caricato ON-DEMAND (getCheerers). */}
-                {(act.cheer_count || 0) > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => openCheersList(act)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-dark-secondary)', marginBottom: '4px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                  >
-                    <Beer size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} fill="var(--primary)" />
-                    <span><strong style={{ color: '#FFF' }}>{act.cheer_count}</strong> {t('feed.cheersWord')}</span>
-                  </button>
-                )}
-
-                {/* Actions minimali: cheers (rosso), commenti, condividi a destra */}
-                <div className="activity-actions">
-                  <button
-                    onClick={() => handleCheers(act.id)}
-                    className={`action-btn ${hasCheered ? 'active' : ''}`}
-                    title={t('session.cheers')}
-                    aria-label={t('session.cheers')}
-                  >
-                    <Beer size={18} fill={hasCheered ? 'var(--primary)' : 'none'} style={{ color: hasCheered ? 'var(--primary)' : undefined }} />
-                    <span style={{ color: hasCheered ? 'var(--primary)' : undefined }}>{act.cheer_count ?? act.cheers?.length ?? 0}</span>
-                  </button>
-
-                  <button onClick={() => toggleCommentsSection(act.id)} className="action-btn" title={t('session.comment')} aria-label={t('session.comment')}>
-                    <MessageSquare size={18} />
-                    <span>{act.comments?.length || act.comment_count || 0}</span>
-                  </button>
-
-                  {currentUser && act.user_id === currentUser.id && (
-                    <button onClick={() => handleEditActivity(act)} className="action-btn" title={t('session.edit')} aria-label={t('session.edit')}>
-                      <Edit size={18} />
+                  {act.location?.tour && (
+                    <button type="button" className="feed-post-tour" onClick={() => handleOpenActivity(act)}>
+                      <Navigation size={16} />
+                      <span><strong>{act.location.tour.route_name || t('feed.tourLabel')}</strong><small>{isReallyActive ? t('feed.tourStopN', { cur: (act.location.tour.current || 0) + 1, total: act.location.tour.stops?.length || 1 }) : t('feed.tourStopsDone', { done: act.location.tour.visited?.length || 0, total: act.location.tour.stops?.length || 1 })}</small></span>
+                      <ChevronRight size={16} />
                     </button>
                   )}
 
-                  <Link href={`/share/${act.id}`} prefetch={false} className="action-btn" style={{ marginLeft: 'auto' }} title={t('session.exportSocial')} aria-label={t('session.exportSocial')}>
-                    <Share2 size={18} />
-                  </Link>
-                </div>
+                  {act.drank_with?.length > 0 && <div className="feed-post-companions">{renderCompanionsList(act)}</div>}
 
-                {/* Comments Section */}
-                {activeCommentsSection[act.id] && (
-                  <div data-no-open onClick={(e) => e.stopPropagation()} style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-dark)' }}>
-                    <CommentsSection
-                      activityId={act.id}
-                      currentUser={currentUser}
-                      formatDate={formatDate}
-                      onCountChange={(n) => patchActivity(act.id, (a) => ({ ...a, comment_count: n }))}
-                    />
+                  <div className="feed-post-actions">
+                    <button type="button" onClick={() => handleCheers(act.id)} className={hasCheered ? 'is-active' : ''} title={t('session.cheers')} aria-label={t('session.cheers')} aria-pressed={!!hasCheered}>
+                      <Beer size={22} fill={hasCheered ? 'currentColor' : 'none'} /><span>{act.cheer_count ?? act.cheers?.length ?? 0}</span>
+                    </button>
+                    <button type="button" onClick={() => toggleCommentsSection(act.id)} title={t('session.comment')} aria-label={t('session.comment')} aria-expanded={!!activeCommentsSection[act.id]}>
+                      <MessageSquare size={22} /><span>{act.comments?.length || act.comment_count || 0}</span>
+                    </button>
+                    {act.user_id === currentUser.id && <button type="button" onClick={() => handleEditActivity(act)} title={t('session.edit')} aria-label={t('session.edit')}><Edit size={20} /></button>}
+                    <Link href={`/share/${act.id}`} prefetch={false} className="feed-post-share" title={t('session.exportSocial')} aria-label={t('session.exportSocial')}><Share2 size={21} /></Link>
                   </div>
-                )}
+
+                  {(act.cheer_count || 0) > 0 && <button type="button" className="feed-post-cheerers" onClick={() => openCheersList(act)}><strong>{act.cheer_count}</strong> {t('feed.cheersWord')}<ChevronRight size={12} /></button>}
+
+                  {activeCommentsSection[act.id] && (
+                    <div data-no-open className="feed-post-comments" onClick={(e) => e.stopPropagation()}>
+                      <CommentsSection activityId={act.id} currentUser={currentUser} formatDate={formatDate} onCountChange={(n) => patchActivity(act.id, (a) => ({ ...a, comment_count: n }))} />
+                    </div>
+                  )}
+                </div>
               </article>
               </Fragment>
             );
