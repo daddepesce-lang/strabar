@@ -144,14 +144,17 @@ function FeedBanner({ b, onSeen, onClick }) {
     </div>
   );
   if (!b.link_url) return inner;
-  const internal = b.link_url.startsWith('/');
+  // Link interni con navigazione client (<Link>): niente ricarica completa, quindi la
+  // navbar resta da utente loggato (con un <a> la pagina statica ripartiva da "Accedi").
+  if (b.link_url.startsWith('/')) {
+    return (
+      <Link href={b.link_url} prefetch={false} onClick={() => onClick?.(b.id)} style={{ textDecoration: 'none', display: 'block' }}>
+        {inner}
+      </Link>
+    );
+  }
   return (
-    <a
-      href={b.link_url}
-      onClick={() => onClick?.(b.id)}
-      {...(internal ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-      style={{ textDecoration: 'none', display: 'block' }}
-    >
+    <a href={b.link_url} onClick={() => onClick?.(b.id)} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
       {inner}
     </a>
   );
