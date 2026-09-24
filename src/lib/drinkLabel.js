@@ -11,7 +11,7 @@
 // IT è la sorgente: sta in drinks.js, qui NON si ripete (fallback automatico).
 
 import {
-  QUICK_DRINKS, EXTRA_DRINKS, BEER_FAMILIES, DRINK_TYPES, DRINK_TYPE_LABELS,
+  QUICK_DRINKS, EXTRA_DRINKS, BEER_FAMILIES, FESTBIER_FAMILY, DRINK_TYPES, DRINK_TYPE_LABELS,
 } from '@/lib/drinks';
 
 // Traduzioni per id — SOLO en/fr/es, e solo dove il testo differisce dall'italiano.
@@ -47,6 +47,9 @@ export const CATALOG_I18N = {
     beer_dm_s: { name: 'Double Malt Small (0.2L)', label: '🍺 Double Malt Small 0.2L' },
     beer_dm_m: { name: 'Double Malt Medium (0.4L)', label: '🍺 Double Malt Medium 0.4L' },
     beer_dm_l: { name: 'Double Malt Large (0.66L)', label: '🍺 Double Malt Large 0.66L' },
+    festbier_halbe: { name: 'Festbier Half (0.5L)', label: '🍺 Festbier 0.5L' },
+    festbier_mass: { name: 'Maß Festbier (1L)', label: '🍺 Maß 1L' },
+    festbier_radler: { name: 'Radler Maß (1L)', label: '🍋 Radler Maß 1L' },
   },
   fr: {
     beer_blonde_med: { name: 'Bière blonde moyenne (0,4L)', label: '🍺 Bière moyenne' },
@@ -113,7 +116,7 @@ export const CATALOG_I18N = {
 
 // Etichette famiglia birra (BeerPicker) — solo dove differiscono dall'IT.
 export const BEER_FAMILY_I18N = {
-  en: { bionda: '🍺 Blonde', rossa: '🍺 Red/Amber', doppiomalto: '🍺 Double Malt' },
+  en: { festbier: '🥨 Festbier / Maß', bionda: '🍺 Blonde', rossa: '🍺 Red/Amber', doppiomalto: '🍺 Double Malt' },
   fr: { bionda: '🍺 Blonde', rossa: '🍺 Rousse', doppiomalto: '🍺 Double Malt' },
   es: { bionda: '🍺 Rubia', rossa: '🍺 Roja', doppiomalto: '🍺 Doble Malta' },
 };
@@ -124,7 +127,7 @@ const INDEX = {};
 const BY_NAME = {};
 for (const d of QUICK_DRINKS) { INDEX[d.id] = d; BY_NAME[d.name] = d; }
 for (const d of EXTRA_DRINKS) { INDEX[d.id] = d; BY_NAME[d.name] = d; }
-for (const f of BEER_FAMILIES) for (const s of f.sizes) { INDEX[s.id] = s; BY_NAME[s.name] = s; }
+for (const f of [...BEER_FAMILIES, FESTBIER_FAMILY]) for (const s of f.sizes) { INDEX[s.id] = s; BY_NAME[s.name] = s; }
 
 const TYPE_BY_KEY = {};
 for (const t of DRINK_TYPES) TYPE_BY_KEY[t.key] = t;

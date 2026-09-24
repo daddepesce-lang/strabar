@@ -10,6 +10,7 @@ export default function Footer() {
   const en = locale === 'en';
   const bacaroHref = en ? '/en/bacaro-tour' : '/bacaro-tour';
   const pubCrawlHref = en ? '/en/pub-crawl' : '/pub-crawl';
+  const oktoberfestHref = en ? '/en/oktoberfest' : '/oktoberfest';
   return (
     <footer
       style={{
@@ -33,6 +34,7 @@ export default function Footer() {
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <Link href={bacaroHref} style={{ color: 'var(--text-dark-secondary)' }}>Bacaro Tour</Link>
         <Link href={pubCrawlHref} style={{ color: 'var(--text-dark-secondary)' }}>Pub Crawl</Link>
+        <Link href={oktoberfestHref} style={{ color: 'var(--text-dark-secondary)' }}>Oktoberfest</Link>
         <Link href="/terms" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.terms')}</Link>
         <Link href="/privacy" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.privacy')}</Link>
         <Link href="/install" style={{ color: 'var(--text-dark-secondary)' }}>{t('footer.install')}</Link>

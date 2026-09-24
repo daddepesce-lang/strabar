@@ -15,6 +15,8 @@
 // per `id`. In display si usa localizeDrink(drink, locale). I nomi/label qui sono la
 // sorgente italiana e il fallback per ogni lingua.
 
+import { inSeason } from '@/lib/badges';
+
 export const QUICK_DRINKS = [
   { id: 'spritz', name: 'Spritz (Campari/Aperol/Select)', abv: 11, units: 1.3, label: '🍹 Spritz' },
   { id: 'beer_blonde_med', name: 'Birra Bionda Media (0,4L)', abv: 5, units: 2.0, label: '🍺 Birra Media' },
@@ -94,6 +96,29 @@ export const BEER_FAMILIES = [
     ],
   },
 ];
+
+// FESTBIER / MAß (Oktoberfest): famiglia "di sistema". In produzione il catalogo è un
+// override admin (app_config.drink_catalog) che sostituisce BEER_FAMILIES: questa famiglia
+// ci viene AGGIUNTA lato client se manca (withBuiltinFamilies), così la Maß c'è per tutti
+// senza toccare il catalogo salvato. Durante la Wiesn va in testa al selettore.
+export const FESTBIER_FAMILY = {
+  key: 'festbier', label: '🥨 Festbier / Maß', abv: 6,
+  sizes: [
+    { id: 'festbier_halbe', name: 'Festbier Halbe (0,5L)', abv: 6, units: 3.0, label: '🍺 Festbier 0,5L', size: 'Halbe 0,5L' },
+    { id: 'festbier_mass', name: 'Maß Festbier (1L)', abv: 6, units: 6.0, label: '🍺 Maß 1L', size: 'Maß 1L' },
+    { id: 'festbier_radler', name: 'Radler Maß (1L)', abv: 2.5, units: 2.5, label: '🍋 Radler Maß 1L', size: 'Radler 1L' },
+  ],
+};
+
+// Aggiunge le famiglie di sistema mancanti a un catalogo (anche override admin).
+export function withBuiltinFamilies(cat, nowMs = Date.now()) {
+  if (!cat || !Array.isArray(cat.beerFamilies)) return cat;
+  if (cat.beerFamilies.some((f) => f.key === FESTBIER_FAMILY.key)) return cat;
+  const beerFamilies = inSeason('wiesn_2026', nowMs)
+    ? [FESTBIER_FAMILY, ...cat.beerFamilies]
+    : [...cat.beerFamilies, FESTBIER_FAMILY];
+  return { ...cat, beerFamilies };
+}
 
 // ---------------------------------------------------------------------------
 // CATEGORIE per i drink PERSONALIZZATI (utente) e per i drink dei BAR.

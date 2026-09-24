@@ -82,6 +82,7 @@ export default function PubCrawlEnPage() {
       related={[
         { label: 'Do a bacaro tour in Venice', href: '/en/bacaro-tour' },
         { label: 'Pub crawl (Italiano)', href: '/pub-crawl' },
+        { label: 'Oktoberfest 2026: Maß & BAC', href: '/en/oktoberfest' },
         { label: 'Strabar Premium', href: '/premium' },
       ]}
       jsonLd={landingJsonLd({

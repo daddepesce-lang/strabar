@@ -10,6 +10,16 @@ import { publicName } from '@/lib/names';
 import { useI18n } from '@/lib/i18n';
 import { showToast, showError } from '@/lib/toast';
 import { mapTileUrl } from '@/lib/mapTiles';
+import { inSeason } from '@/lib/badges';
+
+// Maiuscolo che NON trasforma la ß in "SS" ("3 MAß FESTBIER", non "3 MASS FESTBIER").
+const upper = (str) => str.split('ß').map((x) => x.toUpperCase()).join('ß');
+
+const WIESN_DRINK = /maß|festbier|oktoberfest/i;
+function isWiesnSession(activity) {
+  if (!inSeason('wiesn_2026', new Date(activity.created_at).getTime())) return false;
+  return (activity.drinks || []).some((d) => String(d.id || '').startsWith('festbier_') || WIESN_DRINK.test(d.name || ''));
+}
 
 export default function ShareActivityPage({ params }) {
   const router = useRouter();
@@ -111,6 +121,19 @@ export default function ShareActivityPage({ params }) {
       ? db.calculateCurrentBAC(activity.drinks || [], activity.created_at, liveElapsedMin, undefined, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual)
       : db.calculatePeakBAC(activity.drinks || [], activity.created_at, activity.duration || displayDuration, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual);
 
+    // Sessione "da Wiesn": dentro la finestra Oktoberfest e con almeno una Festbier/Maß.
+    const isWiesn = isWiesnSession(activity);
+
+    // Live: orario STIMATO in cui si torna sotto 0,5 g/L (ipotesi: nessun altro drink).
+    // È il gancio della card Wiesn ("quando posso ripartire?"). Solo se è nel futuro.
+    const driveAt = (() => {
+      if (!isLive) return null;
+      const curve = db.calculateBACCurve(activity.drinks || [], activity.created_at, liveElapsedMin, activity.profiles?.weight, activity.full_stomach, activity.profiles?.sex, liveResidual);
+      const tt = curve?.belowLimit?.t;
+      if (!tt || tt <= Date.now()) return null;
+      return new Date(tt).toLocaleTimeString(locale === 'en' ? 'en-GB' : locale, { hour: '2-digit', minute: '2-digit' });
+    })();
+
     // Emoji indicativa del drink per la riga "Performance".
     const drinkEmoji = (name) => {
       const n = (name || '').toLowerCase();
@@ -167,7 +190,8 @@ export default function ShareActivityPage({ params }) {
         ctx.fillText('strabar', M, topY + 46);
       }
 
-      // --- LIVE badge in alto a destra ---
+      // --- LIVE badge in alto a destra (+ pillola WIESN alla sua sinistra) ---
+      let pillRight = W - M;
       if (isLive) {
         ctx.textBaseline = 'middle';
         ctx.font = '800 32px "DM Sans", sans-serif';
@@ -176,6 +200,17 @@ export default function ShareActivityPage({ params }) {
         ctx.fillStyle = '#FF3B2F'; ctx.beginPath(); ctx.roundRect(px, py, pw, ph, ph / 2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px + 30, py + ph / 2, 9, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.fillText('LIVE', px + 50, py + ph / 2 + 1);
+        ctx.textBaseline = 'alphabetic';
+        pillRight = px - 14;
+      }
+      if (isWiesn) {
+        ctx.textBaseline = 'middle';
+        ctx.font = '800 30px "DM Sans", sans-serif';
+        const wl = '🥨 WIESN 2026';
+        const pw = ctx.measureText(wl).width + 48, ph = 56, px = pillRight - pw, py = topY + 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.roundRect(px, py, pw, ph, ph / 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.fillText(wl, px + 24, py + ph / 2 + 1);
         ctx.textBaseline = 'alphabetic';
       }
 
@@ -212,7 +247,7 @@ export default function ShareActivityPage({ params }) {
 
       // Statistica principale: "1 SPRITZ" se un solo tipo, altrimenti "N DRINK".
       const mainStat = grouped.length === 1
-        ? `${grouped[0].qty} ${grouped[0].name.toUpperCase()}`
+        ? `${grouped[0].qty} ${upper(grouped[0].name)}`
         : `${totalDrinks} ${t('share.drinkUnit')}`;
 
       const hrs = Math.floor(displayDuration / 60), mins = displayDuration % 60;
@@ -272,8 +307,9 @@ export default function ShareActivityPage({ params }) {
       const hSec = 40, gapSec = compact ? 16 : 28;
       const hPhrase = compact ? 44 : 52, gapPhrase = compact ? 14 : 22;
       const hPerf = perf ? 42 : 0;
+      const hDrive = driveAt ? 62 : 0, gapDrive = driveAt ? (compact ? 16 : 26) : 0;
       const totalH = gBadge + gapBadge + titleLines.length * lhTitle + gapTitle
-        + hMeta + gapMeta + hStat + gapStat + hSec + gapSec + hPhrase + gapPhrase + hPerf;
+        + hMeta + gapMeta + hStat + gapStat + hSec + gapSec + hDrive + gapDrive + hPhrase + gapPhrase + hPerf;
 
       // --- CTA in fondo (stimola la condivisione, non "installa") ---
       const ctaTop = H - (compact ? 60 : 92);
@@ -326,6 +362,20 @@ export default function ShareActivityPage({ params }) {
       ctx.font = '700 36px "DM Sans", sans-serif';
       ctx.fillText(secondary, M, y);
       y += hSec + gapSec;
+
+      // Ripartenza stimata (pillola): "🚗 Sotto 0,5 dalle 11:40 · stima"
+      if (driveAt) {
+        const dl = t('share.driveAt', { time: driveAt });
+        const df = fitText(dl, '800', 32, 22);
+        ctx.font = `800 ${df.size}px "DM Sans", sans-serif`;
+        const dw = Math.min(maxW, ctx.measureText(df.text).width + 56);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.strokeStyle = '#DFFF00'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.roundRect(M, y, dw, hDrive, hDrive / 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#DFFF00'; ctx.textBaseline = 'middle';
+        ctx.fillText(df.text, M + 28, y + hDrive / 2 + 1);
+        ctx.textBaseline = 'top';
+        y += hDrive + gapDrive;
+      }
 
       // Frase automatica (colore del badge)
       ctx.fillStyle = badge.c;
@@ -449,7 +499,8 @@ export default function ShareActivityPage({ params }) {
     const drinks = activity.drinks.reduce((acc, d) => acc + d.qty, 0);
     const installUrl = siteUrl('/install');
     const line = t('share.captionLine', { drinks, units: activity.total_units, feeling: activity.feeling });
-    return `🍻 ${activity.title}\n${line}\n\n${t('share.captionJoin')} ${installUrl}`;
+    const tags = isWiesnSession(activity) ? '\n#Oktoberfest #Wiesn2026 #Strabar' : '';
+    return `🍻 ${activity.title}\n${line}${tags}\n\n${t('share.captionJoin')} ${installUrl}`;
   };
 
   // Condivisione nativa con l'immagine (apre il foglio di sistema: WhatsApp, IG, ecc.)

@@ -82,6 +82,7 @@ export default function PubCrawlPage() {
       related={[
         { label: 'Fai un bacaro tour a Venezia', href: '/bacaro-tour' },
         { label: 'Pub crawl (English)', href: '/en/pub-crawl' },
+        { label: 'Oktoberfest 2026: Maß e tasso', href: '/oktoberfest' },
         { label: 'Strabar Premium', href: '/premium' },
       ]}
       jsonLd={landingJsonLd({

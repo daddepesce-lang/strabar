@@ -44,7 +44,16 @@ export const BADGE_ICON = Object.fromEntries(BADGE_DEFS.map((b) => [b.id, b.icon
 // `from`/`to` in ISO. Testi come gli altri badge (profile.bdg.<id>).
 export const SEASONAL_DEFS = [
   { id: 'summer_2026', icon: '☀️', from: '2026-06-21', to: '2026-09-23' },
+  // Oktoberfest 2026 (19/9 → 4/10 compreso). `to` è mezzanotte UTC del 5/10.
+  { id: 'wiesn_2026', icon: '🥨', from: '2026-09-19', to: '2026-10-05' },
 ];
+
+// true se l'istante `ms` cade nella finestra del badge stagionale `id`.
+export function inSeason(id, ms) {
+  const d = SEASONAL_DEFS.find((x) => x.id === id);
+  if (!d) return false;
+  return ms >= new Date(d.from).getTime() && ms <= new Date(d.to).getTime();
+}
 
 // Statistiche aggregate dalle sessioni dell'utente (una sola passata).
 export function computeBadgeStats(activities = []) {

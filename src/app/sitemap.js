@@ -23,6 +23,9 @@ const STATIC_PAGES = [
   // Landing SEO (bacaro tour / pub crawl) con versioni IT + EN e hreflang incrociato.
   { path: '/bacaro-tour', priority: 0.9, changeFrequency: 'monthly', languages: { 'it-IT': '/bacaro-tour', en: '/en/bacaro-tour' } },
   { path: '/pub-crawl', priority: 0.9, changeFrequency: 'monthly', languages: { 'it-IT': '/pub-crawl', en: '/en/pub-crawl' } },
+  // Stagionale: in alto durante la Wiesn, resta indicizzata tutto l'anno (evergreen "Maß e guida").
+  { path: '/oktoberfest', priority: 0.9, changeFrequency: 'weekly', languages: { 'it-IT': '/oktoberfest', en: '/en/oktoberfest' } },
+  { path: '/en/oktoberfest', priority: 0.8, changeFrequency: 'weekly', languages: { 'it-IT': '/oktoberfest', en: '/en/oktoberfest' } },
   { path: '/en/bacaro-tour', priority: 0.8, changeFrequency: 'monthly', languages: { 'it-IT': '/bacaro-tour', en: '/en/bacaro-tour' } },
   { path: '/en/pub-crawl', priority: 0.8, changeFrequency: 'monthly', languages: { 'it-IT': '/pub-crawl', en: '/en/pub-crawl' } },
   { path: '/locali', priority: 0.8, changeFrequency: 'daily' },
