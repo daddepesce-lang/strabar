@@ -51,6 +51,15 @@ export const SEASONAL_DEFS = [
 
 for (const b of [...BADGE_DEFS, ...SEASONAL_DEFS]) BADGE_ICON[b.id] = b.icon;
 
+// Sessione "da Wiesn": nella finestra Oktoberfest E con almeno una Festbier/Maß (per id di
+// catalogo o, per drink custom/bar, per nome). Usata da pillola nel feed e storia condivisa.
+// NB: il BADGE invece vale per qualsiasi sessione nella finestra.
+const WIESN_DRINK = /maß|festbier|oktoberfest/i;
+export function isWiesnSession(activity) {
+  if (!activity || !inSeason('wiesn_2026', new Date(activity.created_at).getTime())) return false;
+  return (activity.drinks || []).some((d) => String(d.id || '').startsWith('festbier_') || WIESN_DRINK.test(d.name || ''));
+}
+
 // true se l'istante `ms` cade nella finestra del badge stagionale `id`.
 export function inSeason(id, ms) {
   const d = SEASONAL_DEFS.find((x) => x.id === id);

@@ -11,12 +11,13 @@ import { localizeFeeling, isNeutralFeeling, locationDisplayName, feelingKey } fr
 import { notify, ensureNotificationPermission } from '@/lib/notify';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
+import SessionDetailShell from '@/components/SessionDetailShell';
 import BacInfo from '@/components/BacInfo';
 import BacCurve from '@/components/BacCurve';
 import { useDrinkCatalog } from '@/lib/useDrinkCatalog';
 import { publicName, publicUsername } from '@/lib/names';
 import { siteUrl } from '@/lib/site';
-import { earnedBadgeIds, inSeason } from '@/lib/badges';
+import { earnedBadgeIds, isWiesnSession } from '@/lib/badges';
 import InfoPopover from '@/components/InfoPopover';
 import LazyMap from '@/components/LazyMap';
 import { Beer, MessageSquare, Share2, Trophy, Flame, User, Plus, Minus, Award, BadgeCheck, AlertTriangle, Navigation, Calendar, Camera, Edit, Trash2, Search, X, Loader, Bell, MapPin, Gauge, BarChart3, Users, Globe, Zap, Radar, ChevronLeft, ChevronRight, ArrowRight, Sparkles, TrendingUp } from 'lucide-react';
@@ -759,6 +760,7 @@ export default function FeedPage() {
 
     // Gesto pull-to-refresh (solo quando sei in cima alla pagina).
     const onStart = (e) => {
+      if (document.querySelector('.session-detail-layer')) return;
       if (window.scrollY <= 0 && !refreshingRef.current) {
         pullRef.current.startY = e.touches[0].clientY;
         pullRef.current.active = true;
@@ -3408,9 +3410,9 @@ export default function FeedPage() {
 
                 <div className="feed-post-caption">
                   <h2><button type="button" onClick={() => handleOpenActivity(act)}>{act.title}</button></h2>
-                  {/* Sessione nella finestra Oktoberfest = vale il badge stagionale: pillola che
-                      porta alla landing (chi la vede sull'amico scopre come prenderlo). Zero dati extra. */}
-                  {inSeason('wiesn_2026', new Date(act.created_at).getTime()) && (
+                  {/* Serata Oktoberfest (nella finestra + almeno una Festbier/Maß): pillola che porta
+                      alla landing (chi la vede sull'amico scopre Maß e badge). Zero dati extra. */}
+                  {isWiesnSession(act) && (
                     <Link href="/oktoberfest" prefetch={false} className="feed-wiesn-chip">🥨 Wiesn 2026</Link>
                   )}
                   {act.description && !act.description.startsWith('Chiusa automaticamente') && <p>{act.description}</p>}
@@ -3575,224 +3577,159 @@ export default function FeedPage() {
         />
       )}
 
-      {/* MODAL DETTAGLI ATTIVITA */}
+      {/* Dettaglio social: intestazione opaca fuori dallo scorrimento. */}
       {selectedActivity && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 1400, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', backdropFilter: 'blur(8px)' }} onClick={() => setSelectedActivity(null)}>
-          <div className="card" style={{ width: '100%', maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', background: '#0B0A09', border: '2px solid var(--primary)', boxShadow: '0px 0px 30px rgba(255, 59, 47, 0.25)', animation: 'slideUp 0.3s ease', position: 'relative', paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }} onClick={(e) => e.stopPropagation()}>
+        <SessionDetailShell
+          onClose={() => setSelectedActivity(null)}
+          suspended={lightboxOpen || showCheersList}
+          header={<>
+            <Link href={selectedActivity.user_id === currentUser?.id ? '/profile' : `/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)} aria-label={publicName(selectedActivity.profiles)}>
+              <Avatar src={selectedActivity.profiles?.avatar_url} name={publicName(selectedActivity.profiles)} size={40} />
+            </Link>
+            <div className="session-detail-author">
+              <Link href={selectedActivity.user_id === currentUser?.id ? '/profile' : `/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)}>{publicName(selectedActivity.profiles)}</Link>
+              <time dateTime={selectedActivity.created_at}>{formatDate(selectedActivity.created_at)}</time>
+            </div>
+            {isLiveAct(selectedActivity) && <span className="feed-post-live"><span /> LIVE</span>}
+            <button type="button" data-session-close className="session-detail-close" aria-label={t('common.close')} onClick={() => setSelectedActivity(null)}><X size={22} /></button>
+          </>}
+        >
+          {(() => {
+            const images = selectedActivity.media?.filter((m) => m.type === 'image' && m.url) || [];
+            if (!images.length && selectedActivity.cover_url) images.push({ url: selectedActivity.cover_url });
+            if (!images.length) return null;
+            const index = Math.min(currentSlideIndex, images.length - 1);
+            return <>
+              <div className="session-detail-media">
+                <button type="button" className="session-detail-photo" aria-label={t('feed.photoOpenAria')} onClick={() => setLightboxOpen(true)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={images[index].url} alt={t('feed.photoAlt')} />
+                </button>
+                {images.length > 1 && <>
+                  <span className="session-detail-photo-count">{index + 1} / {images.length}</span>
+                  <button type="button" className="session-detail-photo-prev" aria-label={t('session.previousPhoto')} onClick={() => setCurrentSlideIndex((index - 1 + images.length) % images.length)}><ChevronLeft size={22} /></button>
+                  <button type="button" className="session-detail-photo-next" aria-label={t('session.nextPhoto')} onClick={() => setCurrentSlideIndex((index + 1) % images.length)}><ChevronRight size={22} /></button>
+                </>}
+              </div>
+              {lightboxOpen && <MediaLightbox images={images.map((m) => m.url)} startIndex={index} onClose={() => setLightboxOpen(false)} />}
+            </>;
+          })()}
+          <div className="session-detail-content">
+            <div className="session-detail-caption">
+              <h2 id="session-detail-title">{selectedActivity.title}</h2>
+              {selectedActivity.location && <span className="session-detail-location"><MapPin size={14} />{locationDisplayName(selectedActivity.location, t)}</span>}
+              {selectedActivity.description && <p>{selectedActivity.description}</p>}
+              {!isNeutralFeeling(selectedActivity.feeling) && <span className="feed-post-feeling">{localizeFeeling(selectedActivity.feeling, t)}</span>}
+              {selectedActivity.drank_with?.length > 0 && renderCompanionsList(selectedActivity)}
+            </div>
+            <div className="session-detail-actions feed-post-actions">
+              <button type="button" onClick={() => handleCheers(selectedActivity.id)} className={selectedActivity.cheered_by_me || selectedActivity.cheers?.includes(currentUser?.id) ? 'is-active' : ''} aria-label={t('session.cheers')} aria-pressed={!!(selectedActivity.cheered_by_me || selectedActivity.cheers?.includes(currentUser?.id))}>
+                <Beer size={22} /><span>{selectedActivity.cheer_count ?? selectedActivity.cheers?.length ?? 0}</span>
+              </button>
+              <button type="button" aria-label={t('session.commentsTitle')} onClick={() => {
+                const target = document.getElementById('session-detail-comments');
+                target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                target?.querySelector('input, textarea')?.focus({ preventScroll: true });
+              }}><MessageSquare size={22} /><span>{selectedActivity.comment_count ?? selectedActivity.comments?.length ?? 0}</span></button>
+              <Link href={`/share/${selectedActivity.id}`} className="feed-post-share" aria-label={t('session.exportSocial')} onClick={() => setSelectedActivity(null)}><Share2 size={21} /></Link>
+            </div>
+            <div className="session-detail-stats">
+              <div><span>{t('session.drinksTotal')}</span><strong>{(selectedActivity.drinks || []).reduce((sum, d) => sum + (Number(d.qty) || 0), 0)}</strong></div>
+              <div><span>{t('session.detailDuration')}</span><strong>{fmtEffort(selectedActivity)}</strong></div>
+              <div><span>{t('session.alcoholLoad')}</span><strong>{totalU.toFixed(1)} <small>U.A.</small></strong></div>
+              <div><span>{t('session.bacLabel')} <BacInfo size={12} /></span><strong style={{ color: derivedBac > 0.5 ? 'var(--error)' : 'var(--text-dark-primary)' }}>{derivedBac.toFixed(2)} <small>g/l</small></strong></div>
+            </div>
+            {/* Elenco consumazioni — ordinato, con icona per tipo, quantità e barra U.A. */}
+            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>{t('session.drinkListTitle')}</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>
+                {selectedActivity.drinks.reduce((s, d) => s + (d.qty || 0), 0)} drink · {parseFloat(selectedActivity.total_units || 0).toFixed(1)} U.A.
+              </span>
+            </h3>
+            {(() => {
+              const grouped = groupDrinks(selectedActivity.drinks);
+              return (
+                <div className="session-detail-drinks">
+                  {grouped.map((drink, idx) => {
+                    const calculatedUnits = drink.units ? drink.units * drink.qty : drink.qty * 1.5;
+                    const drinkTime = drink.added_at ? new Date(drink.added_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                    return (
+                      <div key={idx} className="session-detail-drink">
+                        <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'var(--bg-input-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                          {drinkEmoji(drink.name)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '14px', color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{localizeDrink(drink, locale).name}</strong>
+                            {drink.qty > 1 && <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-dark-primary)', background: 'rgba(255,59,47,0.12)', borderRadius: '8px', padding: '1px 7px', flexShrink: 0 }}>×{drink.qty}</span>}
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: 3 }}>
+                            {drink.abv != null ? `${drink.abv}%` : ''}{drinkTime && `${drink.abv != null ? ' · ' : ''}${drinkTime}`}
+                          </div>
+                        </div>
+                        <strong style={{ fontSize: '14px', color: 'var(--text-dark-primary)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{calculatedUnits.toFixed(1)} U.A.</strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
-            {/* Header del Modal */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px', borderBottom: '1px solid var(--border-dark)', paddingBottom: '15px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Link href={`/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)} aria-label="Apri profilo">
-                  <Avatar src={selectedActivity.profiles?.avatar_url} name={publicName(selectedActivity.profiles, 'Atleta')} size={45} style={{ border: '2px solid var(--primary)', cursor: 'pointer' }} />
-                </Link>
-                <div>
-                  <h4 style={{ fontSize: '16px', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <Link href={`/u/${selectedActivity.user_id}`} onClick={() => setSelectedActivity(null)} style={{ color: 'inherit' }}>{publicName(selectedActivity.profiles)}</Link>
-                    {isLiveAct(selectedActivity) && (
-                      <span className="pulse" style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 59, 47, 0.1)', padding: '2px 7px', borderRadius: '10px', border: '1px solid var(--primary)' }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }} /> LIVE 🔴
-                      </span>
-                    )}
-                  </h4>
-                  <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{formatDate(selectedActivity.created_at)}</span>
+            {/* Sezione Aggiungi Drink — solo per la sessione LIVE in corso, non sui post già chiusi */}
+            {currentUser && selectedActivity.user_id === currentUser.id && selectedActivity.is_active && (
+              <div style={{ background: 'rgba(255, 59, 47, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={16} /> {t('session.addDrinkRT')}
+                </h4>
+                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
+                  {t('session.addDrinkRTDesc')}
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {QUICK_DRINKS.map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => handleAddDrinkToSession(preset)}
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px' }}
+                    >
+                      {localizeDrink(preset, locale).label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop: '12px' }}>
+                  <BeerPicker onPick={handleAddDrinkToSession} />
                 </div>
               </div>
-              <button aria-label={t('common.close')} className="btn btn-secondary" style={{ padding: '4px 10px', borderRadius: '50%', minWidth: '32px', height: '32px' }} onClick={() => setSelectedActivity(null)}>×</button>
-            </div>
-
-            {/* Slideshow Copertina Attività (se ci sono immagini) */}
-            {(() => {
-              const images = selectedActivity.media?.filter(m => m.type === 'image') || [];
-              if (images.length === 0) return null;
-              return (
-                <div style={{ position: 'relative', width: '100%', height: '260px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', border: '1px solid var(--border-dark)' }}>
-                  {/* Immagine Attiva (tap per ingrandire a schermo intero) */}
-                  <div
-                    onClick={() => setLightboxOpen(true)}
-                    title="Tocca per ingrandire"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      backgroundImage: `url(${images[currentSlideIndex]?.url})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      transition: 'background-image 0.2s ease-in-out',
-                      cursor: 'zoom-in'
-                    }} />
-                  {/* Icona "ingrandisci" in alto a destra */}
-                  <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.55)', color: '#FFF', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none', fontSize: '15px' }}>⛶</div>
-
-                  {/* Nome e contatore Overlay */}
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)', padding: '20px', color: '#FFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
-                    <span style={{ fontSize: '14px', fontWeight: '700' }}>
-                      {t('session.imageN', { n: currentSlideIndex + 1 })}
-                    </span>
-                    <span style={{ fontSize: '12px', fontWeight: '600', background: 'rgba(0,0,0,0.5)', padding: '3px 8px', borderRadius: '20px' }}>
-                      {currentSlideIndex + 1} / {images.length}
-                    </span>
-                  </div>
-
-                  {/* Frecce Navigazione */}
-                  {images.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentSlideIndex(prev => (prev === 0 ? images.length - 1 : prev - 1))}
-                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '18px', zIndex: 3 }}
-                      >
-                        ‹
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentSlideIndex(prev => (prev === images.length - 1 ? 0 : prev + 1))}
-                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#FFF', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold', fontSize: '18px', zIndex: 3 }}
-                      >
-                        ›
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Visore foto a schermo intero (lightbox) */}
-            {lightboxOpen && (() => {
-              const images = selectedActivity.media?.filter(m => m.type === 'image') || [];
-              if (images.length === 0) return null;
-              const idx = Math.min(currentSlideIndex, images.length - 1);
-              return (
-                <div
-                  onClick={() => setLightboxOpen(false)}
-                  style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.94)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={images[idx]?.url}
-                    alt={`Foto ${idx + 1}`}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ maxWidth: '96vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '8px' }}
-                  />
-                  {/* Chiudi */}
-                  <button
-                    type="button"
-                    onClick={() => setLightboxOpen(false)}
-                    style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#FFF', width: '40px', height: '40px', borderRadius: '50%', fontSize: '20px', cursor: 'pointer', zIndex: 2 }}
-                  >
-                    ✕
-                  </button>
-                  {/* Contatore */}
-                  <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: '#FFF', fontSize: '13px', fontWeight: 600, background: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: '20px' }}>
-                    {idx + 1} / {images.length}
-                  </div>
-                  {/* Frecce */}
-                  {images.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setCurrentSlideIndex(prev => (prev === 0 ? images.length - 1 : prev - 1)); }}
-                        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#FFF', width: '44px', height: '44px', borderRadius: '50%', fontSize: '24px', cursor: 'pointer' }}
-                      >
-                        ‹
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setCurrentSlideIndex(prev => (prev === images.length - 1 ? 0 : prev + 1)); }}
-                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#FFF', width: '44px', height: '44px', borderRadius: '50%', fontSize: '24px', cursor: 'pointer' }}
-                      >
-                        ›
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Titolo e Descrizione */}
-            <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#FFF', marginBottom: '10px' }}>{selectedActivity.title}</h2>
-            {selectedActivity.description && (
-              <p style={{ color: 'var(--text-dark-primary)', fontSize: '16px', lineHeight: '1.6', marginBottom: '20px', background: 'rgba(255, 255, 255, 0.02)', padding: '12px', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
-                {selectedActivity.description}
-              </p>
             )}
 
-            {/* Performance Stats */}
-            <div className="r-grid-stat-4" style={{ marginBottom: '25px', background: 'rgba(255, 59, 47, 0.04)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255, 59, 47, 0.15)' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{t('session.drinksTotal')}</div>
-                <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)', marginTop: '5px' }}>
-                  {selectedActivity.drinks.reduce((acc, d) => acc + d.qty, 0)}
-                </div>
+            {/* Azioni proprietario: modifica/elimina la sessione anche dallo storico */}
+            {currentUser && selectedActivity.user_id === currentUser.id && (
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '25px' }}>
+                <button
+                  type="button"
+                  onClick={() => { handleEditActivity(selectedActivity); setSelectedActivity(null); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700 }}
+                >
+                  <Edit size={15} /> {t('session.editSessionBtn')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteActivity(selectedActivity.id)}
+                  style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700, background: 'rgba(239,68,68,0.12)', border: '1px solid var(--error)', color: '#FF7D7D', borderRadius: 'var(--radius)', cursor: 'pointer' }}
+                >
+                  <Trash2 size={15} /> {t('session.deleteBtn')}
+                </button>
               </div>
-              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{t('session.effortTime')}</div>
-                <div style={{ fontSize: '20px', fontWeight: '800', color: '#FFF', marginTop: '8px' }}>
-                  {fmtEffort(selectedActivity)}
-                </div>
-              </div>
-              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{t('session.alcoholLoad')}</div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--secondary)', marginTop: '5px' }}>
-                  {totalU.toFixed(1)} <span style={{ fontSize: '12px', fontWeight: '600' }}>U.A.</span>
-                </div>
-              </div>
-              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-dark)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', fontWeight: '600', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>{t('session.bacLabel')} <BacInfo size={12} /></div>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: derivedBac > 0.5 ? 'var(--error)' : 'var(--success)', marginTop: '5px' }}>
-                  {derivedBac.toFixed(2)} <span style={{ fontSize: '12px', fontWeight: '600' }}>g/l</span>
-                </div>
-              </div>
-            </div>
-
-            {/* TIMELINE CURVA BAC */}
-            <div style={{ marginBottom: '25px', background: 'rgba(255, 59, 47, 0.02)', border: '1px solid var(--border-dark)', padding: '16px', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  📈 {t('session.bacCurveTitle')}
-                </h3>
-                <InfoPopover size={16} label={t('session.bacWidmarkLabel')}>
-                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '6px', fontSize: '13px' }}>{t('session.bacWidmarkTitle')}</strong>
-                  <p style={{ margin: '0 0 8px 0' }}>
-                    {t('session.bacWidmarkData')}
-                  </p>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '8px 12px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--secondary)', marginBottom: '8px' }}>
-                    BAC = grammi_alcol_netti / (peso_kg × r)
-                  </div>
-                  <ul style={{ margin: '0 0 8px 0', paddingLeft: '16px' }}>
-                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD1t')}</strong> {t('session.bacWidmarkD1')}</li>
-                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD2t')}</strong> {t('session.bacWidmarkD2')}</li>
-                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD3t')}</strong> {t('session.bacWidmarkD3')}</li>
-                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD4t')}</strong> {t('session.bacWidmarkD4')}</li>
-                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD5t')}</strong> {t('session.bacWidmarkD5')}</li>
-                  </ul>
-                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>
-                    {t('session.bacWidmarkDiscl')}
-                  </p>
-                </InfoPopover>
-              </div>
-
-              {/* Nota: curva della singola sessione */}
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', background: 'rgba(223, 255, 0,0.05)', border: '1px solid rgba(223, 255, 0,0.15)', borderRadius: '6px', padding: '7px 10px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
-                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.4 }}>
-                  {selectedActivity?.is_active && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000
-                    ? <><strong style={{ color: 'var(--primary)' }}>{t('session.bacLive')}</strong> {t('session.bacLiveDesc')}</>
-                    : <><strong style={{ color: 'var(--secondary)' }}>{t('session.bacHist')}</strong> {t('session.bacHistDesc')}</>}
-                </p>
-              </div>
-              {bacCurve
-                ? <BacCurve curve={bacCurve} height={170} />
-                : <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', margin: '8px 0' }}>{t('session.noDrinks')}</p>}
-            </div>
+            )}
 
             {/* SEZIONE MAPPA / INTEGRAZIONE LOCALE */}
             {selectedActivity.location && (
-              <div style={{ marginBottom: '25px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {t('session.venueTitle')}
-                </h3>
-                <div style={{ background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '8px', padding: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+              <details className="session-detail-disclosure">
+                <summary><span><MapPin size={18} />{locationDisplayName(selectedActivity.location, t)}</span><ChevronRight size={17} /></summary>
+                <div className="session-detail-disclosure-body session-detail-venue">
+                  <div className="session-detail-venue-heading">
                     <div>
                       <strong style={{ color: '#FFF', fontSize: '15px' }}>{locationDisplayName(selectedActivity.location, t)}</strong>
                       <div style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', marginTop: '2px' }}>{selectedActivity.location.address}</div>
@@ -3965,137 +3902,55 @@ export default function FeedPage() {
                   </div>
                   )}
                 </div>
-              </div>
+              </details>
             )}
 
-            {/* Le foto della serata sono mostrate nello slideshow qui sopra. */}
+            {/* TIMELINE CURVA BAC */}
+            <details className="session-detail-disclosure">
+              <summary><span><BarChart3 size={18} />{t('session.detailCurve')}</span><ChevronRight size={17} /></summary>
+              <div className="session-detail-disclosure-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#FFF', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                  {t('session.detailCurve')}
+                </h3>
+                <InfoPopover size={16} label={t('session.bacWidmarkLabel')}>
+                  <strong style={{ color: '#FFF', display: 'block', marginBottom: '6px', fontSize: '13px' }}>{t('session.bacWidmarkTitle')}</strong>
+                  <p style={{ margin: '0 0 8px 0' }}>
+                    {t('session.bacWidmarkData')}
+                  </p>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '8px 12px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--secondary)', marginBottom: '8px' }}>
+                    BAC = grammi_alcol_netti / (peso_kg × r)
+                  </div>
+                  <ul style={{ margin: '0 0 8px 0', paddingLeft: '16px' }}>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD1t')}</strong> {t('session.bacWidmarkD1')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD2t')}</strong> {t('session.bacWidmarkD2')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD3t')}</strong> {t('session.bacWidmarkD3')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD4t')}</strong> {t('session.bacWidmarkD4')}</li>
+                    <li><strong style={{ color: '#FFF' }}>{t('session.bacWidmarkD5t')}</strong> {t('session.bacWidmarkD5')}</li>
+                  </ul>
+                  <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>
+                    {t('session.bacWidmarkDiscl')}
+                  </p>
+                </InfoPopover>
+              </div>
 
-            {/* Elenco consumazioni — ordinato, con icona per tipo, quantità e barra U.A. */}
-            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>{t('session.drinkListTitle')}</span>
-              <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontWeight: 600 }}>
-                {selectedActivity.drinks.reduce((s, d) => s + (d.qty || 0), 0)} drink · {parseFloat(selectedActivity.total_units || 0).toFixed(1)} U.A.
-              </span>
-            </h3>
-            {(() => {
-              const grouped = groupDrinks(selectedActivity.drinks);
-              const maxU = Math.max(0.1, ...grouped.map((d) => (d.units ? d.units * d.qty : d.qty * 1.5)));
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '25px' }}>
-                  {grouped.map((drink, idx) => {
-                    const calculatedUnits = drink.units ? drink.units * drink.qty : drink.qty * 1.5;
-                    const drinkTime = drink.added_at ? new Date(drink.added_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                    return (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-input-dark)', border: '1px solid var(--border-dark)', borderRadius: '10px' }}>
-                        <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'rgba(255,59,47,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                          {drinkEmoji(drink.name)}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <strong style={{ fontSize: '14px', color: '#FFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{localizeDrink(drink, locale).name}</strong>
-                            {drink.qty > 1 && <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', background: 'rgba(255,59,47,0.12)', borderRadius: '8px', padding: '1px 7px', flexShrink: 0 }}>×{drink.qty}</span>}
-                          </div>
-                          <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 6 }}>
-                            <div style={{ width: `${(calculatedUnits / maxU) * 100}%`, height: '100%', background: 'var(--primary)', borderRadius: 3 }} />
-                          </div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-dark-secondary)', marginTop: 3 }}>
-                            {drink.abv}%{drinkTime && ` · ${drinkTime}`}
-                          </div>
-                        </div>
-                        <strong style={{ fontSize: '14px', color: 'var(--primary)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{calculatedUnits.toFixed(1)} U.A.</strong>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-            {/* Sezione Aggiungi Drink — solo per la sessione LIVE in corso, non sui post già chiusi */}
-            {currentUser && selectedActivity.user_id === currentUser.id && selectedActivity.is_active && (
-              <div style={{ background: 'rgba(255, 59, 47, 0.05)', border: '1px dashed var(--primary)', padding: '15px', borderRadius: '12px', marginBottom: '25px' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--primary)', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Plus size={16} /> {t('session.addDrinkRT')}
-                </h4>
-                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', marginBottom: '12px' }}>
-                  {t('session.addDrinkRTDesc')}
+              {/* Nota: curva della singola sessione */}
+              <div className="session-detail-bac-note">
+                <p style={{ fontSize: '11px', color: 'var(--text-dark-secondary)', margin: 0, lineHeight: 1.4 }}>
+                  {selectedActivity?.is_active && (Date.now() - new Date(selectedActivity.created_at).getTime()) < 5 * 60 * 60 * 1000
+                    ? <><strong style={{ color: 'var(--primary)' }}>{t('session.bacLive')}</strong> {t('session.bacLiveDesc')}</>
+                    : <><strong>{t('session.bacHist')}</strong> {t('session.bacHistDesc')}</>}
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {QUICK_DRINKS.map((preset, pIdx) => (
-                    <button
-                      key={pIdx}
-                      type="button"
-                      onClick={() => handleAddDrinkToSession(preset)}
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '20px' }}
-                    >
-                      {localizeDrink(preset, locale).label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ marginTop: '12px' }}>
-                  <BeerPicker onPick={handleAddDrinkToSession} />
-                </div>
               </div>
-            )}
-
-            {/* Azioni proprietario: modifica/elimina la sessione anche dallo storico */}
-            {currentUser && selectedActivity.user_id === currentUser.id && (
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '25px' }}>
-                <button
-                  type="button"
-                  onClick={() => { handleEditActivity(selectedActivity); setSelectedActivity(null); }}
-                  className="btn btn-secondary"
-                  style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700 }}
-                >
-                  <Edit size={15} /> {t('session.editSessionBtn')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteActivity(selectedActivity.id)}
-                  style={{ flex: 1, minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 14px', fontSize: '13px', fontWeight: 700, background: 'rgba(239,68,68,0.12)', border: '1px solid var(--error)', color: '#FF7D7D', borderRadius: 'var(--radius)', cursor: 'pointer' }}
-                >
-                  <Trash2 size={15} /> {t('session.deleteBtn')}
-                </button>
+              {bacCurve
+                ? <BacCurve curve={bacCurve} height={170} />
+                : <p style={{ fontSize: '12px', color: 'var(--text-dark-secondary)', fontStyle: 'italic', margin: '8px 0' }}>{t('session.noDrinks')}</p>}
               </div>
-            )}
-
-            {/* Social details (Compagnia e Cheers) */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '15px', borderTop: '1px solid var(--border-dark)', paddingTop: '20px', fontSize: '14px' }}>
-              {selectedActivity.drank_with && selectedActivity.drank_with.length > 0 ? (
-                <div style={{ color: 'var(--text-dark-secondary)' }}>
-                  👥 {t('session.trainWith')} <strong style={{ color: '#FFF' }}>{selectedActivity.drank_with.join(', ')}</strong>
-                </div>
-              ) : (
-                <div style={{ color: 'var(--text-dark-secondary)' }}>{t('session.trainSolo')}</div>
-              )}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <span style={{ color: 'var(--text-dark-secondary)' }}>
-                  {t('session.effortLabel')} <strong style={{ color: 'var(--primary)' }}>{localizeFeeling(selectedActivity.feeling, t)}</strong>
-                </span>
-                <Link href={`/share/${selectedActivity.id}`} className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '13px' }} onClick={() => setSelectedActivity(null)}>
-                  <Share2 size={14} /> {t('session.exportSocial')}
-                </Link>
-              </div>
-            </div>
+            </details>
 
             {/* Cheers & Commenti dentro il dettaglio */}
-            <div style={{ borderTop: '1px solid var(--border-dark)', paddingTop: '16px', marginTop: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '16px' }}>
-                <button
-                  onClick={() => handleCheers(selectedActivity.id)}
-                  className={`action-btn ${selectedActivity.cheers?.includes(currentUser?.id) ? 'active' : ''}`}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  <Beer size={18} fill={selectedActivity.cheers?.includes(currentUser?.id) ? 'var(--primary)' : 'none'} />
-                  <span>{t('session.cheers')} ({selectedActivity.cheers?.length || 0})</span>
-                </button>
-                <span className="action-btn" style={{ cursor: 'default' }}>
-                  <MessageSquare size={18} />
-                  <span>{t('session.commentsTitle')} ({selectedActivity.comment_count ?? selectedActivity.comments?.length ?? 0})</span>
-                </span>
-              </div>
-
+            <section id="session-detail-comments" className="session-detail-comments">
+              <h3>{t('session.commentsTitle')}</h3>
               {/* Chi ha messo Cheers — primi 3 cliccabili + "altri" */}
               {selectedActivity.cheers && selectedActivity.cheers.length > 0 && (() => {
                 const people = selectedActivity.cheers.map((uid) => {
@@ -4140,10 +3995,10 @@ export default function FeedPage() {
                   patchActivity(selectedActivity.id, (a) => ({ ...a, comment_count: n }));
                 }}
               />
-            </div>
+            </section>
 
           </div>
-        </div>
+        </SessionDetailShell>
       )}
 
       {/* MODAL LISTA COMPLETA CHEERS (stile Instagram) */}

@@ -10,16 +10,10 @@ import { publicName } from '@/lib/names';
 import { useI18n } from '@/lib/i18n';
 import { showToast, showError } from '@/lib/toast';
 import { mapTileUrl } from '@/lib/mapTiles';
-import { inSeason } from '@/lib/badges';
+import { isWiesnSession } from '@/lib/badges';
 
 // Maiuscolo che NON trasforma la ß in "SS" ("3 MAß FESTBIER", non "3 MASS FESTBIER").
 const upper = (str) => str.split('ß').map((x) => x.toUpperCase()).join('ß');
-
-const WIESN_DRINK = /maß|festbier|oktoberfest/i;
-function isWiesnSession(activity) {
-  if (!inSeason('wiesn_2026', new Date(activity.created_at).getTime())) return false;
-  return (activity.drinks || []).some((d) => String(d.id || '').startsWith('festbier_') || WIESN_DRINK.test(d.name || ''));
-}
 
 export default function ShareActivityPage({ params }) {
   const router = useRouter();
