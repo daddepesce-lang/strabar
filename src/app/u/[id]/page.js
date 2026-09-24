@@ -8,12 +8,13 @@ import { publicName, publicUsername } from '@/lib/names';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import FollowsModal from '@/components/FollowsModal';
+import ProfileSocialShowcase from '@/components/ProfileSocialShowcase';
+import ProfilePosts from '@/components/ProfilePosts';
 import { useT, useI18n } from '@/lib/i18n';
 import { localizeDrink } from '@/lib/drinkLabel';
-import { locationDisplayName } from '@/lib/sessionLabels';
 import {
-  Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus, Users,
-  ArrowLeft, CalendarPlus, MapPin, Sparkles,
+  Beer, Award, TrendingUp, Clock, Heart, UserPlus, UserMinus,
+  ArrowLeft, CalendarPlus, Sparkles,
 } from 'lucide-react';
 import { showToast, showError } from '@/lib/toast';
 
@@ -182,8 +183,6 @@ export default function AthleteProfilePage({ params }) {
     (a) => a.is_active && now - new Date(a.created_at).getTime() < 5 * 60 * 60 * 1000
   );
 
-  const formatDate = (ds) => new Date(ds).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <Link href="/profile" className="action-btn" style={{ fontSize: '14px', width: 'fit-content' }}>
@@ -191,9 +190,9 @@ export default function AthleteProfilePage({ params }) {
       </Link>
 
       {/* Intestazione profilo amico */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(22,24,34,1) 0%, rgba(255, 59, 47,0.06) 100%)' }}>
+      <div className="profile-social-hero profile-social-hero-public">
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
-          <Avatar src={profile.avatar_url} name={publicName(profile)} size={76} style={{ border: '3px solid var(--primary)' }} />
+          <Avatar src={profile.avatar_url} name={publicName(profile)} size={92} style={{ border: '3px solid var(--primary)' }} />
           <div style={{ flex: 1, minWidth: '180px' }}>
             <h1 style={{ fontSize: '26px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {publicName(profile)}
@@ -237,6 +236,10 @@ export default function AthleteProfilePage({ params }) {
           </div>
         </div>
       </div>
+
+      <ProfileSocialShowcase activities={combinedActivities} t={t} />
+
+      <ProfilePosts activities={combinedActivities} name={publicName(profile)} avatarUrl={profile.avatar_url} t={t} locale={locale} />
 
       {/* Statistiche */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
@@ -287,56 +290,6 @@ export default function AthleteProfilePage({ params }) {
           </div>
         );
       })()}
-
-      {/* Attività recenti */}
-      <div>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Users size={20} color="var(--primary)" /> {t('userprofile.activitiesOf', { name: publicName(profile) })}
-        </h2>
-
-        {combinedActivities.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '34px', color: 'var(--text-dark-secondary)' }}>
-            {t('userprofile.noSessions')}
-          </div>
-        ) : (
-          <div className="feed-list">
-            {combinedActivities.map((act) => (
-              <Link key={act.id} href={`/?activity=${act.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-              <article className="card activity-card" style={{ cursor: 'pointer' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
-                  <h3 className="activity-title" style={{ margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.title}</h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-dark-secondary)' }}>{formatDate(act.created_at)}</span>
-                  </div>
-                </div>
-                {act.description && (
-                  <p style={{ color: 'var(--text-dark-secondary)', fontSize: '14px', marginBottom: '12px' }}>{act.description}</p>
-                )}
-                <div className="activity-stats">
-                  <div className="stat-box">
-                    <span className="stat-label">{t('userprofile.drink')}</span>
-                    <span className="stat-value highlight">{(act.drinks || []).reduce((s, d) => s + d.qty, 0)}</span>
-                  </div>
-                  <div className="stat-box">
-                    <span className="stat-label">{t('userprofile.duration')}</span>
-                    <span className="stat-value">{Math.floor(act.duration / 60)}h {act.duration % 60}m</span>
-                  </div>
-                  <div className="stat-box">
-                    <span className="stat-label">{t('userprofile.load')}</span>
-                    <span className="stat-value">{act.total_units} {t('userprofile.unitsAbbr')}</span>
-                  </div>
-                </div>
-                {act.location && (
-                  <div style={{ fontSize: '13px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <MapPin size={13} /> {locationDisplayName(act.location, t)}
-                  </div>
-                )}
-              </article>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
 
       {followsModal && (
         <FollowsModal

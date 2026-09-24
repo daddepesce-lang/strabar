@@ -7,6 +7,7 @@ import {
   MapPin, Search, Trophy, Beer, Star, X, TrendingUp, ExternalLink, Loader, Users, Award, Info, QrCode, BadgeCheck,
 } from 'lucide-react';
 import RequireAuth from '@/components/RequireAuth';
+import Avatar from '@/components/Avatar';
 import { useT } from '@/lib/i18n';
 import { locationDisplayName } from '@/lib/sessionLabels';
 import { showToast, showError } from '@/lib/toast';
@@ -459,7 +460,9 @@ export default function ClassifichePage() {
                     <>
                       {isFirst && <div className="podium-medal">👑</div>}
                       <span className="podium-ring">
-                        <div className="activity-avatar podium-avatar">{u.revealed ? (u.name || 'U').charAt(0) : '🥷'}</div>
+                        {u.revealed
+                          ? <Avatar src={u.avatar_url} name={u.name} size={isFirst ? 62 : 48} className="activity-avatar podium-avatar" />
+                          : <div className="activity-avatar podium-avatar">🥷</div>}
                       </span>
                       <div className="podium-name">{u.name}</div>
                       <div className="podium-metric">
@@ -471,7 +474,7 @@ export default function ClassifichePage() {
                   );
                   const colClass = `podium-col ${isFirst ? 'first' : pos === 2 ? 'third' : ''}`;
                   return u.revealed ? (
-                    <Link key={u.user_id} href={`/u/${u.user_id}`} className={colClass}>
+                    <Link key={u.user_id} href={currentUser?.id === u.user_id ? '/profile' : `/u/${u.user_id}`} className={colClass}>
                       {inner}
                     </Link>
                   ) : (
@@ -490,9 +493,9 @@ export default function ClassifichePage() {
                   const rowInner = (
                     <>
                     <span className={`rank-num ${i < 3 ? 'top' : ''}`}>{i + 1}</span>
-                    <div className="activity-avatar" style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}>
-                      {u.revealed ? (u.name || 'U').charAt(0) : '🥷'}
-                    </div>
+                    {u.revealed
+                      ? <Avatar src={u.avatar_url} name={u.name} size={36} fontSize={15} />
+                      : <div className="activity-avatar" style={{ width: 36, height: 36, fontSize: 15, flexShrink: 0 }}>🥷</div>}
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <strong style={{ fontSize: '14px', color: u.revealed ? '#FFF' : 'var(--text-dark-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</strong>
@@ -511,7 +514,7 @@ export default function ClassifichePage() {
                     </>
                   );
                   return u.revealed ? (
-                    <Link key={u.user_id} href={`/u/${u.user_id}`} className={rowClass}>{rowInner}</Link>
+                    <Link key={u.user_id} href={isMe ? '/profile' : `/u/${u.user_id}`} className={rowClass}>{rowInner}</Link>
                   ) : (
                     <div key={u.user_id} className={rowClass} style={{ cursor: 'default' }}>{rowInner}</div>
                   );

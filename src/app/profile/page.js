@@ -7,11 +7,13 @@ import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
 import { useI18n } from '@/lib/i18n';
 import { badgeProgress, seasonalBadges } from '@/lib/badges';
-import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin, BadgeCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, User, Beer, Award, Heart, Clock, TrendingUp, Info, Search, UserPlus, UserMinus, Users, MapPin, BadgeCheck, ChevronLeft, ChevronRight, Camera, Settings2 } from 'lucide-react';
 import ShareAppButton from '@/components/ShareAppButton';
 import Avatar from '@/components/Avatar';
 import BacInfo from '@/components/BacInfo';
 import FollowsModal from '@/components/FollowsModal';
+import ProfileSocialShowcase from '@/components/ProfileSocialShowcase';
+import ProfilePosts from '@/components/ProfilePosts';
 import { showToast, showError } from '@/lib/toast';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), { ssr: false });
@@ -27,7 +29,7 @@ export default function ProfilePage() {
   const [calOffset, setCalOffset] = useState(0); // mesi indietro nel calendario bevute (0 = corrente)
 
   // Stati per la scheda Social / Amici
-  const [activeTab, setActiveTab] = useState('stats'); // 'stats' o 'friends'
+  const [activeTab, setActiveTab] = useState('posts'); // post, statistiche, amici o dati
   const [friendsSearchQuery, setFriendsSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
@@ -347,11 +349,11 @@ export default function ProfilePage() {
     // di hidden), quindi lo scroll verticale della pagina resta intatto.
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '100%', overflowX: 'clip' }}>
       {/* Intestazione Profilo */}
-      <div className="card profile-header" style={{ position: 'relative', textAlign: 'center', background: 'var(--bg-card-dark)', border: '1px solid var(--border-dark)', borderRadius: '22px' }}>
+      <div className="profile-social-hero profile-header">
         {/* Azioni in alto a destra */}
-        <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: '8px' }}>
+        <div className="profile-social-actions">
           <button
-            onClick={() => setActiveTab('friends')}
+            onClick={() => { setActiveTab('friends'); document.getElementById('profile-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
             title={t('profile.searchAthletes')}
             className="btn btn-secondary"
             style={{ borderRadius: '50%', width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
@@ -361,21 +363,23 @@ export default function ProfilePage() {
           <Link
             href="/settings"
             title={t('profile.settingsTitle')}
-            className="btn btn-secondary"
-            style={{ borderRadius: '50%', width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}
+            className="btn btn-secondary profile-edit-link"
           >
-            ⚙️
+            <Settings2 size={17} /><span>{t('profile.settingsTitle')}</span>
           </Link>
         </div>
 
         {/* Avatar + nome centrati */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <span className="avatar-ring">
-            <Avatar src={currentUser?.avatar_url} name={currentUser?.display_name || currentUser?.username} size={84} />
-          </span>
+        <div className="profile-social-identity">
+          <Link href="/settings" className="profile-social-avatar-link" aria-label={t('settingspage.changePhoto')}>
+            <span className="avatar-ring">
+              <Avatar src={currentUser?.avatar_url} name={currentUser?.display_name || currentUser?.username} size={92} />
+            </span>
+            <span className="profile-social-camera"><Camera size={14} /></span>
+          </Link>
           <div>
-            <h1 style={{ fontSize: '36px', fontWeight: 400, lineHeight: 1.05, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', margin: 0 }}>
-              {currentUser?.display_name}
+            <h1 className="profile-social-name">
+              {currentUser?.display_name || currentUser?.username}
               {currentUser?.is_premium && (
                 <BadgeCheck size={22} color="var(--secondary)" style={{ flexShrink: 0 }} />
               )}
@@ -387,17 +391,19 @@ export default function ProfilePage() {
           {currentUser?.is_premium && (
             <span className="badge-premium">⭐ {t('nav.premiumBadge')}</span>
           )}
-          <p style={{ fontSize: '13px', color: 'var(--text-dark-secondary)', margin: 0 }}>
-            <span onClick={() => setFollowsModal('followers')} style={{ cursor: 'pointer' }}>
-              <strong style={{ color: '#fff', fontSize: 16 }}>{followCounts.followers}</strong> {t('profile.followers').toLowerCase()}
-            </span>
-            {' · '}
-            <span onClick={() => setFollowsModal('following')} style={{ cursor: 'pointer' }}>
-              <strong style={{ color: '#fff', fontSize: 16 }}>{followCounts.following}</strong> {t('profile.following').toLowerCase()}
-            </span>
-          </p>
+          <div className="profile-social-metrics">
+            <button type="button" onClick={() => setFollowsModal('followers')}>
+              <strong>{followCounts.followers}</strong><span>{t('profile.followers').toLowerCase()}</span>
+            </button>
+            <button type="button" onClick={() => setFollowsModal('following')}>
+              <strong>{followCounts.following}</strong><span>{t('profile.following').toLowerCase()}</span>
+            </button>
+            <div><strong>{activities.length}</strong><span>{t('profile.statSessions').toLowerCase()}</span></div>
+          </div>
         </div>
       </div>
+
+      <ProfileSocialShowcase activities={activities} t={t} owner />
 
       {/* Tasso alcolico ATTUALE (adesso) */}
       {(() => {
@@ -434,8 +440,13 @@ export default function ProfilePage() {
       {/* Peso/sesso e invito si trovano ora nella scheda "Dati" (vedi sotto). */}
 
       {/* Menu di Navigazione Tab (underline, niente pill) */}
-      <div className="feed-filter-tabs">
+      <div className="feed-filter-tabs" id="profile-tabs">
+        <button type="button" aria-pressed={activeTab === 'posts'} onClick={() => setActiveTab('posts')} className={`seg-tab ${activeTab === 'posts' ? 'active' : ''}`}>
+          <Beer size={16} /> {t('profile.tabPosts')}
+        </button>
         <button
+          type="button"
+          aria-pressed={activeTab === 'stats'}
           onClick={() => setActiveTab('stats')}
           className={`seg-tab ${activeTab === 'stats' ? 'active' : ''}`}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -444,6 +455,8 @@ export default function ProfilePage() {
           {t('profile.tabStats')}
         </button>
         <button
+          type="button"
+          aria-pressed={activeTab === 'friends'}
           onClick={() => setActiveTab('friends')}
           className={`seg-tab ${activeTab === 'friends' ? 'active' : ''}`}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -452,6 +465,8 @@ export default function ProfilePage() {
           {t('profile.tabFriends')}
         </button>
         <button
+          type="button"
+          aria-pressed={activeTab === 'data'}
           onClick={() => setActiveTab('data')}
           className={`seg-tab ${activeTab === 'data' ? 'active' : ''}`}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -460,6 +475,8 @@ export default function ProfilePage() {
           {t('profile.tabData')}
         </button>
       </div>
+
+      {activeTab === 'posts' && <ProfilePosts activities={activities} name={currentUser?.display_name || currentUser?.username} avatarUrl={currentUser?.avatar_url} t={t} locale={locale} owner />}
 
       {activeTab === 'stats' && (
         <>

@@ -446,7 +446,7 @@ export const db = {
           .from('sessions')
           .select(`
             ${cols},
-            profiles(username, display_name, use_username, alias, name_mode, public_leaderboard, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, alias, name_mode, public_leaderboard, avatar_url, is_premium, weight, sex),
             cheers(count),
             comments(count)
           `)
@@ -502,7 +502,7 @@ export const db = {
           .from('sessions')
           .select(`
             ${cols},
-            profiles(username, display_name, use_username, alias, name_mode, public_leaderboard, avatar_url, weight, sex),
+            profiles(username, display_name, use_username, alias, name_mode, public_leaderboard, avatar_url, is_premium, weight, sex),
             cheers(count),
             comments(count)
           `)
@@ -3235,6 +3235,7 @@ export const db = {
           user_id: uid,
           name: publicName(a.profiles, 'Atleta Strabar'),
           username: a.profiles?.username || 'atleta',
+          avatar_url: a.profiles?.avatar_url || null,
           is_premium: a.profiles?.is_premium || false,
           public_leaderboard: a.profiles?.public_leaderboard !== false, // default: visibile
           sessions: 0,
@@ -3262,6 +3263,7 @@ export const db = {
           revealed,
           name: revealed ? u.name : 'Atleta riservato',
           username: revealed ? u.username : null,
+          avatar_url: revealed ? u.avatar_url : null,
           is_premium: u.is_premium,
           sessions: u.sessions,
           units: parseFloat(u.units.toFixed(1)),
@@ -4563,4 +4565,3 @@ export const db = {
     }
   }
 };
-

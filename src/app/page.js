@@ -3317,24 +3317,24 @@ export default function FeedPage() {
         {/* Filtro feed: Amici / Tutti / Live */}
         {currentUser && activities.length > 0 && (
           <div className="feed-filter-tabs" style={{ marginTop: '4px', marginBottom: '16px' }}>
-            <div
+            <button type="button" aria-pressed={feedFilter === 'friends'}
               className={`seg-tab ${feedFilter === 'friends' ? 'active' : ''}`}
               onClick={() => setFeedFilter('friends')}
             >
               <Users size={15} /> {t('feed.tabFriends')}
-            </div>
-            <div
+            </button>
+            <button type="button" aria-pressed={feedFilter === 'all'}
               className={`seg-tab ${feedFilter === 'all' ? 'active' : ''}`}
               onClick={() => setFeedFilter('all')}
             >
               <Globe size={15} /> {t('feed.tabAll')}
-            </div>
-            <div
+            </button>
+            <button type="button" aria-pressed={feedFilter === 'live'}
               className={`seg-tab ${feedFilter === 'live' ? 'active' : ''}`}
               onClick={() => setFeedFilter('live')}
             >
               <span className="filter-live-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block', flexShrink: 0 }} /> {t('feed.tabLive')}
-            </div>
+            </button>
           </div>
         )}
 
@@ -3346,6 +3346,7 @@ export default function FeedPage() {
                   {t('feed.emptyFriendsPre')} <strong style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setFeedFilter('all')}>🌍 {t('feed.tabAll')}</strong>.
                 </p>
                 <ShareAppButton style={{ borderRadius: '24px', padding: '11px 22px' }} label={t('feed.inviteFriends')} />
+                <Link href="/profile?tab=friends" className="btn btn-secondary"><Search size={16} /> {t('profile.searchAthletes')}</Link>
               </div>
             ) : feedFilter === 'live' ? (
               <p style={{ color: 'var(--text-dark-secondary)' }}>{t('feed.emptyLive')}</p>
