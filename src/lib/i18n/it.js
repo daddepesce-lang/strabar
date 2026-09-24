@@ -363,6 +363,10 @@ export const it = {
     requireFeature: 'il radar live',
   },
   session: {
+    detailDuration: 'Durata',
+    detailCurve: 'Andamento BAC',
+    previousPhoto: 'Foto precedente',
+    nextPhoto: 'Foto successiva',
     drinksTotal: 'Drink Totali',
     timeAtTable: 'Tempo a Tavola',
     durationLabel: 'durata',

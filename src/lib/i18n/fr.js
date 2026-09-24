@@ -362,6 +362,10 @@ export const fr = {
     requireFeature: 'le radar en direct',
   },
   session: {
+    detailDuration: 'Durée',
+    detailCurve: 'Évolution du BAC',
+    previousPhoto: 'Photo précédente',
+    nextPhoto: 'Photo suivante',
     drinksTotal: 'Total des verres',
     timeAtTable: 'Temps à table',
     durationLabel: 'durée',

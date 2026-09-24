@@ -362,6 +362,10 @@ export const en = {
     requireFeature: 'the live radar',
   },
   session: {
+    detailDuration: 'Duration',
+    detailCurve: 'BAC over time',
+    previousPhoto: 'Previous photo',
+    nextPhoto: 'Next photo',
     drinksTotal: 'Total drinks',
     timeAtTable: 'Time at the table',
     durationLabel: 'duration',

@@ -2151,3 +2151,83 @@ select.form-control {
   .places-hero { padding: 20px; }
   .places-hero h1 { font-size: 35px !important; }
 }
+
+/* Sessione aperta dal feed: superficie piena, header fuori dallo scroll. */
+html { background: #111116; }
+.session-detail-layer {
+  position: fixed; inset: 0; z-index: 1400;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(0,0,0,.7);
+}
+.session-detail {
+  display: flex; flex-direction: column; width: 100%; max-width: 680px;
+  height: min(900px, calc(100dvh - 48px)); min-height: 0;
+  background: #111116; color: var(--text-dark-primary);
+  border: 1px solid #2a2a32; border-radius: 20px; overflow: hidden;
+}
+.session-detail-header {
+  display: flex; align-items: center; gap: 11px; flex-shrink: 0;
+  min-height: 76px; padding: 14px 20px;
+  background: #111116; border-bottom: 1px solid var(--border-dark);
+}
+.session-detail-header > a { flex-shrink: 0; }
+.session-detail-author { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.session-detail-author a { font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-detail-author time { font-size: 12px; color: var(--text-dark-secondary); }
+.session-detail-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; background: #202027; cursor: pointer; }
+.session-detail-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 16px; }
+.session-detail-content { padding: 22px 24px 28px; }
+.session-detail-caption { margin-bottom: 14px; }
+.session-detail-caption h2 { font-family: var(--font-sans); font-size: 23px; font-weight: 750 !important; letter-spacing: -.5px; line-height: 1.25; overflow-wrap: anywhere; margin: 0 0 8px; }
+.session-detail-caption p { margin-top: 12px; font-size: 14px; line-height: 1.6; color: #ceced6; white-space: pre-line; overflow-wrap: anywhere; }
+.session-detail-location { display: flex; align-items: center; gap: 5px; color: var(--text-dark-secondary); font-size: 12px; }
+.session-detail-location svg { flex-shrink: 0; }
+.session-detail-media { position: relative; background: #0a0a0d; }
+.session-detail-photo { display: block; width: 100%; cursor: zoom-in; }
+.session-detail-photo img { display: block; width: 100%; max-height: 460px; aspect-ratio: 4 / 3; object-fit: cover; }
+.session-detail-photo-count { position: absolute; top: 14px; right: 14px; padding: 5px 10px; background: rgba(0,0,0,.65); border-radius: 20px; color: #fff; font-size: 12px; pointer-events: none; }
+.session-detail-photo-prev, .session-detail-photo-next { position: absolute; top: calc(50% - 22px); display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,.6); cursor: pointer; }
+.session-detail-photo-prev { left: 12px; }
+.session-detail-photo-next { right: 12px; }
+.session-detail-actions.feed-post-actions { margin: 0 0 20px; padding: 0; border: 0; }
+.session-detail-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; padding: 18px 0; margin-bottom: 24px; border-block: 1px solid var(--border-dark); }
+.session-detail-stats > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.session-detail-stats > div > span { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-dark-secondary); line-height: 1.3; }
+.session-detail-stats strong { font-size: 20px; font-weight: 700; letter-spacing: -.5px; white-space: nowrap; }
+.session-detail-stats small { font-size: 11px; font-weight: 500; letter-spacing: 0; color: var(--text-dark-secondary); }
+.session-detail-content h3 { font-size: 14px; font-weight: 700; }
+.session-detail-drinks { margin-bottom: 24px; }
+.session-detail-drink { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-dark); }
+.session-detail-drink:last-child { border: 0; }
+.session-detail-disclosure { border-top: 1px solid var(--border-dark); }
+.session-detail-disclosure > summary { min-height: 58px; padding: 16px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; font-size: 14px; font-weight: 600; }
+.session-detail-disclosure > summary::-webkit-details-marker { display: none; }
+.session-detail-disclosure > summary > span { display: flex; align-items: center; gap: 9px; min-width: 0; overflow-wrap: anywhere; }
+.session-detail-disclosure > summary svg { flex-shrink: 0; color: var(--text-dark-secondary); }
+.session-detail-disclosure[open] > summary > svg { transform: rotate(90deg); }
+.session-detail-disclosure-body { padding: 0 0 20px; }
+.session-detail-bac-note { padding: 12px 0; margin-bottom: 8px; }
+.session-detail-venue { display: flex; flex-direction: column; gap: 12px; }
+.session-detail-venue-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px; }
+.session-detail-venue-heading > div { min-width: 0; overflow-wrap: anywhere; }
+.session-detail-comments { border-top: 1px solid var(--border-dark); padding-top: 20px; margin-top: 4px; }
+.session-detail-comments > h3 { margin-bottom: 16px; }
+.session-detail :is(button, a, summary):focus-visible { outline: 2px solid var(--secondary); outline-offset: -2px; }
+@media (max-width: 768px) {
+  .session-detail-layer { padding: 0; background: #111116; }
+  .session-detail { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; }
+  .session-detail-header {
+    min-height: calc(68px + var(--sa-top));
+    padding: calc(12px + var(--sa-top)) max(12px, var(--sa-right)) 12px max(16px, var(--sa-left));
+  }
+  .session-detail-scroll { padding-bottom: var(--sa-bottom); }
+  .session-detail-content { padding: 20px max(18px, var(--sa-right)) 28px max(18px, var(--sa-left)); }
+  .session-detail-caption h2 { font-size: 22px; }
+  .session-detail-photo img { max-height: 56dvh; }
+  .session-detail-stats { gap: 8px; }
+  .session-detail-stats strong { font-size: 20px; }
+}
+@media (max-width: 359px) {
+  .session-detail-stats { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+  .session-detail-author a { font-size: 13px; }
+}
